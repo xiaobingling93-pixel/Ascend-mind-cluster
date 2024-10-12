@@ -56,7 +56,7 @@
     Dockerfile
     ```
 
-    >![](doc/figures/icon-note.gif) **说明：**
+    **说明：**
     “clusterd/build“目录下的**xx.zip**文件包含二进制，yaml及Dockerfile文件。
 
 
