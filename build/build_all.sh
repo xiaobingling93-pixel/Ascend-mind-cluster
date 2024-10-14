@@ -14,32 +14,22 @@
 # ============================================================================
 
 set -e
+cd /usr1/mindxdl/component
+
 CUR_DIR=$(dirname $(readlink -f $0))
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
 GOPATH=$1
 ci_config=$2
-servicename=$3
-volcano_version=$4
 
-#mindx_dl=$(ls -l "$CUR_DIR" |awk '/^d/ {print $NF}')
-#for component in $mindx_dl
-#do
-  echo "Build mindx dl component is " "$servicename"
-  case "$servicename" in
-    ascend-for-volcano)
-      cp -rf "$GOPATH/$ci_config" $GOPATH/src/volcano.sh/volcano/
-      ls -la $GOPATH/src/volcano.sh/volcano/
-      echo "********$volcano_version*********"
-      cd $GOPATH/src/volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/build
-      dos2unix *.sh && chmod +x *
-      ./build.sh $volcano_version
-    ;;
-    *)
-      cp -rf "$GOPATH/$ci_config" $GOPATH/${servicename}/
-      ls -la $GOPATH/
-      cd $GOPATH/${servicename}/build
-      dos2unix *.sh && chmod +x *
-      ./build.sh
-  esac
-#done
+mindx_dl=$(ls -l "$CUR_DIR" |awk '/^d/ {print $NF}')
+cd /usr1/mindxdl/component/build
+
+for component in $mindx_dl
+do
+  dos2unix *.sh && chmod +x *
+  { ./build_each.sh $GOPATH $ci_config $mindx_dl
+  }&
+done
+wait
+echo "all component has built"
 
