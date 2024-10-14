@@ -39,9 +39,9 @@ echo "Build mindx dl component is " "$servicename"
 case "$servicename" in
   ascend-for-volcano)
     echo "***************start complie volcano 1.9***********************"
-    mkdir -p src/volcano.sh && cp -rf /opt/buildtools/volcano_opensource/volcano_1.9/volcano src/volcano.sh/
-    ls -la ./ &&  cp -rf ${servicename} src/volcano.sh/volcano/pkg/scheduler/plugins/
-    cd src/volcano.sh/volcano/pkg/scheduler/plugins/ && mv ${servicename} ascend-volcano-plugin
+    mkdir -p ${WORKSPACE}/src/volcano.sh && cp -rf /opt/buildtools/volcano_opensource/volcano_1.9/volcano ${WORKSPACE}/src/volcano.sh/
+    ls -la ./ &&  cp -rf ${WORKSPACE}/${servicename} ${WORKSPACE}/src/volcano.sh/volcano/pkg/scheduler/plugins/
+    cd ${WORKSPACE}/src/volcano.sh/volcano/pkg/scheduler/plugins/ && mv ${servicename} ascend-volcano-plugin
     build_volcano v1.9.0
     mkdir -p ${WORKSPACE}/output/volcano-v1.9.0 && cp -rf ${WORKSPACE}/src/volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/output/* ${WORKSPACE}/output/volcano-v1.9.0/
     ls -la ${WORKSPACE}/output/volcano-v1.9.0/
