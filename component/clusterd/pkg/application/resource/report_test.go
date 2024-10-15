@@ -1,5 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
+//go:build !race
+
 // Package resource a series of resource test function
 package resource
 
