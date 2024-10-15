@@ -63,7 +63,6 @@ case "$servicename" in
 
   ;;
   ascend-operator)
-    #git clone -b ${service_branch} https://lmm221:${Atlas_password}@gitee.com/ascend/${servicename}.git
     build_other ${servicename}
 
   ;;
