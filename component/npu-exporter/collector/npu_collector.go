@@ -1269,6 +1269,7 @@ func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 	updateBandwidthInfo(ch, npu, chip, cNameArray)
 	updateLinkSpeedInfo(ch, npu, chip, devInfo)
 	updateLinkStatInfo(ch, npu, chip, devInfo)
+	updateLinkStatusInfo(ch, npu, chip, devInfo)
 }
 
 func updateLinkSpeedInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
@@ -1295,13 +1296,13 @@ func updateLinkSpeedInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 func updateLinkStatInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	devInfo container.DevicesInfo) {
 	if chip.NetInfo == nil {
-		hwlog.RunLog.Error("NetInfo is nil in function updateLinkStatInfo")
+		hwlog.RunLog.Error("NetInfo is nil in function updateLinkStatusInfo")
 		return
 	}
 	// use deep copy to prevent the pointer structure from being assigned nil by other goroutine
 	linkStatInfo := common.DeepCopyLinkStatInfo(chip.NetInfo.LinkStatInfo)
 	if !validate(ch, npu, chip, linkStatInfo) {
-		hwlog.RunLog.Warnf("Invalid param in function updateLinkStatInfo")
+		hwlog.RunLog.Warnf("Invalid param in function updateLinkStatusInfo")
 		return
 	}
 	cNameArray := getContainerNameArray(devInfo)
@@ -1310,6 +1311,27 @@ func updateLinkStatInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *H
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipLinkUpNum, prometheus.GaugeValue, linkStatInfo.LinkUPNum,
 				collectCardLabelValue(chip, namespaceValue, podNameValue, containerName)...))
+	}
+}
+
+func updateLinkStatusInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
+	devInfo container.DevicesInfo) {
+	if chip.NetInfo == nil {
+		hwlog.RunLog.Error("NetInfo is nil in function updateLinkStatInfo")
+		return
+	}
+	// use deep copy to prevent the pointer structure from being assigned nil by other goroutine
+	linkStatusInfo := common.DeepCopyLinkStatusInfo(chip.NetInfo.LinkStatusInfo)
+	if !validate(ch, npu, chip, linkStatusInfo) {
+		hwlog.RunLog.Warn("Invalid param in function updateLinkStatInfo")
+		return
+	}
+	cNameArray := getContainerNameArray(devInfo)
+	containerName, namespaceValue, podNameValue := getContainerInfoWithDefault(cNameArray)
+	if validateNum(float64(hccn.GetLinkStatusCode(linkStatusInfo.LinkState))) {
+		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
+			prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(linkStatusInfo.LinkState)),
+			collectCardLabelValue(chip, namespaceValue, podNameValue, containerName)...))
 	}
 }
 
@@ -1439,11 +1461,6 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 func updateChipBaseInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	devInfo container.DevicesInfo) {
 	containerName, namespaceValue, podNameValue := getContainerInfoWithDefault(getContainerNameArray(devInfo))
-	if validateNum(float64(hccn.GetLinkStatusCode(chip.LinkStatus))) {
-		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
-			prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(chip.LinkStatus)),
-			collectCardLabelValue(chip, namespaceValue, podNameValue, containerName)...))
-	}
 	if validateNum(float64(chip.Utilization)) {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescUtil,
 			prometheus.GaugeValue, float64(chip.Utilization), collectCardLabelValue(chip, namespaceValue, podNameValue,
@@ -1544,7 +1561,10 @@ func updateSioInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWei
 
 func updateHccsInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	devInfo container.DevicesInfo) {
-
+	if chip.ChipIfo == nil || chip.BoardInfo == nil {
+		hwlog.RunLog.Warn("Invalid param in function updateHccsInfo")
+		return
+	}
 	devType := common.GetDevType(chip.ChipIfo.Name, chip.BoardInfo.BoardId)
 	if devType != common.Ascend910B && devType != common.Ascend910A3 {
 		return
@@ -1766,7 +1786,6 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	setNetHealthStatus(logicID, dmgr, hwChip)
 	setProcessInfo(logicID, dmgr, hwChip)
 	setPCIeBusInfo(logicID, dmgr, hwChip)
-	setLinkStatus(logicID, dmgr, hwChip)
 	hwChip.ErrorCode = errCode
 	hwChip.Utilization = int(util)
 	hwChip.VDieID = vdieID
@@ -1820,24 +1839,6 @@ func setPCIeBusInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaW
 		pcieInfo = ""
 	}
 	hwChip.PCIeBusInfo = pcieInfo
-}
-
-func setLinkStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
-	hwChip.LinkStatus = Abnormal
-	if !dmgr.IsTrainingCard() {
-		return
-	}
-
-	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
-	if err != nil {
-		hwlog.RunLog.Error("set link status failed")
-		return
-	}
-	if linkStatus, err := hccn.GetNPULinkStatus(phyID); err != nil {
-		hwChip.LinkStatus = Abnormal
-	} else {
-		hwChip.LinkStatus = linkStatus
-	}
 }
 
 func getMainOptInfo(opticalInfo map[string]string) *common.OpticalInfo {
@@ -1894,6 +1895,14 @@ func getMainStatInfo(statInfo map[string]int) *common.StatInfo {
 
 func networkPackInfo(phyID int32) common.NpuNetInfo {
 	newNetInfo := common.NpuNetInfo{}
+
+	newNetInfo.LinkStatusInfo = &common.LinkStatusInfo{}
+	if linkState, err := hccn.GetNPULinkStatus(phyID); err == nil {
+		newNetInfo.LinkStatusInfo.LinkState = linkState
+	} else {
+		newNetInfo.LinkStatusInfo.LinkState = Abnormal
+	}
+
 	if tx, rx, err := hccn.GetNPUInterfaceTraffic(phyID); err == nil {
 		newNetInfo.BandwidthInfo = &common.BandwidthInfo{}
 		newNetInfo.BandwidthInfo.RxValue = rx
