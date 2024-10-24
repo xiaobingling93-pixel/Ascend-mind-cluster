@@ -487,8 +487,8 @@ func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 			if chipInfo == nil {
 				continue
 			}
-			if dmgr.GetDevType() != common.Ascend310P || (chipInfo.VDevInfos != nil && chipInfo.
-				VDevInfos.TotalResource.VDevNum == 0) {
+			if dmgr.GetDevType() != common.Ascend310P || chipInfo.VDevInfos == nil ||
+				len(chipInfo.VDevInfos.VDevActivityInfo) == 0 {
 				deviceList = append(deviceList, chipInfo)
 				continue
 			}
@@ -540,6 +540,7 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 		chipInfo.Power = cardPower
 		vDevInfos, err := dmgr.GetVirtualDeviceInfo(logicID)
 		if err != nil {
+			hwlog.RunLog.Warnf("failed to get virtual device info,logicID(%d),err: %v", logicID, err)
 			chipInfo.VDevInfos = nil
 			return chipInfo
 		}
@@ -558,9 +559,8 @@ func getVNPUInfo(chipInfo HuaWeiAIChip) []*HuaWeiAIChip {
 		return aiChips
 	}
 
-	vDevInfo := chipInfo
-	vDevInfo.VDevActivityInfo = nil
 	for _, activityVDev := range chipInfo.VDevInfos.VDevActivityInfo {
+		vDevInfo := chipInfo
 		vDevInfo.VDevActivityInfo = &activityVDev
 		aiChips = append(aiChips, &vDevInfo)
 	}
