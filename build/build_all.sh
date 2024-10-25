@@ -14,21 +14,35 @@
 # ============================================================================
 
 set -e
+
+cp -rf /usr1/mindxdl/component/* ${GOPATH}/
+mkdir -p /opt/buildtools/volcano_opensource/volcano_1.9/
+cd /opt/buildtools/volcano_opensource/volcano_1.9/
+git clone -b release-1.9 https://github.com/volcano-sh/volcano.git
+mkdir -p /opt/buildtools/volcano_opensource/volcano_1.7/
+cd /opt/buildtools/volcano_opensource/volcano_1.7/
+git clone -b release-1.7 https://github.com/volcano-sh/volcano.git
+cd ${GOPATH}/ascend-docker-runtime/platform
+git clone -b v1.1.10 https://gitee.com/openeuler/libboundscheck.git
+cd ${GOPATH}/ascend-docker-runtime/opensource
+git clone -b openEuler-22.03-LTS https://gitee.com/src-openeuler/makeself.git
+tar -zxvf makeself/makeself-2.4.2.tar.gz
+
 cd /usr1/mindxdl/component
 
 CUR_DIR=$(dirname $(readlink -f $0))
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
 GOPATH=$1
-ci_config=$2
 
 mindx_dl=$(ls -l "$CUR_DIR" |awk '/^d/ {print $NF}')
 cd /usr1/mindxdl/build
+cp -rf /usr1/mindxdl/build/service_config.ini $GOPATH/service_config.ini
 dos2unix *.sh && chmod +x *
 
 for component in $mindx_dl
 do
-  { ./build_each.sh $GOPATH $ci_config $component
-  }&
+  { ./build_each.sh $GOPATH service_config.ini $component
+  }
 done
 wait
 echo "all component has built"

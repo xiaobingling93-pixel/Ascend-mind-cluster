@@ -321,7 +321,7 @@ func (h *HbmFaultManager) aicFaultEventInQue(faultInfo common.DevFaultInfo) {
 }
 
 func (h *HbmFaultManager) aicFaultEventOutQue(logicId int32) []common.DevFaultInfo {
-	var faultInfoList []common.DevFaultInfo
+	faultInfoList := make([]common.DevFaultInfo, 0)
 	faultEventQue, ok := h.AicFaultEventQue[logicId]
 	if !ok {
 		return faultInfoList
@@ -329,8 +329,8 @@ func (h *HbmFaultManager) aicFaultEventOutQue(logicId int32) []common.DevFaultIn
 	if _, ok := h.HbmOccurTimeCache[logicId]; !ok {
 		h.HbmOccurTimeCache[logicId] = 0
 	}
-	var newFaultEventQue []common.DevFaultInfo
-	nowTime := time.Now().Unix()
+	newFaultEventQue := make([]common.DevFaultInfo, 0)
+	nowTime := time.Now().UnixMilli()
 	for i := 0; i < len(faultEventQue); i++ {
 		// The fault aic error occurring ten seconds before and after the occurrence of hbm error should be deleted,
 		if Int64Tool.Abs(h.HbmOccurTimeCache[logicId], faultEventQue[i].AlarmRaisedTime) <
@@ -986,26 +986,14 @@ func SetNewFaultAndCacheOnceRecoverFault(logicID int32, faultInfos []common.DevF
 		hwlog.RunLog.Error("param device is nil in SetNewFaultAndCacheOnceRecoverFault")
 		return
 	}
-
+	newFaultInfos := faultInfos
 	if _, ok := faultDurationMap[HbmDoubleBitFaultCodeStr]; ok {
-		var newFaultInfos []common.DevFaultInfo
-		// dealing with Hbm and Aic/Aiv associated faults
-		for i := 0; i < len(faultInfos); i++ {
-			if faultInfos[i].EventID == HbmDoubleBitFaultCode && faultInfos[i].Assertion != common.FaultRecover {
-				hbmTool.updateHbmOccurTime(faultInfos[i])
-			}
-			if faultInfos[i].EventID == AicBusFaultCode || faultInfos[i].EventID == AivBusFaultCode {
-				hbmTool.aicFaultEventInQue(faultInfos[i])
-				continue
-			}
-			newFaultInfos = append(newFaultInfos, faultInfos[i])
-		}
-		faultInfos = append(newFaultInfos, hbmTool.aicFaultEventOutQue(logicID)...)
+		newFaultInfos = newFaultInfosForHBMErr(logicID, faultInfos)
 	}
 
 	// it must deal with two 'for', because the fault may recover one moment, in this case,
 	// the recover message and occur message both in faultInfos, this fault cannot be reports outside.
-	for _, faultInfo := range faultInfos {
+	for _, faultInfo := range newFaultInfos {
 		if NetworkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
@@ -1020,7 +1008,7 @@ func SetNewFaultAndCacheOnceRecoverFault(logicID int32, faultInfos []common.DevF
 			recoverFaultMap[logicID] = append(recoverFaultMap[logicID], faultInfo.EventID)
 		}
 	}
-	for _, faultInfo := range faultInfos {
+	for _, faultInfo := range newFaultInfos {
 		if NetworkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
@@ -1046,6 +1034,22 @@ func SetNetworkNewFaultAndCacheOnceRecoverFault(logicID int32, faultInfos []comm
 	networkFaultRecoverAndFaultOnceHandle(logicID, faultInfos, device)
 	networkFaultOccurAndFaultOnceHandle(faultInfos, device)
 	setNetworkAlarmRaisedTime(device)
+}
+
+func newFaultInfosForHBMErr(logicID int32, faultInfos []common.DevFaultInfo) []common.DevFaultInfo {
+	var newFaultInfos []common.DevFaultInfo
+	// dealing with Hbm and Aic/Aiv associated faults
+	for i := 0; i < len(faultInfos); i++ {
+		if faultInfos[i].EventID == HbmDoubleBitFaultCode && faultInfos[i].Assertion != common.FaultRecover {
+			hbmTool.updateHbmOccurTime(faultInfos[i])
+		}
+		if faultInfos[i].EventID == AicBusFaultCode || faultInfos[i].EventID == AivBusFaultCode {
+			hbmTool.aicFaultEventInQue(faultInfos[i])
+			continue
+		}
+		newFaultInfos = append(newFaultInfos, faultInfos[i])
+	}
+	return append(newFaultInfos, hbmTool.aicFaultEventOutQue(logicID)...)
 }
 
 func networkFaultRecoverAndFaultOnceHandle(logicID int32, faultInfos []common.DevFaultInfo, device *NpuDevice) {
@@ -1277,7 +1281,7 @@ func collectEachFaultEvent(logicId int32, faultInfos []common.DevFaultInfo) {
 		}
 
 		if faultDurationMap[eventIdStr].Duration == nil {
-			faultDurationMap[eventIdStr].Duration = make(map[int32]FaultDurationData, GeneralMapSize)
+			faultDurationMap[eventIdStr].Duration = make(map[int32]FaultDurationData, 0)
 		}
 
 		if _, ok := faultDurationMap[eventIdStr].Duration[logicId]; !ok {
