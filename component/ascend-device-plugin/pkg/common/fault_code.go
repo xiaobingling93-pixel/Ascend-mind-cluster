@@ -1281,7 +1281,7 @@ func collectEachFaultEvent(logicId int32, faultInfos []common.DevFaultInfo) {
 		}
 
 		if faultDurationMap[eventIdStr].Duration == nil {
-			faultDurationMap[eventIdStr].Duration = make(map[int32]FaultDurationData, 0)
+			faultDurationMap[eventIdStr].Duration = make(map[int32]FaultDurationData, GeneralMapSize)
 		}
 
 		if _, ok := faultDurationMap[eventIdStr].Duration[logicId]; !ok {
