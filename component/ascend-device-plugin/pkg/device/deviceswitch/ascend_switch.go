@@ -105,8 +105,8 @@ type SwitchDevManager struct {
 
 var (
 	switchInitOnce sync.Once
-	// EventTypeToFaultIDMapper 5/449 5/448 need to calculate in code
-	EventTypeToFaultIDMapper = map[uint]uint{13: 155907, 12: 155649, 11: 155904, 10: 132134, 8: 155910, 9: 155911,
+	// eventTypeToFaultIDMapper 5/449 5/448 need to calculate in code
+	eventTypeToFaultIDMapper = map[uint]uint{13: 155907, 12: 155649, 11: 155904, 10: 132134, 8: 155910, 9: 155911,
 		7: 155908, 6: 155909, 5: 155912, 4: 155913, 3: 155914}
 	// faultIdToAlarmIdMapper  5/8  need alarmID
 	faultIdToAlarmIdMapper = map[uint]string{
@@ -294,7 +294,7 @@ func setExtraFaultInfo(event *common.SwitchFaultEvent) error {
 			faultID = uint(0)
 		}
 	} else {
-		faultID, ok = EventTypeToFaultIDMapper[event.EventType]
+		faultID, ok = eventTypeToFaultIDMapper[event.EventType]
 		if !ok {
 			hwlog.RunLog.Warnf("failed to find faultID for eventType: %d", event.EventType)
 		}
@@ -314,6 +314,8 @@ func setExtraFaultInfo(event *common.SwitchFaultEvent) error {
 			PeerDeviceName = "npu"
 		case common.PeerDeviceL2Port:
 			PeerDeviceName = "L2"
+		default:
+			PeerDeviceName = "na"
 		}
 	} else {
 		PeerDeviceName = "na"

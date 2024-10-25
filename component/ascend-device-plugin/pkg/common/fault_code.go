@@ -86,11 +86,11 @@ const (
 var (
 	faultTypeCode FaultTypeCode
 	// NotHandleFaultCodes contains all fault code that believed to be not handled, in this case is L1
-	NotHandleFaultCodes = make([]string, 0, generalMapSize)
+	NotHandleFaultCodes = make([]string, 0, GeneralMapSize)
 	// PreSeparateFaultCodes contains all fault code that believed to be PreSeparate, in this case is L2-L3
-	PreSeparateFaultCodes = make([]string, 0, generalMapSize)
+	PreSeparateFaultCodes = make([]string, 0, GeneralMapSize)
 	// SeparateFaultCodes contains all fault code that believed to be Separate, in this case is L4-L5
-	SeparateFaultCodes = make([]string, 0, generalMapSize)
+	SeparateFaultCodes = make([]string, 0, GeneralMapSize)
 	// initLogicIDs need init fault code device. add by train or inference
 	initLogicIDs []int32
 	// logicIDLock operate initLogicIDs lock

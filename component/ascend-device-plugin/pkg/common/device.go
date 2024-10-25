@@ -42,14 +42,13 @@ const (
 	PreSeparateFaultLevelStr = "PreSeparate"
 	// SeparateFaultLevelStr Separate Fault Level Str
 	SeparateFaultLevelStr = "Separate"
-	generalMapSize        = 8
 )
 
 var (
 	// SwitchFaultLevelMapLock Lock SwitchFaultLevelMap to avoid concurrence write and read
 	SwitchFaultLevelMapLock sync.Mutex
 	// SwitchFaultLevelMap record every switch fault code and it's level
-	SwitchFaultLevelMap = make(map[string]int, generalMapSize)
+	SwitchFaultLevelMap = make(map[string]int, GeneralMapSize)
 	// SwitchFaultLock is used for CurrentSwitchFault which may be used concurrence
 	SwitchFaultLock sync.Mutex
 	// CurrentSwitchFault store all switch fault which will be reported to device-info configmap
