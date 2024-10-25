@@ -108,8 +108,8 @@ var (
 	// EventTypeToFaultIDMapper 5/449 5/448 need to calculate in code
 	EventTypeToFaultIDMapper = map[uint]uint{13: 155907, 12: 155649, 11: 155904, 10: 132134, 8: 155910, 9: 155911,
 		7: 155908, 6: 155909, 5: 155912, 4: 155913, 3: 155914}
-	// FaultIdToAlarmIdMapper  5/8  need alarmID
-	FaultIdToAlarmIdMapper = map[uint]string{
+	// faultIdToAlarmIdMapper  5/8  need alarmID
+	faultIdToAlarmIdMapper = map[uint]string{
 		155907: "0x00f103b0", 155649: "0x00f103b0", 155904: "0x00f103b0",
 		132134: "0x00f1ff06", 155910: "0x00f1ff06", 155911: "0x00f1ff06",
 		155908: "0x00f103b6", 155909: "0x00f103b6",
@@ -290,6 +290,8 @@ func setExtraFaultInfo(event *common.SwitchFaultEvent) error {
 			faultID = uint(common.FaultIdOfPortLaneReduceQuarter)
 		case common.SubTypeOfPortLaneReduceHalf:
 			faultID = uint(common.FaultIdOfPortLaneReduceHalf)
+		default:
+			faultID = uint(0)
 		}
 	} else {
 		faultID, ok = EventTypeToFaultIDMapper[event.EventType]
@@ -298,7 +300,7 @@ func setExtraFaultInfo(event *common.SwitchFaultEvent) error {
 		}
 	}
 	if alarmID == "" {
-		alarmID, ok = FaultIdToAlarmIdMapper[faultID]
+		alarmID, ok = faultIdToAlarmIdMapper[faultID]
 	}
 	if !ok {
 		hwlog.RunLog.Warnf("failed to find alarm id for eventType: %d", event.EventType)

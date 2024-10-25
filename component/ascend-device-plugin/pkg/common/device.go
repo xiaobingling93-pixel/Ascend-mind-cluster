@@ -42,13 +42,14 @@ const (
 	PreSeparateFaultLevelStr = "PreSeparate"
 	// SeparateFaultLevelStr Separate Fault Level Str
 	SeparateFaultLevelStr = "Separate"
+	generalMapSize        = 8
 )
 
 var (
 	// SwitchFaultLevelMapLock Lock SwitchFaultLevelMap to avoid concurrence write and read
 	SwitchFaultLevelMapLock sync.Mutex
 	// SwitchFaultLevelMap record every switch fault code and it's level
-	SwitchFaultLevelMap = make(map[string]int, GeneralMapSize)
+	SwitchFaultLevelMap = make(map[string]int, generalMapSize)
 	// SwitchFaultLock is used for CurrentSwitchFault which may be used concurrence
 	SwitchFaultLock sync.Mutex
 	// CurrentSwitchFault store all switch fault which will be reported to device-info configmap
@@ -121,7 +122,7 @@ func GetSwitchFaultInfo() SwitchFaultInfo {
 	}
 }
 
-func getSwitchFaultLevelAndNodeStatus() (faultLevel string, NodeStatus string) {
+func getSwitchFaultLevelAndNodeStatus() (string, string) {
 	maxFaultLevel := 0
 	for _, code := range currentSwitchFault {
 		level := SwitchFaultLevelMap[code.AssembledFaultCode]
@@ -130,7 +131,7 @@ func getSwitchFaultLevelAndNodeStatus() (faultLevel string, NodeStatus string) {
 		}
 	}
 	SwitchFaultLevelMapLock.Unlock()
-	faultLevel, NodeStatus = NotHandleFaultLevelStr, "Healthy"
+	faultLevel, NodeStatus := NotHandleFaultLevelStr, "Healthy"
 	switch maxFaultLevel {
 	case NotHandleFaultLevel:
 		faultLevel, NodeStatus = NotHandleFaultLevelStr, "Healthy"
