@@ -541,11 +541,11 @@ func (s *FaultRecoverService) PublishSignal(signal *pb.ProcessManageSignal, expe
 			}
 		}
 	}
-	afterCheckOrder(signal, expectStates, controller)
+	doCheckOrder(signal, expectStates, controller)
 
 }
 
-func afterCheckOrder(signal *pb.ProcessManageSignal, expectStates common.MachineStates, controller *EventController) {
+func doCheckOrder(signal *pb.ProcessManageSignal, expectStates common.MachineStates, controller *EventController) {
 	if common.CheckOrder(controller.state, expectStates) {
 		select {
 		case controller.signalChan <- signal:
@@ -1073,6 +1073,7 @@ func (s *FaultRecoverService) ReportProcessFault(ctx context.Context,
 	}, nil
 }
 
+// DeleteJob clear registed resources
 func (s *FaultRecoverService) DeleteJob(jobId string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
