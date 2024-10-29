@@ -205,7 +205,7 @@ Usage: \$0 [options]
 Options:
   --help | -h                   Print this message
   --check|--info|--list|--quiet|--tar|
-  --nox11|--noexec|--extract    These parameters are meaningless for Ascend-docker-runtime and
+  --noexec|--extract    These parameters are meaningless for Ascend-docker-runtime and
                                 will be discarded in the future
 \${helpheader}
 EOH
@@ -219,7 +219,7 @@ Usage: \$0 [options]
 Options:
   --help | -h                   Print this message
   --check|--info|--list|--quiet|--tar|
-  --nox11|--noexec|--extract    These parameters are meaningless for Ascend-docker-runtime and
+  --noexec|--extract    These parameters are meaningless for Ascend-docker-runtime and
                                 will be discarded in the future
 \${helpheader}
 EOH
@@ -451,11 +451,6 @@ do
       done
       log "[INFO]" "tar success"
       exit 0
-      ;;
-    --nox11)
-      echo "[WARNING]: --nox11 is meaningless for Ascend-docker-runtime and will be discarded in the future"
-      nox11=y
-      shift
       ;;
     --noexec)
       echo "[WARNING]: --noexec is meaningless for Ascend-docker-runtime and will be discarded in the future"
