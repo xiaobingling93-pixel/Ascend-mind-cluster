@@ -21,8 +21,6 @@ Package controllers is using for reconcile AscendJob.
 package v1
 
 import (
-	"errors"
-	"math"
 	"strconv"
 	"strings"
 
@@ -136,10 +134,10 @@ func getNpuWorkerSpec(job *mindxdlv1.AscendJob) *commonv1.ReplicaSpec {
 		if status {
 			return spec
 		}
+		if rtype == mindxdlv1.ReplicaTypeWorker {
 			return spec
 		}
 	}
-
 	return nil
 }
 
