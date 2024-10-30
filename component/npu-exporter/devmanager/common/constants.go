@@ -136,6 +136,12 @@ const (
 
 	// InvalidID invalid ID
 	InvalidID = 0xffffffff
+
+	// FailedMetricValue for failed metric value
+	FailedMetricValue = -1
+
+	// FailedValue for failed value
+	FailedValue = 0xffffffff
 )
 
 const (

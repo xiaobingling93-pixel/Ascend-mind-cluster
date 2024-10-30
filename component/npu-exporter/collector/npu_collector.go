@@ -1580,6 +1580,10 @@ func updateErrorCodesInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 		npuChipInfoDescErrorCode5, npuChipInfoDescErrorCode6, npuChipInfoDescErrorCode7, npuChipInfoDescErrorCode8,
 		npuChipInfoDescErrorCode9,
 	}
+	if len(chip.ErrorCodes) > 10 {
+		hwlog.RunLog.Warnf("Error code number is larger than 10, only the first 10 will be reported, "+
+			"all errorCode is: %v", chip.ErrorCodes)
+	}
 	for i := 0; i < len(chip.ErrorCodes) && i < len(errCodesDesc); i++ {
 		value := float64(chip.ErrorCodes[i])
 		if !validateNum(value) {
@@ -1675,6 +1679,11 @@ func doUpdateHccsMetric(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, value i
 		finalValue = value.(float64)
 	case uint32:
 		finalValue = float64(value.(uint32))
+	// int type is used for metric collect failed
+	case int:
+		if value.(int) == common.FailedValue {
+			finalValue = common.FailedMetricValue
+		}
 	default:
 		hwlog.RunLog.Warn("Invalid param in function doUpdateHccsMetric")
 	}

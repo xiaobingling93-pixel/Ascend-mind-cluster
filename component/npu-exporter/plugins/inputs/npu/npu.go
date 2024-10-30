@@ -317,7 +317,9 @@ func doUpdateFields(acc telegraf.Accumulator, fields map[string]interface{}, key
 		acc.AddError(fmt.Errorf(receivedFieldsNil))
 		return
 	}
-
+	if value == common.FailedValue {
+		value = common.FailedMetricValue
+	}
 	fields[key] = value
 }
 
