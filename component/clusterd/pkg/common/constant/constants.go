@@ -44,7 +44,7 @@ const (
 	// JobRefKind reference kind is Job
 	JobRefKind = "Job"
 	// MaxSupportNodeNum max support node num
-	MaxSupportNodeNum = 20000
+	MaxSupportNodeNum = 5000
 	// MaxSupportJobNum
 	MaxSupportJobNum = 1000
 )
