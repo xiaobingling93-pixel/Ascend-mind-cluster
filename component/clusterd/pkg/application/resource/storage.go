@@ -49,6 +49,11 @@ func delSwitchInfoCM(switchInfo *constant.SwitchInfo) {
 
 func saveDeviceInfoCM(devInfo *constant.DeviceInfo) {
 	cmManager.Lock()
+	if len(cmManager.deviceInfoMap) > constant.MaxSupportNodeNum {
+		hwlog.RunLog.Errorf("deviceInfoMap length=%d > %d", len(cmManager.deviceInfoMap), constant.MaxSupportNodeNum)
+		cmManager.Unlock()
+		return
+	}
 	oldDevInfo := cmManager.deviceInfoMap[devInfo.CmName]
 	cmManager.deviceInfoMap[devInfo.CmName] = devInfo
 	cmManager.Unlock()
@@ -86,6 +91,11 @@ func updateJobDeviceHealth(nodeName string, deviceList map[string]string) {
 
 func saveSwitchInfoCM(newSwitchInfo *constant.SwitchInfo) {
 	cmManager.Lock()
+	if len(cmManager.switchInfoMap) > constant.MaxSupportNodeNum {
+		hwlog.RunLog.Errorf("switchInfoMap length=%d > %d", len(cmManager.switchInfoMap), constant.MaxSupportNodeNum)
+		cmManager.Unlock()
+		return
+	}
 	oldSwitchInfo := cmManager.switchInfoMap[newSwitchInfo.CmName]
 	cmManager.switchInfoMap[newSwitchInfo.CmName] = newSwitchInfo
 	cmManager.Unlock()
@@ -108,6 +118,11 @@ func deleteNodeConfigMap(newDevInfo *constant.NodeInfo) {
 
 func saveNodeInfoCM(newNodeInfo *constant.NodeInfo) {
 	cmManager.Lock()
+	if len(cmManager.nodeInfoMap) > constant.MaxSupportNodeNum {
+		hwlog.RunLog.Errorf("nodeInfoMap length=%d > %d", len(cmManager.nodeInfoMap), constant.MaxSupportNodeNum)
+		cmManager.Unlock()
+		return
+	}
 	oldNodeInfo := cmManager.nodeInfoMap[newNodeInfo.CmName]
 	cmManager.nodeInfoMap[newNodeInfo.CmName] = newNodeInfo
 	cmManager.Unlock()
