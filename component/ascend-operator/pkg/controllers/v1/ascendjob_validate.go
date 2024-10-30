@@ -148,23 +148,6 @@ func checkReplicaSpecs(frame string, specs map[commonv1.ReplicaType]*commonv1.Re
 }
 
 func validateContainer(rType commonv1.ReplicaType, spec *commonv1.ReplicaSpec) *validateError {
-	validReq := func(ct corev1.Container) *validateError {
-		isScheduler := rType == mindxdlv1.MindSporeReplicaTypeScheduler
-		resReq := getContainerResourceReq(ct)
-		if resReq != 0 && isScheduler {
-			return &validateError{
-				reason:  "ContainerError",
-				message: fmt.Sprintf("replicaType<Scheduler> req npu<%d> is invalid, it must be 0", resReq),
-			}
-		} else if resReq == 0 && !isScheduler {
-			return &validateError{
-				reason:  "ContainerError",
-				message: fmt.Sprintf("replicaType<%s> req npu<%d> is invalid, it can not be 0", rType, resReq),
-			}
-		}
-		return nil
-	}
-
 	for _, container := range spec.Template.Spec.Containers {
 		if container.Image == "" {
 			return &validateError{
@@ -176,7 +159,7 @@ func validateContainer(rType commonv1.ReplicaType, spec *commonv1.ReplicaSpec) *
 		if container.Name != mindxdlv1.DefaultContainerName {
 			continue
 		}
-		return validReq(container)
+		return nil
 	}
 
 	return &validateError{

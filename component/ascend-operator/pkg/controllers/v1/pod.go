@@ -83,7 +83,8 @@ func (r *ASJobReconciler) ReconcilePods(
 		return err
 	}
 
-	return r.reconcilePods(pi, filterPods, jobStatus, replicas)
+	status := getNonWorkerPodMountChipStatus(ascendJob)
+	return r.reconcilePods(pi, filterPods, jobStatus, replicas, status)
 }
 
 func (r *ASJobReconciler) newPodInfo(job *mindxdlv1.AscendJob, rtype commonv1.ReplicaType, spec *commonv1.ReplicaSpec,
@@ -119,7 +120,7 @@ func (r *ASJobReconciler) newPodInfo(job *mindxdlv1.AscendJob, rtype commonv1.Re
 }
 
 func (r *ASJobReconciler) reconcilePods(pi *podInfo, pods []*corev1.Pod, jobStatus *commonv1.JobStatus,
-	replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec) error {
+	replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec, nonWorkerPodMountChipStatus bool) error {
 	// GetPodSlices will return enough information here to make decision to add/remove/update resources.
 	//
 	// For example, let's assume we have pods with replica-index 0, 1, 2
@@ -145,7 +146,7 @@ func (r *ASJobReconciler) reconcilePods(pi *podInfo, pods []*corev1.Pod, jobStat
 		}
 	}
 
-	return r.createPods(podToCreate, replicas)
+	return r.createPods(podToCreate, replicas, nonWorkerPodMountChipStatus)
 }
 
 func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
@@ -212,7 +213,8 @@ func (r *ASJobReconciler) checkExistPod(pi *podInfo, index int, pod *corev1.Pod,
 	return nil
 }
 
-func (r *ASJobReconciler) createPods(pods []*podInfo, replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec) error {
+func (r *ASJobReconciler) createPods(pods []*podInfo, replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec,
+	nonWorkerPodMountChipStatus bool) error {
 	if len(pods) == 0 {
 		return nil
 	}
@@ -230,7 +232,7 @@ func (r *ASJobReconciler) createPods(pods []*podInfo, replicas map[commonv1.Repl
 	for _, pInfo := range pods {
 		go func(p *podInfo) {
 			defer wg.Done()
-			if err := r.createNewPod(p, replicas); err != nil {
+			if err := r.createNewPod(p, replicas, nonWorkerPodMountChipStatus); err != nil {
 				appendErr(err)
 			}
 		}(pInfo)
@@ -279,12 +281,12 @@ func (r *ASJobReconciler) checkPodStatus(pi *podInfo, pod *corev1.Pod, jobStatus
 }
 
 func (r *ASJobReconciler) createNewPod(pi *podInfo, replicas map[commonv1.ReplicaType]*commonv1.
-	ReplicaSpec) error {
+	ReplicaSpec, nonWorkerPodMountChipStatus bool) error {
 	if r == nil {
 		return errors.New("nil pointer")
 	}
 	job := pi.job
-	podTemplate, err := r.createPodSpec(pi, replicas)
+	podTemplate, err := r.createPodSpec(pi, replicas, nonWorkerPodMountChipStatus)
 	if err != nil {
 		return err
 	}
@@ -307,8 +309,8 @@ func (r *ASJobReconciler) createNewPod(pi *podInfo, replicas map[commonv1.Replic
 	return nil
 }
 
-func (r *ASJobReconciler) createPodSpec(pi *podInfo,
-	replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec) (*corev1.PodTemplateSpec, error) {
+func (r *ASJobReconciler) createPodSpec(pi *podInfo, replicas map[commonv1.ReplicaType]*commonv1.ReplicaSpec,
+	nonWorkerPodMountChipStatus bool) (*corev1.PodTemplateSpec, error) {
 	podTemplate := pi.spec.Template.DeepCopy()
 	job := pi.job
 	rtypeStr := strings.ToLower(string(pi.rtype))
@@ -319,8 +321,7 @@ func (r *ASJobReconciler) createPodSpec(pi *podInfo,
 
 	indexStr := strconv.Itoa(pi.index)
 
-	if (pi.frame == mindxdlv1.PytorchFrameworkName || pi.frame == mindxdlv1.TensorflowFrameworkName) &&
-		pi.rtype == mindxdlv1.ReplicaTypeWorker {
+	if nonWorkerPodMountChipStatus && pi.rtype == mindxdlv1.ReplicaTypeWorker {
 		if pi.index == math.MaxInt {
 			return nil, errors.New("rank is the max int")
 		}

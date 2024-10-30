@@ -54,7 +54,8 @@ const (
 	npuPrefix   = "huawei.com/"
 	npuCoreName = "huawei.com/npu-core"
 
-	statusPodIPDownwardAPI = "status.podIP"
+	statusPodIPDownwardAPI      = "status.podIP"
+	statusNonWorkerPodMountChip = "status.nonWorkerPodMountChip"
 )
 
 const (

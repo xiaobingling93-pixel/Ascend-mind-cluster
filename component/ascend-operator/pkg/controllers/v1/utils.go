@@ -130,30 +130,12 @@ func getNpuReqInfoPerPod(job *mindxdlv1.AscendJob) (string, int) {
 	return "", 0
 }
 
-func getRealRank(rtype, index, frame string) (int, error) {
-	rank, err := strconv.Atoi(index)
-	if err != nil {
-		return 0, err
-	}
-
-	if frame == mindxdlv1.MindSporeFrameworkName || rtype != strings.ToLower(string(mindxdlv1.ReplicaTypeWorker)) {
-		return rank, nil
-	}
-
-	if rank == math.MaxInt {
-		return 0, errors.New("rank is the max int")
-	}
-	return rank + 1, nil
-}
-
 func getNpuWorkerSpec(job *mindxdlv1.AscendJob) *commonv1.ReplicaSpec {
-	workerSpec, ok := job.Spec.ReplicaSpecs[mindxdlv1.ReplicaTypeWorker]
-	if ok {
-		return workerSpec
-	}
-
-	for rt, spec := range job.Spec.ReplicaSpecs {
-		if rt != mindxdlv1.MindSporeReplicaTypeScheduler {
+	status := getNonWorkerPodMountChipStatus(job)
+	for rtype, spec := range job.Spec.ReplicaSpecs {
+		if status {
+			return spec
+		}
 			return spec
 		}
 	}
@@ -172,8 +154,9 @@ func localRankStr(req int) string {
 
 func getTotalNpuReplicas(job *mindxdlv1.AscendJob) int {
 	jobReplicas := int32(0)
+	status := getNonWorkerPodMountChipStatus(job)
 	for rtype, spec := range job.Spec.ReplicaSpecs {
-		if rtype == mindxdlv1.MindSporeReplicaTypeScheduler {
+		if !status && rtype != mindxdlv1.ReplicaTypeWorker {
 			continue
 		}
 		jobReplicas += *spec.Replicas
@@ -264,4 +247,45 @@ func filterPodsByReplicaType(pods []*corev1.Pod, rt string) []*corev1.Pod {
 		}
 	}
 	return filtered
+}
+
+func checkNonWorkerRplMountChips(ji *jobInfo) bool {
+	for rtype, spec := range ji.rpls {
+		if rtype == mindxdlv1.ReplicaTypeWorker {
+			continue
+		}
+		for _, container := range spec.Template.Spec.Containers {
+			if len(container.Resources.Requests) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func getNonWorkerPodMountChipStatus(job *mindxdlv1.AscendJob) bool {
+	annotations := job.GetAnnotations()
+	status := false
+	if value, ok := annotations[statusNonWorkerPodMountChip]; ok {
+		status = stringToBool(value, false)
+	}
+	return status
+}
+
+func boolToString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func stringToBool(s string, defaultVal bool) bool {
+	lowered := strings.ToLower(s)
+	if lowered == "true" {
+		return true
+	}
+	if lowered == "false" {
+		return false
+	}
+	return defaultVal
 }
