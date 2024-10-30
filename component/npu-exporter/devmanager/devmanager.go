@@ -561,7 +561,7 @@ func (d *DeviceManager) GetDeviceIPAddress(logicID, ipType int32) (string, error
 
 // CreateVirtualDevice create virtual device
 func (d *DeviceManager) CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.
-	CgoCreateVDevOut, error) {
+CgoCreateVDevOut, error) {
 	if !common.IsValidTemplateName(d.DevType, vDevInfo.TemplateName) {
 		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid template name: %s", vDevInfo.TemplateName)
 	}
@@ -903,7 +903,7 @@ func (d *DeviceManager) GetSioInfo(logicID int32) (*common.SioCrcErrStatisticInf
 // GetHccsStatisticInfo get HCCS statistic info
 func (d *DeviceManager) GetHccsStatisticInfo(logicID int32) (*common.HccsStatisticInfo, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
-		return nil, fmt.Errorf("input invalid logicID when get hccs statistic info: %d", logicID)
+		return buildFailedHccsInfo(), fmt.Errorf("input invalid logicID when get hccs statistic info: %d", logicID)
 	}
 	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
 	if err != nil {
