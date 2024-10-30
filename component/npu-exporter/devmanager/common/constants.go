@@ -142,6 +142,9 @@ const (
 
 	// FailedValue for failed value
 	FailedValue = 0xffffffff
+
+	// MaxErrorCodeLen max length of error code for Prometheus
+	MaxErrorCodeLen = 10
 )
 
 const (

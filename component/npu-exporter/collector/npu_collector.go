@@ -1580,9 +1580,9 @@ func updateErrorCodesInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 		npuChipInfoDescErrorCode5, npuChipInfoDescErrorCode6, npuChipInfoDescErrorCode7, npuChipInfoDescErrorCode8,
 		npuChipInfoDescErrorCode9,
 	}
-	if len(chip.ErrorCodes) > 10 {
-		hwlog.RunLog.Warnf("Error code number is larger than 10, only the first 10 will be reported, "+
-			"all errorCode is: %v", chip.ErrorCodes)
+	if len(chip.ErrorCodes) > common.MaxErrorCodeLen {
+		hwlog.RunLog.Warnf("Error code number is larger than %v, only the first %v will be reported, "+
+			"all errorCode is: %v", common.MaxErrorCodeLen, common.MaxErrorCodeLen, chip.ErrorCodes)
 	}
 	for i := 0; i < len(chip.ErrorCodes) && i < len(errCodesDesc); i++ {
 		value := float64(chip.ErrorCodes[i])
