@@ -278,7 +278,7 @@ func (r *ASJobReconciler) syncReplicas(ji *jobInfo) error {
 	status := checkNonWorkerRplMountChips(ji)
 	annotations := ji.mtObj.GetAnnotations()
 	if annotations == nil {
-		annotations = map[string]string{nonWorkerPodMountChipStatus: "false"}
+		annotations = make(map[string]string)
 	}
 	annotations[nonWorkerPodMountChipStatus] = boolToString(status)
 	ji.mtObj.SetAnnotations(annotations)
