@@ -23,7 +23,7 @@ const (
 	// MaxConcurrentLimit limit over listener
 	MaxConcurrentLimit = 1024
 	// MaxIPConnectionLimit limit over ip
-	MaxIPConnectionLimit = 10000
+	MaxIPConnectionLimit = 512
 	// CacheSize cache for ip
 	CacheSize = 1024
 
@@ -43,6 +43,8 @@ const (
 	CheckFaultGapSecond = 10
 	// JobRefKind reference kind is Job
 	JobRefKind = "Job"
+	// AscendJobRefKind reference kind is AscendJob
+	AscendJobRefKind = "AscendJob"
 	// MaxSupportNodeNum max support node num
 	MaxSupportNodeNum = 5000
 	// MaxSupportJobNum
