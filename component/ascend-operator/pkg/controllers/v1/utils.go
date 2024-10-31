@@ -253,12 +253,19 @@ func checkNonWorkerRplMountChips(ji *jobInfo) bool {
 		if rtype == mindxdlv1.ReplicaTypeWorker {
 			continue
 		}
-		for _, container := range spec.Template.Spec.Containers {
-			if container.Name == mindxdlv1.DefaultContainerName {
-				rNum := getContainerResourceReq(container)
-				if rNum > 0 {
-					return true
-				}
+		if checkContainersResourceReq(spec.Template.Spec.Containers) {
+			return true
+		}
+	}
+	return false
+}
+
+func checkContainersResourceReq(containers []corev1.Container) bool {
+	for _, container := range containers {
+		if container.Name == mindxdlv1.DefaultContainerName {
+			rNum := getContainerResourceReq(container)
+			if rNum > 0 {
+				return true
 			}
 		}
 	}
