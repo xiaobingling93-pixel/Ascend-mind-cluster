@@ -27,6 +27,19 @@ func PodHasAllocated(pod *corev1.Pod) bool {
 	if pod.GetDeletionTimestamp() != nil {
 		return false
 	}
+
+	if !podUseNpu(pod) {
+		return true
+	}
+
+	if _, ok := pod.Annotations[PodDeviceKey]; !ok {
+		hwlog.RunLog.Debugf("Pod %s has not allocated device", pod.Name)
+		return false
+	}
+	return true
+}
+
+func podUseNpu(pod *corev1.Pod) bool {
 	npuNeed := false
 	for _, container := range pod.Spec.Containers {
 		for resName, resVal := range container.Resources.Requests {
@@ -39,14 +52,7 @@ func PodHasAllocated(pod *corev1.Pod) bool {
 			}
 		}
 	}
-	if !npuNeed {
-		return true
-	}
-	if _, ok := pod.Annotations[PodDeviceKey]; !ok {
-		hwlog.RunLog.Debugf("Pod %s has not allocated device", pod.Name)
-		return false
-	}
-	return true
+	return npuNeed
 }
 
 const (
