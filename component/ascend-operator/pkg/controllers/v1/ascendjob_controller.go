@@ -115,6 +115,7 @@ type ASJobReconciler struct {
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 func (r *ASJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// test
 	if r == nil {
 		return ctrl.Result{}, errors.New("nil pointer")
 	}
