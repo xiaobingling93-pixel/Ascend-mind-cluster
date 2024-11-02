@@ -109,3 +109,30 @@ func BusinessDataIsNotEqual(oldDevInfo *constant.DeviceInfo, devInfo *constant.D
 	hwlog.RunLog.Debug("oldDevInfo is equal to devInfo")
 	return false
 }
+
+func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
+	if devInfo.DeviceList == nil {
+		hwlog.RunLog.Error("Get fault list for node %v failed. device list does not exist", devInfo.CmName)
+		return make(map[string]constant.DeviceFault)
+	}
+	if faultList, ok := devInfo.DeviceList[GetFaultListKey()]; ok {
+		var devicesFault []constant.DeviceFault
+		err := json.Unmarshal([]byte(faultList), &devicesFault)
+		if err != nil {
+			hwlog.RunLog.Error("Get fault list for node %v failed. "+
+				"Json unmarshall exception: %v", devInfo.CmName, err)
+			return make(map[string]constant.DeviceFault)
+		}
+		deviceFaultMap := make(map[string]constant.DeviceFault)
+		for _, deviceFault := range devicesFault {
+			deviceFaultMap[deviceFault.NPUName] = deviceFault
+		}
+		return deviceFaultMap
+	}
+	hwlog.RunLog.Error("Get fault list for node %v failed. fault list does not exist", devInfo.CmName)
+	return make(map[string]constant.DeviceFault)
+}
+
+func GetFaultListKey() string {
+	return ""
+}

@@ -4,12 +4,15 @@
 package util
 
 import (
+	"clusterd/pkg/common/constant"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 )
@@ -98,4 +101,27 @@ func StringSliceToIntSlice(strSlice []string) []int {
 		result = append(result, i)
 	}
 	return result
+}
+
+func CmNameToNodeName(cmName string) (string, error) {
+	if !strings.HasPrefix(cmName, constant.DeviceInfoPrefix) {
+		return "", fmt.Errorf("cmName has not prefix %s", constant.DeviceInfoPrefix)
+	}
+	return strings.TrimPrefix(cmName, constant.DeviceInfoPrefix), nil
+}
+
+func DeviceID2DeviceKey(deviceID string) string {
+	return constant.AscendDevPrefix + deviceID
+}
+
+func SliceContains[T comparable](container *[]T, elem T) bool {
+	if container == nil || elem == nil {
+		return false
+	}
+	for _, item := range *container {
+		if item == elem {
+			return true
+		}
+	}
+	return false
 }

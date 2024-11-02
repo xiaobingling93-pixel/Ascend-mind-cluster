@@ -1,0 +1,135 @@
+"retain":
+  1: dp report card fault time.
+  2: job recover info from ReportProcessFault
+---
+"deviceinfo-node1":
+  "huawei.com/Ascend910-Fault": [
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "<uce fault code>" },
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>" },
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "<uce fault code>" }, 
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "<uce fault code>" },
+  ]
+"deviceinfo-node2":
+  "huawei.com/Ascend910-Fault": [
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "<uce fault code>" },
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>" },
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "<uce fault code>" },
+    { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "<uce fault code>" },
+  ]
+---
+"jobs":
+  - "name": job1 # 当前时间没有超过JobReportRecoverTimeout => 不上报
+    "type?": <can tolerate uce fault>
+    "servers":
+      - "node1": [ 0 ]
+        "node2": [ 0 ]
+  - "name": job2 # 当前时间超过JobReportRecoverTimeout & 在JobReportRecoverTimeout内收到过job recover信息 & 当前时间没有超过JobReportCompleteTimeout => 不上报
+    "type?": <can tolerate uce fault>
+    "servers":
+      - "node1": [ 1 ]
+        "node2": [ 1 ]
+  - "name": job3 # 当前时间超过JobReportRecoverTimeout & 在JobReportRecoverTimeout内收到过job recover信息 & 当前时间超过JobReportCompleteTimeout => 上报
+    "type?": <can tolerate uce fault>
+    "servers":
+      - "node1": [ 2 ]
+        "node2": [ 2 ]
+  - "name": job4 # 超过JobReportRecoverTimeout & 在JobReportRecoverTimeout内没收到过job recover信息 => 上报
+    "type?": <can tolerate uce fault>
+    "servers":
+      - "node1": [ 3 ]
+        "node2": [ 3 ]
+
+
+---
+# 1、getUceDeviceOfNodes()
+"node1":
+  "Ascend910-0":
+    "name": "Ascend910-0"
+    "faultMoment": 100
+    "uceReportMoment": 0
+  "Ascend910-1":
+    "name": "Ascend910-1"
+    "faultMoment": 110
+    "uceReportMoment": 0
+  "Ascend910-2":
+    "name": "Ascend910-2"
+    "faultMoment": 120
+    "uceReportMoment": 0
+  "Ascend910-3":
+    "name": "Ascend910-3"
+    "faultMoment": 130
+    "uceReportMoment": 0
+"node2":
+  "Ascend910-0":
+    "name": "Ascend910-0"
+    "faultMoment": 140
+    "uceReportMoment": 0
+  "Ascend910-1":
+    "name": "Ascend910-1"
+    "faultMoment": 150
+    "uceReportMoment": 0
+  "Ascend910-2":
+    "name": "Ascend910-2"
+    "faultMoment": 160
+    "uceReportMoment": 0
+  "Ascend910-3":
+    "name": "Ascend910-3"
+    "faultMoment": 170
+    "uceReportMoment": 0
+---
+# 2、getUceDevicesOfUceTolerateJobs()
+"job1":
+  "uceDeviceOfNode":
+    "node1":
+      "Ascend910-0":
+        "name": "Ascend910-0"
+        "faultMoment": 100
+        "uceReportMoment": 0
+    "node2":
+      "Ascend910-0":
+        "name": "Ascend910-0"
+        "faultMoment": 140
+        "uceReportMoment": 0
+"job2":
+  "uceDeviceOfNode":
+    "node1":
+      "Ascend910-1":
+        "name": "Ascend910-1"
+        "faultMoment": 110
+        "uceReportMoment": 0
+    "node2":
+      "Ascend910-1":
+        "name": "Ascend910-1"
+        "faultMoment": 150
+        "uceReportMoment": 0
+"job3":
+  "uceDeviceOfNode":
+    "node1":
+      "Ascend910-2":
+        "name": "Ascend910-2"
+        "faultMoment": 120
+        "uceReportMoment": 0
+    "node2":
+      "Ascend910-2":
+        "name": "Ascend910-2"
+        "faultMoment": 160
+        "uceReportMoment": 0
+  "uceReportMoment": 0
+"job4":
+  "uceDeviceOfNode":
+    "node1":
+      "Ascend910-3":
+        "name": "Ascend910-3"
+        "faultMoment": 130
+        "uceReportMoment": 0
+    "node2":
+      "Ascend910-3":
+        "name": "Ascend910-3"
+        "faultMoment": 170
+        "uceReportMoment": 0
+---
+# 3、mindio report
+"job1":
+  "node1":
+    "Ascend910-0":
+      "reportRecoverMoment": 120
