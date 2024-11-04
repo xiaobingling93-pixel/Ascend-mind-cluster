@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,6 +59,7 @@ import (
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
+	rktCommon "ascend-operator/pkg/ranktable/common"
 	"ascend-operator/pkg/ranktable/generator"
 )
 
@@ -127,6 +129,7 @@ func (r *ASJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		ji, _err := r.newJobInfo(fakeAcjob, fakeAcjob.Spec.ReplicaSpecs, &fakeAcjob.Status, &fakeAcjob.Spec.RunPolicy)
 		if _err == nil {
 			r.genRankTable(ji)
+			r.writeToConfigmap(vcjob.Name, vcjob.Namespace, ji)
 		} else {
 			hwlog.RunLog.Error("failed to generate ranktable for volcano job<%s>, err: %s", req.NamespacedName, _err)
 		}
@@ -460,4 +463,55 @@ func decorateVcjob(vcjob *v1alpha1.Job) *mindxdlv1.AscendJob {
 			ReplicaSpecs: repSpecs,
 		},
 	}
+}
+
+const (
+	defaultQPS   = 200.0
+	defaultBurst = 200
+)
+
+func (r *ASJobReconciler) writeToConfigmap(jobname, namespace string, ji *jobInfo) {
+	kubeClient, _, err := newClientK8s()
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to create kubeClient, err: %s", err)
+		return
+	}
+	configmapName := "rings-config-" + jobname
+	cm, err := kubeClient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configmapName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+	rtg, ok := r.rtGenerators[ji.mtObj.GetUID()]
+	if !ok {
+		hwlog.RunLog.Errorf("ranktable generaotor not found for job %s", ji.name)
+	}
+	cm.Data["hccl.json"], err = rtg.(*rktCommon.BaseGenerator).ToString()
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to get ranktable string, err: %s", err)
+		return
+	}
+	if _, err := kubeClient.CoreV1().ConfigMaps(namespace).Update(context.TODO(), cm,
+		metav1.UpdateOptions{}); err != nil {
+		hwlog.RunLog.Errorf("failed to write configmap, err: %s", err)
+		return
+	}
+}
+
+func newClientK8s() (*kubernetes.Clientset, *versioned.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags("", "")
+	if err != nil {
+		hwlog.RunLog.Errorf("build client config err: %#v", err)
+		return nil, nil, err
+	}
+	cfg.QPS = float32(defaultQPS)
+	cfg.Burst = defaultBurst
+	kubeclient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building kubernetes clientset: %s", err.Error())
+	}
+	jobClient, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building clientset: %s", err.Error())
+	}
+	return kubeclient, jobClient, nil
 }
