@@ -290,10 +290,3 @@ func checkNpuPod(pi *podInfo) bool {
 	}
 	return false
 }
-
-func boolToString(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
-}
