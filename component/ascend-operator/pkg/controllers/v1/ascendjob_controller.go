@@ -213,7 +213,11 @@ func (r *ASJobReconciler) watchRelatedResource(c controller.Controller, mgr ctrl
 	); err != nil {
 		return err
 	}
-
+	if err := c.Watch(&source.Kind{Type: &appv1.Deployment{}}, &handler.EnqueueRequestForObject{},
+		predicate.Funcs{CreateFunc: r.onOwnerCreateFunc(), DeleteFunc: r.onOwnerDeleteFunc()},
+	); err != nil {
+		return err
+	}
 	if err := c.Watch(&source.Kind{Type: &mindxdlv1.AscendJob{}}, &handler.EnqueueRequestForObject{},
 		predicate.Funcs{CreateFunc: r.onOwnerCreateFunc(), DeleteFunc: r.onOwnerDeleteFunc()},
 	); err != nil {
