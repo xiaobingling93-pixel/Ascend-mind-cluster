@@ -60,7 +60,6 @@ import (
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
-	rktv1 "ascend-operator/pkg/ranktable/v1"
 )
 
 // NewReconciler new reconciler for AscendJob
@@ -171,15 +170,6 @@ func (r *ASJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func (r *ASJobReconciler) _ranktablePipeline(ji *jobInfo, jobName, namespace string) {
-	r.genRankTable(ji)
-	for i := 0; i < 3; i++ {
-		if err := r.writeRanktableToCm(jobName, jobName, ji); err == nil {
-			break
-		}
-	}
 }
 
 func (r *ASJobReconciler) ranktablePipeline(job *mindxdlv1.AscendJob) {
@@ -519,7 +509,7 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, ji *jobI
 		hwlog.RunLog.Error(err)
 		return err
 	}
-	cm.Data["hccl.json"], err = rtg.(*rktv1.RankTable).ToString()
+	cm.Data["hccl.json"], err = rtg.ToString()
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to get ranktable string, err: %v", err)
 		return err
