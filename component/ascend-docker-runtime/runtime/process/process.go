@@ -152,13 +152,15 @@ func InitLogModule(ctx context.Context) error {
 	const backups = 2
 	const logMaxAge = 365
 	const fileMaxSize = 2
+	maxLineLength := 1024
 	runLogConfig := hwlog.LogConfig{
-		LogFileName: runLogPath,
-		LogLevel:    0,
-		MaxBackups:  backups,
-		MaxAge:      logMaxAge,
-		OnlyToFile:  true,
-		FileMaxSize: fileMaxSize,
+		LogFileName:   runLogPath,
+		LogLevel:      0,
+		MaxBackups:    backups,
+		MaxAge:        logMaxAge,
+		OnlyToFile:    true,
+		FileMaxSize:   fileMaxSize,
+		MaxLineLength: maxLineLength,
 	}
 	if err := hwlog.InitRunLogger(&runLogConfig, ctx); err != nil {
 		fmt.Printf("hwlog init failed, error is %v", err)
@@ -557,6 +559,7 @@ func addDevice(spec *specs.Spec, deviceIdList []int) error {
 	}
 
 	if err := addManagerDevice(spec); err != nil {
+		hwlog.RunLog.Errorf("failed to add manager device, error: %v", err)
 		return fmt.Errorf("failed to add Manager device to spec: %v", err)
 	}
 
