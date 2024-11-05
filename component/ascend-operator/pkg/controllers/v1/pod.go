@@ -177,7 +177,7 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 		if _, rankExist := p.Annotations[rankIndexKey]; rankExist {
 			continue
 		}
-		p.Annotations[rankIndexKey] = strconv.FormatUint(rankIndex, 10)
+		p.Annotations[rankIndexKey] = strconv.FormatUint(rankIndex, decimal)
 		r.Update(context.TODO(), p)
 		rankIndex++
 	}
