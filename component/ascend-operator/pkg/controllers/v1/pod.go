@@ -167,7 +167,7 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 			allocatedPods = append(allocatedPods, p)
 		}
 	}
-	hwlog.RunLog.Infof("allocatedPods: %d, total replicas: %d", len(allocatedPods), ji.totalReplicas)
+	hwlog.RunLog.Infof("allocatedPods: %d, total replicas: %d, total pods: %d", len(allocatedPods), ji.totalReplicas, len(ji.pods))
 	if int(ji.totalReplicas) == 0 || len(allocatedPods) != int(ji.totalReplicas) {
 		return
 	}
