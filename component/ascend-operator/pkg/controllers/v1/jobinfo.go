@@ -119,7 +119,7 @@ func genLabels(jobObj interface{}, jobName string) (map[string]string, error) {
 		}, nil
 	default:
 		hwlog.RunLog.Errorf("job kind %s is invalid", acjob.Kind)
-		return map[string]string{}, fmt.Errorf("job type invalid")
+		return map[string]string{}, fmt.Errorf("job kind %s is invalid", acjob.Kind)
 	}
 }
 
