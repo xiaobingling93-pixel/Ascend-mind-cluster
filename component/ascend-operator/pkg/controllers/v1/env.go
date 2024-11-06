@@ -63,6 +63,8 @@ func (r *ASJobReconciler) setMindSporeEnv(pi *podInfo, podTemplate *corev1.PodTe
 			addEnvValue(podTemplate, msServerNum, "0", i)
 			addEnvValue(podTemplate, msRole, msRoleMap[pi.rtype], i)
 			addEnvValue(podTemplate, hostNetwork, strconv.FormatBool(pi.spec.Template.Spec.HostNetwork), i)
+
+			addEnvValue(podTemplate, npuPod, strconv.FormatBool(checkNpuPod(pi)), i)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
 		}
 	}
