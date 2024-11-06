@@ -63,6 +63,7 @@ const (
 	vcjobLabelKey   = "volcano.sh/job-name"
 	deployKind      = "Deployment"
 	deployLabelKey  = "deploy-name"
+	configmapKey    = "hccl.json"
 )
 
 const (

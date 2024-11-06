@@ -523,7 +523,7 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, ji *jobI
 		hwlog.RunLog.Error(err)
 		return err
 	}
-	cm.Data["hccl.json"], err = rtg.ToString()
+	cm.Data[configmapKey], err = rtg.ToString()
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to get ranktable string, err: %v", err)
 		return err
