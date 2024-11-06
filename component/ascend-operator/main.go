@@ -33,7 +33,7 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
-	v1 "ascend-operator/pkg/controllers/v1"
+	"ascend-operator/pkg/controllers/v1"
 )
 
 const (
