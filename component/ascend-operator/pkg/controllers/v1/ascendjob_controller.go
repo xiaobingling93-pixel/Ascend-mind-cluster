@@ -179,11 +179,6 @@ func (r *ASJobReconciler) ranktablePipeline(job *mindxdlv1.AscendJob) {
 		return
 	}
 	r.genRankTable(ji)
-	for i := 0; i < cmRetryTime; i++ {
-		if err := r.writeRanktableToCm(job.Name, job.Namespace, ji); err == nil {
-			break
-		}
-	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
