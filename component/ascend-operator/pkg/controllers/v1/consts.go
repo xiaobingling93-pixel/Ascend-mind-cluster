@@ -65,6 +65,7 @@ const (
 	deployLabelKey  = "deploy-name"
 	configmapKey    = "hccl.json"
 	hcclCtrName     = "hccl-controller"
+	atlasTaskKey    = "ring-controller.atlas"
 	// the status of mount chips for non-worker Pods
 	nonWorkerPodMountChipStatus = "nonWorkerPodMountChipStatus"
 )

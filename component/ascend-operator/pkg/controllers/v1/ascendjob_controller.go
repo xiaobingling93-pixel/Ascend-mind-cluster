@@ -61,6 +61,7 @@ import (
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
+	"ascend-operator/pkg/ranktable/utils"
 )
 
 // NewReconciler new reconciler for AscendJob
@@ -267,11 +268,17 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 		switch e.Object.(type) {
 		case *v1alpha1.Job:
 			vcjob := e.Object.(*v1alpha1.Job)
+			if _, ok := vcjob.Labels[atlasTaskKey]; !ok {
+				return false
+			}
 			r.rtGenerators[vcjob.UID] = ranktable.NewGenerator(decorateVcjob(vcjob))
 			hwlog.RunLog.Infof("create rtGenerator for Volcano Job %s", vcjob.Name)
 			return true
 		case *appv1.Deployment:
 			deploy := e.Object.(*appv1.Deployment)
+			if _, ok := deploy.Labels[atlasTaskKey]; !ok {
+				return false
+			}
 			r.rtGenerators[deploy.UID] = ranktable.NewGenerator(decorateDeploy(deploy))
 			hwlog.RunLog.Infof("create rtGenerator for Deployment %s", deploy.Name)
 			return true
@@ -299,7 +306,7 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 			return false
 		}
 		if frame, err := mindxdlv1.GetJobFramework(ascendJob); err == nil {
-			r.rtGenerators[ascendJob.UID] = ranktable.NewGenerator(ascendJob)
+			r.rtGenerators[ascendJob.UID] = ranktable.NewGenerator(ascendJob, r)
 			hwlog.RunLog.Infof("create rtGenerator for frame %s ascendJob %s", frame, ascendJob.Name)
 		}
 
@@ -349,7 +356,12 @@ func (r *ASJobReconciler) onPodDeleteFunc() func(event.DeleteEvent) bool {
 		controllerRef := metav1.GetControllerOf(e.Object)
 		if controllerRef != nil {
 			if rtg, exist := r.rtGenerators[controllerRef.UID]; exist {
-				rtg.DeletePod(e.Object.(*corev1.Pod))
+				curStatus := rtg.DeletePod(e.Object.(*corev1.Pod))
+				rtg.SetStatus(utils.InitialRTStatus)
+				if ok := r.tryWriteCm(controllerRef.Name, e.Object.GetNamespace(), controllerRef.UID); !ok && curStatus == utils.CompletedRTStatus {
+					hwlog.RunLog.Error("failed to write ranktable to file and configmap")
+					rtg.SetStatus(utils.CompletedRTStatus)
+				}
 			}
 		}
 		replicaType, ok := e.Object.GetLabels()[commonv1.ReplicaTypeLabel]
@@ -518,7 +530,7 @@ func decorateDeploy(deploy *appv1.Deployment) *mindxdlv1.AscendJob {
 	}
 }
 
-func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, ji *jobInfo) error {
+func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, uid types.UID) error {
 	configmapName := configmapPrefix + jobName
 	cm := &corev1.ConfigMap{}
 	namespacedname := types.NamespacedName{Namespace: namespace, Name: configmapName}
@@ -527,9 +539,9 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, ji *jobI
 		hwlog.RunLog.Infof("failed to get configmap in namespace %s, err: %v", namespace, err)
 		return err
 	}
-	rtg, ok := r.rtGenerators[ji.mtObj.GetUID()]
+	rtg, ok := r.rtGenerators[uid]
 	if !ok {
-		err = fmt.Errorf("ranktable generaotor not found for job %s", ji.name)
+		err = fmt.Errorf("ranktable generaotor not found for job %s", jobName)
 		hwlog.RunLog.Error(err)
 		return err
 	}
