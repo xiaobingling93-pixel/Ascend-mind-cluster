@@ -18,7 +18,7 @@ import (
 
 var cmManager ConfigMapManager
 
-// ConfigMapManager use for deviceInfo and nodeInfo report
+// ConfigMapManager use for DeviceInfo and nodeInfo report
 type ConfigMapManager struct {
 	sync.Mutex
 	processCnt    int

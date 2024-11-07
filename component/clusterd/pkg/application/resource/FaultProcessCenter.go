@@ -5,18 +5,30 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/device"
+	"clusterd/pkg/domain/node"
+	"clusterd/pkg/domain/switchinfo"
 	"clusterd/pkg/interface/kube"
 	"encoding/json"
 	"fmt"
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"math"
+	"sync"
 	"time"
 )
 
-var faultProcessCenter FaultProcessCenter
+var faultProcessCenter = FaultProcessCenter{
+	deviceFaultProcessor: []faultProcessor{&uceFaultProcessor{
+		JobReportRecoverTimeout:  10,
+		JobReportCompleteTimeout: 30,
+		mindIoReportInfo: &mindIoReportInfosForAllJobs{
+			Infos:   make(map[string]map[string]map[string]mindIoReportInfo),
+			RwMutex: sync.RWMutex{},
+		},
+	}},
+}
 
-const MindIoNotRecover = int64(math.MaxInt64)
-const MindIoNotComplete = int64(math.MaxInt64)
+const JobNotRecover = int64(math.MaxInt64)
+const JobNotRecoverComplete = int64(math.MaxInt64)
 
 // The faultProcessor process the fault information.
 type faultProcessor interface {
@@ -40,74 +52,80 @@ If they can tolerate it, the reporting of the UCE fault should be delayed by 10 
 type uceFaultProcessor struct {
 	JobReportRecoverTimeout  int64
 	JobReportCompleteTimeout int64
-	// jobUid->node->device->recover_moment
-	mindIoReportRecoverInfo map[string]map[string]map[string]mindIoReportInfo
+
+	mindIoReportInfo *mindIoReportInfosForAllJobs
 	// uceJob->jobInfo
 	uceDevicesOfUceJob map[string]uceJobInfo
-	// node->deviceName->uceDeviceInfo
+	// node->DeviceName->uceDeviceInfo
 	uceDeviceOfNode map[string]uceNodeInfo
 }
 
+// JobId->node->device->report_info
+type mindIoReportInfosForAllJobs struct {
+	Infos   map[string]map[string]map[string]mindIoReportInfo
+	RwMutex sync.RWMutex
+}
+
+func (reportInfos *mindIoReportInfosForAllJobs) getInfo(jobId, nodeName, deviceName string) mindIoReportInfo {
+	if reportInfos == nil {
+		return mindIoReportInfo{
+			RecoverTime:  JobNotRecover,
+			CompleteTime: JobNotRecoverComplete,
+		}
+	}
+	reportInfos.RwMutex.RLock()
+	defer reportInfos.RwMutex.RUnlock()
+	if info, ok := reportInfos.Infos[jobId][nodeName][deviceName]; ok {
+		return info
+	}
+	return mindIoReportInfo{
+		RecoverTime:  JobNotRecover,
+		CompleteTime: JobNotRecoverComplete,
+	}
+}
+
 type uceDeviceInfo struct {
-	// deviceName has prefix Ascend910
-	deviceName     string
-	faultMoment    int64
-	recoverMoment  int64
-	completeMoment int64
+	// DeviceName has prefix Ascend910
+	DeviceName   string
+	FaultTime    int64
+	RecoverTime  int64
+	CompleteTime int64
 }
 
 type uceNodeInfo struct {
-	nodeName string
-	// deviceName->deviceInfo
-	deviceInfo map[string]uceDeviceInfo
+	NodeName string
+	// DeviceName->DeviceInfo
+	DeviceInfo map[string]uceDeviceInfo
 }
 
 type uceJobInfo struct {
-	// uceNode node->nodeInfo
-	jobUid  string
-	uceNode map[string]uceNodeInfo
+	// UceNode node->nodeInfo
+	JobId   string
+	UceNode map[string]uceNodeInfo
 }
 
 type mindIoReportInfo struct {
-	recoverMoment  int64
-	completeMoment int64
+	RecoverTime  int64
+	CompleteTime int64
 }
 
-func (jobInfo *uceJobInfo) getDeviceInfoFromNodeAndDevice(nodeName, deviceName string) (uceDeviceInfo, error) {
-	nodeInfo, ok := jobInfo.uceNode[nodeName]
-	if !ok {
-		return uceDeviceInfo{}, fmt.Errorf("getDeviceInfoFromNodeAndDevice failed. Job %v doesn't on node %v",
-			jobInfo.jobUid, nodeName)
-	}
-	deviceInfo, ok := nodeInfo.deviceInfo[deviceName]
-	if !ok {
-		return uceDeviceInfo{}, fmt.Errorf("getDeviceInfoFromNodeAndDevice failed. "+
-			"Job %v doesn't on device %v of node %v", jobInfo.jobUid, deviceName, nodeName)
-	}
-	return deviceInfo, nil
-}
-
-func (jobInfo *uceJobInfo) initUceDeviceFromNodeAndMindIo(uceNode uceNodeInfo, processor *uceFaultProcessor) uceNodeInfo {
-	devicesOfJobOnNode := jobInfo.getDevicesNameOfJobOnNode(uceNode.nodeName)
+func (jobInfo *uceJobInfo) initUceDeviceFromNodeAndMindIo(
+	uceNode uceNodeInfo, reportInfos *mindIoReportInfosForAllJobs, serverList []*job.ServerHccl) uceNodeInfo {
+	devicesOfJobOnNode := jobInfo.getDevicesNameOfJobOnNode(uceNode.NodeName, serverList)
 
 	jobUceNodeInfo := uceNodeInfo{
-		nodeName:   uceNode.nodeName,
-		deviceInfo: make(map[string]uceDeviceInfo),
+		NodeName:   uceNode.NodeName,
+		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
 
 	for _, deviceOfJob := range devicesOfJobOnNode {
-		if uceDevice, ok := uceNode.deviceInfo[deviceOfJob]; ok {
-			recoverMoment := MindIoNotRecover
-			completeMoment := MindIoNotComplete
-			if reportInfo, ok := processor.mindIoReportRecoverInfo[jobInfo.jobUid][uceNode.nodeName][deviceOfJob]; ok {
-				recoverMoment = reportInfo.recoverMoment
-				completeMoment = reportInfo.completeMoment
-			}
-			jobUceNodeInfo.deviceInfo[uceDevice.deviceName] = uceDeviceInfo{
-				deviceName:     deviceOfJob,
-				faultMoment:    uceDevice.faultMoment,
-				recoverMoment:  recoverMoment,
-				completeMoment: completeMoment,
+		if uceDevice, ok := uceNode.DeviceInfo[deviceOfJob]; ok {
+			reportInfo := reportInfos.getInfo(jobInfo.JobId, uceNode.NodeName, deviceOfJob)
+			jobUceNodeInfo.DeviceInfo[uceDevice.DeviceName] = uceDeviceInfo{
+				DeviceName:   deviceOfJob,
+				FaultTime:    uceDevice.FaultTime,
+				RecoverTime:  reportInfo.RecoverTime,
+				CompleteTime: reportInfo.CompleteTime,
 			}
 		}
 	}
@@ -121,7 +139,7 @@ func (processor *uceFaultProcessor) process() {
 		return
 	}
 	processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
-	processor.uceDevicesOfUceJob = processor.getUceDevicesOfUceTolerateJobs()
+	processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
 	currentTime := time.Now().UnixMilli()
 	faultProcessCenter.deviceInfos = processor.processUceFaultInfo(faultProcessCenter.deviceInfos, currentTime)
 }
@@ -137,7 +155,7 @@ func (processor *uceFaultProcessor) processUceFaultInfo(
 		faultList := processor.processEachNodeUceFaultInfo(nodeName, deviceInfo, currentTime)
 		faultListBytes, err := json.Marshal(faultList)
 		if err != nil {
-			hwlog.RunLog.Error("Marshal fault list for node %v failed. Exception: %v", nodeName, err)
+			hwlog.RunLog.Error(fmt.Errorf("marshal fault list for node %s failed. Exception: %v", nodeName, err))
 		}
 
 		deviceInfo.DeviceList[device.GetFaultListKey()] = string(faultListBytes)
@@ -149,7 +167,7 @@ func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
 	nodeName string, orgDeviceInfo *constant.DeviceInfo, currentTime int64) []constant.DeviceFault {
 	faultMap := device.GetFaultMap(orgDeviceInfo)
 	for _, uceJob := range processor.uceDevicesOfUceJob {
-		for deviceName, uceDevice := range uceJob.uceNode[nodeName].deviceInfo {
+		for deviceName, uceDevice := range uceJob.UceNode[nodeName].DeviceInfo {
 			if processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime) {
 				faultMap = processor.filterUceDeviceFaultInfo(deviceName, faultMap)
 			}
@@ -172,10 +190,10 @@ func (processor *uceFaultProcessor) canFilterUceDeviceFaultInfo(uceDevice uceDev
 	if processor.currentTimeIsNotExceedMindIoReportRecoverTimeout(uceDevice, currentTime) {
 		return true
 	}
-	if processor.mindIoRecoverMomentIsNotExceedRecoverTimeout(uceDevice) {
+	if processor.mindIoRecoverTimeIsNotExceedRecoverTimeout(uceDevice) {
 		if processor.currentTimeIsNotExceedMindIoReportCompleteTimeout(uceDevice, currentTime) {
 			return true
-		} else if processor.mindIoReportCompleteMomentIsNotExceedCompleteTimeout(uceDevice) {
+		} else if processor.mindIoReportCompleteTimeIsNotExceedCompleteTimeout(uceDevice) {
 			return true
 		}
 		return false
@@ -185,35 +203,39 @@ func (processor *uceFaultProcessor) canFilterUceDeviceFaultInfo(uceDevice uceDev
 
 func (processor *uceFaultProcessor) currentTimeIsNotExceedMindIoReportRecoverTimeout(
 	uceDevice uceDeviceInfo, currentTime int64) bool {
-	return uceDevice.faultMoment > currentTime-processor.JobReportRecoverTimeout
+	return uceDevice.FaultTime >= currentTime-processor.JobReportRecoverTimeout
 }
 
-func (processor *uceFaultProcessor) mindIoRecoverMomentIsNotExceedRecoverTimeout(
+func (processor *uceFaultProcessor) mindIoRecoverTimeIsNotExceedRecoverTimeout(
 	uceDevice uceDeviceInfo) bool {
-	return uceDevice.faultMoment > uceDevice.recoverMoment-processor.JobReportRecoverTimeout
+	return uceDevice.FaultTime >= uceDevice.RecoverTime-processor.JobReportRecoverTimeout
 }
 
 func (processor *uceFaultProcessor) currentTimeIsNotExceedMindIoReportCompleteTimeout(
 	uceDevice uceDeviceInfo, currentTime int64) bool {
-	return processor.JobReportCompleteTimeout+uceDevice.recoverMoment > currentTime
+	return processor.JobReportCompleteTimeout+uceDevice.RecoverTime >= currentTime
 }
 
-func (processor *uceFaultProcessor) mindIoReportCompleteMomentIsNotExceedCompleteTimeout(
+func (processor *uceFaultProcessor) mindIoReportCompleteTimeIsNotExceedCompleteTimeout(
 	uceDevice uceDeviceInfo) bool {
-	return processor.JobReportCompleteTimeout+uceDevice.recoverMoment > uceDevice.completeMoment
+	// invalid complete time
+	if uceDevice.CompleteTime < uceDevice.FaultTime || uceDevice.CompleteTime < uceDevice.RecoverTime {
+		return false
+	}
+	return processor.JobReportCompleteTimeout+uceDevice.RecoverTime >= uceDevice.CompleteTime
 }
 
 func (processor *uceFaultProcessor) getUceDeviceOfNodes() map[string]uceNodeInfo {
 	uceNodes := make(map[string]uceNodeInfo)
-	for cmName, deviceInfo := range faultProcessCenter.deviceInfos {
-		nodeName, err := util.CmNameToNodeName(cmName)
+	for _, deviceInfo := range faultProcessCenter.deviceInfos {
+		nodeName, err := util.CmNameToNodeName(deviceInfo.CmName)
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			continue
 		}
 		uceFaultDevicesOnNode := processor.getUceFaultDevices(nodeName, deviceInfo)
 
-		if len(uceFaultDevicesOnNode.deviceInfo) == 0 {
+		if len(uceFaultDevicesOnNode.DeviceInfo) == 0 {
 			continue
 		}
 		uceNodes[nodeName] = uceFaultDevicesOnNode
@@ -234,28 +256,33 @@ func (processor *uceFaultProcessor) getNodesNameFromDeviceInfo() []string {
 	return nodesName
 }
 
-func (processor *uceFaultProcessor) getUceDevicesOfUceTolerateJobs() map[string]uceJobInfo {
+func (processor *uceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string]uceJobInfo {
 	nodesName := processor.getNodesNameFromDeviceInfo()
 	uceJobs := make(map[string]uceJobInfo)
-	for jobUid := range kube.JobMgr.BsWorker {
+	kube.JobMgr.RwMutex.RLock()
+	defer kube.JobMgr.RwMutex.RUnlock()
+	for jobUid, worker := range kube.JobMgr.BsWorker {
 		// If job cannot tolerate uce fault, don't Filter device info
 		if !processor.jobTolerateUceFault(jobUid) {
 			continue
 		}
-
+		workerInfo := worker.GetWorkerInfo()
+		serverList := workerInfo.CMData.GetServerList()
 		jobInfo := uceJobInfo{
 			// node->uceNodeInfo
-			uceNode: make(map[string]uceNodeInfo),
-			jobUid:  jobUid,
+			UceNode: make(map[string]uceNodeInfo),
+			JobId:   jobUid,
 		}
 		for _, nodeName := range nodesName {
-			devicesOfJobOnNode := jobInfo.getDevicesNameOfJobOnNode(nodeName)
+			devicesOfJobOnNode := jobInfo.getDevicesNameOfJobOnNode(nodeName, serverList)
 			if len(devicesOfJobOnNode) == 0 {
 				continue
 			}
-			jobInfo.uceNode[nodeName] = jobInfo.initUceDeviceFromNodeAndMindIo(processor.uceDeviceOfNode[nodeName], processor)
+			jobInfo.UceNode[nodeName] =
+				jobInfo.initUceDeviceFromNodeAndMindIo(
+					processor.uceDeviceOfNode[nodeName], processor.mindIoReportInfo, serverList)
 		}
-		if len(jobInfo.uceNode) != 0 {
+		if len(jobInfo.UceNode) != 0 {
 			uceJobs[jobUid] = jobInfo
 		}
 	}
@@ -270,13 +297,15 @@ func (processor *uceFaultProcessor) jobTolerateUceFault(jobUid string) bool {
 func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo *constant.DeviceInfo) uceNodeInfo {
 	faultList := device.GetFaultMap(deviceInfo)
 	nodeInfo := uceNodeInfo{
-		nodeName:   nodeName,
-		deviceInfo: make(map[string]uceDeviceInfo),
+		NodeName:   nodeName,
+		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
 	for _, faultDevice := range faultList {
-		nodeInfo.deviceInfo[faultDevice.NPUName] = uceDeviceInfo{
-			deviceName:  faultDevice.NPUName,
-			faultMoment: faultDevice.FaultTime,
+		nodeInfo.DeviceInfo[faultDevice.NPUName] = uceDeviceInfo{
+			DeviceName:   faultDevice.NPUName,
+			FaultTime:    faultDevice.FaultTime,
+			RecoverTime:  JobNotRecover,
+			CompleteTime: JobNotRecoverComplete,
 		}
 	}
 	return nodeInfo
@@ -284,27 +313,28 @@ func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 
 // CallbackForReportUceInfo cluster grpc should call back for report uce fault situation
 func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, nodeName, deviceName string, info mindIoReportInfo) {
-	reportInfo := processor.mindIoReportRecoverInfo
+	processor.mindIoReportInfo.RwMutex.Lock()
+	defer processor.mindIoReportInfo.RwMutex.Unlock()
+	reportInfo := processor.mindIoReportInfo.Infos
+	if reportInfo == nil {
+		reportInfo = make(map[string]map[string]map[string]mindIoReportInfo)
+	}
 	if _, ok := reportInfo[jobUid]; !ok {
 		reportInfo[jobUid] = make(map[string]map[string]mindIoReportInfo)
 		if _, ok := reportInfo[jobUid][nodeName]; !ok {
 			reportInfo[jobUid][nodeName] = make(map[string]mindIoReportInfo)
-		} else {
-			reportInfo[jobUid][nodeName][deviceName] = info
 		}
+		reportInfo[jobUid][nodeName][deviceName] = info
 	} else {
 		if _, ok := reportInfo[jobUid][nodeName]; !ok {
 			reportInfo[jobUid][nodeName] = make(map[string]mindIoReportInfo)
-		} else {
-			reportInfo[jobUid][nodeName][deviceName] = info
 		}
+		reportInfo[jobUid][nodeName][deviceName] = info
 	}
+	processor.mindIoReportInfo.Infos = reportInfo
 }
 
-func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string) []string {
-	worker := kube.JobMgr.BsWorker[jobInfo.jobUid]
-	workerInfo := worker.GetWorkerInfo()
-	serverList := workerInfo.CMData.GetServerList()
+func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string, serverList []*job.ServerHccl) []string {
 	var devices []*job.Device
 	for _, server := range serverList {
 		if server.ServerName != nodeName {
@@ -320,6 +350,9 @@ func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string) []string {
 }
 
 func (faultProcessCenter *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
+	cmManager.Lock()
+	faultProcessCenter.deviceInfos = device.DeepCopyInfos(cmManager.deviceInfoMap)
+	cmManager.Unlock()
 	for _, processor := range faultProcessCenter.deviceFaultProcessor {
 		processor.process()
 	}
@@ -327,6 +360,9 @@ func (faultProcessCenter *FaultProcessCenter) QueryDeviceInfoToReport() map[stri
 }
 
 func (faultProcessCenter *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
+	cmManager.Lock()
+	faultProcessCenter.switchInfos = switchinfo.DeepCopyInfos(cmManager.switchInfoMap)
+	cmManager.Unlock()
 	for _, processor := range faultProcessCenter.switchFaultProcessor {
 		processor.process()
 	}
@@ -334,6 +370,9 @@ func (faultProcessCenter *FaultProcessCenter) QuerySwitchInfoToReport() map[stri
 }
 
 func (faultProcessCenter *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
+	cmManager.Lock()
+	faultProcessCenter.nodeInfos = node.DeepCopyInfos(cmManager.nodeInfoMap)
+	cmManager.Unlock()
 	for _, processor := range faultProcessCenter.nodeFaultProcessor {
 		processor.process()
 	}

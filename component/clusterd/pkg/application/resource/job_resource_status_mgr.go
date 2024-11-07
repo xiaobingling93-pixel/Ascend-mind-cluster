@@ -155,7 +155,7 @@ func (mgr *JobSourceStatusManager) GetJobHealthy(jobId string) (bool, []string) 
 	}
 }
 
-// GetJobNameAndNameSpace return job's deviceName and namespace
+// GetJobNameAndNameSpace return job's name and namespace
 func (mgr *JobSourceStatusManager) GetJobNameAndNameSpace(jobId string) (string, string) {
 	if kube.JobMgr == nil {
 		hwlog.RunLog.Error("job mgr is nil")

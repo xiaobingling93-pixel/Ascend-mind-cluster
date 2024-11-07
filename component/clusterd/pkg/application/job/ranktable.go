@@ -304,5 +304,5 @@ func (r *RankTable) setNodeDeviceHealthy(serverIndex int, networkUnhealthyCards,
 }
 
 func (r *RankTable) GetServerList() []*ServerHccl {
-	return r.GetServerList()
+	return r.ServerList
 }

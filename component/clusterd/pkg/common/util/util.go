@@ -113,15 +113,3 @@ func CmNameToNodeName(cmName string) (string, error) {
 func DeviceID2DeviceKey(deviceID string) string {
 	return constant.AscendDevPrefix + deviceID
 }
-
-func SliceContains[T comparable](container *[]T, elem T) bool {
-	if container == nil || elem == nil {
-		return false
-	}
-	for _, item := range *container {
-		if item == elem {
-			return true
-		}
-	}
-	return false
-}

@@ -62,6 +62,14 @@ func DeepCopy(info *constant.DeviceInfo) *constant.DeviceInfo {
 	return newDeviceInfo
 }
 
+func DeepCopyInfos(infos map[string]*constant.DeviceInfo) map[string]*constant.DeviceInfo {
+	res := make(map[string]*constant.DeviceInfo)
+	for key, val := range infos {
+		res[key] = DeepCopy(val)
+	}
+	return res
+}
+
 // GetSafeData get data every 1000 DeviceInfo
 func GetSafeData(deviceInfos map[string]*constant.DeviceInfo) []string {
 	if len(deviceInfos) == 0 {
@@ -112,15 +120,15 @@ func BusinessDataIsNotEqual(oldDevInfo *constant.DeviceInfo, devInfo *constant.D
 
 func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
 	if devInfo.DeviceList == nil {
-		hwlog.RunLog.Error("Get fault list for node %v failed. device list does not exist", devInfo.CmName)
+		hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. device list does not exist", devInfo.CmName))
 		return make(map[string]constant.DeviceFault)
 	}
 	if faultList, ok := devInfo.DeviceList[GetFaultListKey()]; ok {
 		var devicesFault []constant.DeviceFault
 		err := json.Unmarshal([]byte(faultList), &devicesFault)
 		if err != nil {
-			hwlog.RunLog.Error("Get fault list for node %v failed. "+
-				"Json unmarshall exception: %v", devInfo.CmName, err)
+			hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. "+
+				"Json unmarshall exception: %v", devInfo.CmName, err))
 			return make(map[string]constant.DeviceFault)
 		}
 		deviceFaultMap := make(map[string]constant.DeviceFault)
@@ -129,10 +137,11 @@ func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
 		}
 		return deviceFaultMap
 	}
-	hwlog.RunLog.Error("Get fault list for node %v failed. fault list does not exist", devInfo.CmName)
+	hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. fault list does not exist", devInfo.CmName))
 	return make(map[string]constant.DeviceFault)
 }
 
+// TODO key应该是什么
 func GetFaultListKey() string {
-	return ""
+	return "huawei.com/Ascend910-Fault"
 }
