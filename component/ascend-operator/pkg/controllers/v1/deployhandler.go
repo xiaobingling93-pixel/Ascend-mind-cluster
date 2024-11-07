@@ -23,6 +23,7 @@ package v1
 import (
 	"fmt"
 
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,25 +93,8 @@ func (e *DeployRktHandler) parseOwnerTypeGroupKind(scheme *runtime.Scheme) error
 }
 
 func (e *DeployRktHandler) getOwnerReconcileRequest(object v1.Object, result map[reconcile.Request]empty) {
-	ref := v1.GetControllerOf(object)
-	refGV, err := schema.ParseGroupVersion(ref.APIVersion)
-	if err != nil {
-		return
-	}
-
-	if ref.Kind == e.groupKind.Kind && refGV.Group == e.groupKind.Group {
-		request := reconcile.Request{NamespacedName: types.NamespacedName{
-			Name: object.GetLabels()[deployLabelKey],
-		}}
-
-		mapping, err := e.mapper.RESTMapping(e.groupKind, refGV.Version)
-		if err != nil {
-			return
-		}
-		if mapping.Scope.Name() != meta.RESTScopeNameRoot {
-			request.Namespace = object.GetNamespace()
-		}
-
-		result[request] = empty{}
-	}
+	result[reconcile.Request{NamespacedName: types.NamespacedName{
+		Name: object.GetLabels()[deployLabelKey], Namespace: object.GetNamespace(),
+	}}] = empty{}
+	hwlog.RunLog.Infof("result is %v", result)
 }
