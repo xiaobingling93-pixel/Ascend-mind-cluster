@@ -306,7 +306,7 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 			return false
 		}
 		if frame, err := mindxdlv1.GetJobFramework(ascendJob); err == nil {
-			r.rtGenerators[ascendJob.UID] = ranktable.NewGenerator(ascendJob, r)
+			r.rtGenerators[ascendJob.UID] = ranktable.NewGenerator(ascendJob)
 			hwlog.RunLog.Infof("create rtGenerator for frame %s ascendJob %s", frame, ascendJob.Name)
 		}
 
