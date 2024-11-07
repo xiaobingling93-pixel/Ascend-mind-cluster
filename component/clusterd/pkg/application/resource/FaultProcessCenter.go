@@ -35,6 +35,7 @@ type faultProcessor interface {
 	process()
 }
 
+// The FaultProcessCenter maintain the fault information.
 type FaultProcessCenter struct {
 	deviceInfos          map[string]*constant.DeviceInfo
 	nodeInfos            map[string]*constant.NodeInfo
@@ -42,6 +43,39 @@ type FaultProcessCenter struct {
 	deviceFaultProcessor []faultProcessor
 	nodeFaultProcessor   []faultProcessor
 	switchFaultProcessor []faultProcessor
+}
+
+func (faultProcessCenter *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
+	cmManager.Lock()
+	deviceInfos := device.DeepCopyInfos(cmManager.deviceInfoMap)
+	cmManager.Unlock()
+	faultProcessCenter.deviceInfos = deviceInfos
+	for _, processor := range faultProcessCenter.deviceFaultProcessor {
+		processor.process()
+	}
+	return faultProcessCenter.deviceInfos
+}
+
+func (faultProcessCenter *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
+	cmManager.Lock()
+	switchInfos := switchinfo.DeepCopyInfos(cmManager.switchInfoMap)
+	cmManager.Unlock()
+	faultProcessCenter.switchInfos = switchInfos
+	for _, processor := range faultProcessCenter.switchFaultProcessor {
+		processor.process()
+	}
+	return faultProcessCenter.switchInfos
+}
+
+func (faultProcessCenter *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
+	cmManager.Lock()
+	nodeInfos := node.DeepCopyInfos(cmManager.nodeInfoMap)
+	cmManager.Unlock()
+	faultProcessCenter.nodeInfos = nodeInfos
+	for _, processor := range faultProcessCenter.nodeFaultProcessor {
+		processor.process()
+	}
+	return faultProcessCenter.nodeInfos
 }
 
 /*
@@ -141,11 +175,11 @@ func (processor *uceFaultProcessor) process() {
 	processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
 	processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
 	currentTime := time.Now().UnixMilli()
-	faultProcessCenter.deviceInfos = processor.processUceFaultInfo(faultProcessCenter.deviceInfos, currentTime)
+	faultProcessCenter.deviceInfos = processor.processUceFaultInfo(currentTime)
 }
 
-func (processor *uceFaultProcessor) processUceFaultInfo(
-	deviceInfos map[string]*constant.DeviceInfo, currentTime int64) map[string]*constant.DeviceInfo {
+func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) map[string]*constant.DeviceInfo {
+	deviceInfos := device.DeepCopyInfos(faultProcessCenter.deviceInfos)
 	for cmName, deviceInfo := range deviceInfos {
 		nodeName, err := util.CmNameToNodeName(cmName)
 		if err != nil {
@@ -301,6 +335,9 @@ func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
 	for _, faultDevice := range faultList {
+		if !device.IsUceFault(faultDevice) {
+			continue
+		}
 		nodeInfo.DeviceInfo[faultDevice.NPUName] = uceDeviceInfo{
 			DeviceName:   faultDevice.NPUName,
 			FaultTime:    faultDevice.FaultTime,
@@ -312,10 +349,21 @@ func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 }
 
 // CallbackForReportUceInfo cluster grpc should call back for report uce fault situation
-func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, nodeName, deviceName string, info mindIoReportInfo) {
+func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, rankId string, recoverTime int64) error {
+	nodeName, deviceId, err := kube.JobMgr.GetNodeAndDeviceFromJobIdAndRankId(jobUid, rankId)
+	if err != nil {
+		err = fmt.Errorf("mindIO report info failed, exception: %v", err)
+		hwlog.RunLog.Error(err)
+		return err
+	}
+	deviceName := util.DeviceID2DeviceKey(deviceId)
 	processor.mindIoReportInfo.RwMutex.Lock()
 	defer processor.mindIoReportInfo.RwMutex.Unlock()
 	reportInfo := processor.mindIoReportInfo.Infos
+	info := mindIoReportInfo{
+		RecoverTime:  recoverTime,
+		CompleteTime: JobNotRecoverComplete,
+	}
 	if reportInfo == nil {
 		reportInfo = make(map[string]map[string]map[string]mindIoReportInfo)
 	}
@@ -332,6 +380,7 @@ func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, nodeName, d
 		reportInfo[jobUid][nodeName][deviceName] = info
 	}
 	processor.mindIoReportInfo.Infos = reportInfo
+	return nil
 }
 
 func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string, serverList []*job.ServerHccl) []string {
@@ -347,34 +396,4 @@ func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string, serverList
 		devicesName[idx] = util.DeviceID2DeviceKey(dev.DeviceID)
 	}
 	return devicesName
-}
-
-func (faultProcessCenter *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
-	cmManager.Lock()
-	faultProcessCenter.deviceInfos = device.DeepCopyInfos(cmManager.deviceInfoMap)
-	cmManager.Unlock()
-	for _, processor := range faultProcessCenter.deviceFaultProcessor {
-		processor.process()
-	}
-	return faultProcessCenter.deviceInfos
-}
-
-func (faultProcessCenter *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
-	cmManager.Lock()
-	faultProcessCenter.switchInfos = switchinfo.DeepCopyInfos(cmManager.switchInfoMap)
-	cmManager.Unlock()
-	for _, processor := range faultProcessCenter.switchFaultProcessor {
-		processor.process()
-	}
-	return faultProcessCenter.switchInfos
-}
-
-func (faultProcessCenter *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
-	cmManager.Lock()
-	faultProcessCenter.nodeInfos = node.DeepCopyInfos(cmManager.nodeInfoMap)
-	cmManager.Unlock()
-	for _, processor := range faultProcessCenter.nodeFaultProcessor {
-		processor.process()
-	}
-	return faultProcessCenter.nodeInfos
 }

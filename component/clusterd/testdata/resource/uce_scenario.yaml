@@ -15,20 +15,20 @@ mindx-dl-deviceinfo-node1:
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "<uce fault code>", "fault_time": 90 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>", "fault_time": 89 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "<uce fault code>", "fault_time": 89 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "<uce fault code>", "fault_time": 50 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 90 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 89 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 50 }
       ]
 mindx-dl-deviceinfo-node2:
   CmName: "mindx-dl-deviceinfo-node2"
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "<uce fault code>", "fault_time": 100 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>", "fault_time": 70 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "<uce fault code>", "fault_time": 84 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "<uce fault code>", "fault_time": 40 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 100 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40 }
       ]
 ---
 # the result after uce processor process
@@ -37,16 +37,16 @@ mindx-dl-deviceinfo-node1:
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>", "fault_time": 89 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89 }
       ]
 mindx-dl-deviceinfo-node2:
   CmName: "mindx-dl-deviceinfo-node2"
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "<uce fault code>", "fault_time": 70 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "<uce fault code>", "fault_time": 84 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "<uce fault code>", "fault_time": 40 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40 }
       ]
 ---
 # job info in JobMgr

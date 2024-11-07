@@ -6,6 +6,8 @@ package device
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
@@ -15,6 +17,7 @@ import (
 )
 
 const safeDeviceSize = 1000
+const DeviceNotFault = math.MaxInt64
 
 // ParseDeviceInfoCM get device info from configmap obj
 func ParseDeviceInfoCM(obj interface{}) (*constant.DeviceInfo, error) {
@@ -133,6 +136,9 @@ func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
 		}
 		deviceFaultMap := make(map[string]constant.DeviceFault)
 		for _, deviceFault := range devicesFault {
+			if deviceFault.FaultTime == 0 {
+				deviceFault.FaultTime = DeviceNotFault
+			}
 			deviceFaultMap[deviceFault.NPUName] = deviceFault
 		}
 		return deviceFaultMap
@@ -144,4 +150,12 @@ func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
 // TODO key应该是什么
 func GetFaultListKey() string {
 	return "huawei.com/Ascend910-Fault"
+}
+
+// TODO 如何判断device fault是uce故障
+func IsUceFault(faultDevice constant.DeviceFault) bool {
+	if strings.Contains(faultDevice.FaultCode, "80E01801") {
+		return true
+	}
+	return false
 }

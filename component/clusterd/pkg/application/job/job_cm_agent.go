@@ -152,6 +152,24 @@ func (agent *Agent) UpdateJobNodeStatus(nodeName string, healthy bool) {
 	}
 }
 
+func (agent *Agent) GetNodeAndDeviceFromJobIdAndRankId(jobId, rankId string) (string, string, error) {
+	agent.RwMutex.RLock()
+	defer agent.RwMutex.RUnlock()
+	worker, ok := agent.BsWorker[jobId]
+	if !ok {
+		return "", "", fmt.Errorf("not find node and device from jobId %v", jobId)
+	}
+	rankTable := worker.GetWorkerInfo().CMData
+	for _, server := range rankTable.GetServerList() {
+		for _, dev := range server.DeviceList {
+			if dev.RankID == rankId {
+				return server.ServerName, dev.DeviceID, nil
+			}
+		}
+	}
+	return "", "", fmt.Errorf("not find node and device from jobId %v and rankid %v", jobId, rankId)
+}
+
 func getWorkName(labels map[string]string) string {
 	if label, ok := labels["volcano.sh/job-name"]; ok {
 		return label
