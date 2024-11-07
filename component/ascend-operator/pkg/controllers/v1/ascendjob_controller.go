@@ -356,11 +356,12 @@ func (r *ASJobReconciler) onPodDeleteFunc() func(event.DeleteEvent) bool {
 		controllerRef := metav1.GetControllerOf(e.Object)
 		if controllerRef != nil {
 			if rtg, exist := r.rtGenerators[controllerRef.UID]; exist {
-				curStatus := rtg.DeletePod(e.Object.(*corev1.Pod))
-				rtg.SetStatus(utils.InitialRTStatus)
-				if ok := r.tryWriteCm(controllerRef.Name, e.Object.GetNamespace(), controllerRef.UID); !ok && curStatus == utils.CompletedRTStatus {
-					hwlog.RunLog.Error("failed to write ranktable to file and configmap")
-					rtg.SetStatus(utils.CompletedRTStatus)
+				if curStatus := rtg.DeletePod(e.Object.(*corev1.Pod)); curStatus != utils.InitialRTStatus {
+					rtg.SetStatus(utils.InitialRTStatus)
+					if ok := r.tryWriteCm(controllerRef.Name, e.Object.GetNamespace(), controllerRef.UID); !ok {
+						hwlog.RunLog.Error("failed to write ranktable to file and configmap")
+						rtg.SetStatus(utils.CompletedRTStatus)
+					}
 				}
 			}
 		}
