@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,8 +91,8 @@ func (e *DeployRktHandler) parseOwnerTypeGroupKind(scheme *runtime.Scheme) error
 	return nil
 }
 
-func (e *DeployRktHandler) getOwnerReconcileRequest(object metav1.Object, result map[reconcile.Request]empty) {
-	ref := metav1.GetControllerOf(object)
+func (e *DeployRktHandler) getOwnerReconcileRequest(object v1.Object, result map[reconcile.Request]empty) {
+	ref := v1.GetControllerOf(object)
 	refGV, err := schema.ParseGroupVersion(ref.APIVersion)
 	if err != nil {
 		return
