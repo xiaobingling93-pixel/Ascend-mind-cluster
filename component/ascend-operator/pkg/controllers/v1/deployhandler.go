@@ -23,7 +23,6 @@ package v1
 import (
 	"fmt"
 
-	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -96,5 +95,4 @@ func (e *DeployRktHandler) getOwnerReconcileRequest(object v1.Object, result map
 	result[reconcile.Request{NamespacedName: types.NamespacedName{
 		Name: object.GetLabels()[deployLabelKey], Namespace: object.GetNamespace(),
 	}}] = empty{}
-	hwlog.RunLog.Infof("result is %v", result)
 }
