@@ -152,15 +152,13 @@ func InitLogModule(ctx context.Context) error {
 	const backups = 2
 	const logMaxAge = 365
 	const fileMaxSize = 2
-	maxLineLength := 1024
 	runLogConfig := hwlog.LogConfig{
-		LogFileName:   runLogPath,
-		LogLevel:      0,
-		MaxBackups:    backups,
-		MaxAge:        logMaxAge,
-		OnlyToFile:    true,
-		FileMaxSize:   fileMaxSize,
-		MaxLineLength: maxLineLength,
+		LogFileName: runLogPath,
+		LogLevel:    0,
+		MaxBackups:  backups,
+		MaxAge:      logMaxAge,
+		OnlyToFile:  true,
+		FileMaxSize: fileMaxSize,
 	}
 	if err := hwlog.InitRunLogger(&runLogConfig, ctx); err != nil {
 		fmt.Printf("hwlog init failed, error is %v", err)
@@ -645,6 +643,7 @@ func modifySpecFile(path string) error {
 			return fmt.Errorf("failed to inject hook, err: %v", err)
 		}
 		if err = addDevice(&spec, devices); err != nil {
+			hwlog.RunLog.Errorf("failed to add device to env, err: %v", err)
 			return fmt.Errorf("failed to add device to env: %v", err)
 		}
 	}
