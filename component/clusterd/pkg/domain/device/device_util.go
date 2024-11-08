@@ -6,7 +6,7 @@ package device
 import (
 	"encoding/json"
 	"fmt"
-	"math"
+	"reflect"
 	"strings"
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
@@ -17,7 +17,6 @@ import (
 )
 
 const safeDeviceSize = 1000
-const DeviceNotFault = math.MaxInt64
 
 // ParseDeviceInfoCM get device info from configmap obj
 func ParseDeviceInfoCM(obj interface{}) (*constant.DeviceInfo, error) {
@@ -121,10 +120,14 @@ func BusinessDataIsNotEqual(oldDevInfo *constant.DeviceInfo, devInfo *constant.D
 	return false
 }
 
-func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
-	if devInfo.DeviceList == nil {
+func GetFaultMap(devInfo *constant.DeviceInfo) map[string][]constant.DeviceFault {
+	if devInfo == nil {
+		hwlog.RunLog.Error(fmt.Errorf("get fault list for node failed. devInfo is nil"))
+		return make(map[string][]constant.DeviceFault)
+	}
+	if devInfo == nil || devInfo.DeviceList == nil {
 		hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. device list does not exist", devInfo.CmName))
-		return make(map[string]constant.DeviceFault)
+		return make(map[string][]constant.DeviceFault)
 	}
 	if faultList, ok := devInfo.DeviceList[GetFaultListKey()]; ok {
 		var devicesFault []constant.DeviceFault
@@ -132,19 +135,47 @@ func GetFaultMap(devInfo *constant.DeviceInfo) map[string]constant.DeviceFault {
 		if err != nil {
 			hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. "+
 				"Json unmarshall exception: %v", devInfo.CmName, err))
-			return make(map[string]constant.DeviceFault)
+			return make(map[string][]constant.DeviceFault)
 		}
-		deviceFaultMap := make(map[string]constant.DeviceFault)
+		deviceFaultMap := make(map[string][]constant.DeviceFault)
 		for _, deviceFault := range devicesFault {
 			if deviceFault.FaultTime == 0 {
-				deviceFault.FaultTime = DeviceNotFault
+				deviceFault.FaultTime = constant.DeviceNotFault
 			}
-			deviceFaultMap[deviceFault.NPUName] = deviceFault
+			if _, ok := deviceFaultMap[deviceFault.NPUName]; !ok {
+				deviceFaultMap[deviceFault.NPUName] = make([]constant.DeviceFault, 0)
+			}
+			deviceFaultMap[deviceFault.NPUName] = append(deviceFaultMap[deviceFault.NPUName], deviceFault)
 		}
 		return deviceFaultMap
 	}
 	hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. fault list does not exist", devInfo.CmName))
-	return make(map[string]constant.DeviceFault)
+	return make(map[string][]constant.DeviceFault)
+}
+
+func DeleteFaultFromFaultMap(faultMap map[string][]constant.DeviceFault,
+	delFault constant.DeviceFault) map[string][]constant.DeviceFault {
+	deviceFaults, ok := faultMap[delFault.NPUName]
+	if !ok {
+		return faultMap
+	}
+	newDeviceFaults := make([]constant.DeviceFault, 0)
+	for _, fault := range deviceFaults {
+		if reflect.DeepEqual(delFault, fault) {
+			continue
+		}
+		newDeviceFaults = append(newDeviceFaults, fault)
+	}
+	faultMap[delFault.NPUName] = newDeviceFaults
+	return faultMap
+}
+
+func FaultMapToArrayToString(faultMap map[string][]constant.DeviceFault) string {
+	array := make([]constant.DeviceFault, 0)
+	for _, faults := range faultMap {
+		array = append(array, faults...)
+	}
+	return util.ObjToString(array)
 }
 
 // TODO key应该是什么
@@ -154,8 +185,14 @@ func GetFaultListKey() string {
 
 // TODO 如何判断device fault是uce故障
 func IsUceFault(faultDevice constant.DeviceFault) bool {
-	if strings.Contains(faultDevice.FaultCode, "80E01801") {
+	if strings.Contains(faultDevice.FaultCode, constant.UCE_FAULT_CODE) {
 		return true
 	}
 	return false
+}
+
+// TODO 如何判断device fault是uce伴随故障
+func IsUceAccompanyFault(faultDevice constant.DeviceFault) bool {
+	return strings.Contains(faultDevice.FaultCode, constant.AIC_FAULT_CODE) ||
+		strings.Contains(faultDevice.FaultCode, constant.AIV_FAULT_CODE)
 }

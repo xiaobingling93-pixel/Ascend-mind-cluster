@@ -4,6 +4,7 @@
 package constant
 
 import (
+	"math"
 	"time"
 )
 
@@ -41,4 +42,21 @@ const (
 
 	// CheckFaultGapSecond check fault gap seconds
 	CheckFaultGapSecond = 10
+)
+
+// fault code const
+const (
+	UCE_FAULT_CODE = "80E01801"
+	AIC_FAULT_CODE = "80C98009"
+	AIV_FAULT_CODE = "80CB8009"
+)
+
+// fault processor const
+const (
+	JobNotRecover             = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
+	JobNotRecoverComplete     = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
+	DeviceNotFault            = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
+	DiagnosisAccompanyTimeout = int64(5 * time.Second)
+	JobReportRecoverTimeout   = int64(10 * time.Second)
+	JobReportCompleteTimeout  = int64(30 * time.Second)
 )

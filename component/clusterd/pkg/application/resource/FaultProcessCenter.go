@@ -8,27 +8,46 @@ import (
 	"clusterd/pkg/domain/node"
 	"clusterd/pkg/domain/switchinfo"
 	"clusterd/pkg/interface/kube"
-	"encoding/json"
 	"fmt"
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-	"math"
 	"sync"
 	"time"
 )
 
+var processorForUceAccompanyFault = &uceAccompanyFaultProcessor{
+	DiagnosisAccompanyTimeout: constant.DiagnosisAccompanyTimeout,
+	uceAccompanyFaultQue:      make(map[string]map[string][]constant.DeviceFault),
+	uceFaultTime:              make(map[string]map[string]int64),
+}
+var processorForUceFault = &uceFaultProcessor{
+	JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
+	JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
+	mindIoReportInfo: &mindIoReportInfosForAllJobs{
+		Infos:   make(map[string]map[string]map[string]mindIoReportInfo),
+		RwMutex: sync.RWMutex{},
+	},
+}
 var faultProcessCenter = &FaultProcessCenter{
-	deviceFaultProcessor: []faultProcessor{&uceFaultProcessor{
-		JobReportRecoverTimeout:  10,
-		JobReportCompleteTimeout: 30,
-		mindIoReportInfo: &mindIoReportInfosForAllJobs{
-			Infos:   make(map[string]map[string]map[string]mindIoReportInfo),
-			RwMutex: sync.RWMutex{},
-		},
-	}},
+	deviceFaultProcessor: []faultProcessor{processorForUceAccompanyFault, processorForUceFault},
 }
 
-const JobNotRecover = int64(math.MaxInt64)
-const JobNotRecoverComplete = int64(math.MaxInt64)
+func getUceFaultProcessor() (*uceFaultProcessor, error) {
+	for _, processor := range faultProcessCenter.deviceFaultProcessor {
+		if processor, ok := processor.(*uceFaultProcessor); ok {
+			return processor, nil
+		}
+	}
+	return nil, fmt.Errorf("can not find uceFaultProcessor in FaultProcessCenter")
+}
+
+func getUceAccompanyFaultProcessor() (*uceAccompanyFaultProcessor, error) {
+	for _, processor := range faultProcessCenter.deviceFaultProcessor {
+		if processor, ok := processor.(*uceAccompanyFaultProcessor); ok {
+			return processor, nil
+		}
+	}
+	return nil, fmt.Errorf("can not find uceAccompanyFaultProcessor in FaultProcessCenter")
+}
 
 // The faultProcessor process the fault information.
 type faultProcessor interface {
@@ -103,8 +122,8 @@ type mindIoReportInfosForAllJobs struct {
 func (reportInfos *mindIoReportInfosForAllJobs) getInfo(jobId, nodeName, deviceName string) mindIoReportInfo {
 	if reportInfos == nil {
 		return mindIoReportInfo{
-			RecoverTime:  JobNotRecover,
-			CompleteTime: JobNotRecoverComplete,
+			RecoverTime:  constant.JobNotRecover,
+			CompleteTime: constant.JobNotRecoverComplete,
 		}
 	}
 	reportInfos.RwMutex.RLock()
@@ -113,8 +132,8 @@ func (reportInfos *mindIoReportInfosForAllJobs) getInfo(jobId, nodeName, deviceN
 		return info
 	}
 	return mindIoReportInfo{
-		RecoverTime:  JobNotRecover,
-		CompleteTime: JobNotRecoverComplete,
+		RecoverTime:  constant.JobNotRecover,
+		CompleteTime: constant.JobNotRecoverComplete,
 	}
 }
 
@@ -187,18 +206,13 @@ func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) map[s
 			continue
 		}
 		faultList := processor.processEachNodeUceFaultInfo(nodeName, deviceInfo, currentTime)
-		faultListBytes, err := json.Marshal(faultList)
-		if err != nil {
-			hwlog.RunLog.Error(fmt.Errorf("marshal fault list for node %s failed. Exception: %v", nodeName, err))
-		}
-
-		deviceInfo.DeviceList[device.GetFaultListKey()] = string(faultListBytes)
+		deviceInfo.DeviceList[device.GetFaultListKey()] = faultList
 	}
 	return deviceInfos
 }
 
 func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
-	nodeName string, orgDeviceInfo *constant.DeviceInfo, currentTime int64) []constant.DeviceFault {
+	nodeName string, orgDeviceInfo *constant.DeviceInfo, currentTime int64) string {
 	faultMap := device.GetFaultMap(orgDeviceInfo)
 	for _, uceJob := range processor.uceDevicesOfUceJob {
 		for deviceName, uceDevice := range uceJob.UceNode[nodeName].DeviceInfo {
@@ -207,16 +221,17 @@ func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
 			}
 		}
 	}
-	deviceFaultList := make([]constant.DeviceFault, 0)
-	for _, faultDevice := range faultMap {
-		deviceFaultList = append(deviceFaultList, faultDevice)
-	}
-	return deviceFaultList
+	return device.FaultMapToArrayToString(faultMap)
 }
 
 func (processor *uceFaultProcessor) filterUceDeviceFaultInfo(
-	deviceName string, faultMap map[string]constant.DeviceFault) map[string]constant.DeviceFault {
-	delete(faultMap, deviceName)
+	deviceName string, faultMap map[string][]constant.DeviceFault) map[string][]constant.DeviceFault {
+	for _, fault := range faultMap[deviceName] {
+		// filter device's uce fault
+		if device.IsUceFault(fault) {
+			faultMap = device.DeleteFaultFromFaultMap(faultMap, fault)
+		}
+	}
 	return faultMap
 }
 
@@ -329,27 +344,49 @@ func (processor *uceFaultProcessor) jobTolerateUceFault(jobUid string) bool {
 }
 
 func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo *constant.DeviceInfo) uceNodeInfo {
-	faultList := device.GetFaultMap(deviceInfo)
+	faultMap := device.GetFaultMap(deviceInfo)
 	nodeInfo := uceNodeInfo{
 		NodeName:   nodeName,
 		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
-	for _, faultDevice := range faultList {
-		if !device.IsUceFault(faultDevice) {
-			continue
-		}
-		nodeInfo.DeviceInfo[faultDevice.NPUName] = uceDeviceInfo{
-			DeviceName:   faultDevice.NPUName,
-			FaultTime:    faultDevice.FaultTime,
-			RecoverTime:  JobNotRecover,
-			CompleteTime: JobNotRecoverComplete,
+	for _, deviceFaults := range faultMap {
+		for _, fault := range deviceFaults {
+			if !device.IsUceFault(fault) {
+				continue
+			}
+			nodeInfo.DeviceInfo[fault.NPUName] = uceDeviceInfo{
+				DeviceName:   fault.NPUName,
+				FaultTime:    fault.FaultTime,
+				RecoverTime:  constant.JobNotRecover,
+				CompleteTime: constant.JobNotRecoverComplete,
+			}
 		}
 	}
 	return nodeInfo
 }
 
+func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string, serverList []*job.ServerHccl) []string {
+	var devices []*job.Device
+	for _, server := range serverList {
+		if server.ServerName != nodeName {
+			continue
+		}
+		devices = server.DeviceList
+	}
+	devicesName := make([]string, len(devices))
+	for idx, dev := range devices {
+		devicesName[idx] = util.DeviceID2DeviceKey(dev.DeviceID)
+	}
+	return devicesName
+}
+
 // CallbackForReportUceInfo cluster grpc should call back for report uce fault situation
-func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, rankId string, recoverTime int64) error {
+func CallbackForReportUceInfo(jobUid, rankId string, recoverTime int64) error {
+	processor, err := getUceFaultProcessor()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return err
+	}
 	nodeName, deviceId, err := kube.JobMgr.GetNodeAndDeviceFromJobIdAndRankId(jobUid, rankId)
 	if err != nil {
 		err = fmt.Errorf("mindIO report info failed, exception: %v", err)
@@ -362,7 +399,7 @@ func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, rankId stri
 	reportInfo := processor.mindIoReportInfo.Infos
 	info := mindIoReportInfo{
 		RecoverTime:  recoverTime,
-		CompleteTime: JobNotRecoverComplete,
+		CompleteTime: constant.JobNotRecoverComplete,
 	}
 	if reportInfo == nil {
 		reportInfo = make(map[string]map[string]map[string]mindIoReportInfo)
@@ -383,17 +420,113 @@ func (processor *uceFaultProcessor) CallbackForReportUceInfo(jobUid, rankId stri
 	return nil
 }
 
-func (jobInfo *uceJobInfo) getDevicesNameOfJobOnNode(nodeName string, serverList []*job.ServerHccl) []string {
-	var devices []*job.Device
-	for _, server := range serverList {
-		if server.ServerName != nodeName {
+// uceAccompanyFaultProcessor:
+// aic aiv fault can be 1) accompanied by uce fault, also can 2) curr alone.
+// if 1) aic aiv fault should be filtered. Once find aic fault, check if there is an uce fault 5s ago
+// if 2) aic aiv fault should not be retained.
+type uceAccompanyFaultProcessor struct {
+	// maintain 5s ago device info
+	DiagnosisAccompanyTimeout int64
+	// nodeName -> deviceName -> faultQue
+	uceAccompanyFaultQue map[string]map[string][]constant.DeviceFault
+	// uceFaultTime
+	uceFaultTime map[string]map[string]int64
+}
+
+func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQue(deviceInfos map[string]*constant.DeviceInfo) {
+	for _, deviceInfo := range deviceInfos {
+		nodeName, err := util.CmNameToNodeName(deviceInfo.CmName)
+		if err != nil {
+			hwlog.RunLog.Error(err)
 			continue
 		}
-		devices = server.DeviceList
+		processor.uceAccompanyFaultForNode(nodeName, deviceInfo)
 	}
-	devicesName := make([]string, len(devices))
-	for idx, dev := range devices {
-		devicesName[idx] = util.DeviceID2DeviceKey(dev.DeviceID)
+}
+
+func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultForNode(nodeName string, deviceInfo *constant.DeviceInfo) {
+	if _, ok := processor.uceAccompanyFaultQue[nodeName]; !ok {
+		processor.uceAccompanyFaultQue[nodeName] = make(map[string][]constant.DeviceFault)
+		processor.uceFaultTime[nodeName] = make(map[string]int64)
 	}
-	return devicesName
+	faultMap := device.GetFaultMap(deviceInfo)
+	for deviceName, deviceFaults := range faultMap {
+		for _, fault := range deviceFaults {
+			if device.IsUceFault(fault) {
+				processor.uceFaultTime[nodeName][deviceName] = fault.FaultTime
+				continue
+			}
+			if !device.IsUceAccompanyFault(fault) {
+				continue
+			}
+			if _, ok := processor.uceAccompanyFaultQue[nodeName][deviceName]; !ok {
+				processor.uceAccompanyFaultQue[nodeName][deviceName] = make([]constant.DeviceFault, 0)
+			}
+
+			// in que
+			faultsInfo := processor.uceAccompanyFaultQue[nodeName][deviceName]
+			processor.uceAccompanyFaultQue[nodeName][deviceName] = append(faultsInfo, fault)
+		}
+	}
+}
+
+func (processor *uceAccompanyFaultProcessor) filterFaultInfos(currentTime int64,
+	deviceInfos map[string]*constant.DeviceInfo) map[string]*constant.DeviceInfo {
+	for nodeName, nodeFaults := range processor.uceAccompanyFaultQue {
+		faultMap := device.GetFaultMap(deviceInfos[util.NodeNameToCmName(nodeName)])
+		for deviceName, deviceFaultQue := range nodeFaults {
+			newQue, newFaultMap := processor.filterFaultDevice(faultMap, currentTime, nodeName, deviceName, deviceFaultQue)
+			nodeFaults[deviceName] = newQue
+			faultMap = newFaultMap
+		}
+		deviceInfos[util.NodeNameToCmName(nodeName)].DeviceList[device.GetFaultListKey()] = device.FaultMapToArrayToString(faultMap)
+	}
+	return deviceInfos
+}
+
+func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
+	faultMap map[string][]constant.DeviceFault, currentTime int64, nodeName, deviceName string,
+	deviceFaultQue []constant.DeviceFault) ([]constant.DeviceFault, map[string][]constant.DeviceFault) {
+	newDeviceFaultQue := make([]constant.DeviceFault, 0)
+	for _, fault := range deviceFaultQue {
+		uceFaultTime := processor.getDeviceUceFaultTime(nodeName, deviceName)
+		accompanyFaultTime := fault.FaultTime
+		// if is accompanied fault, filter
+		if processor.isAccompaniedFaultByUce(uceFaultTime, accompanyFaultTime) {
+			faultMap = device.DeleteFaultFromFaultMap(faultMap, fault)
+			continue
+		}
+		// if current is not exceed diagnosis time,
+		// then cannot decide fault is accompany or not, filter, and in que to decide in next turn.
+		if !processor.isCurrentExceedDiagnosisTimeout(currentTime, accompanyFaultTime) {
+			faultMap = device.DeleteFaultFromFaultMap(faultMap, fault)
+			newDeviceFaultQue = append(newDeviceFaultQue, fault)
+		}
+	}
+	return newDeviceFaultQue, faultMap
+}
+
+func (processor *uceAccompanyFaultProcessor) getDeviceUceFaultTime(nodeName, deviceName string) int64 {
+	if faultTime, ok := processor.uceFaultTime[nodeName][deviceName]; ok {
+		return faultTime
+	}
+	return constant.DeviceNotFault
+}
+
+func (processor *uceAccompanyFaultProcessor) isAccompaniedFaultByUce(
+	uceFaultTime, uceAccompanyFaultTime int64) bool {
+	return util.Abs(uceFaultTime-uceAccompanyFaultTime) <= processor.DiagnosisAccompanyTimeout
+}
+
+func (processor *uceAccompanyFaultProcessor) isCurrentExceedDiagnosisTimeout(
+	currentTime, uceAccompanyFaultTime int64) bool {
+	return uceAccompanyFaultTime < currentTime-processor.DiagnosisAccompanyTimeout
+}
+
+func (processor *uceAccompanyFaultProcessor) process() {
+	deviceInfos := faultProcessCenter.deviceInfos
+	processor.uceAccompanyFaultInQue(deviceInfos)
+	currentTime := time.Now().UnixMilli()
+	filteredFaultInfos := processor.filterFaultInfos(currentTime, deviceInfos)
+	faultProcessCenter.deviceInfos = filteredFaultInfos
 }

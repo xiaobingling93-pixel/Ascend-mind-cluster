@@ -110,6 +110,17 @@ func CmNameToNodeName(cmName string) (string, error) {
 	return strings.TrimPrefix(cmName, constant.DeviceInfoPrefix), nil
 }
 
+func NodeNameToCmName(nodeName string) string {
+	return constant.DeviceInfoPrefix + nodeName
+}
+
 func DeviceID2DeviceKey(deviceID string) string {
 	return constant.AscendDevPrefix + deviceID
+}
+
+func Abs[T int64 | int](x T) T {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
