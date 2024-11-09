@@ -37,6 +37,8 @@ type BaseGenerator struct {
 	servers    *sync.Map
 	rankTabler generator.RankTableGenerator
 
+	resourceVersion int
+
 	Status      utils.RankTableStatus `json:"status"`
 	ServerList  []*Server             `json:"server_list" json:"server_list,omitempty"`   // hccl_json server list
 	ServerCount string                `json:"server_count" json:"server_count,omitempty"` // hccl_json server count
@@ -65,6 +67,10 @@ func (r *BaseGenerator) SetStatus(status utils.RankTableStatus) {
 // GetStatus is used to get the status of ranktable.
 func (r *BaseGenerator) GetStatus() utils.RankTableStatus {
 	return r.Status
+}
+
+func (r *BaseGenerator) ResourceVersion() *int {
+	return &r.resourceVersion
 }
 
 // WriteToFile is used to write ranktable to file.
