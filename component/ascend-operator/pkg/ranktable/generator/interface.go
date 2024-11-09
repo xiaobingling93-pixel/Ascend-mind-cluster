@@ -31,5 +31,5 @@ type RankTableGenerator interface {
 	ToString() (string, error)
 	GetPath() string
 	GetConfigmapExist() utils.ConfigmapCheck
-	SetConfigmapExist(exist utils.ConfigmapCheck)
+	SetConfigmapExist(utils.ConfigmapCheck)
 }
