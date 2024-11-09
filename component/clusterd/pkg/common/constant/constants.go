@@ -42,6 +42,14 @@ const (
 
 	// CheckFaultGapSecond check fault gap seconds
 	CheckFaultGapSecond = 10
+	// JobRefKind reference kind is Job
+	JobRefKind = "Job"
+	// AscendJobRefKind reference kind is AscendJob
+	AscendJobRefKind = "AscendJob"
+	// MaxSupportNodeNum max support node num
+	MaxSupportNodeNum = 5000
+	// MaxSupportJobNum
+	MaxSupportJobNum = 10000
 )
 
 // fault code const

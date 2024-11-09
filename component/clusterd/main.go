@@ -8,7 +8,9 @@ import (
 	"flag"
 	"fmt"
 	"syscall"
+	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
@@ -16,6 +18,8 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	sv "clusterd/pkg/interface/grpc"
+	"clusterd/pkg/interface/grpc/common"
+	"clusterd/pkg/interface/grpc/service"
 	"clusterd/pkg/interface/kube"
 )
 
@@ -31,12 +35,22 @@ var (
 	BuildName string
 	version   bool
 	server    *sv.ClusterInfoMgrServer
+	limiter   = rate.NewLimiter(rate.Every(time.Second), common.QpsLimit)
 )
 
-func startInformer(ctx context.Context) {
+func limitQPS(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if !limiter.Allow() {
+		hwlog.RunLog.Errorf("qps exceeded, method=%s", info.FullMethod)
+		return nil, fmt.Errorf("qps exceeded, method=%s", info.FullMethod)
+	}
+	return handler(ctx, req)
+}
+
+func startInformer(ctx context.Context, recoverService kube.JobService) {
 	kube.InitCMInformer()
 	kube.InitPodInformer()
-	kube.InitPGInformer(ctx)
+	kube.InitPGInformer(ctx, recoverService)
 	kube.AddCmNodeFunc(constant.Resource, resource.NodeCollector)
 	kube.AddCmDeviceFunc(constant.Resource, resource.DeviceInfoCollector)
 	kube.AddCmSwitchFunc(constant.Resource, resource.SwitchInfoCollector)
@@ -69,12 +83,14 @@ func main() {
 		return
 	}
 	server = sv.NewClusterInfoMgrServer([]grpc.ServerOption{grpc.MaxRecvMsgSize(constant.MaxGRPCRecvMsgSize),
-		grpc.MaxConcurrentStreams(constant.MaxGRPCConcurrentStreams)})
-	if err = server.Start(); err != nil {
+		grpc.MaxConcurrentStreams(constant.MaxGRPCConcurrentStreams),
+		grpc.UnaryInterceptor(limitQPS)})
+	recoverService := service.NewFaultRecoverService()
+	if err = server.Start(recoverService); err != nil {
 		hwlog.RunLog.Errorf("cluster info server start failed, err: %#v", err)
 	}
 	// election and running process
-	startInformer(ctx)
+	startInformer(ctx, recoverService)
 
 	signalCatch(cancel)
 }

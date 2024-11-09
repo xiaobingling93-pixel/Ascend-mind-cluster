@@ -142,6 +142,7 @@ func (tp *NPUHandler) PreStartAction(_ interface{}, ssn *framework.Session) erro
 	if tp == nil || ssn == nil || tp.FrameAttr.KubeClient == nil {
 		return fmt.Errorf("%s handler not enabled or ssn is nil: %s", PluginName, util.ArgumentError)
 	}
+	// initialise cache info from configmap
 	tp.ReHandle = rescheduling.New(&tp.ScheduleEnv, rescheduling.CmFaultJob)
 	if tp.ReHandle == nil {
 		klog.V(util.LogErrorLev).Infof("create new fault handler failed.")
@@ -153,6 +154,7 @@ func (tp *NPUHandler) PreStartAction(_ interface{}, ssn *framework.Session) erro
 	tp.ReHandle.InitFaultNodeMap()
 	tp.ReHandle.SynCacheFaultJobWithSession(ssn)
 	tp.ReHandle.SyncJobRemainRetryTimes(ssn)
+	tp.ReHandle.SyncJobRecentRescheduleReason(ssn)
 	tp.ReHandle.SynCacheNodeRankOccMapWithSession(ssn)
 	// 1. restart Fault Jobs that are recorded in cache
 	if restartErr := tp.ReHandle.RestartNeedForceDeleteJobs(ssn, tp.ScheduleEnv); restartErr != nil &&

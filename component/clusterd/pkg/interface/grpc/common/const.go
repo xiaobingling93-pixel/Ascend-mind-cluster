@@ -153,8 +153,6 @@ const (
 )
 
 const (
-	// MiddleLine is the middle line symbol
-	MiddleLine = "-"
 	// UnknownEventId unknown event id
 	UnknownEventId = "unknown_event_id"
 	// GetPodGroupTimes get pod group times
@@ -163,4 +161,8 @@ const (
 	UpdatePodGroupTimes = 3
 	// MaxChangeStrategyTimes max changeStrategy Times
 	MaxChangeStrategyTimes = 2
+	// MaxServeJobs max serve job num for fault recover
+	MaxServeJobs = 10000
+	// QpsLimit max qps for grpc service
+	QpsLimit = 1000
 )
