@@ -15,20 +15,20 @@ mindx-dl-deviceinfo-node1:
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 90000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 89000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 50000000000 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 90000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 89000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 50000 }
       ]
 mindx-dl-deviceinfo-node2:
   CmName: "mindx-dl-deviceinfo-node2"
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 100000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40000000000 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-0", "fault_code": "80E01801", "fault_time": 100000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40000 }
       ]
 ---
 # the result after uce processor process
@@ -37,16 +37,16 @@ mindx-dl-deviceinfo-node1:
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89000000000 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 89000 }
       ]
 mindx-dl-deviceinfo-node2:
   CmName: "mindx-dl-deviceinfo-node2"
   DeviceList:
     huawei.com/Ascend910-Fault: |
       [
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84000000000 },
-        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40000000000 }
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-1", "fault_code": "80E01801", "fault_time": 70000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-2", "fault_code": "80E01801", "fault_time": 84000 },
+        { "fault_type": "<uce fault type>", "npu_name": "Ascend910-3", "fault_code": "80E01801", "fault_time": 40000 }
       ]
 ---
 # job info in JobMgr
@@ -92,22 +92,22 @@ Infos:
   job3:
     node1:
       Ascend910-2:
-        RecoverTime: 95000000000
+        RecoverTime: 95000
     node2:
       Ascend910-2:
-        RecoverTime: 95000000000
+        RecoverTime: 95000
   job4:
     node1:
       Ascend910-3:
-        RecoverTime: 60000000000
-        CompleteTime: 90000000000
+        RecoverTime: 60000
+        CompleteTime: 90000
       Ascend910-1: # Not belong to job4, no effect
-        RecoverTime: 101000000000
-        CompleteTime: 102000000000
+        RecoverTime: 101000
+        CompleteTime: 102000
     node2:
       Ascend910-3:
-        RecoverTime: 60000000000
-        CompleteTime: 90000000000
+        RecoverTime: 60000
+        CompleteTime: 90000
       Ascend910-1: # Not belong to job4, no effect
-        RecoverTime: 101000000000
-        CompleteTime: 102000000000
+        RecoverTime: 101000
+        CompleteTime: 102000

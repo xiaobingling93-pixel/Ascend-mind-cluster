@@ -1,14 +1,11 @@
 module clusterd
 
-go 1.22.0
-
-toolchain go1.22.9
+go 1.20
 
 require (
 	github.com/agiledragon/gomonkey/v2 v2.8.0
 	github.com/golang/protobuf v1.5.3
 	github.com/smartystreets/goconvey v1.7.2
-	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 	google.golang.org/grpc v1.57.2
 	huawei.com/npu-exporter/v6 v6.0.0-RC3.b001
 	k8s.io/api v0.25.3

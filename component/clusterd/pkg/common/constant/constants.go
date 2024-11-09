@@ -56,7 +56,7 @@ const (
 	JobNotRecover             = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
 	JobNotRecoverComplete     = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
 	DeviceNotFault            = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
-	DiagnosisAccompanyTimeout = int64(5 * time.Second)
-	JobReportRecoverTimeout   = int64(10 * time.Second)
-	JobReportCompleteTimeout  = int64(30 * time.Second)
+	DiagnosisAccompanyTimeout = 5 * 1000
+	JobReportRecoverTimeout   = 10 * 1000
+	JobReportCompleteTimeout  = 30 * 1000
 )
