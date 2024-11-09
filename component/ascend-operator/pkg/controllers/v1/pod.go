@@ -223,7 +223,7 @@ func (r *ASJobReconciler) saveRanktable(rtg generator.RankTableGenerator, ji *jo
 		saveRanktableSuccess = r.tryWriteCm(ji.mtObj.GetName(), ji.mtObj.GetNamespace(), ji.mtObj.GetUID()) && saveRanktableSuccess
 	}
 	if !saveRanktableSuccess {
-		hwlog.RunLog.Errorf("failed to write rank table")
+		hwlog.RunLog.Error("failed to write rank table")
 		rtg.SetStatus(utils.InitialRTStatus)
 	}
 }
