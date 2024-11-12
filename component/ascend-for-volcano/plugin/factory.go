@@ -20,18 +20,23 @@ Package plugin is using for HuaWei Ascend pin affinity schedule.
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+	"volcano.sh/apis/pkg/apis/scheduling"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/conf"
 	"volcano.sh/volcano/pkg/scheduler/framework"
@@ -108,6 +113,7 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 		klog.V(util.LogInfoLev).Infof("InitJobsFromSsn failed: %s.", util.ArgumentError)
 		return
 	}
+	sHandle.refreshJobWithIndex()
 	oldJobs := sHandle.Jobs
 	sHandle.Jobs = make(map[api.JobID]SchedulerJob, util.MapInitNum)
 	tmpJobServerInfos := make(map[api.JobID]struct{})
@@ -115,6 +121,13 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	tmpJobSinglePodFlag := make(map[api.JobID]bool)
 	tmpJobPendingMessage := make(map[api.JobID]map[string]map[string]struct{})
 	for jobID, jobInfo := range ssn.Jobs {
+		owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
+		if owner.Kind == "ReplicaSet" {
+			err := sHandle.initResourceOfDeploy(jobInfo, ssn, owner)
+			if err != nil {
+				continue
+			}
+		}
 		sJob := SchedulerJob{}
 		if err := sJob.Init(jobInfo, sHandle); err != nil {
 			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
@@ -143,6 +156,90 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	sHandle.JobSinglePodFlag = tmpJobSinglePodFlag
 	sHandle.JobPendingMessage = tmpJobPendingMessage
 	return
+}
+
+func (sHandle *ScheduleHandler) refreshJobWithIndex() {
+	newJobs := make(map[api.JobID]struct{})
+	for id := range sHandle.JobWithIndex {
+		if _, ok := sHandle.Jobs[id]; ok {
+			newJobs[id] = struct{}{}
+		}
+	}
+	sHandle.JobWithIndex = newJobs
+}
+
+func (sHandle *ScheduleHandler) initResourceOfDeploy(job *api.JobInfo, ssn *framework.Session,
+	owner metav1.OwnerReference) error {
+	if int(job.PodGroup.Spec.MinMember) != len(job.Tasks) {
+		klog.V(util.LogInfoLev).Infof("deployment %s is not ready, minMember %d != taskNum %d", job.Name,
+			job.PodGroup.Spec.MinMember, len(job.Tasks))
+		return errors.New("deployment is not ready")
+	}
+	err := updatePodGroupOfDeploy(job, ssn.KubeClient(), ssn.InformerFactory(), owner)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("updatePodGroupOfDeploy failed: %s.", util.SafePrint(err))
+	}
+	_, existAnno := job.PodGroup.PodGroup.Annotations["hasSetIndex"]
+	_, existCache := sHandle.JobWithIndex[job.UID]
+	if !existAnno && !existCache {
+		job.PodGroup.PodGroup.Annotations["hasSetIndex"] = "true"
+		sHandle.JobWithIndex[job.UID] = struct{}{}
+		updatePodOfDeploy(job)
+		return nil
+	}
+	if existAnno && !existCache {
+		sHandle.JobWithIndex[job.UID] = struct{}{}
+	}
+
+	return nil
+}
+
+func updatePodOfDeploy(job *api.JobInfo) {
+	i := 0
+	for _, task := range job.Tasks {
+		if task.Pod == nil {
+			continue
+		}
+		if task.Pod.Annotations == nil {
+			task.Pod.Annotations = make(map[string]string)
+		}
+		task.Pod.Annotations[podRankIndex] = strconv.Itoa(i)
+		i++
+	}
+}
+
+func updatePodGroupOfDeploy(job *api.JobInfo, client kubernetes.Interface,
+	informerFactory informers.SharedInformerFactory, owner metav1.OwnerReference) error {
+	var rs *appsv1.ReplicaSet
+	obj, exist, err := informerFactory.Apps().V1().ReplicaSets().Informer().GetIndexer().GetByKey(job.PodGroup.
+		Namespace + "/" + owner.Name)
+	if err != nil || !exist {
+		klog.V(util.LogErrorLev).Infof("Get rs from indexer failed err: %s, exist: %v.", util.SafePrint(err), exist)
+		rs, err = client.AppsV1().ReplicaSets(job.PodGroup.Namespace).Get(context.TODO(), owner.Name,
+			metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		rs = obj.(*appsv1.ReplicaSet)
+	}
+
+	if job.PodGroup.Annotations == nil {
+		job.PodGroup.Annotations = make(map[string]string)
+	}
+	for k, v := range rs.Annotations {
+		job.PodGroup.Annotations[k] = v
+	}
+	return nil
+}
+
+func getPodGroupOwnerRef(pg scheduling.PodGroup) metav1.OwnerReference {
+	for _, ref := range pg.OwnerReferences {
+		if *ref.Controller == true {
+			return ref
+		}
+	}
+	return metav1.OwnerReference{}
 }
 
 // CheckVNPUSegmentEnableByConfig Check VNPU segmentEnable by init plugin parameters, return true if static

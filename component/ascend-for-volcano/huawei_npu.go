@@ -245,6 +245,7 @@ func HandlerStart() *plugin.ScheduleHandler {
 		ScheduleEnv: plugin.ScheduleEnv{
 			IsFirstSession:      &isFirstSession,
 			Jobs:                map[api.JobID]plugin.SchedulerJob{},
+			JobWithIndex:        map[api.JobID]struct{}{},
 			JobSeverInfos:       map[api.JobID]struct{}{},
 			JobDeleteFlag:       map[api.JobID]struct{}{},
 			JobSinglePodFlag:    map[api.JobID]bool{},

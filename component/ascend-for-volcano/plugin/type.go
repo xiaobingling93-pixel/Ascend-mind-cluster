@@ -168,6 +168,7 @@ type FaultRankIdData struct {
 type ScheduleEnv struct {
 	IsFirstSession      *bool // scheduler first session message is unreliable
 	Jobs                map[api.JobID]SchedulerJob
+	JobWithIndex        map[api.JobID]struct{}
 	Nodes               map[string]NPUNode
 	JobSinglePodFlag    map[api.JobID]bool
 	JobSeverInfos       map[api.JobID]struct{}
