@@ -16,9 +16,9 @@ type NodeFaultProcessCenter struct {
 
 func NewNodeFaultProcessCenter() *NodeFaultProcessCenter {
 	return &NodeFaultProcessCenter{
+		BaseFaultCenter: newBaseFaultCenter(),
 		infos:           make(map[string]*constant.NodeInfo),
 		mutex:           sync.RWMutex{},
-		BaseFaultCenter: newBaseFaultCenter(),
 	}
 }
 

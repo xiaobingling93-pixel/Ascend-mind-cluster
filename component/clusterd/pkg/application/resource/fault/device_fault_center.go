@@ -19,31 +19,14 @@ type DeviceFaultProcessCenter struct {
 
 func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
 	deviceCenter := &DeviceFaultProcessCenter{
+		BaseFaultCenter: newBaseFaultCenter(),
 		mutex:           sync.RWMutex{},
 		infos:           make(map[string]*constant.DeviceInfo),
-		BaseFaultCenter: newBaseFaultCenter(),
 	}
 
-	var processorForUceAccompanyFault = &UceAccompanyFaultProcessor{
-		DiagnosisAccompanyTimeout: constant.DiagnosisAccompanyTimeout,
-		uceAccompanyFaultQue:      make(map[string]map[string][]constant.DeviceFault),
-		uceFaultTime:              make(map[string]map[string]int64),
-		deviceCenter:              deviceCenter,
-	}
-	var processorForUceFault = &UceFaultProcessor{
-		JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
-		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
-		mindIoReportInfo: &mindIoReportInfosForAllJobs{
-			Infos:   make(map[string]map[string]map[string]mindIoReportInfo),
-			RwMutex: sync.RWMutex{},
-		},
-		deviceCenter: deviceCenter,
-	}
-	var processForJobFaultRank = &JobRankFaultInfoProcessor{
-		jobFaultInfos: make(map[string]FaultInfo),
-		deviceCenter:  deviceCenter,
-		mutex:         sync.RWMutex{},
-	}
+	var processorForUceAccompanyFault = newUceAccompanyFaultProcessor(deviceCenter)
+	var processorForUceFault = newUceFaultProcessor(deviceCenter)
+	var processForJobFaultRank = newJobRankFaultInfoProcessor(deviceCenter)
 
 	deviceCenter.addProcessors([]FaultProcessor{
 		processForJobFaultRank,        // this processor don't need to filter anything, so assign on the first position.

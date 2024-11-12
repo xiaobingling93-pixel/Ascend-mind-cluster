@@ -41,7 +41,7 @@ func newBaseFaultCenter() BaseFaultCenter {
 		processors:        make([]FaultProcessor, 0),
 		lastProcessTime:   0,
 		subscribeChannels: make([]chan struct{}, 0),
-		processPeriod:     0,
+		processPeriod:     constant.FaultCenterProcessPeriod,
 	}
 }
 

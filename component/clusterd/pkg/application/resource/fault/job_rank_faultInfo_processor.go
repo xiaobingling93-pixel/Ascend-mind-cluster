@@ -8,10 +8,28 @@ import (
 	"sync"
 )
 
+type FaultRank struct {
+	RankId    string
+	FaultCode string
+}
+
+type FaultInfo struct {
+	JobId     string
+	FaultList []FaultRank
+}
+
 type JobRankFaultInfoProcessor struct {
 	deviceCenter  *DeviceFaultProcessCenter
 	jobFaultInfos map[string]FaultInfo
 	mutex         sync.RWMutex
+}
+
+func newJobRankFaultInfoProcessor(deviceCenter *DeviceFaultProcessCenter) *JobRankFaultInfoProcessor {
+	return &JobRankFaultInfoProcessor{
+		jobFaultInfos: make(map[string]FaultInfo),
+		deviceCenter:  deviceCenter,
+		mutex:         sync.RWMutex{},
+	}
 }
 
 func (processor *JobRankFaultInfoProcessor) GetJobFaultRankInfos() map[string]FaultInfo {
@@ -49,8 +67,8 @@ func (processor *JobRankFaultInfoProcessor) Process() {
 	processor.SetJobFaultRankInfos(jobFaultInfos)
 }
 
-func findFaultRankForJob(
-	deviceInfos map[string]*constant.DeviceInfo, nodeName string, serverList []*job.ServerHccl, jobId string) []FaultRank {
+func findFaultRankForJob(deviceInfos map[string]*constant.DeviceInfo, nodeName string,
+	serverList []*job.ServerHccl, jobId string) []FaultRank {
 	faultMap := device.GetFaultMap(deviceInfos[nodeNameToCmName(nodeName)])
 	devicesOfJobOnNode := getDevicesNameOfJobOnNode(nodeName, serverList, jobId)
 	faultRankList := make([]FaultRank, 0)
@@ -71,14 +89,4 @@ func findFaultRankForJob(
 		}
 	}
 	return faultRankList
-}
-
-type FaultRank struct {
-	RankId    string
-	FaultCode string
-}
-
-type FaultInfo struct {
-	JobId     string
-	FaultList []FaultRank
 }

@@ -6,12 +6,11 @@ package device
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"slices"
-	"strings"
-
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
+	"reflect"
+	"sort"
+	"strings"
 
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -198,7 +197,9 @@ func mergeDeviceFault(deviceFaults []constant.DeviceFault) (constant.DeviceFault
 		}
 		faultCodeList = append(faultCodeList, fault.FaultCode)
 	}
-	slices.Sort(faultCodeList)
+	sort.SliceStable(faultCodeList, func(i, j int) bool {
+		return faultCodeList[i] < faultCodeList[j]
+	})
 	mergeFault.FaultCode = strings.Join(faultCodeList, ",")
 	return mergeFault, nil
 }

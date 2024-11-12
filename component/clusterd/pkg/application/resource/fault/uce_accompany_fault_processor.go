@@ -22,6 +22,15 @@ type UceAccompanyFaultProcessor struct {
 	uceFaultTime map[string]map[string]int64
 }
 
+func newUceAccompanyFaultProcessor(deviceCenter *DeviceFaultProcessCenter) *UceAccompanyFaultProcessor {
+	return &UceAccompanyFaultProcessor{
+		DiagnosisAccompanyTimeout: constant.DiagnosisAccompanyTimeout,
+		uceAccompanyFaultQue:      make(map[string]map[string][]constant.DeviceFault),
+		uceFaultTime:              make(map[string]map[string]int64),
+		deviceCenter:              deviceCenter,
+	}
+}
+
 func (processor *UceAccompanyFaultProcessor) uceAccompanyFaultInQue(deviceInfos map[string]*constant.DeviceInfo) {
 	for _, deviceInfo := range deviceInfos {
 		nodeName, err := cmNameToNodeName(deviceInfo.CmName)

@@ -15,9 +15,9 @@ type SwitchFaultProcessCenter struct {
 
 func NewSwitchFaultProcessCenter() *SwitchFaultProcessCenter {
 	return &SwitchFaultProcessCenter{
+		BaseFaultCenter: newBaseFaultCenter(),
 		infos:           make(map[string]*constant.SwitchInfo),
 		mutex:           sync.RWMutex{},
-		BaseFaultCenter: newBaseFaultCenter(),
 	}
 }
 

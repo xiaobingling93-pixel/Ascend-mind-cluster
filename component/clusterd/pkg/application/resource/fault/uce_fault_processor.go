@@ -34,6 +34,18 @@ type mindIoReportInfosForAllJobs struct {
 	RwMutex sync.RWMutex
 }
 
+func newUceFaultProcessor(deviceCenter *DeviceFaultProcessCenter) *UceFaultProcessor {
+	return &UceFaultProcessor{
+		JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
+		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
+		mindIoReportInfo: &mindIoReportInfosForAllJobs{
+			Infos:   make(map[string]map[string]map[string]mindIoReportInfo),
+			RwMutex: sync.RWMutex{},
+		},
+		deviceCenter: deviceCenter,
+	}
+}
+
 func (reportInfos *mindIoReportInfosForAllJobs) getInfo(jobId, nodeName, deviceName string) mindIoReportInfo {
 	if reportInfos == nil {
 		return mindIoReportInfo{
@@ -197,7 +209,8 @@ func (processor *UceFaultProcessor) mindIoReportCompleteTimeIsNotExceedCompleteT
 	return processor.JobReportCompleteTimeout+uceDevice.RecoverTime >= uceDevice.CompleteTime
 }
 
-func (processor *UceFaultProcessor) getUceDeviceOfNodes(deviceInfos map[string]*constant.DeviceInfo) map[string]uceNodeInfo {
+func (processor *UceFaultProcessor) getUceDeviceOfNodes(
+	deviceInfos map[string]*constant.DeviceInfo) map[string]uceNodeInfo {
 	uceNodes := make(map[string]uceNodeInfo)
 	for _, deviceInfo := range deviceInfos {
 		nodeName, err := cmNameToNodeName(deviceInfo.CmName)
@@ -215,7 +228,8 @@ func (processor *UceFaultProcessor) getUceDeviceOfNodes(deviceInfos map[string]*
 	return uceNodes
 }
 
-func (processor *UceFaultProcessor) getUceDevicesForUceTolerateJobs(deviceInfos map[string]*constant.DeviceInfo) map[string]uceJobInfo {
+func (processor *UceFaultProcessor) getUceDevicesForUceTolerateJobs(
+	deviceInfos map[string]*constant.DeviceInfo) map[string]uceJobInfo {
 	nodesName := getNodesNameFromDeviceInfo(deviceInfos)
 	uceJobs := make(map[string]uceJobInfo)
 	kube.JobMgr.RwMutex.RLock()
