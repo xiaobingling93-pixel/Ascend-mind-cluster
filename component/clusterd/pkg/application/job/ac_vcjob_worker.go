@@ -49,7 +49,7 @@ func NewJobWorker(agent *Agent, job Info, ranktable RankTabler, replicasTotal in
 			clientSet:  agent.KubeClientSet,
 			podIndexer: agent.podsIndexer,
 			statSwitch: make(chan struct{}),
-			CMName:     fmt.Sprintf("%s-%s", ConfigmapPrefix, job.Name),
+			CMName:     fmt.Sprintf("%s-%s", ConfigmapPrefix, job.JobName),
 			CMData:     ranktable, statStopped: false,
 			cachedPodNum:      0,
 			jobReplicasTotal:  replicasTotal,
@@ -67,7 +67,6 @@ func (b *Worker) doPodWork(pod *apiCoreV1.Pod, podInfo *podIdentifier) {
 		return
 	}
 	// start to sync current pod
-	hwlog.RunLog.Infof("data of pod %s/%s is removed", podInfo.namespace, podInfo.name)
 	if err = b.handler(pod, podInfo); err != nil {
 		hwlog.RunLog.Errorf("error syncing '%s': %v", podInfo, err)
 	}
@@ -76,7 +75,7 @@ func (b *Worker) doPodWork(pod *apiCoreV1.Pod, podInfo *podIdentifier) {
 func (b *Worker) doPreCheck(pod *apiCoreV1.Pod, podInfo *podIdentifier) error {
 	// scenario check A: For an identical job, create it immediately after deletion
 	// check basis: job uid + creationTimestamp
-	if !isReferenceJobSameWithWorker(pod, podInfo.jobName, b.Uid) {
+	if !isReferenceJobSameWithWorker(pod, podInfo.jobName, b.JobUid) {
 		if pod.CreationTimestamp.Before(&b.CreationTimestamp) {
 			// old pod + new worker
 			hwlog.RunLog.Errorf("syncing '%s' terminated: corresponding job worker is no "+
@@ -115,19 +114,19 @@ func (b *Worker) Stat(stopTime time.Duration) {
 		default:
 			if b.jobReplicasTotal == b.cachedPodNum {
 				hwlog.RunLog.Infof("rank table build progress for %s/%s is completed",
-					b.Namespace, b.Name)
+					b.Namespace, b.JobName)
 				b.CloseStat()
 				return
 			}
 			hwlog.RunLog.Infof("rank table build progress for %s/%s: pods need to be cached = %d,"+
-				"pods already cached = %d", b.Namespace, b.Name, b.jobReplicasTotal, b.cachedPodNum)
+				"pods already cached = %d", b.Namespace, b.JobName, b.jobReplicasTotal, b.cachedPodNum)
 			time.Sleep(stopTime)
 		}
 	}
 }
 
 func (b *WorkerInfo) handler(pod *apiCoreV1.Pod, podInfo *podIdentifier) error {
-	hwlog.RunLog.Infof("handler start, current pod is %s", podInfo)
+	hwlog.RunLog.Debugf("handler start, current pod is %s", podInfo)
 
 	// if pod use 0 chip, end pod sync
 	if b.jobReplicasTotal == 0 && b.constructionFinished() {
@@ -143,12 +142,12 @@ func (b *WorkerInfo) handler(pod *apiCoreV1.Pod, podInfo *podIdentifier) error {
 
 	// dryRun is for empty running and will not be committed
 	if b.dryRun {
-		hwlog.RunLog.Infof("I am handling %s", podInfo)
+		hwlog.RunLog.Debugf("dryRun handling: %s", podInfo)
 		return nil
 	}
 
 	if podInfo.eventType == EventAdd || podInfo.eventType == EventUpdate {
-		hwlog.RunLog.Infof("current addUpdate pod is %s", podInfo)
+		hwlog.RunLog.Debugf("current addUpdate pod is %s", podInfo)
 		return b.handlePodAddUpdateEvent(podInfo, pod)
 	}
 	hwlog.RunLog.Infof("undefined condition, pod: %s", podInfo)
@@ -172,7 +171,7 @@ func (b *WorkerInfo) handlePodWithoutChip(podInfo *podIdentifier, pod *apiCoreV1
 	}
 	b.podSchedulerCache = append(b.podSchedulerCache, string(pod.UID))
 	b.modifyStat(1)
-	hwlog.RunLog.Infof("pod %s does not use npu, pod cached num %d, job replicas total %d",
+	hwlog.RunLog.Debugf("pod %s does not use npu, pod cached num %d, job replicas total %d",
 		podInfo, b.cachedPodNum, b.jobReplicasTotal)
 	if err := b.updateWithFinish(podInfo); err != nil {
 		hwlog.RunLog.Errorf("pod %s ranktable error: %v", podInfo, err)

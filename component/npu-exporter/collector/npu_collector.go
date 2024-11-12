@@ -1580,6 +1580,10 @@ func updateErrorCodesInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 		npuChipInfoDescErrorCode5, npuChipInfoDescErrorCode6, npuChipInfoDescErrorCode7, npuChipInfoDescErrorCode8,
 		npuChipInfoDescErrorCode9,
 	}
+	if len(chip.ErrorCodes) > common.MaxErrorCodeLen {
+		hwlog.RunLog.Warnf("Error code number is larger than %v, only the first %v will be reported, "+
+			"all errorCode is: %v", common.MaxErrorCodeLen, common.MaxErrorCodeLen, chip.ErrorCodes)
+	}
 	for i := 0; i < len(chip.ErrorCodes) && i < len(errCodesDesc); i++ {
 		value := float64(chip.ErrorCodes[i])
 		if !validateNum(value) {
@@ -1679,6 +1683,9 @@ func doUpdateHccsMetric(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, value i
 		hwlog.RunLog.Warn("Invalid param in function doUpdateHccsMetric")
 	}
 
+	if finalValue == common.FailedValue {
+		finalValue = common.FailedMetricValue
+	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, finalValue, cardLabel...))
 }
@@ -1874,8 +1881,9 @@ func packHccsInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWei
 	}
 	hccsStatisticInfo, err := dmgr.GetHccsStatisticInfo(logicID)
 	if err != nil {
-		hwlog.RunLog.Errorf("get hccs statistic info of npu failed: %v", err)
-		hccsStatisticInfo = nil
+		hwlog.RunLog.ErrorfWithLimit(common.DomainForHccs, logicID, "get hccs statistic info of npu failed: %v", err)
+	} else {
+		hwlog.ResetErrCnt(common.DomainForHccs, logicID)
 	}
 	hwChip.HccsStatisticInfo = hccsStatisticInfo
 }
@@ -1886,7 +1894,9 @@ func packHccsBandwidthInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChi
 	}
 	hccsBandwidthInfo, err := dmgr.GetHccsBandwidthInfo(logicID)
 	if err != nil {
-		hwlog.RunLog.Errorf("get hccs bandwidth info of npu failed: %v", err)
+		hwlog.RunLog.ErrorfWithLimit(common.DomainForHccsBW, logicID, "get hccs bandwidth info of npu failed: %v ", err)
+	} else {
+		hwlog.ResetErrCnt(common.DomainForHccsBW, logicID)
 	}
 	hwChip.HccsBandwidthInfo = hccsBandwidthInfo
 }

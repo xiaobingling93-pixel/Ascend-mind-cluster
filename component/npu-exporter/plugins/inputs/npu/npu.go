@@ -274,8 +274,11 @@ func (npu *WatchNPU) collectHccsInfo(devID int32, fields map[string]interface{},
 	}
 	hccsStatisticInfo, err := npu.devManager.GetHccsStatisticInfo(devID)
 	if err != nil {
-		acc.AddError(fmt.Errorf("get hccs statistic info of npu failed: %v", err))
-		return
+		if needPrint, extraErrLog := hwlog.IsNeedPrint(common.DomainForHccs, devID); needPrint {
+			acc.AddError(fmt.Errorf("get hccs statistic info of npu failed: %v %s", err, extraErrLog))
+		}
+	} else {
+		hwlog.ResetErrCnt(common.DomainForHccs, devID)
 	}
 	var hccsBeginIndex int
 	if devType == common.Ascend910B || common.IsA900A3SuperPod(npu.devManager.GetMainBoardId()) {
@@ -297,8 +300,11 @@ func (npu *WatchNPU) collectHccsInfo(devID int32, fields map[string]interface{},
 	}
 	hccsBandwidthInfo, err := npu.devManager.GetHccsBandwidthInfo(devID)
 	if err != nil {
-		acc.AddError(fmt.Errorf("get hccs bandwidth info of npu failed: %v", err))
-		return
+		if needPrint, extraErrLog := hwlog.IsNeedPrint(common.DomainForHccsBW, devID); needPrint {
+			acc.AddError(fmt.Errorf("get hccs bandwidth info of npu failed: %v %s", err, extraErrLog))
+		}
+	} else {
+		hwlog.ResetErrCnt(common.DomainForHccsBW, devID)
 	}
 	doUpdateFields(acc, fields, "npu_chip_info_hccs_bandwidth_info_profiling_time", hccsBandwidthInfo.ProfilingTime)
 	doUpdateFields(acc, fields, "npu_chip_info_hccs_bandwidth_info_total_tx", hccsBandwidthInfo.TotalTxbw)
@@ -317,8 +323,21 @@ func doUpdateFields(acc telegraf.Accumulator, fields map[string]interface{}, key
 		acc.AddError(fmt.Errorf(receivedFieldsNil))
 		return
 	}
+	var finalValue float64
 
-	fields[key] = value
+	switch value.(type) {
+	case float64:
+		finalValue = value.(float64)
+	case uint32:
+		finalValue = float64(value.(uint32))
+	default:
+		hwlog.RunLog.Warn("Invalid param in function doUpdateHccsMetric")
+	}
+
+	if finalValue == common.FailedValue {
+		finalValue = common.FailedMetricValue
+	}
+	fields[key] = finalValue
 }
 
 func (npu *WatchNPU) collectUtilizationRate(devID int32, fields map[string]interface{}, acc telegraf.Accumulator) {

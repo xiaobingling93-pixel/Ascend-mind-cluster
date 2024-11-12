@@ -16,21 +16,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
 
 // AddEvent is to handle adding new pod group
 func (job *jobModel) AddEvent(agent *Agent) error {
-	hwlog.RunLog.Infof("create worker for %s %s", job.Namespace, job.Name)
-	bsKey := job.Uid
+	hwlog.RunLog.Infof("create worker for %s %s", job.Namespace, job.JobName)
+	bsKey := job.JobUid
 	if agent.BsExist(bsKey) {
-		hwlog.RunLog.Errorf(" worker for %s %s is already existed", job.Namespace, job.Name)
+		hwlog.RunLog.Errorf(" worker for %s %s is already existed", job.Namespace, job.JobName)
 		return nil
 	}
-
+	if n := agent.BsLength(bsKey); n > constant.MaxSupportJobNum {
+		hwlog.RunLog.Errorf("worker length=%d > %d", n, constant.MaxSupportJobNum)
+		return fmt.Errorf("worker length=%d > %d", n, constant.MaxSupportJobNum)
+	}
 	initCM(agent.KubeClientSet, job)
 
-	cm, err := checkCMCreation(job.Namespace, job.Name, agent.KubeClientSet, agent.Config)
+	cm, err := checkCMCreation(job.Namespace, job.JobName, agent.KubeClientSet, agent.Config)
 	if err != nil {
 		return err
 	}
@@ -65,7 +69,7 @@ func (job *jobModel) AddEvent(agent *Agent) error {
 // EventUpdate : to handle job update event
 func (job *jobModel) EventUpdate(agent *Agent) error {
 	agent.RwMutex.RLock()
-	_, exist := agent.BsWorker[job.Uid]
+	_, exist := agent.BsWorker[job.JobUid]
 	agent.RwMutex.RUnlock()
 	if !exist {
 		// for job update, if create worker at job restart phase, the version will be incorrect
@@ -131,7 +135,7 @@ func (job *jobModel) DeleteWorker(namespace string, name string, uid string, age
 // updateCMOnDeleteEvent handle cm update when pg delete
 func (job *jobModel) updateCMOnDeleteEvent(kubeClientSet kubernetes.Interface) error {
 	cm, err := kubeClientSet.CoreV1().ConfigMaps(job.Namespace).Get(context.TODO(),
-		fmt.Sprintf("%s-%s", ConfigmapPrefix, job.Name), metav1.GetOptions{})
+		fmt.Sprintf("%s-%s", ConfigmapPrefix, job.JobName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get configmap error: %v", err)
 	}
@@ -188,6 +192,9 @@ func getPGJobInfo(metaData metav1.Object) (string, string) {
 		jobName = v.Name
 		uid = string(v.UID)
 		break
+	}
+	if len(ownerReferences) > 1 {
+		hwlog.RunLog.Warnf("length of ownerReferences > 1, jobName=%s, jobUid=%s", jobName, uid)
 	}
 	return jobName, uid
 }
