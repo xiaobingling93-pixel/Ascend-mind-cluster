@@ -69,6 +69,8 @@ const (
 	SharedTorIp = "sharedTorIp"
 	// PodRankIndexKey rank index key
 	PodRankIndexKey = "hccl/rankIndex"
+
+	replicaSetType = "ReplicaSet"
 )
 
 const (

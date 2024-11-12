@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,7 +120,7 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	tmpJobPendingMessage := make(map[api.JobID]map[string]map[string]struct{})
 	for jobID, jobInfo := range ssn.Jobs {
 		owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
-		if owner.Kind == "ReplicaSet" {
+		if owner.Kind == replicaSetType {
 			err := sHandle.initResourceOfDeploy(jobInfo, ssn, owner)
 			if err != nil {
 				continue

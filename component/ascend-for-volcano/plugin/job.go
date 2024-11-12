@@ -160,6 +160,10 @@ func getVcjobMinResource(job *api.JobInfo) *api.Resource {
 	if job.PodGroup.Spec.MinResources == nil {
 		return api.EmptyResource()
 	}
+	owner := getPodGroupOwnerRef(job.PodGroup.PodGroup)
+	if owner.Kind == replicaSetType {
+		return api.NewResource(*job.PodGroup.Spec.MinResources).Multi(float64(len(job.Tasks)))
+	}
 	return api.NewResource(*job.PodGroup.Spec.MinResources)
 }
 
