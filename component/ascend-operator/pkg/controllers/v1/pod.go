@@ -151,22 +151,6 @@ func (r *ASJobReconciler) reconcilePods(pi *podInfo, pods []*corev1.Pod, jobStat
 	return r.createPods(podToCreate, replicas)
 }
 
-func (r *ASJobReconciler) updateRandIndex(allocatedPods []*corev1.Pod) {
-	for _, p := range allocatedPods {
-		if _, rankExist := p.Annotations[rankIndexKey]; rankExist {
-			hwlog.RunLog.Info("rank index exist")
-			return
-		}
-	}
-	var rankIndex uint64 = 0
-	for _, p := range allocatedPods {
-		p.Annotations[rankIndexKey] = strconv.FormatUint(rankIndex, decimal)
-		r.Update(context.TODO(), p)
-		rankIndex++
-	}
-	hwlog.RunLog.Info("write rank index success")
-}
-
 func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 	hwlog.RunLog.Infof("generating rank table for job %s", ji.name)
 	rtg, ok := r.rtGenerators[ji.mtObj.GetUID()]
@@ -189,7 +173,6 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 	if int(ji.totalReplicas) == 0 || len(allocatedPods) != int(ji.totalReplicas) {
 		return
 	}
-	r.updateRandIndex(allocatedPods)
 	errs := &sync.Map{}
 	errCount := int32(0)
 	wg := &sync.WaitGroup{}
