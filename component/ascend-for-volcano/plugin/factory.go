@@ -170,6 +170,7 @@ func (sHandle *ScheduleHandler) refreshJobWithIndex() {
 func (sHandle *ScheduleHandler) initResourceOfDeploy(job *api.JobInfo, ssn *framework.Session,
 	owner metav1.OwnerReference) error {
 	var rs *appsv1.ReplicaSet
+	var ok bool
 	obj, exist, err := ssn.InformerFactory().Apps().V1().ReplicaSets().Informer().GetIndexer().GetByKey(job.PodGroup.
 		Namespace + "/" + owner.Name)
 	if err != nil || !exist {
@@ -180,11 +181,14 @@ func (sHandle *ScheduleHandler) initResourceOfDeploy(job *api.JobInfo, ssn *fram
 			return err
 		}
 	} else {
-		rs = obj.(*appsv1.ReplicaSet)
+		rs, ok = obj.(*appsv1.ReplicaSet)
+		if !ok {
+			return errors.New("the object is not a replicaset")
+		}
 	}
 	if int(*rs.Spec.Replicas) != len(job.Tasks) {
-		klog.V(util.LogErrorLev).Infof("The number of tasks of job %s is not equal to the number of replicas of rs"+
-			" %s.", len(job.Tasks), *rs.Spec.Replicas)
+		klog.V(util.LogErrorLev).Infof("The number of tasks of job %d is not equal to the number of replicas of rs"+
+			" %d.", len(job.Tasks), *rs.Spec.Replicas)
 		return errors.New("the number of tasks of job is not equal to the number of replicas of rs")
 	}
 	updatePodGroupOfDeploy(job, rs)

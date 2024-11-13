@@ -20,8 +20,11 @@ Package plugin is using for HuaWei Ascend pin affinity schedule.
 package plugin
 
 import (
+	appv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
+	"volcano.sh/apis/pkg/apis/scheduling"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/api/core/v1"
@@ -599,5 +602,93 @@ func TestInitVolcanoFrameFromSsn(t *testing.T) {
 			}
 		})
 	}
+}
 
+// TestGetPodGroupOwnerRef test of getPodGroupOwnerRef
+func TestGetPodGroupOwnerRef(t *testing.T) {
+	t.Run("pg without ownerRef", func(t *testing.T) {
+		pg := scheduling.PodGroup{}
+		expectedOwner := metav1.OwnerReference{}
+		owner := getPodGroupOwnerRef(pg)
+		if !reflect.DeepEqual(expectedOwner, owner) {
+			t.Errorf("getPodGroupOwnerRef = %v, want %v", owner, expectedOwner)
+		}
+	})
+	t.Run("pg with ownerRef", func(t *testing.T) {
+		controller := true
+		pg := scheduling.PodGroup{
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						Controller: &controller,
+					},
+				},
+			},
+		}
+		expectedOwner := metav1.OwnerReference{
+			Controller: &controller,
+		}
+		owner := getPodGroupOwnerRef(pg)
+		if !reflect.DeepEqual(expectedOwner, owner) {
+			t.Errorf("getPodGroupOwnerRef = %v, want %v", owner, expectedOwner)
+		}
+	})
+}
+
+// TestUpdatePodGroupOfDeploy test of updatePodGroupOfDeploy
+func TestUpdatePodGroupOfDeploy(t *testing.T) {
+	t.Run("updatePodGroupOfDeploy", func(t *testing.T) {
+		job := &api.JobInfo{
+			PodGroup: &api.PodGroup{
+				PodGroup: scheduling.PodGroup{},
+			},
+		}
+		rs := &appv1.ReplicaSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{"xxx": "yyy"},
+			},
+		}
+		expectedAnno := map[string]string{"xxx": "yyy"}
+		updatePodGroupOfDeploy(job, rs)
+		if !reflect.DeepEqual(expectedAnno, job.PodGroup.Annotations) {
+			t.Errorf("updatePodGroupOfDeploy = %v, want %v", job.PodGroup.Annotations, expectedAnno)
+		}
+	})
+}
+
+// TestUpdatePodOfDeploy test of updatePodOfDeploy
+func TestUpdatePodOfDeploy(t *testing.T) {
+	t.Run("updatePodOfDeploy", func(t *testing.T) {
+		job := &api.JobInfo{
+			Tasks: map[api.TaskID]*api.TaskInfo{
+				"task1": {
+					Pod: &v1.Pod{},
+				},
+				"task2": {
+					Pod: &v1.Pod{},
+				},
+			},
+		}
+		expectedRankIndexes := map[string]struct{}{"0": {}, "1": {}}
+		updatePodOfDeploy(job)
+		indexes := getJobRankIndexes(job)
+		if !reflect.DeepEqual(expectedRankIndexes, indexes) {
+			t.Errorf("updatePodOfDeploy = %v, want %v", indexes, expectedRankIndexes)
+		}
+	})
+}
+
+func getJobRankIndexes(job *api.JobInfo) map[string]struct{} {
+	indexes := make(map[string]struct{}, 0)
+	for _, task := range job.Tasks {
+		if task.Pod == nil {
+			continue
+		}
+		idx, ok := task.Pod.Annotations[podRankIndex]
+		if !ok {
+			continue
+		}
+		indexes[idx] = struct{}{}
+	}
+	return indexes
 }
