@@ -238,3 +238,8 @@ var (
 	// ModelFramework is the framework value
 	ModelFramework string
 )
+
+// Job info
+type JobServerInfoMap struct {
+	InfoMap map[string]map[string]ServerHccl
+}

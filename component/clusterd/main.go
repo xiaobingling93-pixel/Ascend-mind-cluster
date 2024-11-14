@@ -4,6 +4,7 @@
 package main
 
 import (
+	"clusterd/pkg/application/fault"
 	"context"
 	"flag"
 	"fmt"
@@ -91,7 +92,7 @@ func main() {
 	}
 	// election and running process
 	startInformer(ctx, recoverService)
-	resource.NewFaultProcessCenter(ctx)
+	fault.NewFaultProcessCenter(ctx)
 	signalCatch(cancel)
 }
 

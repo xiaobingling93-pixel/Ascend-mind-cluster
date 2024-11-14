@@ -2,27 +2,24 @@ package fault
 
 import (
 	"clusterd/pkg/application/job"
-	"clusterd/pkg/common/constant"
 	"fmt"
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"strings"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
+	"clusterd/pkg/common/constant"
 )
 
-func getDevicesNameOfJobOnNode(nodeName string, serverList []*job.ServerHccl, jobId string) []*job.Device {
-	var devices []*job.Device
-	found := false
-	for _, server := range serverList {
-		if server.ServerName != nodeName {
-			continue
+func getNodeAndDeviceFromJobIdAndRankId(jobId, rankId string, jobServerInfoMap job.JobServerInfoMap) (string, string, error) {
+
+	for _, server := range jobServerInfoMap.InfoMap[jobId] {
+		for _, dev := range server.DeviceList {
+			if dev.RankID == rankId {
+				return server.ServerName, dev.DeviceID, nil
+			}
 		}
-		found = true
-		devices = server.DeviceList
-		break
 	}
-	if !found {
-		hwlog.RunLog.Warnf("Job %s may not run on node %s.", jobId, nodeName)
-	}
-	return devices
+	return "", "", fmt.Errorf("not find node and device from jobId %v and rankid %v", jobId, rankId)
 }
 
 func getNodesNameFromDeviceInfo(deviceInfos map[string]*constant.DeviceInfo) []string {

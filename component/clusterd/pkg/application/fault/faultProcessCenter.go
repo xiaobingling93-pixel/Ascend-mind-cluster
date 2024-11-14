@@ -1,42 +1,43 @@
-package resource
+package fault
 
 import (
-	"clusterd/pkg/application/resource/fault"
+	"context"
+	"time"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
-	"context"
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-	"time"
 )
 
 var GlobalFaultProcessCenter *FaultProcessCenter
 
 // The FaultProcessCenter process the faults
 type FaultProcessCenter struct {
-	deviceCenter      *fault.DeviceFaultProcessCenter
-	nodeCenter        *fault.NodeFaultProcessCenter
-	switchCenter      *fault.SwitchFaultProcessCenter
+	deviceCenter      *deviceFaultProcessCenter
+	nodeCenter        *nodeFaultProcessCenter
+	switchCenter      *switchFaultProcessCenter
 	notifyProcessChan chan int
 }
 
-func (center *FaultProcessCenter) Process() {
-	center.deviceCenter.Process()
-	center.nodeCenter.Process()
-	center.switchCenter.Process()
+func (center *FaultProcessCenter) process() {
+	center.deviceCenter.process()
+	center.nodeCenter.process()
+	center.switchCenter.process()
 }
 
 func NewFaultProcessCenter(ctx context.Context) {
 	GlobalFaultProcessCenter = &FaultProcessCenter{
-		deviceCenter:      fault.NewDeviceFaultProcessCenter(),
-		nodeCenter:        fault.NewNodeFaultProcessCenter(),
-		switchCenter:      fault.NewSwitchFaultProcessCenter(),
+		deviceCenter:      newDeviceFaultProcessCenter(),
+		nodeCenter:        newNodeFaultProcessCenter(),
+		switchCenter:      newSwitchFaultProcessCenter(),
 		notifyProcessChan: make(chan int),
 	}
 	go GlobalFaultProcessCenter.work(ctx)
 }
 
 func (center *FaultProcessCenter) informSwitchInfoAdd(oldInfo, newInfo *constant.SwitchInfo) {
-	center.switchCenter.InformerAddCallback(oldInfo, newInfo)
+	center.switchCenter.updateInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process switch fault for add")
 	hwlog.RunLog.Debugf("old switch info: %s, new switch info %s",
 		util.ObjToString(oldInfo), util.ObjToString(newInfo))
@@ -44,14 +45,14 @@ func (center *FaultProcessCenter) informSwitchInfoAdd(oldInfo, newInfo *constant
 }
 
 func (center *FaultProcessCenter) informSwitchInfoDel(newInfo *constant.SwitchInfo) {
-	center.switchCenter.InformerDelCallback(newInfo)
+	center.switchCenter.delInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process switch fault for delete")
 	hwlog.RunLog.Debugf("delete switch info: %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SWITCH_FAULT)
 }
 
 func (center *FaultProcessCenter) informDeviceInfoAdd(oldInfo, newInfo *constant.DeviceInfo) {
-	center.deviceCenter.InformerAddCallback(oldInfo, newInfo)
+	center.deviceCenter.updateInfoFromCm(oldInfo, newInfo)
 	hwlog.RunLog.Info("notify fault center process device fault for add")
 	hwlog.RunLog.Debugf("old device info: %s, new device info %s",
 		util.ObjToString(oldInfo), util.ObjToString(newInfo))
@@ -59,14 +60,14 @@ func (center *FaultProcessCenter) informDeviceInfoAdd(oldInfo, newInfo *constant
 }
 
 func (center *FaultProcessCenter) informDeviceInfoDel(newInfo *constant.DeviceInfo) {
-	center.deviceCenter.InformerDelCallback(newInfo)
+	center.deviceCenter.delInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process device fault for delete")
 	hwlog.RunLog.Debugf("delete device info: %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 }
 
 func (center *FaultProcessCenter) informNodeInfoAdd(oldInfo, newInfo *constant.NodeInfo) {
-	center.nodeCenter.InformerAddCallback(oldInfo, newInfo)
+	center.nodeCenter.updateInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process node fault for add")
 	hwlog.RunLog.Debugf("old node info: %s, new node info %s",
 		util.ObjToString(oldInfo), util.ObjToString(newInfo))
@@ -74,7 +75,7 @@ func (center *FaultProcessCenter) informNodeInfoAdd(oldInfo, newInfo *constant.N
 }
 
 func (center *FaultProcessCenter) informNodeInfoDel(newInfo *constant.NodeInfo) {
-	center.nodeCenter.InformerDelCallback(newInfo)
+	center.nodeCenter.delInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process node fault for delete")
 	hwlog.RunLog.Debugf("delete node info: %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NODE_FAULT)
@@ -85,91 +86,92 @@ func (center *FaultProcessCenter) notifyFaultCenterProcess(whichToProcess int) {
 }
 
 func (center *FaultProcessCenter) work(ctx context.Context) {
-	hwlog.RunLog.Info("FaultProcessCenter start work.")
+	hwlog.RunLog.Info("FaultProcessCenter start work")
 	centerTicker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
-			hwlog.RunLog.Info("FaultProcessCenter stop work.")
+			hwlog.RunLog.Info("FaultProcessCenter stop work")
 			return
-		case which := <-center.notifyProcessChan:
-			switch which {
+		case whichToProcess := <-center.notifyProcessChan:
+			switch whichToProcess {
 			case constant.ALL_FAULT:
-				center.Process()
+				center.process()
 			case constant.DEVICE_FAULT:
-				center.deviceCenter.Process()
+				center.deviceCenter.process()
 			case constant.NODE_FAULT:
-				center.nodeCenter.Process()
+				center.nodeCenter.process()
 			case constant.SWITCH_FAULT:
-				center.switchCenter.Process()
+				center.switchCenter.process()
+			default:
+				continue
 			}
 		case <-centerTicker.C:
-			center.Process()
+			center.process()
+		default:
+			continue
 		}
 	}
 }
 
-func (center *FaultProcessCenter) getUceFaultProcessor() (*fault.UceFaultProcessor, error) {
-	return center.deviceCenter.GetUceFaultProcessor()
+func (center *FaultProcessCenter) getJobFaultRankProcessor() (*jobRankFaultInfoProcessor, error) {
+	return center.deviceCenter.getJobFaultRankProcessor()
 }
 
-func (center *FaultProcessCenter) getUceAccompanyFaultProcessor() (*fault.UceAccompanyFaultProcessor, error) {
-	return center.deviceCenter.GetUceAccompanyFaultProcessor()
+// callbackForReportUceInfo cluster grpc should call back for report uce fault situation
+type ReportRecoverInfo struct {
+	JobId       string
+	Rank        string
+	RecoverTime int64
 }
 
-func (center *FaultProcessCenter) getJobFaultRankProcessor() (*fault.JobRankFaultInfoProcessor, error) {
-	return center.deviceCenter.GetJobFaultRankProcessor()
-}
-
-// CallbackForReportUceInfo cluster grpc should call back for report uce fault situation
-type MindIoReportRecoverInfo struct {
-	jobId       string
-	rankId      string
-	recoverTime int64
-}
-
-func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []MindIoReportRecoverInfo) error {
+// CallbackForReportUceInfo callback function to report uce info
+func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []ReportRecoverInfo) error {
 	for _, info := range infos {
-		center.deviceCenter.CallbackForReportUceInfo(info.jobId, info.rankId, info.recoverTime)
+		center.deviceCenter.callbackForReportUceInfo(info.JobId, info.Rank, info.RecoverTime)
 	}
 	center.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 	return nil
 }
 
-// RegisterSubscriber to notify fault occurrence
-func (center *FaultProcessCenter) RegisterSubscriber(ch chan struct{}, which int) {
+// Register to notify fault occurrence
+func (center *FaultProcessCenter) Register(ch chan struct{}, which int) {
 	switch which {
 	case constant.SWITCH_FAULT:
-		center.switchCenter.RegisterSubscriber(ch)
+		center.switchCenter.register(ch)
 	case constant.NODE_FAULT:
-		center.nodeCenter.RegisterSubscriber(ch)
+		center.nodeCenter.register(ch)
 	case constant.DEVICE_FAULT:
-		center.deviceCenter.RegisterSubscriber(ch)
+		center.deviceCenter.register(ch)
 	case constant.ALL_FAULT:
-		center.switchCenter.RegisterSubscriber(ch)
-		center.nodeCenter.RegisterSubscriber(ch)
-		center.deviceCenter.RegisterSubscriber(ch)
+		center.switchCenter.register(ch)
+		center.nodeCenter.register(ch)
+		center.deviceCenter.register(ch)
 	}
-	hwlog.RunLog.Errorf("Wrong number %d, cannot decide which to register.", which)
+	hwlog.RunLog.Errorf("Wrong number %d, cannot decide which to register", which)
 }
 
-func (center *FaultProcessCenter) QueryJobsFaultInfo() map[string]fault.FaultInfo {
+// QueryJobsFaultInfo query jobs fault rank info
+func (center *FaultProcessCenter) QueryJobsFaultInfo() map[string]JobFaultInfo {
 	processor, err := center.getJobFaultRankProcessor()
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil
 	}
-	return processor.GetJobFaultRankInfos()
+	return processor.getJobFaultRankInfos()
 }
 
+// QueryDeviceInfoToReport query device info to report
 func (center *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
-	return center.deviceCenter.GetDeviceInfos()
+	return center.deviceCenter.getInfoMap()
 }
 
+// QuerySwitchInfoToReport query switch info to report
 func (center *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
-	return center.switchCenter.GetSwitchInfos()
+	return center.switchCenter.getInfoMap()
 }
 
+// QueryNodeInfoToReport query node info to report
 func (center *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
-	return center.nodeCenter.GetNodeInfos()
+	return center.nodeCenter.getInfoMap()
 }

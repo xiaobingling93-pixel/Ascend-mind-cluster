@@ -110,6 +110,6 @@ func BusinessDataIsNotEqual(oldNodeInfo *constant.NodeInfo, newNodeInfo *constan
 		hwlog.RunLog.Debug("neither oldNodeInfo nor newNodeInfo is empty, but oldNodeInfo is not equal to newNodeInfo")
 		return true
 	}
-	hwlog.RunLog.Debug("oldNodeInfo is equal to newNodeInfo.")
+	hwlog.RunLog.Debug("oldNodeInfo is equal to newNodeInfo")
 	return false
 }

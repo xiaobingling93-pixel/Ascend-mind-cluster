@@ -303,6 +303,7 @@ func (r *RankTable) setNodeDeviceHealthy(serverIndex int, networkUnhealthyCards,
 	}
 }
 
+// GetServerList get servers in rank table
 func (r *RankTable) GetServerList() []*ServerHccl {
 	return r.ServerList
 }

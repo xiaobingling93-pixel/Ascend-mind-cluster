@@ -140,9 +140,6 @@ func GetFaultMap(devInfo *constant.DeviceInfo) map[string][]constant.DeviceFault
 		}
 		deviceFaultMap := make(map[string][]constant.DeviceFault)
 		for _, deviceFault := range devicesFault {
-			if deviceFault.FaultTime == 0 {
-				deviceFault.FaultTime = constant.DeviceNotFault
-			}
 			if _, ok := deviceFaultMap[deviceFault.NPUName]; !ok {
 				deviceFaultMap[deviceFault.NPUName] = make([]constant.DeviceFault, 0)
 			}

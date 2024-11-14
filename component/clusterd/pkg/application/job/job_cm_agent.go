@@ -174,27 +174,43 @@ func (agent *Agent) UpdateJobNodeStatus(nodeName string, healthy bool) {
 	}
 }
 
-// TODO 如何判断job是uce容忍的
+// TODO. Judge Job is uce fault tolerate
 func (agent *Agent) JobTolerateUceFault(jobId string) bool {
 	return true
 }
 
-func (agent *Agent) GetNodeAndDeviceFromJobIdAndRankId(jobId, rankId string) (string, string, error) {
+func (agent *Agent) GetJobServerInfoMap() JobServerInfoMap {
 	agent.RwMutex.RLock()
 	defer agent.RwMutex.RUnlock()
-	worker, ok := agent.BsWorker[jobId]
-	if !ok {
-		return "", "", fmt.Errorf("not find node and device from jobId %v", jobId)
-	}
-	rankTable := worker.GetWorkerInfo().CMData
-	for _, server := range rankTable.GetServerList() {
-		for _, dev := range server.DeviceList {
-			if dev.RankID == rankId {
-				return server.ServerName, dev.DeviceID, nil
-			}
+	allJobServerMap := make(map[string]map[string]ServerHccl)
+	for jobUid, worker := range agent.BsWorker {
+		workerInfo := worker.GetWorkerInfo()
+		if workerInfo == nil {
+			hwlog.RunLog.Warnf("job %s has no worker", jobUid)
+			continue
 		}
+		jobServerMap := make(map[string]ServerHccl)
+		rankTable := workerInfo.CMData
+		for _, server := range rankTable.GetServerList() {
+			copyServerHccl := ServerHccl{
+				DeviceList: make([]*Device, 0),
+				ServerID:   server.ServerID,
+				PodID:      server.PodID,
+				ServerName: server.ServerName,
+			}
+			for _, dev := range server.DeviceList {
+				copyDev := Device{
+					DeviceID: dev.DeviceID,
+					DeviceIP: dev.DeviceIP,
+					RankID:   dev.RankID,
+				}
+				copyServerHccl.DeviceList = append(copyServerHccl.DeviceList, &copyDev)
+			}
+			jobServerMap[server.ServerName] = copyServerHccl
+		}
+		allJobServerMap[jobUid] = jobServerMap
 	}
-	return "", "", fmt.Errorf("not find node and device from jobId %v and rankid %v", jobId, rankId)
+	return JobServerInfoMap{allJobServerMap}
 }
 
 func getWorkName(labels map[string]string) string {

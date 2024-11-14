@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"clusterd/pkg/application/fault"
 	"strconv"
 	"sync"
 	"time"
@@ -57,9 +58,9 @@ func Report() {
 				// when informer begin, frequent add messages
 				time.Sleep(time.Second)
 			})
-			deviceArr := device.GetSafeData(GlobalFaultProcessCenter.QueryDeviceInfoToReport())
-			nodeArr := node.GetSafeData(GlobalFaultProcessCenter.QueryNodeInfoToReport())
-			switchArr := switchinfo.GetSafeData(GlobalFaultProcessCenter.QuerySwitchInfoToReport())
+			deviceArr := device.GetSafeData(fault.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
+			nodeArr := node.GetSafeData(fault.GlobalFaultProcessCenter.QueryNodeInfoToReport())
+			switchArr := switchinfo.GetSafeData(fault.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
 			updateCmWithEmpty(deviceArr, nodeArr, switchArr)
 			reportTime = time.Now().UnixMilli()
 			processCount++

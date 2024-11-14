@@ -1,0 +1,136 @@
+package fault
+
+import (
+	"fmt"
+	"sync"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
+	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/device"
+)
+
+// deviceFaultProcessCenter
+type deviceFaultProcessCenter struct {
+	baseFaultCenter
+	mutex   sync.RWMutex
+	infoMap map[string]*constant.DeviceInfo
+}
+
+func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
+	deviceCenter := &deviceFaultProcessCenter{
+		baseFaultCenter: newBaseFaultCenter(),
+		mutex:           sync.RWMutex{},
+		infoMap:         make(map[string]*constant.DeviceInfo),
+	}
+
+	var processorForUceAccompanyFault = newUceAccompanyFaultProcessor(deviceCenter)
+	var processorForUceFault = newUceFaultProcessor(deviceCenter)
+	var processForJobFaultRank = newJobRankFaultInfoProcessor(deviceCenter)
+
+	deviceCenter.addProcessors([]faultProcessor{
+		processForJobFaultRank,        // this processor don't need to filter anything, so assign on the first position.
+		processorForUceAccompanyFault, // this processor filter the uce accompany faults, should before processorForUceFault
+		processorForUceFault,          // this processor filter the uce faults.
+	})
+	return deviceCenter
+}
+
+func (deviceCenter *deviceFaultProcessCenter) getInfoMap() map[string]*constant.DeviceInfo {
+	deviceCenter.mutex.RLock()
+	defer deviceCenter.mutex.RUnlock()
+	return device.DeepCopyInfos(deviceCenter.infoMap)
+}
+
+func (deviceCenter *deviceFaultProcessCenter) setInfoMap(infos map[string]*constant.DeviceInfo) {
+	deviceCenter.mutex.Lock()
+	defer deviceCenter.mutex.Unlock()
+	deviceCenter.infoMap = device.DeepCopyInfos(infos)
+}
+
+func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(oldInfo, newInfo *constant.DeviceInfo) {
+	deviceCenter.mutex.Lock()
+	defer deviceCenter.mutex.Unlock()
+	length := len(deviceCenter.infoMap)
+	if length > constant.MaxSupportNodeNum {
+		hwlog.RunLog.Errorf("SwitchInfo length=%d > %d, SwitchInfo cm name=%s save failed",
+			length, constant.MaxSupportNodeNum, newInfo.CmName)
+	}
+	oldInfo = deviceCenter.infoMap[newInfo.CmName]
+	deviceCenter.infoMap[newInfo.CmName] = newInfo
+}
+
+func (deviceCenter *deviceFaultProcessCenter) delInfoFromCm(newInfo *constant.DeviceInfo) {
+	deviceCenter.mutex.Lock()
+	defer deviceCenter.mutex.Unlock()
+	delete(deviceCenter.infoMap, newInfo.CmName)
+}
+
+func (deviceCenter *deviceFaultProcessCenter) getUceFaultProcessor() (*uceFaultProcessor, error) {
+	for _, processor := range deviceCenter.processorList {
+		if processor, ok := processor.(*uceFaultProcessor); ok {
+			return processor, nil
+		}
+	}
+	return nil, fmt.Errorf("can not find uceFaultProcessor in FaultProcessCenter")
+}
+
+func (deviceCenter *deviceFaultProcessCenter) getUceAccompanyFaultProcessor() (*uceAccompanyFaultProcessor, error) {
+	for _, processor := range deviceCenter.processorList {
+		if processor, ok := processor.(*uceAccompanyFaultProcessor); ok {
+			return processor, nil
+		}
+	}
+	return nil, fmt.Errorf("can not find uceAccompanyFaultProcessor in FaultProcessCenter")
+}
+
+func (deviceCenter *deviceFaultProcessCenter) getJobFaultRankProcessor() (*jobRankFaultInfoProcessor, error) {
+	for _, processor := range deviceCenter.processorList {
+		if processor, ok := processor.(*jobRankFaultInfoProcessor); ok {
+			return processor, nil
+		}
+	}
+	return nil, fmt.Errorf("can not find jobRankFaultInfoProcessor in FaultProcessCenter")
+}
+
+func (deviceCenter *deviceFaultProcessCenter) callbackForReportUceInfo(jobId, rankId string, recoverTime int64) error {
+	processor, err := deviceCenter.getUceFaultProcessor()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return err
+	}
+	nodeName, deviceId, err := getNodeAndDeviceFromJobIdAndRankId(jobId, rankId, deviceCenter.jobServerInfoMap)
+	if err != nil {
+		err = fmt.Errorf("report info failed, exception: %v", err)
+		hwlog.RunLog.Error(err)
+		return err
+	}
+	deviceName := deviceID2DeviceKey(deviceId)
+	processor.reportInfo.RwMutex.Lock()
+	defer processor.reportInfo.RwMutex.Unlock()
+	infoMap := processor.reportInfo.InfoMap
+	info := reportInfo{
+		RecoverTime:  recoverTime,
+		CompleteTime: constant.JobNotRecoverComplete,
+	}
+	if infoMap == nil {
+		infoMap = make(map[string]map[string]map[string]reportInfo)
+	}
+	if _, ok := infoMap[jobId]; !ok {
+		infoMap[jobId] = make(map[string]map[string]reportInfo)
+		if _, ok := infoMap[jobId][nodeName]; !ok {
+			infoMap[jobId][nodeName] = make(map[string]reportInfo)
+		}
+		infoMap[jobId][nodeName][deviceName] = info
+	} else {
+		if _, ok := infoMap[jobId][nodeName]; !ok {
+			infoMap[jobId][nodeName] = make(map[string]reportInfo)
+		}
+		infoMap[jobId][nodeName][deviceName] = info
+	}
+	processor.reportInfo.InfoMap = infoMap
+	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
+	hwlog.RunLog.Infof("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
+	return nil
+}
