@@ -160,10 +160,6 @@ func getVcjobMinResource(job *api.JobInfo) *api.Resource {
 	if job.PodGroup.Spec.MinResources == nil {
 		return api.EmptyResource()
 	}
-	owner := getPodGroupOwnerRef(job.PodGroup.PodGroup)
-	if owner.Kind == replicaSetType {
-		return api.NewResource(*job.PodGroup.Spec.MinResources).Multi(float64(len(job.Tasks)))
-	}
 	return api.NewResource(*job.PodGroup.Spec.MinResources)
 }
 
@@ -460,6 +456,10 @@ func (sJob *SchedulerJob) initByJobInfo(vcJob *api.JobInfo) error {
 		Label:         GetJobLabelFromVcJob(vcJob),
 		Annotation:    vcJob.PodGroup.Annotations,
 	}
+	if sJob.Owner.Kind == ReplicaSetType {
+		num *= int(*sJob.Owner.Replicas)
+		sJob.SchedulerJobAttr.ComJob.Annotation = sJob.Owner.Annotations
+	}
 	subHealthyStrategy, exist := sJob.Label[util.SubHealthyStrategyLabel]
 	if !exist || !util.CheckStrInSlice(subHealthyStrategy,
 		[]string{util.SubHealthyIgnore, util.SubHealthyGraceExit, util.SubHealthyForceExit}) {
@@ -504,6 +504,23 @@ func (sJob SchedulerJob) IsNPUJob() bool {
 
 // ValidJobFn valid job.
 func (sJob SchedulerJob) ValidJobFn() *api.ValidateResult {
+	if sJob.Owner.Kind == ReplicaSetType {
+		if len(sJob.Tasks) < int(*sJob.Owner.Replicas) {
+			return &api.ValidateResult{
+				Message: fmt.Sprintf("job %s task num %d less than replicas %d", sJob.Name, len(sJob.Tasks), *sJob.Owner.Replicas),
+				Reason:  "job is not ready",
+				Pass:    false,
+			}
+		}
+		i := 0
+		for id := range sJob.Tasks {
+			task := sJob.Tasks[id]
+			task.Index = i
+			sJob.Tasks[id] = task
+			i++
+		}
+	}
+
 	if result := sJob.handler.ValidNPUJob(); result != nil {
 		klog.V(util.LogErrorLev).Infof("%s validNPUJob failed:%s.", PluginName, result.Message)
 		return result

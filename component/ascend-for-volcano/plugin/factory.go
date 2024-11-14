@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+
 	"volcano.sh/apis/pkg/apis/scheduling"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/conf"
@@ -112,7 +113,6 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 		klog.V(util.LogInfoLev).Infof("InitJobsFromSsn failed: %s.", util.ArgumentError)
 		return
 	}
-	sHandle.refreshJobWithIndex(ssn)
 	oldJobs := sHandle.Jobs
 	sHandle.Jobs = make(map[api.JobID]SchedulerJob, util.MapInitNum)
 	tmpJobServerInfos := make(map[api.JobID]struct{})
@@ -120,14 +120,14 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	tmpJobSinglePodFlag := make(map[api.JobID]bool)
 	tmpJobPendingMessage := make(map[api.JobID]map[string]map[string]struct{})
 	for jobID, jobInfo := range ssn.Jobs {
-		owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
-		if owner.Kind == replicaSetType {
-			err := sHandle.initResourceOfDeploy(jobInfo, ssn, owner)
-			if err != nil {
-				continue
-			}
+		ownerInfo, err := getOwnerInfo(jobInfo, ssn)
+		if err != nil {
+			klog.V(util.LogDebugLev).Infof("%s getOwnerInfo failed: %s.", jobInfo.Name, util.SafePrint(err))
+			continue
 		}
-		sJob := SchedulerJob{}
+		sJob := SchedulerJob{
+			Owner: ownerInfo,
+		}
 		if err := sJob.Init(jobInfo, sHandle); err != nil {
 			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
@@ -157,78 +157,37 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	return
 }
 
-func (sHandle *ScheduleHandler) refreshJobWithIndex(ssn *framework.Session) {
-	newJobs := make(map[api.JobID]struct{})
-	for id := range sHandle.JobWithIndex {
-		if _, ok := ssn.Jobs[id]; ok {
-			newJobs[id] = struct{}{}
-		}
+func getOwnerInfo(jobInfo *api.JobInfo, ssn *framework.Session) (OwnerInfo, error) {
+	owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
+	rs, err := getReplicaSet(ssn, jobInfo.Namespace, owner.Name)
+	if err != nil {
+		return OwnerInfo{}, err
 	}
-	sHandle.JobWithIndex = newJobs
+	return OwnerInfo{
+		OwnerReference: owner,
+		Annotations:    rs.Annotations,
+		Replicas:       rs.Spec.Replicas,
+	}, nil
 }
 
-func (sHandle *ScheduleHandler) initResourceOfDeploy(job *api.JobInfo, ssn *framework.Session,
-	owner metav1.OwnerReference) error {
+func getReplicaSet(ssn *framework.Session, namespace, name string) (*appsv1.ReplicaSet, error) {
 	var rs *appsv1.ReplicaSet
 	var ok bool
-	obj, exist, err := ssn.InformerFactory().Apps().V1().ReplicaSets().Informer().GetIndexer().GetByKey(job.PodGroup.
-		Namespace + "/" + owner.Name)
+	obj, exist, err := ssn.InformerFactory().Apps().V1().ReplicaSets().Informer().GetIndexer().GetByKey(namespace + "/" + name)
 	if err != nil || !exist {
 		klog.V(util.LogWarningLev).Infof("Get rs from indexer failed err: %s, exist: %v.", util.SafePrint(err), exist)
-		rs, err = ssn.KubeClient().AppsV1().ReplicaSets(job.PodGroup.Namespace).Get(context.TODO(), owner.Name,
+		rs, err = ssn.KubeClient().AppsV1().ReplicaSets(namespace).Get(context.TODO(), name,
 			metav1.GetOptions{})
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		rs, ok = obj.(*appsv1.ReplicaSet)
 		if !ok {
-			return errors.New("the object is not a replicaset")
+			return nil, errors.New("the object is not a replicaset")
 		}
 	}
-	if int(*rs.Spec.Replicas) != len(job.Tasks) {
-		klog.V(util.LogErrorLev).Infof("The number of tasks of job %d is not equal to the number of replicas of rs"+
-			" %d.", len(job.Tasks), *rs.Spec.Replicas)
-		return errors.New("the number of tasks of job is not equal to the number of replicas of rs")
-	}
-	updatePodGroupOfDeploy(job, rs)
-
-	_, existAnno := job.PodGroup.PodGroup.Annotations["hasSetIndex"]
-	_, existCache := sHandle.JobWithIndex[job.UID]
-	if !existAnno && !existCache {
-		job.PodGroup.PodGroup.Annotations["hasSetIndex"] = "true"
-		sHandle.JobWithIndex[job.UID] = struct{}{}
-		updatePodOfDeploy(job)
-		return nil
-	}
-	if existAnno && !existCache {
-		sHandle.JobWithIndex[job.UID] = struct{}{}
-	}
-
-	return nil
-}
-
-func updatePodOfDeploy(job *api.JobInfo) {
-	i := 0
-	for _, task := range job.Tasks {
-		if task.Pod == nil {
-			continue
-		}
-		if task.Pod.Annotations == nil {
-			task.Pod.Annotations = make(map[string]string)
-		}
-		task.Pod.Annotations[podRankIndex] = strconv.Itoa(i)
-		i++
-	}
-}
-
-func updatePodGroupOfDeploy(job *api.JobInfo, rs *appsv1.ReplicaSet) {
-	if job.PodGroup.Annotations == nil {
-		job.PodGroup.Annotations = make(map[string]string)
-	}
-	for k, v := range rs.Annotations {
-		job.PodGroup.Annotations[k] = v
-	}
+	return rs, nil
 }
 
 func getPodGroupOwnerRef(pg scheduling.PodGroup) metav1.OwnerReference {

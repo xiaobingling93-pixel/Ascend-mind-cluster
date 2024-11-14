@@ -18,6 +18,7 @@ limitations under the License.
 package plugin
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -114,6 +115,14 @@ type SchedulerJob struct {
 	TorBlackMaps map[string]struct{}
 	JobReadyTag  bool
 	SuperPods    map[string][]SuperNode
+	Owner        OwnerInfo
+}
+
+// OwnerInfo the owner info of job
+type OwnerInfo struct {
+	metav1.OwnerReference
+	Annotations map[string]string
+	Replicas    *int32
 }
 
 // UnschedulableReason the message of pod pending
@@ -168,7 +177,7 @@ type FaultRankIdData struct {
 type ScheduleEnv struct {
 	IsFirstSession      *bool // scheduler first session message is unreliable
 	Jobs                map[api.JobID]SchedulerJob
-	JobWithIndex        map[api.JobID]struct{}
+	JobReplicas         map[api.JobID]int32
 	Nodes               map[string]NPUNode
 	JobSinglePodFlag    map[api.JobID]bool
 	JobSeverInfos       map[api.JobID]struct{}
