@@ -105,3 +105,14 @@ func Abs[T int64 | int](x T) T {
 	}
 	return x
 }
+
+func DeleteStringSliceItem(slice []string, item string) []string {
+	newSlice := make([]string, 0)
+	for _, val := range slice {
+		if val == item {
+			continue
+		}
+		newSlice = append(newSlice, val)
+	}
+	return newSlice
+}

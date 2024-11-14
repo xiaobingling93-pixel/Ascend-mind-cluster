@@ -7,7 +7,6 @@ import (
 
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
-	"clusterd/pkg/domain/device"
 )
 
 // uceAccompanyFaultProcessor:
@@ -21,7 +20,8 @@ type uceAccompanyFaultProcessor struct {
 	// nodeName -> deviceName -> faultQue
 	uceAccompanyFaultQue map[string]map[string][]constant.DeviceFault
 	// uceFaultTime
-	uceFaultTime map[string]map[string]int64
+	uceFaultTime       map[string]map[string]int64
+	deviceCmForNodeMap map[string]AdvanceDeviceCm
 }
 
 func newUceAccompanyFaultProcessor(deviceCenter *deviceFaultProcessCenter) *uceAccompanyFaultProcessor {
@@ -33,34 +33,28 @@ func newUceAccompanyFaultProcessor(deviceCenter *deviceFaultProcessCenter) *uceA
 	}
 }
 
-func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQue(deviceInfoMap map[string]*constant.DeviceInfo) {
-	for _, deviceInfo := range deviceInfoMap {
-		nodeName, err := cmNameToNodeName(deviceInfo.CmName)
-		if err != nil {
-			hwlog.RunLog.Error(err)
-			continue
-		}
+func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQue() {
+	for nodeName, deviceInfo := range processor.deviceCmForNodeMap {
 		processor.uceAccompanyFaultInQueForNode(nodeName, deviceInfo)
 	}
 }
 
 func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
-	nodeName string, deviceInfo *constant.DeviceInfo) {
+	nodeName string, deviceInfo AdvanceDeviceCm) {
 	if _, ok := processor.uceAccompanyFaultQue[nodeName]; !ok {
 		processor.uceAccompanyFaultQue[nodeName] = make(map[string][]constant.DeviceFault)
 	}
 	if _, ok := processor.uceFaultTime[nodeName]; !ok {
 		processor.uceFaultTime[nodeName] = make(map[string]int64)
 	}
-	faultMap := device.GetFaultMap(deviceInfo)
-	for deviceName, deviceFaults := range faultMap {
+	for deviceName, deviceFaults := range deviceInfo.DeviceList {
 		for _, fault := range deviceFaults {
-			if device.IsUceFault(fault) {
+			if isUceFault(fault) {
 				hwlog.RunLog.Debugf("find uce fault %s, on node %s", util.ObjToString(fault), nodeName)
 				processor.uceFaultTime[nodeName][deviceName] = fault.FaultTime
 				continue
 			}
-			if !device.IsUceAccompanyFault(fault) {
+			if !isUceAccompanyFault(fault) {
 				continue
 			}
 			processor.inQue(nodeName, deviceName, fault)
@@ -76,7 +70,7 @@ func (processor *uceAccompanyFaultProcessor) inQue(nodeName, deviceName string, 
 	faultsInfo := processor.uceAccompanyFaultQue[nodeName][deviceName]
 	found := false
 	for _, anotherFault := range faultsInfo {
-		if device.IsDeviceFaultEqual(fault, anotherFault) {
+		if isDeviceFaultEqual(fault, anotherFault) {
 			found = true
 			break
 		}
@@ -88,20 +82,17 @@ func (processor *uceAccompanyFaultProcessor) inQue(nodeName, deviceName string, 
 	}
 }
 
-func (processor *uceAccompanyFaultProcessor) filterFaultInfos(currentTime int64,
-	deviceInfoMap map[string]*constant.DeviceInfo) map[string]*constant.DeviceInfo {
+func (processor *uceAccompanyFaultProcessor) filterFaultInfos(currentTime int64) {
 	for nodeName, nodeFaults := range processor.uceAccompanyFaultQue {
-		faultMap := device.GetFaultMap(deviceInfoMap[nodeNameToCmName(nodeName)])
+		faultMap := processor.deviceCmForNodeMap[nodeName]
 		for deviceName, deviceFaultQue := range nodeFaults {
 			newQue, newFaultMap :=
-				processor.filterFaultDevice(faultMap, currentTime, nodeName, deviceName, deviceFaultQue)
+				processor.filterFaultDevice(faultMap.DeviceList, currentTime, nodeName, deviceName, deviceFaultQue)
 			nodeFaults[deviceName] = newQue
-			faultMap = newFaultMap
+			faultMap.DeviceList = newFaultMap
 		}
-		deviceInfoMap[nodeNameToCmName(nodeName)].DeviceList[device.GetFaultListKey()] =
-			device.FaultMapToArrayToString(faultMap)
+		processor.deviceCmForNodeMap[nodeName] = faultMap
 	}
-	return deviceInfoMap
 }
 
 func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
@@ -115,7 +106,7 @@ func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
 		if processor.isAccompaniedFaultByUce(uceFaultTime, accompanyFaultTime) {
 			hwlog.RunLog.Infof("filter uce accompany fault %s", util.ObjToString(fault))
 			hwlog.RunLog.Infof("uceFaultTime %d, accompanyFaultTime %d", uceFaultTime, accompanyFaultTime)
-			faultMap = device.DeleteFaultFromFaultMap(faultMap, fault)
+			faultMap = deleteFaultFromFaultMap(faultMap, fault)
 			continue
 		}
 		// if current is not exceed diagnosis time,
@@ -123,7 +114,7 @@ func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
 		if !processor.isCurrentExceedDiagnosisTimeout(currentTime, accompanyFaultTime) {
 			hwlog.RunLog.Infof("filter uce accompany like fault %s", util.ObjToString(fault))
 			hwlog.RunLog.Infof("currentTime %d, accompanyFaultTime %d", currentTime, accompanyFaultTime)
-			faultMap = device.DeleteFaultFromFaultMap(faultMap, fault)
+			faultMap = deleteFaultFromFaultMap(faultMap, fault)
 			newDeviceFaultQue = append(newDeviceFaultQue, fault)
 		}
 	}
@@ -149,11 +140,14 @@ func (processor *uceAccompanyFaultProcessor) isCurrentExceedDiagnosisTimeout(
 
 func (processor *uceAccompanyFaultProcessor) process() {
 	deviceInfos := processor.deviceCenter.getInfoMap()
-	processor.uceAccompanyFaultInQue(deviceInfos)
+	processor.deviceCmForNodeMap = getAdvanceDeviceCmForNodeMap(deviceInfos)
+
+	processor.uceAccompanyFaultInQue()
 	currentTime := time.Now().UnixMilli()
 	hwlog.RunLog.Infof("current uceAccompanyFaultQue: %s", util.ObjToString(processor.uceAccompanyFaultQue))
 	hwlog.RunLog.Infof("currentTime: %d", currentTime)
-	filteredFaultInfos := processor.filterFaultInfos(currentTime, deviceInfos)
-	hwlog.RunLog.Infof("uceAccompanyFaultProcessor result: %s", util.ObjToString(filteredFaultInfos))
-	processor.deviceCenter.setInfoMap(filteredFaultInfos)
+	processor.filterFaultInfos(currentTime)
+	advanceDeviceCmForNodeMapToString(processor.deviceCmForNodeMap, deviceInfos)
+	hwlog.RunLog.Infof("uceAccompanyFaultProcessor result: %s", util.ObjToString(deviceInfos))
+	processor.deviceCenter.setInfoMap(deviceInfos)
 }

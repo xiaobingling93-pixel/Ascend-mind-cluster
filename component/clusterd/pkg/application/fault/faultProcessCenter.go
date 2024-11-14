@@ -36,11 +36,10 @@ func NewFaultProcessCenter(ctx context.Context) {
 	go GlobalFaultProcessCenter.work(ctx)
 }
 
-func (center *FaultProcessCenter) informSwitchInfoAdd(oldInfo, newInfo *constant.SwitchInfo) {
+func (center *FaultProcessCenter) informSwitchInfoAdd(newInfo *constant.SwitchInfo) {
 	center.switchCenter.updateInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process switch fault for add")
-	hwlog.RunLog.Debugf("old switch info: %s, new switch info %s",
-		util.ObjToString(oldInfo), util.ObjToString(newInfo))
+	hwlog.RunLog.Debugf("new switch info %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SWITCH_FAULT)
 }
 
@@ -51,11 +50,10 @@ func (center *FaultProcessCenter) informSwitchInfoDel(newInfo *constant.SwitchIn
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SWITCH_FAULT)
 }
 
-func (center *FaultProcessCenter) informDeviceInfoAdd(oldInfo, newInfo *constant.DeviceInfo) {
-	center.deviceCenter.updateInfoFromCm(oldInfo, newInfo)
+func (center *FaultProcessCenter) informDeviceInfoAdd(newInfo *constant.DeviceInfo) {
+	center.deviceCenter.updateInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process device fault for add")
-	hwlog.RunLog.Debugf("old device info: %s, new device info %s",
-		util.ObjToString(oldInfo), util.ObjToString(newInfo))
+	hwlog.RunLog.Debugf("new device info %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 }
 
@@ -66,11 +64,10 @@ func (center *FaultProcessCenter) informDeviceInfoDel(newInfo *constant.DeviceIn
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 }
 
-func (center *FaultProcessCenter) informNodeInfoAdd(oldInfo, newInfo *constant.NodeInfo) {
+func (center *FaultProcessCenter) informNodeInfoAdd(newInfo *constant.NodeInfo) {
 	center.nodeCenter.updateInfoFromCm(newInfo)
 	hwlog.RunLog.Info("notify fault center process node fault for add")
-	hwlog.RunLog.Debugf("old node info: %s, new node info %s",
-		util.ObjToString(oldInfo), util.ObjToString(newInfo))
+	hwlog.RunLog.Debugf("new node info %s", util.ObjToString(newInfo))
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NODE_FAULT)
 }
 

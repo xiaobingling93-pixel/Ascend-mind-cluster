@@ -4,8 +4,6 @@ import (
 	"sync"
 
 	"clusterd/pkg/application/job"
-	"clusterd/pkg/common/constant"
-	"clusterd/pkg/domain/device"
 )
 
 // FaultRank fault rank info
@@ -45,6 +43,9 @@ func (processor *jobRankFaultInfoProcessor) setJobFaultRankInfos(faultInfos map[
 func (processor *jobRankFaultInfoProcessor) process() {
 	deviceInfos := processor.deviceCenter.getInfoMap()
 	nodesName := getNodesNameFromDeviceInfo(deviceInfos)
+
+	deviceCmForNodeMap := getAdvanceDeviceCmForNodeMap(deviceInfos)
+
 	jobFaultInfos := make(map[string]JobFaultInfo)
 	jobServerInfoMap := processor.deviceCenter.jobServerInfoMap
 	for jobId, serverList := range jobServerInfoMap.InfoMap {
@@ -54,7 +55,7 @@ func (processor *jobRankFaultInfoProcessor) process() {
 		}
 
 		for _, nodeName := range nodesName {
-			faultRankList := processor.findFaultRankForJob(deviceInfos, nodeName, serverList)
+			faultRankList := processor.findFaultRankForJob(deviceCmForNodeMap, nodeName, serverList)
 			jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, faultRankList...)
 		}
 		jobFaultInfos[jobId] = jobFaultInfo
@@ -62,9 +63,9 @@ func (processor *jobRankFaultInfoProcessor) process() {
 	processor.setJobFaultRankInfos(jobFaultInfos)
 }
 
-func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(deviceInfos map[string]*constant.DeviceInfo, nodeName string,
+func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]AdvanceDeviceCm, nodeName string,
 	serverList map[string]job.ServerHccl) []FaultRank {
-	faultMap := device.GetFaultMap(deviceInfos[nodeNameToCmName(nodeName)])
+	advanceDeviceInfo := nodeDeviceInfoMap[nodeName]
 	devicesOfJobOnNode, ok := serverList[nodeName]
 	faultRankList := make([]FaultRank, 0)
 	if !ok || len(devicesOfJobOnNode.DeviceList) == 0 {
@@ -72,7 +73,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(deviceInfos map[
 	}
 	for _, deviceInfo := range devicesOfJobOnNode.DeviceList {
 		deviceName := deviceID2DeviceKey(deviceInfo.DeviceID)
-		faultList, ok := faultMap[deviceName]
+		faultList, ok := advanceDeviceInfo.DeviceList[deviceName]
 		if !ok {
 			continue
 		}

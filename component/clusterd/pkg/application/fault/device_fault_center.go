@@ -37,6 +37,17 @@ func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
 	return deviceCenter
 }
 
+type AdvanceDeviceCm struct {
+	serverType       string
+	CmName           string
+	SuperPodID       int32
+	ServerIndex      int32
+	DeviceList       map[string][]constant.DeviceFault
+	CarUnHealthy     []string
+	NetworkUnhealthy []string
+	UpdateTime       int64
+}
+
 func (deviceCenter *deviceFaultProcessCenter) getInfoMap() map[string]*constant.DeviceInfo {
 	deviceCenter.mutex.RLock()
 	defer deviceCenter.mutex.RUnlock()
@@ -49,7 +60,7 @@ func (deviceCenter *deviceFaultProcessCenter) setInfoMap(infos map[string]*const
 	deviceCenter.infoMap = device.DeepCopyInfos(infos)
 }
 
-func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(oldInfo, newInfo *constant.DeviceInfo) {
+func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(newInfo *constant.DeviceInfo) {
 	deviceCenter.mutex.Lock()
 	defer deviceCenter.mutex.Unlock()
 	length := len(deviceCenter.infoMap)
@@ -57,7 +68,6 @@ func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(oldInfo, newInfo 
 		hwlog.RunLog.Errorf("SwitchInfo length=%d > %d, SwitchInfo cm name=%s save failed",
 			length, constant.MaxSupportNodeNum, newInfo.CmName)
 	}
-	oldInfo = deviceCenter.infoMap[newInfo.CmName]
 	deviceCenter.infoMap[newInfo.CmName] = newInfo
 }
 
