@@ -78,8 +78,8 @@ type NodeInfoWithNodeD struct {
 type NodeDeviceInfoWithDevPlugin struct {
 	DeviceInfo  NodeDeviceInfo
 	CheckCode   string
-	SuperPodID  int32 `json:"SuperPodID,omitempty"`
-	ServerIndex int32 `json:"ServerIndex,omitempty"`
+	SuperPodID  int32 `json:"superPodID,omitempty"`
+	ServerIndex int32 `json:"serverIndex,omitempty"`
 }
 
 // SwitchFaultInfo Switch Fault Info

@@ -219,7 +219,7 @@ func buildCheckNodeDeviceInfoTestCases() []checkNodeDeviceInfoTestCase {
 	const fakeCheckCode = "fakeCheckCode"
 	deviceInfo := NodeDeviceInfo{
 		DeviceList: map[string]string{"huawei.com/Ascend910": "Ascend910-0,Ascend910-1",
-			"huawei.com/Ascend910-NetworkUnhealthy": "",
+			"huawei.com/Ascend910-networkUnhealthy": "",
 			"huawei.com/Ascend910-Unhealthy":        ""},
 		UpdateTime: 0,
 	}

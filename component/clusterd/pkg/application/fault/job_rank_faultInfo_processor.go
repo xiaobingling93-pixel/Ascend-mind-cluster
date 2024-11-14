@@ -63,7 +63,7 @@ func (processor *jobRankFaultInfoProcessor) process() {
 	processor.setJobFaultRankInfos(jobFaultInfos)
 }
 
-func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]AdvanceDeviceCm, nodeName string,
+func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]advanceDeviceCm, nodeName string,
 	serverList map[string]job.ServerHccl) []FaultRank {
 	advanceDeviceInfo := nodeDeviceInfoMap[nodeName]
 	devicesOfJobOnNode, ok := serverList[nodeName]
@@ -72,8 +72,8 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 		return faultRankList
 	}
 	for _, deviceInfo := range devicesOfJobOnNode.DeviceList {
-		deviceName := deviceID2DeviceKey(deviceInfo.DeviceID)
-		faultList, ok := advanceDeviceInfo.DeviceList[deviceName]
+		deviceName := advanceDeviceInfo.serverType + "-" + deviceInfo.DeviceID
+		faultList, ok := advanceDeviceInfo.deviceList[deviceName]
 		if !ok {
 			continue
 		}

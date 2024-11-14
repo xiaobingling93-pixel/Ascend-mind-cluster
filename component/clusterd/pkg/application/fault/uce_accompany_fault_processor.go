@@ -21,7 +21,7 @@ type uceAccompanyFaultProcessor struct {
 	uceAccompanyFaultQue map[string]map[string][]constant.DeviceFault
 	// uceFaultTime
 	uceFaultTime       map[string]map[string]int64
-	deviceCmForNodeMap map[string]AdvanceDeviceCm
+	deviceCmForNodeMap map[string]advanceDeviceCm
 }
 
 func newUceAccompanyFaultProcessor(deviceCenter *deviceFaultProcessCenter) *uceAccompanyFaultProcessor {
@@ -40,14 +40,14 @@ func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQue() {
 }
 
 func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
-	nodeName string, deviceInfo AdvanceDeviceCm) {
+	nodeName string, deviceInfo advanceDeviceCm) {
 	if _, ok := processor.uceAccompanyFaultQue[nodeName]; !ok {
 		processor.uceAccompanyFaultQue[nodeName] = make(map[string][]constant.DeviceFault)
 	}
 	if _, ok := processor.uceFaultTime[nodeName]; !ok {
 		processor.uceFaultTime[nodeName] = make(map[string]int64)
 	}
-	for deviceName, deviceFaults := range deviceInfo.DeviceList {
+	for deviceName, deviceFaults := range deviceInfo.deviceList {
 		for _, fault := range deviceFaults {
 			if isUceFault(fault) {
 				hwlog.RunLog.Debugf("find uce fault %s, on node %s", util.ObjToString(fault), nodeName)
@@ -87,9 +87,9 @@ func (processor *uceAccompanyFaultProcessor) filterFaultInfos(currentTime int64)
 		faultMap := processor.deviceCmForNodeMap[nodeName]
 		for deviceName, deviceFaultQue := range nodeFaults {
 			newQue, newFaultMap :=
-				processor.filterFaultDevice(faultMap.DeviceList, currentTime, nodeName, deviceName, deviceFaultQue)
+				processor.filterFaultDevice(faultMap.deviceList, currentTime, nodeName, deviceName, deviceFaultQue)
 			nodeFaults[deviceName] = newQue
-			faultMap.DeviceList = newFaultMap
+			faultMap.deviceList = newFaultMap
 		}
 		processor.deviceCmForNodeMap[nodeName] = faultMap
 	}

@@ -1,6 +1,7 @@
 package fault
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,7 +29,7 @@ type uceFaultProcessor struct {
 	// node->DeviceName->uceDeviceInfo
 	uceDeviceOfNode  map[string]uceNodeInfo
 	jobServerInfoMap job.JobServerInfoMap
-	nodeDeviceCmMap  map[string]AdvanceDeviceCm
+	nodeDeviceCmMap  map[string]advanceDeviceCm
 }
 
 // JobId->node->device->report_info
@@ -92,17 +93,16 @@ type reportInfo struct {
 	CompleteTime int64
 }
 
-func (processor *uceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string,
-	uceNode uceNodeInfo, devicesOfJobOnNode job.ServerHccl) uceNodeInfo {
-	//devicesOfJobOnNode := getDevicesNameOfJobOnNode(uceNode.NodeName, serverList, jobId)
-
+func (processor *uceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string, nodeName string) uceNodeInfo {
+	uceNode := processor.uceDeviceOfNode[nodeName]
+	devicesOfJobOnNode := processor.jobServerInfoMap.InfoMap[jobId][nodeName]
 	jobUceNodeInfo := uceNodeInfo{
 		NodeName:   uceNode.NodeName,
 		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
 
 	for _, deviceOfJob := range devicesOfJobOnNode.DeviceList {
-		deviceName := deviceID2DeviceKey(deviceOfJob.DeviceID)
+		deviceName := processor.nodeDeviceCmMap[nodeName].serverType + "-" + deviceOfJob.DeviceID
 		if uceDevice, ok := uceNode.DeviceInfo[deviceName]; ok {
 			reportInfo := processor.reportInfo.getInfo(jobId, uceNode.NodeName, deviceName)
 			jobUceNodeInfo.DeviceInfo[uceDevice.DeviceName] = uceDeviceInfo{
@@ -140,13 +140,13 @@ func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) {
 }
 
 func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
-	nodeName string, deviceInfo AdvanceDeviceCm, currentTime int64) AdvanceDeviceCm {
+	nodeName string, deviceInfo advanceDeviceCm, currentTime int64) advanceDeviceCm {
 	for _, uceJob := range processor.uceDevicesOfUceJob {
 		for deviceName, uceDevice := range uceJob.UceNode[nodeName].DeviceInfo {
 			if processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime) {
 				hwlog.RunLog.Warnf("uceFaultProcessor filtered uce device: %s on node %s, currentTime: %d",
 					util.ObjToString(uceDevice), nodeName, currentTime)
-				deviceInfo.DeviceList = processor.filterUceDeviceFaultInfo(deviceName, deviceInfo.DeviceList)
+				deviceInfo.deviceList = processor.filterUceDeviceFaultInfo(deviceName, deviceInfo.deviceList)
 			}
 		}
 	}
@@ -238,8 +238,8 @@ func (processor *uceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string
 				continue
 			}
 			jobInfo.UceNode[nodeName] =
-				processor.initUceDeviceFromNodeAndReportInfo(jobUid,
-					processor.uceDeviceOfNode[nodeName], devicesOfJobOnNode)
+				processor.initUceDeviceFromNodeAndReportInfo(jobUid, nodeName)
+
 		}
 		if len(jobInfo.UceNode) != 0 {
 			uceJobs[jobUid] = jobInfo
@@ -248,12 +248,12 @@ func (processor *uceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string
 	return uceJobs
 }
 
-func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo AdvanceDeviceCm) uceNodeInfo {
+func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo advanceDeviceCm) uceNodeInfo {
 	nodeInfo := uceNodeInfo{
 		NodeName:   nodeName,
 		DeviceInfo: make(map[string]uceDeviceInfo),
 	}
-	for _, deviceFaults := range deviceInfo.DeviceList {
+	for _, deviceFaults := range deviceInfo.deviceList {
 		for _, fault := range deviceFaults {
 			if !isUceFault(fault) {
 				continue
@@ -267,4 +267,40 @@ func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 		}
 	}
 	return nodeInfo
+}
+
+func (processor *uceFaultProcessor) reportUceInfo(jobId string, rankId string, recoverTime int64) error {
+	nodeName, deviceId, err := getNodeAndDeviceFromJobIdAndRankId(jobId, rankId, processor.jobServerInfoMap)
+	if err != nil {
+		err = fmt.Errorf("report info failed, exception: %v", err)
+		hwlog.RunLog.Error(err)
+		return err
+	}
+	deviceName := processor.nodeDeviceCmMap[nodeName].serverType + "-" + deviceId
+	processor.reportInfo.RwMutex.Lock()
+	defer processor.reportInfo.RwMutex.Unlock()
+	infoMap := processor.reportInfo.InfoMap
+	info := reportInfo{
+		RecoverTime:  recoverTime,
+		CompleteTime: constant.JobNotRecoverComplete,
+	}
+	if infoMap == nil {
+		infoMap = make(map[string]map[string]map[string]reportInfo)
+	}
+	if _, ok := infoMap[jobId]; !ok {
+		infoMap[jobId] = make(map[string]map[string]reportInfo)
+		if _, ok := infoMap[jobId][nodeName]; !ok {
+			infoMap[jobId][nodeName] = make(map[string]reportInfo)
+		}
+		infoMap[jobId][nodeName][deviceName] = info
+	} else {
+		if _, ok := infoMap[jobId][nodeName]; !ok {
+			infoMap[jobId][nodeName] = make(map[string]reportInfo)
+		}
+		infoMap[jobId][nodeName][deviceName] = info
+	}
+	processor.reportInfo.InfoMap = infoMap
+	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
+	hwlog.RunLog.Infof("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
+	return nil
 }

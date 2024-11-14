@@ -85,7 +85,7 @@ func updateJobDeviceHealth(nodeName string, deviceList map[string]string) {
 	}
 	netUnhealthy, unHealthy := "", ""
 	for k, v := range deviceList {
-		if strings.Contains(k, "NetworkUnhealthy") {
+		if strings.Contains(k, "networkUnhealthy") {
 			netUnhealthy = v
 		} else if strings.Contains(k, "Unhealthy") {
 			unHealthy = v

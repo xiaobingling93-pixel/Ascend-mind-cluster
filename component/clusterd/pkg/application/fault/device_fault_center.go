@@ -7,7 +7,6 @@ import (
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/device"
 )
 
@@ -37,15 +36,15 @@ func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
 	return deviceCenter
 }
 
-type AdvanceDeviceCm struct {
+type advanceDeviceCm struct {
 	serverType       string
-	CmName           string
-	SuperPodID       int32
-	ServerIndex      int32
-	DeviceList       map[string][]constant.DeviceFault
-	CarUnHealthy     []string
-	NetworkUnhealthy []string
-	UpdateTime       int64
+	cmName           string
+	superPodID       int32
+	serverIndex      int32
+	deviceList       map[string][]constant.DeviceFault
+	carUnHealthy     []string
+	networkUnhealthy []string
+	updateTime       int64
 }
 
 func (deviceCenter *deviceFaultProcessCenter) getInfoMap() map[string]*constant.DeviceInfo {
@@ -110,37 +109,5 @@ func (deviceCenter *deviceFaultProcessCenter) callbackForReportUceInfo(jobId, ra
 		hwlog.RunLog.Error(err)
 		return err
 	}
-	nodeName, deviceId, err := getNodeAndDeviceFromJobIdAndRankId(jobId, rankId, deviceCenter.jobServerInfoMap)
-	if err != nil {
-		err = fmt.Errorf("report info failed, exception: %v", err)
-		hwlog.RunLog.Error(err)
-		return err
-	}
-	deviceName := deviceID2DeviceKey(deviceId)
-	processor.reportInfo.RwMutex.Lock()
-	defer processor.reportInfo.RwMutex.Unlock()
-	infoMap := processor.reportInfo.InfoMap
-	info := reportInfo{
-		RecoverTime:  recoverTime,
-		CompleteTime: constant.JobNotRecoverComplete,
-	}
-	if infoMap == nil {
-		infoMap = make(map[string]map[string]map[string]reportInfo)
-	}
-	if _, ok := infoMap[jobId]; !ok {
-		infoMap[jobId] = make(map[string]map[string]reportInfo)
-		if _, ok := infoMap[jobId][nodeName]; !ok {
-			infoMap[jobId][nodeName] = make(map[string]reportInfo)
-		}
-		infoMap[jobId][nodeName][deviceName] = info
-	} else {
-		if _, ok := infoMap[jobId][nodeName]; !ok {
-			infoMap[jobId][nodeName] = make(map[string]reportInfo)
-		}
-		infoMap[jobId][nodeName][deviceName] = info
-	}
-	processor.reportInfo.InfoMap = infoMap
-	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
-	hwlog.RunLog.Infof("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
-	return nil
+	return processor.reportUceInfo(jobId, rankId, recoverTime)
 }
