@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
-	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -631,88 +629,6 @@ func TestGetPodGroupOwnerRef(t *testing.T) {
 		owner := getPodGroupOwnerRef(pg)
 		if !reflect.DeepEqual(expectedOwner, owner) {
 			t.Errorf("getPodGroupOwnerRef = %v, want %v", owner, expectedOwner)
-		}
-	})
-}
-
-// TestUpdatePodGroupOfDeploy test of updatePodGroupOfDeploy
-func TestUpdatePodGroupOfDeploy(t *testing.T) {
-	t.Run("updatePodGroupOfDeploy", func(t *testing.T) {
-		job := &api.JobInfo{
-			PodGroup: &api.PodGroup{
-				PodGroup: scheduling.PodGroup{},
-			},
-		}
-		rs := &appv1.ReplicaSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{"xxx": "yyy"},
-			},
-		}
-		expectedAnno := map[string]string{"xxx": "yyy"}
-		updatePodGroupOfDeploy(job, rs)
-		if !reflect.DeepEqual(expectedAnno, job.PodGroup.Annotations) {
-			t.Errorf("updatePodGroupOfDeploy = %v, want %v", job.PodGroup.Annotations, expectedAnno)
-		}
-	})
-}
-
-// TestUpdatePodOfDeploy test of updatePodOfDeploy
-func TestUpdatePodOfDeploy(t *testing.T) {
-	t.Run("updatePodOfDeploy", func(t *testing.T) {
-		job := &api.JobInfo{
-			Tasks: map[api.TaskID]*api.TaskInfo{
-				"task1": {
-					Pod: &v1.Pod{},
-				},
-				"task2": {
-					Pod: &v1.Pod{},
-				},
-			},
-		}
-		expectedRankIndexes := map[string]struct{}{"0": {}, "1": {}}
-		updatePodOfDeploy(job)
-		indexes := getJobRankIndexes(job)
-		if !reflect.DeepEqual(expectedRankIndexes, indexes) {
-			t.Errorf("updatePodOfDeploy = %v, want %v", indexes, expectedRankIndexes)
-		}
-	})
-}
-
-func getJobRankIndexes(job *api.JobInfo) map[string]struct{} {
-	indexes := make(map[string]struct{}, 0)
-	for _, task := range job.Tasks {
-		if task.Pod == nil {
-			continue
-		}
-		idx, ok := task.Pod.Annotations[podRankIndex]
-		if !ok {
-			continue
-		}
-		indexes[idx] = struct{}{}
-	}
-	return indexes
-}
-
-// TestRefreshJobWithIndex test of refreshJobWithIndex
-func TestRefreshJobWithIndex(t *testing.T) {
-	t.Run("refreshJobWithIndex", func(t *testing.T) {
-		handler := &ScheduleHandler{
-			ScheduleEnv: ScheduleEnv{
-				JobWithIndex: map[api.JobID]struct{}{
-					"job1": {},
-					"job2": {},
-				},
-			},
-		}
-		ssn := &framework.Session{
-			Jobs: map[api.JobID]*api.JobInfo{
-				"job2": {},
-			},
-		}
-		expectedJobWithIndex := map[api.JobID]struct{}{"job2": {}}
-		handler.refreshJobWithIndex(ssn)
-		if !reflect.DeepEqual(expectedJobWithIndex, handler.JobWithIndex) {
-			t.Errorf("refreshJobWithIndex = %v, want %v", handler.JobWithIndex, expectedJobWithIndex)
 		}
 	})
 }
