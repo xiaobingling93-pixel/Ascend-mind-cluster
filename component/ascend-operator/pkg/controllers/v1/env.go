@@ -145,5 +145,6 @@ func addRescheduleEnv(pi *podInfo, podTemplate *corev1.PodTemplateSpec, index in
 	if reschedLabel != "on" {
 		return
 	}
+	hwlog.RunLog.Info("add process reschedule environment")
 	addEnvValue(podTemplate, processRevoce, "true", index)
 }
