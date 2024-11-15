@@ -174,6 +174,16 @@ func (agent *Agent) UpdateJobNodeStatus(nodeName string, healthy bool) {
 	}
 }
 
+// JobRunning return whether job is running
+func (agent *Agent) JobRunning(jobId string) bool {
+	worker := agent.GetBsWorker(jobId)
+	if worker == nil {
+		hwlog.RunLog.Warnf("jobId=%s not exist", jobId)
+		return false
+	}
+	return worker.PGRunning()
+}
+
 func getWorkName(labels map[string]string) string {
 	if label, ok := labels["volcano.sh/job-name"]; ok {
 		return label
