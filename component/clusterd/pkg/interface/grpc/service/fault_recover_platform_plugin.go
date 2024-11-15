@@ -17,30 +17,6 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
-// GetPlatStrategy get plat strategy
-func GetPlatStrategy(name, namespace string) string {
-	pg, err := kube.RetryGetPodGroup(name, namespace, common.GetPodGroupTimes)
-	if err != nil {
-		return ""
-	}
-	value, ok := pg.Annotations[common.ProcessRecoverStrategy]
-	if !ok {
-		return ""
-	}
-	if value == common.PlatFormArfStrategyName {
-		return common.ProcessArfStrategy
-	}
-	if value == common.PlatFormDumpStrategyName {
-		return common.ProcessDumpStrategy
-	}
-	if value == common.PlatFormExitStrategyName {
-		return common.ProcessExitStrategy
-	}
-	hwlog.RunLog.Warnf("ProcessRecoverStrategy value=%s not supported, use exit strategy, name=%s",
-		value, name)
-	return common.ProcessExitStrategy
-}
-
 func processContinue(name, namespace string) (bool, string, error) {
 	pg, err := kube.RetryGetPodGroup(name, namespace, common.GetPodGroupTimes)
 	if err != nil {
@@ -51,7 +27,8 @@ func processContinue(name, namespace string) (bool, string, error) {
 	if !ok {
 		return false, "", nil
 	}
-	if value == common.PlatFormArfStrategyName || value == common.PlatFormDumpStrategyName {
+	if value == common.ProcessRetryStrategyName || value == common.ProcessRecoverStrategyName ||
+		value == common.ProcessDumpStrategyName {
 		return true, value, nil
 	}
 	return true, value, errors.New("wait ProcessArfStrategy=recover/dump")
