@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,6 +157,11 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 
 func getOwnerInfo(jobInfo *api.JobInfo, ssn *framework.Session) (OwnerInfo, error) {
 	owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
+	if owner.Kind != ReplicaSetType {
+		return OwnerInfo{
+			OwnerReference: owner,
+		}, nil
+	}
 	rs, err := getReplicaSet(ssn, jobInfo.Namespace, owner.Name)
 	if err != nil {
 		return OwnerInfo{}, err
