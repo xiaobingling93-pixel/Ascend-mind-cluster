@@ -20,7 +20,7 @@ package plugin
 import (
 	"sync"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"volcano.sh/volcano/pkg/scheduler/api"
@@ -121,7 +121,7 @@ type SchedulerJob struct {
 
 // OwnerInfo the owner info of job
 type OwnerInfo struct {
-	metav1.OwnerReference
+	v1.OwnerReference
 	Annotations map[string]string
 	Replicas    *int32
 }
