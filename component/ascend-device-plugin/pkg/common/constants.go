@@ -254,7 +254,7 @@ const (
 	Ascend910A3 = "Ascend910A3"
 
 	// HuaweiNetworkUnHealthAscend910 910 network unhealthy
-	HuaweiNetworkUnHealthAscend910 = ResourceNamePrefix + "Ascend910-networkUnhealthy"
+	HuaweiNetworkUnHealthAscend910 = ResourceNamePrefix + "Ascend910-NetworkUnhealthy"
 	// HuaweiUnHealthAscend910 unhealthy
 	HuaweiUnHealthAscend910 = ResourceNamePrefix + Ascend910 + "-Unhealthy"
 	// HuaweiRecoveringAscend910 recovering

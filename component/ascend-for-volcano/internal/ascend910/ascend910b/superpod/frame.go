@@ -336,7 +336,7 @@ func (tp *module910SuperPod) scoreNodeForReadyJob(task *api.TaskInfo, job plugin
 	spn := job.SuperPods[superPodRankIndex][localRank]
 	if _, ok = sMap[spn.Name]; ok {
 		klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes %s: node<%s/%s> is exist in "+
-			"superPodID: %d, select success", tp.GetPluginName(), task.Name, spn.Name, superPodRankIndex,
+			"SuperPodID: %d, select success", tp.GetPluginName(), task.Name, spn.Name, superPodRankIndex,
 			spn.SuperPodID)
 		sMap[spn.Name] += scoreForNode
 	}

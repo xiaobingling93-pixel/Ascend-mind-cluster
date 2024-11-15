@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"volcano.sh/volcano/pkg/scheduler/api"
@@ -793,7 +794,7 @@ func buildFaultNodeNewFaultCardHandlers() []FaultNodeNewFaultCardHandlersTests {
 			node: fakeNPUNodeWithDeviceInfo("node0"),
 		},
 		want: []FaultCard{
-			faultNodeNewFaultCardHandlersFaultCard(true, "Ascend910-0", "node0", "networkUnhealthy"),
+			faultNodeNewFaultCardHandlersFaultCard(true, "Ascend910-0", "node0", "NetworkUnhealthy"),
 		},
 		wantErr: false,
 	}
