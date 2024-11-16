@@ -174,6 +174,16 @@ func (agent *Agent) UpdateJobNodeStatus(nodeName string, healthy bool) {
 	}
 }
 
+// JobRunning return whether job is running
+func (agent *Agent) JobRunning(jobId string) bool {
+	worker := agent.GetBsWorker(jobId)
+	if worker == nil {
+		hwlog.RunLog.Warnf("jobId=%s not exist", jobId)
+		return false
+	}
+	return worker.PGRunning()
+}
+
 func (agent *Agent) judgeUceFromPgLabel(pgLabels map[string]string) bool {
 	if pgLabels == nil {
 		return false
@@ -184,6 +194,7 @@ func (agent *Agent) judgeUceFromPgLabel(pgLabels map[string]string) bool {
 	return false
 }
 
+// GetJobServerInfoMap could get all job info in once query
 func (agent *Agent) GetJobServerInfoMap() JobServerInfoMap {
 	agent.RwMutex.RLock()
 	defer agent.RwMutex.RUnlock()
