@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"clusterd/pkg/application/faultshoot"
 	"strconv"
 	"sync"
 	"time"
@@ -57,17 +58,9 @@ func Report() {
 				// when informer begin, frequent add messages
 				time.Sleep(time.Second)
 			})
-			cmManager.deviceInfoMutex.Lock()
-			deviceArr := device.GetSafeData(cmManager.deviceInfoMap)
-			cmManager.deviceInfoMutex.Unlock()
-
-			cmManager.nodeInfoMutex.Lock()
-			nodeArr := node.GetSafeData(cmManager.nodeInfoMap)
-			cmManager.nodeInfoMutex.Unlock()
-
-			cmManager.switchInfoMutex.Lock()
-			switchArr := switchinfo.GetSafeData(cmManager.switchInfoMap)
-			cmManager.switchInfoMutex.Unlock()
+			deviceArr := device.GetSafeData(faultshoot.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
+			nodeArr := node.GetSafeData(faultshoot.GlobalFaultProcessCenter.QueryNodeInfoToReport())
+			switchArr := switchinfo.GetSafeData(faultshoot.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
 			updateCmWithEmpty(deviceArr, nodeArr, switchArr)
 			reportTime = time.Now().UnixMilli()
 			processCount++
