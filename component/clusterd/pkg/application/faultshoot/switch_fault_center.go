@@ -5,20 +5,33 @@ package faultshoot
 
 import (
 	"sync"
+	"time"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/switchinfo"
-
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 )
 
 func newSwitchFaultProcessCenter() *switchFaultProcessCenter {
 	return &switchFaultProcessCenter{
 		baseFaultCenter: newBaseFaultCenter(),
-		processedCm:     make(map[string]*constant.SwitchInfo),
+		processingCm:    make(map[string]*constant.SwitchInfo),
 		devicePluginCm:  make(map[string]*constant.SwitchInfo),
 		mutex:           sync.RWMutex{},
 	}
+}
+
+func (switchCenter *switchFaultProcessCenter) getProcessingCm() map[string]*constant.SwitchInfo {
+	switchCenter.mutex.RLock()
+	defer switchCenter.mutex.RUnlock()
+	return switchinfo.DeepCopyInfos(switchCenter.processingCm)
+}
+
+func (switchCenter *switchFaultProcessCenter) setProcessingCm(infos map[string]*constant.SwitchInfo) {
+	switchCenter.mutex.Lock()
+	defer switchCenter.mutex.Unlock()
+	switchCenter.processingCm = switchinfo.DeepCopyInfos(infos)
 }
 
 func (switchCenter *switchFaultProcessCenter) getProcessedCm() map[string]*constant.SwitchInfo {
@@ -52,6 +65,12 @@ func (switchCenter *switchFaultProcessCenter) delDevicePluginCm(newInfo *constan
 }
 
 func (switchCenter *switchFaultProcessCenter) process() {
-	switchCenter.setProcessedCm(switchCenter.devicePluginCm)
+	currentTime := time.Now().UnixMilli()
+	if switchCenter.isProcessLimited(currentTime) {
+		return
+	}
+	switchCenter.lastProcessTime = currentTime
+	switchCenter.setProcessingCm(switchCenter.devicePluginCm)
 	switchCenter.baseFaultCenter.process()
+	switchCenter.setProcessedCm(switchCenter.processedCm)
 }

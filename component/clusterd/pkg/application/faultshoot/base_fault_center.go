@@ -4,12 +4,8 @@
 package faultshoot
 
 import (
-	"clusterd/pkg/common/util"
-	"clusterd/pkg/interface/kube"
+	"fmt"
 	"sync"
-	"time"
-
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
 	"clusterd/pkg/common/constant"
 )
@@ -29,20 +25,13 @@ func (baseCenter *baseFaultCenter) isProcessLimited(currentTime int64) bool {
 }
 
 func (baseCenter *baseFaultCenter) process() {
-	currentTime := time.Now().UnixMilli()
-	if baseCenter.isProcessLimited(currentTime) {
-		hwlog.RunLog.Infof("process limited, last time %d, current time %d",
-			baseCenter.lastProcessTime, currentTime)
-		return
-	}
-	baseCenter.lastProcessTime = currentTime
-	baseCenter.jobServerInfoMap = kube.JobMgr.GetJobServerInfoMap()
-	hwlog.RunLog.Infof("job server info map: %v", util.ObjToString(baseCenter.jobServerInfoMap))
 	for _, processor := range baseCenter.processorList {
 		processor.process()
 	}
 	for _, ch := range baseCenter.subscribeChannelList {
-		ch <- struct{}{}
+		if ch != nil {
+			ch <- struct{}{}
+		}
 	}
 }
 
@@ -50,7 +39,7 @@ func (baseCenter *baseFaultCenter) addProcessors(processors []faultProcessor) {
 	baseCenter.processorList = append(baseCenter.processorList, processors...)
 }
 
-func (baseCenter *baseFaultCenter) register(ch chan struct{}) {
+func (baseCenter *baseFaultCenter) register(ch chan struct{}) error {
 	baseCenter.mutex.Lock()
 	defer baseCenter.mutex.Unlock()
 	if baseCenter.subscribeChannelList == nil {
@@ -58,8 +47,8 @@ func (baseCenter *baseFaultCenter) register(ch chan struct{}) {
 	}
 	length := len(baseCenter.subscribeChannelList)
 	if length > constant.MAX_FAULT_CENTER_SUBSCRIBER {
-		hwlog.RunLog.Errorf("The number of registrants is %d, cannot add any more", length)
+		return fmt.Errorf("the number of registrants is %d, cannot add any more", length)
 	}
 	baseCenter.subscribeChannelList = append(baseCenter.subscribeChannelList, ch)
-	hwlog.RunLog.Infof("The number of registrants is %d", length+1)
+	return nil
 }

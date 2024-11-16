@@ -5,20 +5,33 @@ package faultshoot
 
 import (
 	"sync"
+	"time"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/node"
-
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 )
 
 func newNodeFaultProcessCenter() *nodeFaultProcessCenter {
 	return &nodeFaultProcessCenter{
 		baseFaultCenter: newBaseFaultCenter(),
-		processedCm:     make(map[string]*constant.NodeInfo),
+		processingCm:    make(map[string]*constant.NodeInfo),
 		devicePluginCm:  make(map[string]*constant.NodeInfo),
 		mutex:           sync.RWMutex{},
 	}
+}
+
+func (nodeCenter *nodeFaultProcessCenter) getProcessingCm() map[string]*constant.NodeInfo {
+	nodeCenter.mutex.RLock()
+	defer nodeCenter.mutex.RUnlock()
+	return node.DeepCopyInfos(nodeCenter.processingCm)
+}
+
+func (nodeCenter *nodeFaultProcessCenter) setProcessingCm(infos map[string]*constant.NodeInfo) {
+	nodeCenter.mutex.Lock()
+	defer nodeCenter.mutex.Unlock()
+	nodeCenter.processingCm = node.DeepCopyInfos(infos)
 }
 
 func (nodeCenter *nodeFaultProcessCenter) getProcessedCm() map[string]*constant.NodeInfo {
@@ -52,6 +65,12 @@ func (nodeCenter *nodeFaultProcessCenter) delDevicePluginCm(newInfo *constant.No
 }
 
 func (nodeCenter *nodeFaultProcessCenter) process() {
-	nodeCenter.setProcessedCm(nodeCenter.devicePluginCm)
+	currentTime := time.Now().UnixMilli()
+	if nodeCenter.isProcessLimited(currentTime) {
+		return
+	}
+	nodeCenter.lastProcessTime = currentTime
+	nodeCenter.setProcessingCm(nodeCenter.devicePluginCm)
 	nodeCenter.baseFaultCenter.process()
+	nodeCenter.setProcessedCm(nodeCenter.processedCm)
 }

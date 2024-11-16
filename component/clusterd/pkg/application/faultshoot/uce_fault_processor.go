@@ -70,7 +70,7 @@ func (processor *uceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId str
 
 func (processor *uceFaultProcessor) process() {
 	processor.jobServerInfoMap = processor.deviceCenter.jobServerInfoMap
-	deviceInfos := processor.deviceCenter.getProcessedCm()
+	deviceInfos := processor.deviceCenter.getProcessingCm()
 	processor.nodeDeviceCmMap = getAdvanceDeviceCmForNodeMap(deviceInfos)
 	hwlog.RunLog.Infof("current deviceInfos %s", util.ObjToString(deviceInfos))
 	hwlog.RunLog.Infof("current nodeDeviceCmMap %s", util.ObjToString(processor.nodeDeviceCmMap))
@@ -85,9 +85,8 @@ func (processor *uceFaultProcessor) process() {
 	processor.processUceFaultInfo(currentTime)
 	advanceDeviceCmForNodeMapToString(processor.nodeDeviceCmMap, deviceInfos)
 
-	hwlog.RunLog.Infof("currentTime: %d", currentTime)
 	hwlog.RunLog.Infof("result deviceInfos %s", util.ObjToString(deviceInfos))
-	processor.deviceCenter.setProcessedCm(deviceInfos)
+	processor.deviceCenter.setProcessingCm(deviceInfos)
 }
 
 func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) {
@@ -181,12 +180,10 @@ func (processor *uceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string
 	}
 	uceJobs := make(map[string]uceJobInfo)
 	for jobUid, serverList := range processor.jobServerInfoMap.InfoMap {
-		// If job cannot tolerate uce fault, don't Filter device info
 		if !processor.jobServerInfoMap.UceTolerate[jobUid] {
 			continue
 		}
 		jobInfo := uceJobInfo{
-			// node->uceNodeInfo
 			UceNode: make(map[string]uceNodeInfo),
 			JobId:   jobUid,
 		}
@@ -258,7 +255,7 @@ func (processor *uceFaultProcessor) reportUceInfo(jobId string, rankId string, r
 		infoMap[jobId][nodeName][deviceName] = info
 	}
 	processor.reportInfo.InfoMap = infoMap
-	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
-	hwlog.RunLog.Infof("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
+	hwlog.RunLog.Debugf("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
+	hwlog.RunLog.Debugf("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
 	return nil
 }

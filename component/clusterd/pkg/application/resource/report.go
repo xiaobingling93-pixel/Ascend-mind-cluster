@@ -4,16 +4,17 @@
 package resource
 
 import (
-	"clusterd/pkg/application/faultshoot"
 	"strconv"
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
+	"clusterd/pkg/application/faultshoot"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/device"
 	"clusterd/pkg/domain/node"

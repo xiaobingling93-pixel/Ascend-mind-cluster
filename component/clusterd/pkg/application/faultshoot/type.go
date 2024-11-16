@@ -27,6 +27,7 @@ type baseFaultCenter struct {
 type deviceFaultProcessCenter struct {
 	baseFaultCenter
 	mutex          sync.RWMutex
+	processingCm   map[string]*constant.DeviceInfo
 	processedCm    map[string]*constant.DeviceInfo
 	devicePluginCm map[string]*constant.DeviceInfo
 }
@@ -76,6 +77,7 @@ type jobRankFaultInfoProcessor struct {
 // nodeFaultProcessCenter
 type nodeFaultProcessCenter struct {
 	baseFaultCenter
+	processingCm   map[string]*constant.NodeInfo
 	processedCm    map[string]*constant.NodeInfo
 	devicePluginCm map[string]*constant.NodeInfo
 	mutex          sync.RWMutex
@@ -83,6 +85,7 @@ type nodeFaultProcessCenter struct {
 
 type switchFaultProcessCenter struct {
 	baseFaultCenter
+	processingCm   map[string]*constant.SwitchInfo
 	processedCm    map[string]*constant.SwitchInfo
 	devicePluginCm map[string]*constant.SwitchInfo
 	mutex          sync.RWMutex

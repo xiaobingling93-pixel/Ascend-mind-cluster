@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"clusterd/pkg/common/constant"
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
+	"clusterd/pkg/common/constant"
 )
 
 func (center *FaultProcessCenter) process() {
@@ -17,6 +18,7 @@ func (center *FaultProcessCenter) process() {
 	center.switchCenter.process()
 }
 
+// NewFaultProcessCenter create deviceCenter,nodeCenter,switchCenter and work goroutine
 func NewFaultProcessCenter(ctx context.Context) {
 	GlobalFaultProcessCenter = &FaultProcessCenter{
 		deviceCenter:      newDeviceFaultProcessCenter(),
@@ -79,9 +81,11 @@ func (center *FaultProcessCenter) work(ctx context.Context) {
 				center.nodeCenter.process()
 			case constant.SWITCH_FAULT:
 				center.switchCenter.process()
+			default:
 			}
 		case <-centerTicker.C:
 			center.process()
+		default:
 		}
 	}
 }
@@ -90,7 +94,7 @@ func (center *FaultProcessCenter) getJobFaultRankProcessor() (*jobRankFaultInfoP
 	return center.deviceCenter.getJobFaultRankProcessor()
 }
 
-// callbackForReportUceInfo cluster grpc should call back for report uce fault situation
+// ReportRecoverInfo cluster grpc should call back for report uce fault
 type ReportRecoverInfo struct {
 	JobId       string
 	Rank        string
@@ -107,8 +111,8 @@ func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []ReportRecover
 }
 
 // Register to notify fault occurrence
-func (center *FaultProcessCenter) Register(ch chan struct{}, which int) {
-	switch which {
+func (center *FaultProcessCenter) Register(ch chan struct{}, whichToRegister int) {
+	switch whichToRegister {
 	case constant.SWITCH_FAULT:
 		center.switchCenter.register(ch)
 	case constant.NODE_FAULT:
@@ -119,8 +123,9 @@ func (center *FaultProcessCenter) Register(ch chan struct{}, which int) {
 		center.switchCenter.register(ch)
 		center.nodeCenter.register(ch)
 		center.deviceCenter.register(ch)
+	default:
+		hwlog.RunLog.Errorf("Wrong number %d, cannot decide which to register", whichToRegister)
 	}
-	hwlog.RunLog.Errorf("Wrong number %d, cannot decide which to register", which)
 }
 
 // QueryJobsFaultInfo query jobs fault rank info
@@ -135,15 +140,15 @@ func (center *FaultProcessCenter) QueryJobsFaultInfo() map[string]JobFaultInfo {
 
 // QueryDeviceInfoToReport query device info to report
 func (center *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
-	return center.deviceCenter.getProcessedCm()
+	return center.deviceCenter.getProcessingCm()
 }
 
 // QuerySwitchInfoToReport query switch info to report
 func (center *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
-	return center.switchCenter.getProcessedCm()
+	return center.switchCenter.getProcessingCm()
 }
 
 // QueryNodeInfoToReport query node info to report
 func (center *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
-	return center.nodeCenter.getProcessedCm()
+	return center.nodeCenter.getProcessingCm()
 }
