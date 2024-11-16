@@ -1,30 +1,39 @@
-package fault
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ */
 
-import "clusterd/pkg/common/constant"
+// Package faultshoot contain fault process
+package faultshoot
 
-// DeviceInfoCollector collector device info
+import (
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
+	"clusterd/pkg/common/constant"
+)
+
+// DeviceInfoCollector collects device info
 func DeviceInfoCollector(oldDevInfo, newDevInfo *constant.DeviceInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		// GlobalFaultProcessCenter.informDeviceInfoAdd(newDevInfo)
+		hwlog.RunLog.Info("add")
 	} else if operator == constant.DeleteOperator {
-		// GlobalFaultProcessCenter.informDeviceInfoDel(newDevInfo)
+		hwlog.RunLog.Info("del")
 	}
 }
 
-// SwitchInfoCollector collector switchinfo info of 900A3
+// SwitchInfoCollector collects switchinfo info of 900A3
 func SwitchInfoCollector(oldSwitchInfo, newSwitchInfo *constant.SwitchInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		// GlobalFaultProcessCenter.informSwitchInfoAdd(newSwitchInfo)
+		hwlog.RunLog.Info("add")
 	} else if operator == constant.DeleteOperator {
-		// GlobalFaultProcessCenter.informSwitchInfoDel(newSwitchInfo)
+		hwlog.RunLog.Info("del")
 	}
 }
 
-// NodeCollector collector node info
+// NodeCollector collects node info
 func NodeCollector(oldNodeInfo, newNodeInfo *constant.NodeInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		// GlobalFaultProcessCenter.informNodeInfoAdd(newNodeInfo)
+		hwlog.RunLog.Info("add")
 	} else if operator == constant.DeleteOperator {
-		// GlobalFaultProcessCenter.informNodeInfoDel(newNodeInfo)
+		hwlog.RunLog.Info("del")
 	}
 }

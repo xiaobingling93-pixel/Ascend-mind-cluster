@@ -4,7 +4,7 @@
 package main
 
 import (
-	"clusterd/pkg/application/fault"
+	"clusterd/pkg/application/faultshoot"
 	"context"
 	"flag"
 	"fmt"
@@ -52,9 +52,9 @@ func startInformer(ctx context.Context, recoverService kube.JobService) {
 	kube.InitCMInformer()
 	kube.InitPodInformer()
 	kube.InitPGInformer(ctx, recoverService)
-	kube.AddCmSwitchFunc(constant.Resource, fault.SwitchInfoCollector)
-	kube.AddCmNodeFunc(constant.Resource, fault.NodeCollector)
-	kube.AddCmDeviceFunc(constant.Resource, fault.DeviceInfoCollector)
+	kube.AddCmSwitchFunc(constant.Resource, faultshoot.SwitchInfoCollector)
+	kube.AddCmNodeFunc(constant.Resource, faultshoot.NodeCollector)
+	kube.AddCmDeviceFunc(constant.Resource, faultshoot.DeviceInfoCollector)
 	kube.AddCmNodeFunc(constant.Resource, resource.NodeCollector)
 	kube.AddCmDeviceFunc(constant.Resource, resource.DeviceInfoCollector)
 	kube.AddCmSwitchFunc(constant.Resource, resource.SwitchInfoCollector)
