@@ -1,12 +1,17 @@
-package fault
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ */
+
+// Package faultshoot contain fault process
+package faultshoot
 
 import (
+	"sync"
+
 	"clusterd/pkg/application/job"
 	"clusterd/pkg/common/constant"
-	"sync"
 )
 
-// The faultProcessor process the fault information.
 type faultProcessor interface {
 	process()
 }
@@ -27,9 +32,10 @@ type deviceFaultProcessCenter struct {
 	infoMap map[string]*constant.DeviceInfo
 }
 
-// The FaultProcessCenter process the faults
+// GlobalFaultProcessCenter is a global instance of FaultProcessCenter used for processing faults.
 var GlobalFaultProcessCenter *FaultProcessCenter
 
+// FaultProcessCenter processes the faults and coordinates the fault handling among different components.
 type FaultProcessCenter struct {
 	deviceCenter      *deviceFaultProcessCenter
 	nodeCenter        *nodeFaultProcessCenter
@@ -49,7 +55,8 @@ type AdvanceDeviceCm struct {
 	UpdateTime       int64
 }
 
-// FaultRank fault rank info
+// FaultRank defines the structure for storing fault rank information.
+// It includes the rank ID and fault code.
 type FaultRank struct {
 	RankId    string
 	FaultCode string

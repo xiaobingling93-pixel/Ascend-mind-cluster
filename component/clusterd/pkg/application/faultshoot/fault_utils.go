@@ -1,4 +1,9 @@
-package fault
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ */
+
+// Package faultshoot contain fault process
+package faultshoot
 
 import (
 	"encoding/json"
@@ -14,7 +19,8 @@ import (
 	"clusterd/pkg/common/util"
 )
 
-func getNodeAndDeviceFromJobIdAndRankId(jobId, rankId string, jobServerInfoMap job.JobServerInfoMap) (string, string, error) {
+func getNodeAndDeviceFromJobIdAndRankId(
+	jobId, rankId string, jobServerInfoMap job.JobServerInfoMap) (string, string, error) {
 	for _, server := range jobServerInfoMap.InfoMap[jobId] {
 		for _, dev := range server.DeviceList {
 			if dev.RankID == rankId {
@@ -64,19 +70,19 @@ func getAdvanceDeviceCm(devInfo *constant.DeviceInfo) AdvanceDeviceCm {
 		ServerType:  getServerType(devInfo),
 	}
 	if devInfo == nil {
-		hwlog.RunLog.Error(fmt.Errorf("get fault list for node failed. devInfo is nil"))
+		hwlog.RunLog.Error("get fault list for node failed. devInfo is nil")
 		return advanceDeviceCm
 	}
 	if devInfo.DeviceList == nil {
-		hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. device list does not exist", devInfo.CmName))
+		hwlog.RunLog.Errorf("get fault list for node %v failed. device list does not exist", devInfo.CmName)
 		return advanceDeviceCm
 	}
 	if faultList, ok := devInfo.DeviceList[getFaultListKey(devInfo)]; ok {
 		var devicesFault []constant.DeviceFault
 		err := json.Unmarshal([]byte(faultList), &devicesFault)
 		if err != nil {
-			hwlog.RunLog.Error(fmt.Errorf("get fault list for node %v failed. "+
-				"Json unmarshall exception: %v", devInfo.CmName, err))
+			hwlog.RunLog.Errorf("get fault list for node %v failed. "+
+				"Json unmarshall exception: %v", devInfo.CmName, err)
 			return advanceDeviceCm
 		}
 		deviceFaultMap := make(map[string][]constant.DeviceFault)
@@ -96,7 +102,8 @@ func getAdvanceDeviceCm(devInfo *constant.DeviceInfo) AdvanceDeviceCm {
 		cardList := strings.Split(networkUnhealthyCardList, ",")
 		advanceDeviceCm.NetworkUnhealthy = cardList
 	} else {
-		hwlog.RunLog.Infof("get NetworkUnhealthy list for node %v failed. fault list does not exist", devInfo.CmName)
+		hwlog.RunLog.Infof("get NetworkUnhealthy list for node %v failed. fault list does not exist",
+			devInfo.CmName)
 	}
 	if cardUnhealthyCardList, ok := devInfo.DeviceList[getCardUnhealthyKey(devInfo)]; ok {
 		cardList := strings.Split(cardUnhealthyCardList, ",")
@@ -179,7 +186,8 @@ func deleteFaultFromFaultMap(faultMap map[string][]constant.DeviceFault,
 	return faultMap
 }
 
-func advanceDeviceCmForNodeMapToString(advanceDeviceCm map[string]AdvanceDeviceCm, orgDeviceCm map[string]*constant.DeviceInfo) {
+func advanceDeviceCmForNodeMapToString(
+	advanceDeviceCm map[string]AdvanceDeviceCm, orgDeviceCm map[string]*constant.DeviceInfo) {
 	for nodeName, advanceCm := range advanceDeviceCm {
 		advanceCm = mergeCodeAndRemoveUnhealthy(advanceCm)
 		cmName := nodeNameToCmName(nodeName)
