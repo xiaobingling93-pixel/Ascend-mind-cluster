@@ -33,19 +33,19 @@ func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
 	return deviceCenter
 }
 
-func (deviceCenter *deviceFaultProcessCenter) getInfoMap() map[string]*constant.DeviceInfo {
+func (deviceCenter *deviceFaultProcessCenter) getProcessedCm() map[string]*constant.DeviceInfo {
 	deviceCenter.mutex.RLock()
 	defer deviceCenter.mutex.RUnlock()
 	return device.DeepCopyInfos(deviceCenter.processedCm)
 }
 
-func (deviceCenter *deviceFaultProcessCenter) setInfoMap(infos map[string]*constant.DeviceInfo) {
+func (deviceCenter *deviceFaultProcessCenter) setProcessedCm(infos map[string]*constant.DeviceInfo) {
 	deviceCenter.mutex.Lock()
 	defer deviceCenter.mutex.Unlock()
 	deviceCenter.processedCm = device.DeepCopyInfos(infos)
 }
 
-func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(newInfo *constant.DeviceInfo) {
+func (deviceCenter *deviceFaultProcessCenter) updateDevicePluginCm(newInfo *constant.DeviceInfo) {
 	deviceCenter.mutex.Lock()
 	defer deviceCenter.mutex.Unlock()
 	length := len(deviceCenter.devicePluginCm)
@@ -56,7 +56,7 @@ func (deviceCenter *deviceFaultProcessCenter) updateInfoFromCm(newInfo *constant
 	deviceCenter.devicePluginCm[newInfo.CmName] = newInfo
 }
 
-func (deviceCenter *deviceFaultProcessCenter) delInfoFromCm(newInfo *constant.DeviceInfo) {
+func (deviceCenter *deviceFaultProcessCenter) delDevicePluginCm(newInfo *constant.DeviceInfo) {
 	deviceCenter.mutex.Lock()
 	defer deviceCenter.mutex.Unlock()
 	delete(deviceCenter.devicePluginCm, newInfo.CmName)
@@ -99,6 +99,6 @@ func (deviceCenter *deviceFaultProcessCenter) callbackForReportUceInfo(jobId, ra
 }
 
 func (deviceCenter *deviceFaultProcessCenter) process() {
-	deviceCenter.setInfoMap(deviceCenter.devicePluginCm)
+	deviceCenter.setProcessedCm(deviceCenter.devicePluginCm)
 	deviceCenter.baseFaultCenter.process()
 }

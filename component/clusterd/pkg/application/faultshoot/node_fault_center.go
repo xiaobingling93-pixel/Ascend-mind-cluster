@@ -21,19 +21,19 @@ func newNodeFaultProcessCenter() *nodeFaultProcessCenter {
 	}
 }
 
-func (nodeCenter *nodeFaultProcessCenter) getInfoMap() map[string]*constant.NodeInfo {
+func (nodeCenter *nodeFaultProcessCenter) getProcessedCm() map[string]*constant.NodeInfo {
 	nodeCenter.mutex.RLock()
 	defer nodeCenter.mutex.RUnlock()
 	return node.DeepCopyInfos(nodeCenter.processedCm)
 }
 
-func (nodeCenter *nodeFaultProcessCenter) setInfoMap(infos map[string]*constant.NodeInfo) {
+func (nodeCenter *nodeFaultProcessCenter) setProcessedCm(infos map[string]*constant.NodeInfo) {
 	nodeCenter.mutex.Lock()
 	defer nodeCenter.mutex.Unlock()
 	nodeCenter.processedCm = node.DeepCopyInfos(infos)
 }
 
-func (nodeCenter *nodeFaultProcessCenter) updateInfoFromCm(newInfo *constant.NodeInfo) {
+func (nodeCenter *nodeFaultProcessCenter) updateDevicePluginCm(newInfo *constant.NodeInfo) {
 	nodeCenter.mutex.Lock()
 	defer nodeCenter.mutex.Unlock()
 	length := len(nodeCenter.devicePluginCm)
@@ -45,13 +45,13 @@ func (nodeCenter *nodeFaultProcessCenter) updateInfoFromCm(newInfo *constant.Nod
 	nodeCenter.devicePluginCm[newInfo.CmName] = newInfo
 }
 
-func (nodeCenter *nodeFaultProcessCenter) delInfoFromCm(newInfo *constant.NodeInfo) {
+func (nodeCenter *nodeFaultProcessCenter) delDevicePluginCm(newInfo *constant.NodeInfo) {
 	nodeCenter.mutex.Lock()
 	defer nodeCenter.mutex.Unlock()
 	delete(nodeCenter.devicePluginCm, newInfo.CmName)
 }
 
 func (nodeCenter *nodeFaultProcessCenter) process() {
-	nodeCenter.setInfoMap(nodeCenter.devicePluginCm)
+	nodeCenter.setProcessedCm(nodeCenter.devicePluginCm)
 	nodeCenter.baseFaultCenter.process()
 }

@@ -28,32 +28,32 @@ func NewFaultProcessCenter(ctx context.Context) {
 }
 
 func (center *FaultProcessCenter) informSwitchInfoAdd(newInfo *constant.SwitchInfo) {
-	center.switchCenter.updateInfoFromCm(newInfo)
+	center.switchCenter.updateDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SWITCH_FAULT)
 }
 
 func (center *FaultProcessCenter) informSwitchInfoDel(newInfo *constant.SwitchInfo) {
-	center.switchCenter.delInfoFromCm(newInfo)
+	center.switchCenter.delDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SWITCH_FAULT)
 }
 
 func (center *FaultProcessCenter) informDeviceInfoAdd(newInfo *constant.DeviceInfo) {
-	center.deviceCenter.updateInfoFromCm(newInfo)
+	center.deviceCenter.updateDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 }
 
 func (center *FaultProcessCenter) informDeviceInfoDel(newInfo *constant.DeviceInfo) {
-	center.deviceCenter.delInfoFromCm(newInfo)
+	center.deviceCenter.delDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DEVICE_FAULT)
 }
 
 func (center *FaultProcessCenter) informNodeInfoAdd(newInfo *constant.NodeInfo) {
-	center.nodeCenter.updateInfoFromCm(newInfo)
+	center.nodeCenter.updateDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NODE_FAULT)
 }
 
 func (center *FaultProcessCenter) informNodeInfoDel(newInfo *constant.NodeInfo) {
-	center.nodeCenter.delInfoFromCm(newInfo)
+	center.nodeCenter.delDevicePluginCm(newInfo)
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NODE_FAULT)
 }
 
@@ -135,15 +135,15 @@ func (center *FaultProcessCenter) QueryJobsFaultInfo() map[string]JobFaultInfo {
 
 // QueryDeviceInfoToReport query device info to report
 func (center *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
-	return center.deviceCenter.getInfoMap()
+	return center.deviceCenter.getProcessedCm()
 }
 
 // QuerySwitchInfoToReport query switch info to report
 func (center *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
-	return center.switchCenter.getInfoMap()
+	return center.switchCenter.getProcessedCm()
 }
 
 // QueryNodeInfoToReport query node info to report
 func (center *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
-	return center.nodeCenter.getInfoMap()
+	return center.nodeCenter.getProcessedCm()
 }

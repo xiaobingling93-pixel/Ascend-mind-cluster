@@ -26,7 +26,7 @@ func (processor *jobRankFaultInfoProcessor) setJobFaultRankInfos(faultInfos map[
 }
 
 func (processor *jobRankFaultInfoProcessor) process() {
-	deviceInfos := processor.deviceCenter.getInfoMap()
+	deviceInfos := processor.deviceCenter.getProcessedCm()
 	nodesName := getNodesNameFromDeviceInfo(deviceInfos)
 	deviceCmForNodeMap := getAdvanceDeviceCmForNodeMap(deviceInfos)
 

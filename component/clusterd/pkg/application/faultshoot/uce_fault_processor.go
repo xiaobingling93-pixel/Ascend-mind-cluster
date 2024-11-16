@@ -70,7 +70,7 @@ func (processor *uceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId str
 
 func (processor *uceFaultProcessor) process() {
 	processor.jobServerInfoMap = processor.deviceCenter.jobServerInfoMap
-	deviceInfos := processor.deviceCenter.getInfoMap()
+	deviceInfos := processor.deviceCenter.getProcessedCm()
 	processor.nodeDeviceCmMap = getAdvanceDeviceCmForNodeMap(deviceInfos)
 	hwlog.RunLog.Infof("current deviceInfos %s", util.ObjToString(deviceInfos))
 	hwlog.RunLog.Infof("current nodeDeviceCmMap %s", util.ObjToString(processor.nodeDeviceCmMap))
@@ -87,7 +87,7 @@ func (processor *uceFaultProcessor) process() {
 
 	hwlog.RunLog.Infof("currentTime: %d", currentTime)
 	hwlog.RunLog.Infof("result deviceInfos %s", util.ObjToString(deviceInfos))
-	processor.deviceCenter.setInfoMap(deviceInfos)
+	processor.deviceCenter.setProcessedCm(deviceInfos)
 }
 
 func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) {

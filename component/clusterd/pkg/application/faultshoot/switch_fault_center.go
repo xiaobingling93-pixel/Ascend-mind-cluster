@@ -21,19 +21,19 @@ func newSwitchFaultProcessCenter() *switchFaultProcessCenter {
 	}
 }
 
-func (switchCenter *switchFaultProcessCenter) getInfoMap() map[string]*constant.SwitchInfo {
+func (switchCenter *switchFaultProcessCenter) getProcessedCm() map[string]*constant.SwitchInfo {
 	switchCenter.mutex.RLock()
 	defer switchCenter.mutex.RUnlock()
 	return switchinfo.DeepCopyInfos(switchCenter.processedCm)
 }
 
-func (switchCenter *switchFaultProcessCenter) setInfoMap(infos map[string]*constant.SwitchInfo) {
+func (switchCenter *switchFaultProcessCenter) setProcessedCm(infos map[string]*constant.SwitchInfo) {
 	switchCenter.mutex.Lock()
 	defer switchCenter.mutex.Unlock()
 	switchCenter.processedCm = switchinfo.DeepCopyInfos(infos)
 }
 
-func (switchCenter *switchFaultProcessCenter) updateInfoFromCm(newInfo *constant.SwitchInfo) {
+func (switchCenter *switchFaultProcessCenter) updateDevicePluginCm(newInfo *constant.SwitchInfo) {
 	switchCenter.mutex.Lock()
 	defer switchCenter.mutex.Unlock()
 	length := len(switchCenter.devicePluginCm)
@@ -45,13 +45,13 @@ func (switchCenter *switchFaultProcessCenter) updateInfoFromCm(newInfo *constant
 	switchCenter.devicePluginCm[newInfo.CmName] = newInfo
 }
 
-func (switchCenter *switchFaultProcessCenter) delInfoFromCm(newInfo *constant.SwitchInfo) {
+func (switchCenter *switchFaultProcessCenter) delDevicePluginCm(newInfo *constant.SwitchInfo) {
 	switchCenter.mutex.Lock()
 	defer switchCenter.mutex.Unlock()
 	delete(switchCenter.devicePluginCm, newInfo.CmName)
 }
 
 func (switchCenter *switchFaultProcessCenter) process() {
-	switchCenter.setInfoMap(switchCenter.devicePluginCm)
+	switchCenter.setProcessedCm(switchCenter.devicePluginCm)
 	switchCenter.baseFaultCenter.process()
 }

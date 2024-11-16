@@ -127,7 +127,7 @@ func (processor *uceAccompanyFaultProcessor) isCurrentExceedDiagnosisTimeout(
 }
 
 func (processor *uceAccompanyFaultProcessor) process() {
-	deviceInfos := processor.deviceCenter.getInfoMap()
+	deviceInfos := processor.deviceCenter.getProcessedCm()
 	processor.deviceCmForNodeMap = getAdvanceDeviceCmForNodeMap(deviceInfos)
 	hwlog.RunLog.Infof("current deviceInfos: %s", util.ObjToString(deviceInfos))
 	hwlog.RunLog.Infof("current deviceCmForNodeMap: %s", util.ObjToString(processor.deviceCmForNodeMap))
@@ -141,5 +141,5 @@ func (processor *uceAccompanyFaultProcessor) process() {
 	advanceDeviceCmForNodeMapToString(processor.deviceCmForNodeMap, deviceInfos)
 
 	hwlog.RunLog.Infof("uceAccompanyFaultProcessor result: %s", util.ObjToString(deviceInfos))
-	processor.deviceCenter.setInfoMap(deviceInfos)
+	processor.deviceCenter.setProcessedCm(deviceInfos)
 }
