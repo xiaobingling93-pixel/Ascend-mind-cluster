@@ -94,9 +94,6 @@ func (r *ASJobReconciler) newPodInfo(job *mindxdlv1.AscendJob, rtype commonv1.Re
 	error) {
 
 	clusterdSvcIp := r.getClusterDSvcIp()
-	if clusterdSvcIp == "" {
-		return nil, fmt.Errorf("get clusterd svc ip failed")
-	}
 	svcIp, svcPort, err := r.getMngSvcIpAndPort(job, frame, rtype)
 	if err != nil {
 		return nil, err
