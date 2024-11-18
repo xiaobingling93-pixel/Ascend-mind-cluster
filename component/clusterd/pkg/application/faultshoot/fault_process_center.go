@@ -129,13 +129,13 @@ func (center *FaultProcessCenter) Register(ch chan struct{}, whichToRegister int
 }
 
 // QueryJobsFaultInfo query jobs fault rank info
-func (center *FaultProcessCenter) QueryJobsFaultInfo() map[string]JobFaultInfo {
+func (center *FaultProcessCenter) QueryJobsFaultInfo(faultLevel int) map[string]JobFaultInfo {
 	processor, err := center.getJobFaultRankProcessor()
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil
 	}
-	return processor.getJobFaultRankInfos()
+	return processor.getJobFaultRankInfosFilterLevel(faultLevel)
 }
 
 // QueryDeviceInfoToReport query device info to report

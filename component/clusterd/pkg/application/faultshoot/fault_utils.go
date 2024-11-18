@@ -289,3 +289,22 @@ func isUceAccompanyFault(faultDevice constant.DeviceFault) bool {
 func isDeviceFaultEqual(one, other constant.DeviceFault) bool {
 	return reflect.DeepEqual(one, other)
 }
+
+func getFaultLevel(faultLevel string) int {
+	switch faultLevel {
+	case L1_NotHandleFault:
+		return NotHandleFault
+	case L2_RestartRequest:
+		return RestartRequest
+	case L3_RestartBusiness:
+		return RestartBusiness
+	case L4_FreeRestartNPU:
+		return FreeRestartNPU
+	case L5_RestartNPU:
+		return RestartNPU
+	case L6_SeparateNPU:
+		return SeparateNPU
+	default:
+		return NotFaultLevel
+	}
+}
