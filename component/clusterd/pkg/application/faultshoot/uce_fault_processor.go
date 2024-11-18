@@ -72,20 +72,20 @@ func (processor *uceFaultProcessor) process() {
 	processor.jobServerInfoMap = processor.deviceCenter.jobServerInfoMap
 	deviceInfos := processor.deviceCenter.getProcessingCm()
 	processor.nodeDeviceCmMap = getAdvanceDeviceCmForNodeMap(deviceInfos)
-	hwlog.RunLog.Infof("current deviceInfos %s", util.ObjToString(deviceInfos))
-	hwlog.RunLog.Infof("current nodeDeviceCmMap %s", util.ObjToString(processor.nodeDeviceCmMap))
+	hwlog.RunLog.Debugf("current deviceInfos %s", util.ObjToString(deviceInfos))
+	hwlog.RunLog.Debugf("current nodeDeviceCmMap %s", util.ObjToString(processor.nodeDeviceCmMap))
 
 	processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
-	hwlog.RunLog.Infof("current uceDeviceOfNode %s", util.ObjToString(processor.uceDeviceOfNode))
+	hwlog.RunLog.Debugf("current uceDeviceOfNode %s", util.ObjToString(processor.uceDeviceOfNode))
 
 	processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
-	hwlog.RunLog.Infof("current uceDevicesOfUceJob %s", util.ObjToString(processor.uceDevicesOfUceJob))
+	hwlog.RunLog.Debugf("current uceDevicesOfUceJob %s", util.ObjToString(processor.uceDevicesOfUceJob))
 
 	currentTime := time.Now().UnixMilli()
 	processor.processUceFaultInfo(currentTime)
 	advanceDeviceCmForNodeMapToString(processor.nodeDeviceCmMap, deviceInfos)
 
-	hwlog.RunLog.Infof("result deviceInfos %s", util.ObjToString(deviceInfos))
+	hwlog.RunLog.Debugf("result deviceInfos %s", util.ObjToString(deviceInfos))
 	processor.deviceCenter.setProcessingCm(deviceInfos)
 }
 
@@ -100,10 +100,17 @@ func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
 	nodeName string, deviceInfo AdvanceDeviceCm, currentTime int64) AdvanceDeviceCm {
 	for _, uceJob := range processor.uceDevicesOfUceJob {
 		for deviceName, uceDevice := range uceJob.UceNode[nodeName].DeviceInfo {
+			log := fmt.Sprintf("filter uce device: %s on node %s, "+
+				"currentTime: %s, faultTime: %s, recoverTime: %s",
+				uceDevice.DeviceName, nodeName,
+				util.ReadableMsTime(currentTime),
+				util.ReadableMsTime(uceDevice.FaultTime),
+				util.ReadableMsTime(uceDevice.RecoverTime))
 			if processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime) {
-				hwlog.RunLog.Warnf("uceFaultProcessor filtered uce device: %s on node %s, currentTime: %d",
-					util.ObjToString(uceDevice), nodeName, currentTime)
+				hwlog.RunLog.Warn("uceFaultProcessor " + log)
 				deviceInfo.DeviceList = processor.filterUceDeviceFaultInfo(deviceName, deviceInfo.DeviceList)
+			} else {
+				hwlog.RunLog.Warn("uceFaultProcessor cannot " + log)
 			}
 		}
 	}
@@ -255,7 +262,7 @@ func (processor *uceFaultProcessor) reportUceInfo(jobId string, rankId string, r
 		infoMap[jobId][nodeName][deviceName] = info
 	}
 	processor.reportInfo.InfoMap = infoMap
-	hwlog.RunLog.Debugf("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
+	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
 	hwlog.RunLog.Debugf("Current reportInfo is %s", util.ObjToString(processor.reportInfo.InfoMap))
 	return nil
 }

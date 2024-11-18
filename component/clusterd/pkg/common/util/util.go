@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"time"
 )
 
 // NewSignalWatcher create a new signal watcher
@@ -115,4 +116,9 @@ func DeleteStringSliceItem(slice []string, item string) []string {
 		newSlice = append(newSlice, val)
 	}
 	return newSlice
+}
+
+// ReadableMsTime return more readable time from msec
+func ReadableMsTime(msTime int64) string {
+	return time.UnixMilli(msTime).Format("2006-01-02 15:04:05")
 }
