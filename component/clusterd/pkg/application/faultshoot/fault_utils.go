@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
@@ -130,6 +131,11 @@ func splitDeviceFault(faultInfo constant.DeviceFault) []constant.DeviceFault {
 	deviceFaults := make([]constant.DeviceFault, 0)
 	codes := strings.Split(faultInfo.FaultCode, ",")
 	for _, code := range codes {
+		faultTime, found := faultInfo.FaultTimeMap[code]
+		if !found {
+			hwlog.RunLog.Warnf("cannot find fault time of %s", code)
+			faultTime = time.Now().UnixMilli()
+		}
 		newFault := constant.DeviceFault{
 			FaultType:            faultInfo.FaultType,
 			NPUName:              faultInfo.NPUName,
@@ -137,7 +143,8 @@ func splitDeviceFault(faultInfo constant.DeviceFault) []constant.DeviceFault {
 			FaultLevel:           faultInfo.FaultLevel,
 			FaultHandling:        faultInfo.FaultHandling,
 			FaultCode:            code,
-			FaultTime:            faultInfo.FaultTime,
+			FaultTime:            faultTime,
+			FaultTimeMap:         faultInfo.FaultTimeMap,
 		}
 		deviceFaults = append(deviceFaults, newFault)
 	}
@@ -152,7 +159,7 @@ func mergeDeviceFault(deviceFaults []constant.DeviceFault) (constant.DeviceFault
 		LargeModelFaultLevel: deviceFaults[0].LargeModelFaultLevel,
 		FaultLevel:           deviceFaults[0].FaultLevel,
 		FaultHandling:        deviceFaults[0].FaultHandling,
-		FaultTime:            deviceFaults[0].FaultTime,
+		FaultTimeMap:         make(map[string]int64),
 	}
 	faultCodeList := make([]string, 0)
 	for _, fault := range deviceFaults {
@@ -161,6 +168,7 @@ func mergeDeviceFault(deviceFaults []constant.DeviceFault) (constant.DeviceFault
 				"they belongs to multiple devices: %s, %s", deviceName, fault.NPUName)
 		}
 		faultCodeList = append(faultCodeList, fault.FaultCode)
+		mergeFault.FaultTimeMap[fault.FaultCode] = fault.FaultTime
 	}
 	sort.SliceStable(faultCodeList, func(i, j int) bool {
 		return faultCodeList[i] < faultCodeList[j]
