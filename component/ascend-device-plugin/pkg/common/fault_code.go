@@ -1029,13 +1029,16 @@ func updateDeviceFaultTimeMap(device *NpuDevice, faultInfo common.DevFaultInfo, 
 	if device.FaultTimeMap == nil {
 		device.FaultTimeMap = make(map[string]int64)
 	}
-	hexFaultCode := strconv.FormatInt(faultInfo.EventID, Hex)
+	hexFaultCode := strings.ToUpper(strconv.FormatInt(faultInfo.EventID, Hex))
 	if isAdd {
 		faultTime := faultInfo.AlarmRaisedTime
 		if faultTime == 0 {
 			faultTime = time.Now().UnixMilli()
 		}
-		device.FaultTimeMap[hexFaultCode] = faultTime
+		existingFaultTime, found := device.FaultTimeMap[hexFaultCode]
+		if found && existingFaultTime < faultTime {
+			device.FaultTimeMap[hexFaultCode] = faultTime
+		}
 	} else {
 		delete(device.FaultTimeMap, hexFaultCode)
 	}

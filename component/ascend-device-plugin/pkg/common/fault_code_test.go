@@ -1633,7 +1633,7 @@ func Test_updateDeviceFaultTimeMap(t *testing.T) {
 		isAdd := true
 		updateDeviceFaultTimeMap(npuDevice, faultInfo, isAdd)
 		eventIdHex := strconv.FormatInt(faultInfo.EventID, Hex)
-		faultTime, found := npuDevice.FaultTimeMap[eventIdHex]
+		faultTime, found := npuDevice.FaultTimeMap[strings.ToUpper(eventIdHex)]
 		if !found {
 			t.Errorf("cannot found fault time")
 			return
@@ -1645,7 +1645,7 @@ func Test_updateDeviceFaultTimeMap(t *testing.T) {
 
 		isAdd = false
 		updateDeviceFaultTimeMap(npuDevice, faultInfo, isAdd)
-		_, found = npuDevice.FaultTimeMap[eventIdHex]
+		_, found = npuDevice.FaultTimeMap[strings.ToUpper(eventIdHex)]
 		if found {
 			t.Errorf("found fault time")
 			return
