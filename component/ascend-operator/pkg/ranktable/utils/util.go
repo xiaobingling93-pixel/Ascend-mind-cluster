@@ -68,16 +68,13 @@ func CheckDirPath(dirPath string) error {
 	if dirPath == "" {
 		return nil
 	}
-	s, err := os.Stat(dirPath)
+	_, err := os.Stat(dirPath)
 	if err == nil {
 		return nil
 	}
 	if os.IsNotExist(err) {
-		if s.IsDir() {
-			hwlog.RunLog.Info("try to mkdir")
-			return os.MkdirAll(dirPath, os.ModePerm)
-		}
-		return err
+		hwlog.RunLog.Info("try to mkdir")
+		return os.MkdirAll(dirPath, os.ModePerm)
 	}
 	hwlog.RunLog.Errorf("directory path exists but has no permission : %v", err)
 	return err
