@@ -118,6 +118,9 @@ func getServerType(devInfo *constant.DeviceInfo) string {
 		if strings.Contains(key, "Ascend910") {
 			return "Ascend910"
 		}
+		if strings.Contains(key, "Ascend310P") {
+			return "Ascend310P"
+		}
 		if strings.Contains(key, "Ascend310") {
 			return "Ascend310"
 		}

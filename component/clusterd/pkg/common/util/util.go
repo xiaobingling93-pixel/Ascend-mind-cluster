@@ -9,11 +9,12 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 )
 
 // NewSignalWatcher create a new signal watcher
