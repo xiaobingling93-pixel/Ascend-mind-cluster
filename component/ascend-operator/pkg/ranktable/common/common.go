@@ -76,13 +76,15 @@ func (r *BaseGenerator) GetStatus() utils.RankTableStatus {
 	return r.Status
 }
 
-// GetPath is used to get ranktable file path
-func (r *BaseGenerator) GetPath() string {
-	return r.path
-}
-
 // WriteToFile is used to write ranktable to file.
 func (r *BaseGenerator) WriteToFile() error {
+	if r.path == "" {
+		hwlog.RunLog.Info("ranktable file path is not set")
+		return nil
+	}
+	if err := r.checkDirPath(); err != nil {
+		return err
+	}
 	hwlog.RunLog.Infof("start write info into file: %s", r.path)
 	if err := func() error {
 		f, err := os.OpenFile(r.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultPerm)
@@ -209,4 +211,17 @@ func (r *BaseGenerator) GatherServerList() {
 		return iRankID < jRankID
 	})
 	r.ServerCount = strconv.Itoa(len(r.ServerList))
+}
+
+// check exsitence and permission of ranktable directory, if not exist, try to create the directory
+func (r *BaseGenerator) checkDirPath() error {
+	_, err := os.Stat(r.dir)
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) {
+		return os.MkdirAll(r.dir, os.ModePerm)
+	}
+	hwlog.RunLog.Errorf("Ranktable file path exists but has no permission : %v", err)
+	return err
 }

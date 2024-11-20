@@ -19,7 +19,20 @@ import (
 
 // GenRankTableDir generate rank table dir
 func GenRankTableDir(job *mindxdlv1.AscendJob) string {
-	return rankTableDir + "/" + job.Namespace + "." + job.Name
+	ranktableDir := ""
+	for _, replSpec := range job.Spec.ReplicaSpecs {
+		for _, volume := range replSpec.Template.Spec.Volumes {
+			if volume.Name != rankTableName || volume.VolumeSource.HostPath == nil {
+				continue
+			}
+			ranktableDir = volume.VolumeSource.HostPath.Path
+			break
+		}
+		if ranktableDir != "" {
+			break
+		}
+	}
+	return ranktableDir
 }
 
 // PodHasAllocated check if pod has allocated device
@@ -63,6 +76,9 @@ const (
 
 	// prefix of request npu name
 	npuPrefix = "huawei.com/"
+
+	// rank table volume name
+	rankTableName = "ranktable"
 )
 
 // RankTableStatus is rank table status
