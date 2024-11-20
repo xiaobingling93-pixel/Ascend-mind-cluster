@@ -9,6 +9,7 @@ Package utils is using for generating ranktable.
 package utils
 
 import (
+	"os"
 	"strings"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -64,6 +65,26 @@ func podUseNpu(pod *corev1.Pod) bool {
 	}
 	hwlog.RunLog.Infof("pod %v not use npu", pod.Name)
 	return false
+}
+
+// check exsitence and permission of ranktable directory, if not exist, try to create the directory
+func checkDirPath(dirPath string) error {
+	if dirPath == "" {
+		return nil
+	}
+	s, err := os.Stat(dirPath)
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) {
+		if s.IsDir() {
+			hwlog.RunLog.Infof("try to mkdir %s", dirPath)
+			return os.MkdirAll(dirPath, os.ModePerm)
+		}
+		return err
+	}
+	hwlog.RunLog.Errorf("directory path exists but has no permission : %v", err)
+	return err
 }
 
 const (
