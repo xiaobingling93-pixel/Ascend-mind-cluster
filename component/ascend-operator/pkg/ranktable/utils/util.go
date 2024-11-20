@@ -68,7 +68,7 @@ func podUseNpu(pod *corev1.Pod) bool {
 }
 
 // check exsitence and permission of ranktable directory, if not exist, try to create the directory
-func checkDirPath(dirPath string) error {
+func CheckDirPath(dirPath string) error {
 	if dirPath == "" {
 		return nil
 	}

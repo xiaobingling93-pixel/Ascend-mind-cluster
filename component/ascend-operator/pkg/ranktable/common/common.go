@@ -47,7 +47,8 @@ type BaseGenerator struct {
 // NewBaseGenerator is the constructor for BaseGenerator.
 func NewBaseGenerator(job *mindxdlv1.AscendJob, version string, r generator.RankTableGenerator) *BaseGenerator {
 	rankTableDir := utils.GenRankTableDir(job)
-	baseGenerator := BaseGenerator{
+	utils.CheckDirPath(rankTableDir)
+	return &BaseGenerator{
 		dir:        rankTableDir,
 		path:       rankTableDir + "/" + rankTableFile,
 		servers:    &sync.Map{},
@@ -56,8 +57,6 @@ func NewBaseGenerator(job *mindxdlv1.AscendJob, version string, r generator.Rank
 		ServerList: []*Server{},
 		Version:    version,
 	}
-	baseGenerator.checkDirPath()
-	return &baseGenerator
 }
 
 func (r *BaseGenerator) GetConfigmapExist() utils.ConfigmapCheck {
@@ -83,9 +82,6 @@ func (r *BaseGenerator) WriteToFile() error {
 	if r.path == "" {
 		hwlog.RunLog.Info("ranktable file path is not set")
 		return nil
-	}
-	if err := r.checkDirPath(); err != nil {
-		return err
 	}
 	hwlog.RunLog.Infof("start write info into file: %s", r.path)
 	if err := func() error {
@@ -213,17 +209,4 @@ func (r *BaseGenerator) GatherServerList() {
 		return iRankID < jRankID
 	})
 	r.ServerCount = strconv.Itoa(len(r.ServerList))
-}
-
-// check exsitence and permission of ranktable directory, if not exist, try to create the directory
-func (r *BaseGenerator) checkDirPath() error {
-	_, err := os.Stat(r.dir)
-	if err == nil {
-		return nil
-	}
-	if os.IsNotExist(err) {
-		return os.MkdirAll(r.dir, os.ModePerm)
-	}
-	hwlog.RunLog.Errorf("Ranktable file path exists but has no permission : %v", err)
-	return err
 }
