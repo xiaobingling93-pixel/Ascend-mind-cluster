@@ -2,6 +2,7 @@ package faultshoot
 
 import (
 	"clusterd/pkg/common/constant"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -100,4 +101,20 @@ func Test_mergeDeviceFault(t *testing.T) {
 			t.Errorf("mergeDeviceFault() got = %v, want %v", got, want)
 		}
 	})
+}
+
+func Test_getAdvanceDeviceCm(t *testing.T) {
+	info := &constant.DeviceInfo{
+		DeviceInfoNoName: constant.DeviceInfoNoName{
+			DeviceList: map[string]string{
+				"huawei.com/Ascend910-Fault": "[{\"fault_time_map\":{\"1801\": 1234, \"1809\":5678}}]",
+			},
+			UpdateTime: 0,
+		},
+		CmName:      "",
+		SuperPodID:  0,
+		ServerIndex: 0,
+	}
+	advanceDeviceCm := getAdvanceDeviceCm(info)
+	fmt.Println(advanceDeviceCm)
 }

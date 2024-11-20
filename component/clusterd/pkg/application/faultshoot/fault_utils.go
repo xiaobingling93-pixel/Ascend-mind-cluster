@@ -91,6 +91,8 @@ func getAdvanceDeviceCm(devInfo *constant.DeviceInfo) AdvanceDeviceCm {
 			if _, ok := deviceFaultMap[deviceFault.NPUName]; !ok {
 				deviceFaultMap[deviceFault.NPUName] = make([]constant.DeviceFault, 0)
 			}
+			hwlog.RunLog.Debugf("device fault: %s of cm %s, time: %s",
+				util.ObjToString(deviceFault), devInfo.CmName, util.ReadableMsTime(devInfo.UpdateTime))
 			// device plugin may merge multiple fault codes in one string
 			deviceFaults := splitDeviceFault(deviceFault)
 			deviceFaultMap[deviceFault.NPUName] = append(deviceFaultMap[deviceFault.NPUName], deviceFaults...)
