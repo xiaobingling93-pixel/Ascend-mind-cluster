@@ -1116,18 +1116,25 @@ func DelOnceRecoverFault(groupDevice map[string][]*NpuDevice) {
 			recoverFaults := recoverFaultMap[device.LogicID]
 			for _, recoverFault := range recoverFaults {
 				device.FaultCodes = Int64Tool.Remove(device.FaultCodes, recoverFault)
+				delOnceRecoverFaultTime(device, recoverFault)
 			}
 			setAlarmRaisedTime(device)
 
 			recoverNetworkFaults := recoverNetworkFaultMap[device.LogicID]
 			for _, recoverNetworkFault := range recoverNetworkFaults {
 				device.NetworkFaultCodes = Int64Tool.Remove(device.NetworkFaultCodes, recoverNetworkFault)
+				delOnceRecoverFaultTime(device, recoverNetworkFault)
 			}
 			setNetworkAlarmRaisedTime(device)
 		}
 	}
 	recoverFaultMap = make(map[int32][]int64, GeneralMapSize)
 	recoverNetworkFaultMap = make(map[int32][]int64, GeneralMapSize)
+}
+
+func delOnceRecoverFaultTime(device *NpuDevice, eventId int64) {
+	hexFaultCode := strings.ToUpper(strconv.FormatInt(eventId, Hex))
+	delete(device.FaultTimeMap, hexFaultCode)
 }
 
 // DelOnceFrequencyFault clear all the fault occurrence time in cache when frequency
