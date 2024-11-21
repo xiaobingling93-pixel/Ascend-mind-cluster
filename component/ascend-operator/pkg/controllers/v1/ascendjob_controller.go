@@ -180,7 +180,8 @@ func (r *ASJobReconciler) isVcjobOrDeploy(ctx context.Context, req ctrl.Request)
 func (r *ASJobReconciler) ranktablePipeline(job *mindxdlv1.AscendJob) {
 	ji, err := r.newJobInfo(job, job.Spec.ReplicaSpecs, &job.Status, &job.Spec.RunPolicy)
 	if err != nil {
-		hwlog.RunLog.Errorf("failed to generate ranktable for job<%s> in namespace<%s>, err: %v", job.Name, job.Namespace, err)
+		hwlog.RunLog.Errorf("failed to generate ranktable for job<%s> in namespace<%s>, err: %v",
+			job.Name, job.Namespace, err)
 		return
 	}
 	r.genRankTable(ji)
@@ -532,7 +533,7 @@ func decorateDeploy(deploy *appv1.Deployment) *mindxdlv1.AscendJob {
 		"Deploy": {
 			Template: deploy.Spec.Template,
 			Replicas: deploy.Spec.Replicas,
-				},
+		},
 	}
 	return &mindxdlv1.AscendJob{
 		TypeMeta:   deploy.TypeMeta,

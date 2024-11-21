@@ -187,7 +187,8 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 			allocatedPods = append(allocatedPods, p)
 		}
 	}
-	hwlog.RunLog.Infof("allocatedPods: %d, total replicas: %d, total pods: %d", len(allocatedPods), ji.totalReplicas, len(ji.pods))
+	hwlog.RunLog.Infof("allocatedPods: %d, total replicas: %d, total pods: %d",
+		len(allocatedPods), ji.totalReplicas, len(ji.pods))
 	if int(ji.totalReplicas) == 0 || len(allocatedPods) != int(ji.totalReplicas) {
 		return
 	}
@@ -222,7 +223,8 @@ func (r *ASJobReconciler) saveRanktable(rtg generator.RankTableGenerator, ji *jo
 		saveRanktableSuccess = rtg.WriteToFile() == nil
 	}
 	if r.configmapExist(rtg, ji.mtObj.GetName(), ji.mtObj.GetNamespace()) {
-		saveRanktableSuccess = r.tryWriteCm(ji.mtObj.GetName(), ji.mtObj.GetNamespace(), ji.mtObj.GetUID()) && saveRanktableSuccess
+		saveRanktableSuccess = r.tryWriteCm(ji.mtObj.GetName(), ji.mtObj.GetNamespace(),
+			ji.mtObj.GetUID()) && saveRanktableSuccess
 	}
 	if !saveRanktableSuccess {
 		hwlog.RunLog.Error("failed to write rank table")
