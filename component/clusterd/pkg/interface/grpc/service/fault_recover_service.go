@@ -19,7 +19,7 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
-var gloabalFaultBeaconSecond = 5
+var globalFaultBeaconSecond = 5
 
 // FaultRecoverService is a service for fault recover
 type FaultRecoverService struct {
@@ -36,6 +36,7 @@ func NewFaultRecoverService(keepAlive int, ctx context.Context) *FaultRecoverSer
 	s.keepAliveInterval = keepAlive
 	s.serviceCtx = ctx
 	s.eventCtl = make(map[string]*EventController)
+	go s.checkFaultFromFaultCenter()
 	return s
 }
 
@@ -52,22 +53,25 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo faultshoot.JobFaul
 		hwlog.RunLog.Errorf("jobId=%s not exist", faultInfo.JobId)
 		return
 	}
+	hwlog.RunLog.Infof("get fault info from fault center = %v", faultInfo)
 	var grpcFormatFaults []*pb.FaultRank
 	for _, info := range faultInfo.FaultList {
 		fault := &pb.FaultRank{
-			RankId: faultInfo.JobId,
+			RankId: info.RankId,
 		}
-		fault.FaultType = "1"
+		fault.FaultType = common.NormalFaultType
 		if strings.Contains(info.FaultCode, constant.UCE_FAULT_CODE) {
-			fault.FaultType = "0"
+			fault.FaultType = common.UceFaultType
 		}
 		grpcFormatFaults = append(grpcFormatFaults, fault)
 	}
+	hwlog.RunLog.Infof("jobId=%s, fault center fault info change format to grpcFormat, faults=%s",
+		controller.jobInfo.JobId, common.Faults2String(grpcFormatFaults))
 	controller.saveCacheFault(grpcFormatFaults)
 	controller.addEvent(common.FaultOccurEvent)
 }
 
-func (s *FaultRecoverService) dealwithJobFaultInfo(jobFaultInfoList []faultshoot.JobFaultInfo) {
+func (s *FaultRecoverService) dealWithJobFaultInfo(jobFaultInfoList []faultshoot.JobFaultInfo) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(jobFaultInfoList))
 	for _, jobFaultInfo := range jobFaultInfoList {
@@ -82,11 +86,11 @@ func (s *FaultRecoverService) dealwithJobFaultInfo(jobFaultInfoList []faultshoot
 
 func (s *FaultRecoverService) checkFault() {
 	if faultshoot.GlobalFaultProcessCenter == nil {
-		hwlog.RunLog.Warnf("global center is nil, try it after %d second", gloabalFaultBeaconSecond)
+		hwlog.RunLog.Warnf("global center is nil, try it after %d second", globalFaultBeaconSecond)
 	}
-	allJobfaultInfo := faultshoot.GlobalFaultProcessCenter.QueryJobsFaultInfo(faultshoot.NotHandleFault)
+	allJobFaultInfo := faultshoot.GlobalFaultProcessCenter.QueryJobsFaultInfo(faultshoot.NotHandleFault)
 	var registeredJobInfo []faultshoot.JobFaultInfo
-	for jobId, jobFaultInfo := range allJobfaultInfo {
+	for jobId, jobFaultInfo := range allJobFaultInfo {
 		if !s.registered(jobId) {
 			continue
 		}
@@ -95,16 +99,18 @@ func (s *FaultRecoverService) checkFault() {
 		}
 		registeredJobInfo = append(registeredJobInfo, jobFaultInfo)
 	}
-	s.dealwithJobFaultInfo(registeredJobInfo)
+	s.dealWithJobFaultInfo(registeredJobInfo)
 }
 
 func (s *FaultRecoverService) checkFaultFromFaultCenter() {
-	ticker := time.NewTicker(time.Duration(gloabalFaultBeaconSecond) * time.Second)
+	ticker := time.NewTicker(time.Duration(globalFaultBeaconSecond) * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-s.serviceCtx.Done():
 			return
 		case <-ticker.C:
+			hwlog.RunLog.Infof("ticker check npu fault from global center")
 			s.checkFault()
 		}
 	}
@@ -191,7 +197,8 @@ func (s *FaultRecoverService) SubscribeProcessManageSignal(request *pb.ClientInf
 // ReportStopComplete report stop process result
 func (s *FaultRecoverService) ReportStopComplete(ctx context.Context,
 	request *pb.StopCompleteRequest) (*pb.Status, error) {
-	hwlog.RunLog.Infof("receive ReportStopComplete, jobId=%s", request.JobId)
+	hwlog.RunLog.Infof("receive ReportStopComplete, jobId=%s, code=%d, info=%s",
+		request.JobId, request.Status.Code, request.Status.Info)
 	controller, exist := s.getController(request.JobId)
 	if !exist {
 		hwlog.RunLog.Errorf("jobId=%s not registed", request.JobId)
@@ -211,7 +218,8 @@ func (s *FaultRecoverService) ReportStopComplete(ctx context.Context,
 // ReportRecoverStrategy report supported recover strategy to ClusterD
 func (s *FaultRecoverService) ReportRecoverStrategy(ctx context.Context,
 	request *pb.RecoverStrategyRequest) (*pb.Status, error) {
-	hwlog.RunLog.Infof("receive ReportRecoverStrategy, jobId=%s", request.JobId)
+	hwlog.RunLog.Infof("receive ReportRecoverStrategy, jobId=%s, strategy=%v",
+		request.JobId, request.Strategies)
 	controller, exist := s.getController(request.JobId)
 	if !exist {
 		hwlog.RunLog.Errorf("jobId=%s not registed", request.JobId)
@@ -231,7 +239,8 @@ func (s *FaultRecoverService) ReportRecoverStrategy(ctx context.Context,
 // ReportRecoverStatus report recover result
 func (s *FaultRecoverService) ReportRecoverStatus(ctx context.Context,
 	request *pb.RecoverStatusRequest) (*pb.Status, error) {
-	hwlog.RunLog.Infof("receive ReportRecoverStatus, jobId=%s", request.JobId)
+	hwlog.RunLog.Infof("receive ReportRecoverStatus, jobId=%s, code=%d, info=%s, strategy=%s",
+		request.JobId, request.Status.Code, request.Status.Info, request.Strategy)
 	controller, exist := s.getController(request.JobId)
 	if !exist {
 		hwlog.RunLog.Errorf("jobId=%s not registed", request.JobId)
@@ -303,6 +312,6 @@ func (s *FaultRecoverService) DeleteJob(jobId string) {
 	if !exist || controller == nil {
 		return
 	}
-	controller.reset(true)
+	controller.reset()
 	delete(s.eventCtl, jobId)
 }

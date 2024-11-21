@@ -3,7 +3,7 @@
 // Package common is grpc common types and functions
 package common
 
-// response code for grpc fault service
+// RespCode response code for grpc fault service
 type RespCode int32
 
 const (
@@ -14,16 +14,18 @@ const (
 	*/
 	// UnRegistry jobId unregistered
 	UnRegistry RespCode = 400
-	// UnRegistry state machine rules not support
+	// OrderMix state machine rules not support
 	OrderMix RespCode = 401
 	// JobNotExist jobId not exist
 	JobNotExist RespCode = 402
 	// ProcessRescheduleOff not open the switch of process-rescheduling
 	ProcessRescheduleOff RespCode = 403
-	// StopDeviceError stop device error
-	StopDeviceError RespCode = 405
-	// CleanDeviceError clean device error
-	CleanDeviceError RespCode = 406
+	// DumpFailError save checkpoint error
+	DumpFailError = 404
+	// RecoverableRetryError error can up to recover strategy
+	RecoverableRetryError = 405
+	// UnRecoverableRetryError error can not up to recover strategy
+	UnRecoverableRetryError = 406
 	// ClientError common client error
 	ClientError RespCode = 499
 

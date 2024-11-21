@@ -274,7 +274,7 @@ func RemoveSliceDuplicateFaults(faults []*pb.FaultRank) []*pb.FaultRank {
 		if typ, ok := exitMap[fault.RankId]; !ok {
 			exitMap[fault.RankId] = fault.FaultType
 		} else {
-			if typ == "0" { // uce fault
+			if typ == UceFaultType {
 				exitMap[fault.RankId] = fault.FaultType
 			}
 		}
