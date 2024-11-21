@@ -32,12 +32,12 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 		return ranktableDir
 	}
 	if utils.IsExist(ranktableDir) {
-		isSym, err := IsSymbolicLink(ranktableDir)
+		isSymbolLink, err := IsSymbolicLink(ranktableDir)
 		if err != nil {
 			hwlog.RunLog.Errorf("check rank table directory fail, err: %v", err)
 			return ""
 		}
-		if isSym {
+		if isSymbolLink {
 			hwlog.RunLog.Error("rank table directory is symbolic link")
 			return ""
 		}
