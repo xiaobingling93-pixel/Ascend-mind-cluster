@@ -33,7 +33,7 @@ func getNodeAndDeviceFromJobIdAndRankId(
 
 func getNodesNameFromDeviceInfo(deviceInfos map[string]*constant.DeviceInfo) []string {
 	nodesName := make([]string, 0)
-	for cmName, _ := range deviceInfos {
+	for cmName := range deviceInfos {
 		nodeName := cmNameToNodeName(cmName)
 		nodesName = append(nodesName, nodeName)
 	}
@@ -113,7 +113,7 @@ func getAdvanceDeviceCm(devInfo *constant.DeviceInfo) AdvanceDeviceCm {
 }
 
 func getServerType(devInfo *constant.DeviceInfo) string {
-	for key, _ := range devInfo.DeviceList {
+	for key := range devInfo.DeviceList {
 		if strings.Contains(key, "Ascend910") {
 			return "Ascend910"
 		}
@@ -243,7 +243,7 @@ func mergeCodeAndRemoveUnhealthy(advanceDeviceCm AdvanceDeviceCm) AdvanceDeviceC
 }
 
 func getFaultListKey(devInfo *constant.DeviceInfo) string {
-	for key, _ := range devInfo.DeviceList {
+	for key := range devInfo.DeviceList {
 		if strings.Contains(key, "huawei.com/Ascend") && strings.Contains(key, "-Fault") {
 			return key
 		}
@@ -252,7 +252,7 @@ func getFaultListKey(devInfo *constant.DeviceInfo) string {
 }
 
 func getNetworkUnhealthyKey(devInfo *constant.DeviceInfo) string {
-	for key, _ := range devInfo.DeviceList {
+	for key := range devInfo.DeviceList {
 		if strings.Contains(key, "huawei.com/Ascend") && strings.Contains(key, "-NetworkUnhealthy") {
 			return key
 		}
@@ -261,7 +261,7 @@ func getNetworkUnhealthyKey(devInfo *constant.DeviceInfo) string {
 }
 
 func getCardUnhealthyKey(devInfo *constant.DeviceInfo) string {
-	for key, _ := range devInfo.DeviceList {
+	for key := range devInfo.DeviceList {
 		if strings.Contains(key, "huawei.com/Ascend") && strings.Contains(key, "-Unhealthy") {
 			return key
 		}

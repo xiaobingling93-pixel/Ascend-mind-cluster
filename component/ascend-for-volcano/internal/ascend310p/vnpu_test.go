@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/framework"
 
