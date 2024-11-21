@@ -82,7 +82,7 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
-	var rules = ctl.getBaseRules()
+	var rules []common.TransRule = ctl.getBaseRules()
 	ctl.state = common.NewStateMachine(common.InitState, rules)
 	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
 	return ctl

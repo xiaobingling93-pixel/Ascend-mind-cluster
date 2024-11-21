@@ -534,7 +534,7 @@ func decorateVcjob(vcjob *v1alpha1.Job) *mindxdlv1.AscendJob {
 
 func decorateDeploy(deploy *appv1.Deployment) *mindxdlv1.AscendJob {
 	repSpec := map[commonv1.ReplicaType]*commonv1.ReplicaSpec{
-		"Deploy": {
+		"Deploy": &commonv1.ReplicaSpec{
 			Template: deploy.Spec.Template,
 			Replicas: deploy.Spec.Replicas,
 		},

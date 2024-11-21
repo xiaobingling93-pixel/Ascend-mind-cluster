@@ -223,7 +223,7 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 func (r *ASJobReconciler) saveRanktable(rtg generator.RankTableGenerator, ji *jobInfo) {
 	saveRanktableSuccess := true
 	if filepathExist(rtg.GetPath()) {
-		saveRanktableSuccess = rtg.WriteToFile() == nil
+		saveRanktableSuccess = (rtg.WriteToFile() == nil)
 	}
 	if r.configmapExist(rtg, ji.mtObj.GetName(), ji.mtObj.GetNamespace()) {
 		saveRanktableSuccess = r.tryWriteCm(ji.mtObj.GetName(), ji.mtObj.GetNamespace(),
