@@ -157,7 +157,7 @@ type reportInfo struct {
 	CompleteTime int64
 }
 
-// FaultLevel
+// FaultLevel int value
 const (
 	NotFaultLevel = iota
 	NotHandleFault
@@ -168,6 +168,7 @@ const (
 	SeparateNPU
 )
 
+// FaultLevel string describe
 const (
 	NotHandleFaultDesc  = "NotHandleFault"
 	RestartRequestDesc  = "RestartRequest"
@@ -177,6 +178,7 @@ const (
 	SeparateNPUDesc     = "SeparateNPU"
 )
 
+// cluster support server
 const (
 	Ascend910Server  = "Ascend910"
 	Ascend310PServer = "Ascend310P"
