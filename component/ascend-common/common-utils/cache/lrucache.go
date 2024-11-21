@@ -25,14 +25,14 @@ import (
 )
 
 const (
-	segmentCount        = 16
-	int64One     int64  = 1
-	int64Zero    int64  = 0
-	negInt64One  int64  = -1
-	intTwo              = 2
-	hashInit     uint32 = 2166136261
-	prime32      uint32 = 16777619
-	twentyYears         = 20 * 365 * 24 * time.Hour
+	segmentCount               = 16
+	int64One     int64         = 1
+	int64Zero    int64         = 0
+	negInt64One  int64         = -1
+	intTwo                     = 2
+	hashInit     uint32        = 2166136261
+	prime32      uint32        = 16777619
+	twentyYears  time.Duration = 20 * 365 * 24 * time.Hour
 )
 
 var (

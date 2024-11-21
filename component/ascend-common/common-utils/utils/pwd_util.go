@@ -62,12 +62,12 @@ func commonCheckForPassWord(userName string, passWord []byte) error {
 	if matched, err := regexp.Match(passWordRegex, passWord); err != nil || !matched {
 		return errors.New("password not meet requirement")
 	}
-	var userNameByte = []byte(userName)
+	var userNameByte []byte = []byte(userName)
 	if bytes.Equal(userNameByte, passWord) {
 		return errors.New("password cannot equals username")
 	}
 	var reverseUserName = ReverseString(userName)
-	var reverseUserNameByte = []byte(reverseUserName)
+	var reverseUserNameByte []byte = []byte(reverseUserName)
 	if bytes.Equal(reverseUserNameByte, passWord) {
 		return errors.New("password cannot equal reversed username")
 	}
