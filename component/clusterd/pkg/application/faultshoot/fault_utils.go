@@ -126,7 +126,7 @@ func getServerType(devInfo *constant.DeviceInfo) string {
 			return Ascend310Server
 		}
 	}
-	hwlog.RunLog.Errorf("cannot decide server type")
+	hwlog.RunLog.Warn("cannot decide server type")
 	return Ascend910Server
 }
 
