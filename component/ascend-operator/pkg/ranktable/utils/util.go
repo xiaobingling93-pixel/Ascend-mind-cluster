@@ -48,7 +48,7 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 			hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
 			return ""
 		}
-		hwlog.RunLog.Info("create rank table direectory success")
+		hwlog.RunLog.Info("create rank table directory success")
 		return ranktableDir
 	}
 }
