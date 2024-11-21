@@ -270,15 +270,15 @@ func getCardUnhealthyKey(devInfo *constant.DeviceInfo) string {
 }
 
 func isUceFault(faultDevice constant.DeviceFault) bool {
-	if strings.Contains(faultDevice.FaultCode, constant.UCE_FAULT_CODE) {
+	if strings.Contains(faultDevice.FaultCode, constant.UceFaultCode) {
 		return true
 	}
 	return false
 }
 
 func isUceAccompanyFault(faultDevice constant.DeviceFault) bool {
-	return strings.Contains(faultDevice.FaultCode, constant.AIC_FAULT_CODE) ||
-		strings.Contains(faultDevice.FaultCode, constant.AIV_FAULT_CODE)
+	return strings.Contains(faultDevice.FaultCode, constant.AicFaultCode) ||
+		strings.Contains(faultDevice.FaultCode, constant.AivFaultCode)
 }
 
 func isDeviceFaultEqual(one, other constant.DeviceFault) bool {

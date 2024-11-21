@@ -74,7 +74,7 @@ const (
 	CompletedRTStatus RankTableStatus = "completed"
 )
 
-// check configmap exsit or not
+// ConfigmapCheck check configmap exsit or not
 type ConfigmapCheck string
 
 const (
