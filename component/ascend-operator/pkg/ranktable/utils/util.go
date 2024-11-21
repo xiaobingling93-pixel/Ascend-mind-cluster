@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultPerm = 0644
+	defaultPerm = 0664
 )
 
 // GenRankTableDir generate rank table dir
