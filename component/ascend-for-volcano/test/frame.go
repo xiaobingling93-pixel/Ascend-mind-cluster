@@ -20,6 +20,7 @@ Package test is using for HuaWei Ascend pin scheduling test.
 package test
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/uuid"
