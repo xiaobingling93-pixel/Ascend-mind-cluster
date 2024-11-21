@@ -202,10 +202,6 @@ func (r *BaseGenerator) GatherServerList() {
 	})
 
 	sort.Slice(r.ServerList, func(i, j int) bool {
-		// for clear code
-		if i >= len(r.ServerList) || j >= len(r.ServerList) {
-			return false
-		}
 		iRankID, iErr := strconv.Atoi(r.ServerList[i].DeviceList[0].RankID)
 		jRankID, jErr := strconv.Atoi(r.ServerList[j].DeviceList[0].RankID)
 		if iErr != nil || jErr != nil {
