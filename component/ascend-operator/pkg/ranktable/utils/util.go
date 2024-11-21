@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultPerm = 0664
+	defaultPerm fs.FileMode = 0744
 )
 
 // GenRankTableDir generate rank table dir
@@ -48,7 +48,7 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 			hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
 			return ""
 		}
-		hwlog.RunLog.Info("create rank table directory success")
+		hwlog.RunLog.Infof("create rank table directory success, set mode to %v", defaultPerm)
 		return ranktableDir
 	}
 }
