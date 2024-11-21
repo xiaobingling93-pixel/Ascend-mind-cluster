@@ -42,15 +42,14 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 			return ""
 		}
 		return ranktableDir
-	} else {
-		err := MakeDir(ranktableDir, defaultDirPerm)
-		if err != nil {
-			hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
-			return ""
-		}
-		hwlog.RunLog.Infof("create rank table directory success, set mode to %v", defaultDirPerm)
-		return ranktableDir
 	}
+	err := MakeDir(ranktableDir, defaultDirPerm)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
+		return ""
+	}
+	hwlog.RunLog.Infof("create rank table directory success, set mode to %v", defaultDirPerm)
+	return ranktableDir
 }
 
 func readRankTableDir(job *mindxdlv1.AscendJob) string {
