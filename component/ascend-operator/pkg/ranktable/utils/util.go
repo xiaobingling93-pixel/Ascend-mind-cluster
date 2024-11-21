@@ -96,7 +96,7 @@ func podUseNpu(pod *corev1.Pod) bool {
 	return false
 }
 
-// check exsitence and permission of ranktable directory, if not exist, try to create the directory
+// MakeDir try to create the directory
 func MakeDir(dirPath string, mode fs.FileMode) error {
 	realPath, err := filepath.Abs(dirPath)
 	if err != nil {
@@ -105,11 +105,12 @@ func MakeDir(dirPath string, mode fs.FileMode) error {
 	return os.MkdirAll(realPath, mode)
 }
 
-// check file or directory is symbolic link or not
+// IsSymbolicLink check file or directory is symbolic link or not
 func IsSymbolicLink(targetPath string) (bool, error) {
 	s, err := os.Lstat(targetPath)
 	if err != nil {
 		return false, err
+
 	}
 	return s.Mode()&os.ModeSymlink != 0, nil
 }
