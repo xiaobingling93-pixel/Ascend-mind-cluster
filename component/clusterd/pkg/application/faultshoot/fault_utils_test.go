@@ -12,15 +12,11 @@ import (
 	"clusterd/pkg/common/constant"
 )
 
-func Test_splitDeviceFault(t *testing.T) {
+func TestSplitDeviceFault(t *testing.T) {
 	t.Run("Test_splitDeviceFault", func(t *testing.T) {
 		var faultInfo = constant.DeviceFault{
-			FaultType:            "xx",
-			NPUName:              "Ascend910-0",
-			LargeModelFaultLevel: "xx",
-			FaultLevel:           "xx",
-			FaultHandling:        "xx",
-			FaultCode:            "0x1,0x2",
+			NPUName:   "Ascend910-0",
+			FaultCode: "0x1,0x2",
 			FaultTimeMap: map[string]int64{
 				"0x1": 1,
 				"0x2": 2,
@@ -30,24 +26,15 @@ func Test_splitDeviceFault(t *testing.T) {
 		got := splitDeviceFault(faultInfo)
 		want := []constant.DeviceFault{
 			{
-				FaultType:            "xx",
-				NPUName:              "Ascend910-0",
-				LargeModelFaultLevel: "xx",
-				FaultLevel:           "xx",
-				FaultHandling:        "xx",
-				FaultCode:            "0x1",
+				NPUName:   "Ascend910-0",
+				FaultCode: "0x1",
 				FaultTimeMap: map[string]int64{
 					"0x1": 1,
 					"0x2": 2,
 				},
-			},
-			{
-				FaultType:            "xx",
-				NPUName:              "Ascend910-0",
-				LargeModelFaultLevel: "xx",
-				FaultLevel:           "xx",
-				FaultHandling:        "xx",
-				FaultCode:            "0x2",
+			}, {
+				NPUName:   "Ascend910-0",
+				FaultCode: "0x2",
 				FaultTimeMap: map[string]int64{
 					"0x1": 1,
 					"0x2": 2,
@@ -61,28 +48,20 @@ func Test_splitDeviceFault(t *testing.T) {
 	})
 }
 
-func Test_mergeDeviceFault(t *testing.T) {
+func TestMergeDeviceFault(t *testing.T) {
 	t.Run("Test_mergeDeviceFault", func(t *testing.T) {
 		split := []constant.DeviceFault{
 			{
-				FaultType:            "xx",
-				NPUName:              "Ascend910-0",
-				LargeModelFaultLevel: "xx",
-				FaultLevel:           "xx",
-				FaultHandling:        "xx",
-				FaultCode:            "0x1",
+				NPUName:   "Ascend910-0",
+				FaultCode: "0x1",
 				FaultTimeMap: map[string]int64{
 					"0x1": 1,
 					"0x2": 2,
 				},
 			},
 			{
-				FaultType:            "xx",
-				NPUName:              "Ascend910-0",
-				LargeModelFaultLevel: "xx",
-				FaultLevel:           "xx",
-				FaultHandling:        "xx",
-				FaultCode:            "0x2",
+				NPUName:   "Ascend910-0",
+				FaultCode: "0x2",
 				FaultTimeMap: map[string]int64{
 					"0x1": 1,
 					"0x2": 2,
@@ -90,12 +69,8 @@ func Test_mergeDeviceFault(t *testing.T) {
 			},
 		}
 		want := constant.DeviceFault{
-			FaultType:            "xx",
-			NPUName:              "Ascend910-0",
-			LargeModelFaultLevel: "xx",
-			FaultLevel:           "xx",
-			FaultHandling:        "xx",
-			FaultCode:            "0x1,0x2",
+			NPUName:   "Ascend910-0",
+			FaultCode: "0x1,0x2",
 			FaultTimeMap: map[string]int64{
 				"0x1": 1,
 				"0x2": 2,
@@ -111,12 +86,11 @@ func Test_mergeDeviceFault(t *testing.T) {
 	})
 }
 
-func Test_getAdvanceDeviceCm(t *testing.T) {
+func TestGetAdvanceDeviceCm(t *testing.T) {
 	info := &constant.DeviceInfo{
 		DeviceInfoNoName: constant.DeviceInfoNoName{
 			DeviceList: map[string]string{
-				"huawei.com/Ascend910-Fault": "[{\"fault_time_map\":{\"1801\": 1234, \"1809\":5678}," +
-					" \"npu_name\": \"xxx\"}]",
+				"huawei.com/Ascend910-Fault": `[{"fault_time_map":{"1801": 1234, "1809":5678},"npu_name": "xxx"}]`,
 			},
 			UpdateTime: 0,
 		},
@@ -127,10 +101,10 @@ func Test_getAdvanceDeviceCm(t *testing.T) {
 	advanceDeviceCm := getAdvanceDeviceCm(info)
 	tim, ok := advanceDeviceCm.DeviceList["xxx"][0].FaultTimeMap["1801"]
 	if !ok {
-		t.Errorf("Test_getAdvanceDeviceCm failed")
+		t.Errorf("TestGetAdvanceDeviceCm failed")
 		return
 	}
 	if tim != 1234 {
-		t.Errorf("Test_getAdvanceDeviceCm failed")
+		t.Errorf("TestGetAdvanceDeviceCm failed")
 	}
 }

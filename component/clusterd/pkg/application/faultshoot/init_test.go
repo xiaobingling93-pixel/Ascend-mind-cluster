@@ -8,10 +8,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
 	"clusterd/pkg/application/job"
 	"clusterd/pkg/common/constant"
-
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 )
 
 func TestMain(m *testing.M) {
@@ -123,7 +123,7 @@ func readObjectFromUceScenarioTestYaml() (
 
 	var testDataPath = "../../../testdata/resource/uce_scenario.yaml"
 	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
-	var expectProcessedDeviceInfos = make(map[string]*constant.DeviceInfo)
+	var expectDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var err error
 	var fileSize int64
 	var decoder *yaml.YAMLOrJSONDecoder
@@ -137,44 +137,49 @@ func readObjectFromUceScenarioTestYaml() (
 	fileInfo, err := os.Stat(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("testDataPath invalid")
-		goto RetureLabel
+		return cmDeviceInfos, expectDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
 	fileSize = fileInfo.Size()
 	if fileSize > int64(maxFileSize) {
 		err = fmt.Errorf("testData file size too big")
-		goto RetureLabel
+		return cmDeviceInfos, expectDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
-
 	open, err = os.Open(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("open testData file failed")
-		goto RetureLabel
+		return cmDeviceInfos, expectDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
-
 	decoder = yaml.NewYAMLOrJSONDecoder(open, maxFileSize)
+	return extractContent(decoder, cmDeviceInfos, expectDeviceInfos, jobsPodWorkers, reportInfos, jobs, josIsUce)
+}
 
-	err = decoder.Decode(&cmDeviceInfos)
+func extractContent(decoder *yaml.YAMLOrJSONDecoder, cmDeviceInfos map[string]*constant.DeviceInfo,
+	expectProcessedDeviceInfos map[string]*constant.DeviceInfo, jobsPodWorkers map[string]job.PodWorker,
+	reportInfos reportInfosForAllJobs, jobs map[string]map[string]*job.RankTable,
+	josIsUce map[string]map[string]map[string]string) (map[string]*constant.DeviceInfo, map[string]*constant.DeviceInfo,
+	map[string]job.PodWorker, *reportInfosForAllJobs, error) {
+	err := decoder.Decode(&cmDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("cmDeviceInfos decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
 
 	err = decoder.Decode(&expectProcessedDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("expectProcessedDeviceInfos decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
 
 	err = decoder.Decode(&jobs)
 	if err != nil {
 		err = fmt.Errorf("jobs decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
 
 	err = decoder.Decode(&josIsUce)
 	if err != nil {
 		err = fmt.Errorf("josIsUce decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, jobsPodWorkers, &reportInfos, err
 	}
 
 	for key, value := range jobs {
@@ -190,10 +195,7 @@ func readObjectFromUceScenarioTestYaml() (
 	err = decoder.Decode(&reportInfos)
 	if err != nil {
 		err = fmt.Errorf("reportInfos decode failed")
-		goto RetureLabel
 	}
-
-RetureLabel:
 	return cmDeviceInfos, expectProcessedDeviceInfos, jobsPodWorkers, &reportInfos, err
 }
 
@@ -261,32 +263,39 @@ func readObjectFromJobFaultRankTestYaml() (
 	fileInfo, err := os.Stat(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("testDataPath invalid")
-		goto RetureLabel
+		return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 	}
 	fileSize = fileInfo.Size()
 	if fileSize > int64(maxFileSize) {
 		err = fmt.Errorf("testData file size too big")
-		goto RetureLabel
+		return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 	}
 
 	open, err = os.Open(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("open testData file failed")
-		goto RetureLabel
+		return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 	}
 
 	decoder = yaml.NewYAMLOrJSONDecoder(open, maxFileSize)
 
-	err = decoder.Decode(&cmDeviceInfos)
+	return extractContentForJob(decoder, cmDeviceInfos, jobsPodWorkers, expectFaultRanks, jobs)
+}
+
+func extractContentForJob(decoder *yaml.YAMLOrJSONDecoder, cmDeviceInfos map[string]*constant.DeviceInfo,
+	jobsPodWorkers map[string]job.PodWorker, expectFaultRanks map[string]JobFaultInfo,
+	jobs map[string]map[string]*job.RankTable) (map[string]*constant.DeviceInfo,
+	map[string]job.PodWorker, map[string]JobFaultInfo, error) {
+	err := decoder.Decode(&cmDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("cmDeviceInfos decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 	}
 
 	err = decoder.Decode(&jobs)
 	if err != nil {
 		err = fmt.Errorf("jobs decode failed")
-		goto RetureLabel
+		return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 	}
 
 	for key, value := range jobs {
@@ -301,10 +310,7 @@ func readObjectFromJobFaultRankTestYaml() (
 	err = decoder.Decode(&expectFaultRanks)
 	if err != nil {
 		err = fmt.Errorf("expectFaultRanks decode failed")
-		goto RetureLabel
 	}
-
-RetureLabel:
 	return cmDeviceInfos, jobsPodWorkers, expectFaultRanks, err
 }
 

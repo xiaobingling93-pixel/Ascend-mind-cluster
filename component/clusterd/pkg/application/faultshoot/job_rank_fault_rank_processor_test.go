@@ -54,37 +54,37 @@ func TestJobRankFaultInfoProcessor_GetJobFaultRankInfos(t *testing.T) {
 				util.ObjToString(processor.jobFaultInfoMap), util.ObjToString(expectFaultRanks))
 		}
 		filterJobFaultRank := processor.getJobFaultRankInfosFilterLevel(1)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 
 		}
 
 		filterJobFaultRank = processor.getJobFaultRankInfosFilterLevel(2)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault, L2_RestartRequest) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc, RestartRequestDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 		}
 
 		filterJobFaultRank = processor.getJobFaultRankInfosFilterLevel(3)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault, L2_RestartRequest,
-			L3_RestartBusiness) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc, RestartRequestDesc,
+			RestartBusinessDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 		}
 
 		filterJobFaultRank = processor.getJobFaultRankInfosFilterLevel(4)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault, L2_RestartRequest,
-			L3_RestartBusiness, L4_FreeRestartNPU) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc, RestartRequestDesc,
+			RestartBusinessDesc, FreeRestartNPUDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 		}
 
 		filterJobFaultRank = processor.getJobFaultRankInfosFilterLevel(5)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault, L2_RestartRequest,
-			L3_RestartBusiness, L4_FreeRestartNPU, L5_RestartNPU) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc, RestartRequestDesc,
+			RestartBusinessDesc, FreeRestartNPUDesc, RestartNPUDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 		}
 
 		filterJobFaultRank = processor.getJobFaultRankInfosFilterLevel(6)
-		if isContainsAny(util.ObjToString(filterJobFaultRank), L1_NotHandleFault, L2_RestartRequest,
-			L3_RestartBusiness, L4_FreeRestartNPU, L5_RestartNPU, L6_SeparateNPU) {
+		if isContainsAny(util.ObjToString(filterJobFaultRank), NotHandleFaultDesc, RestartRequestDesc,
+			RestartBusinessDesc, FreeRestartNPUDesc, RestartNPUDesc, SeparateNPUDesc) {
 			t.Errorf("processor.getJobFaultRankInfosFilterLevel = %s", util.ObjToString(filterJobFaultRank))
 		}
 	})

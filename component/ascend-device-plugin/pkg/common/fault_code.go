@@ -1036,7 +1036,7 @@ func updateDeviceFaultTimeMap(device *NpuDevice, faultInfo common.DevFaultInfo, 
 			faultTime = time.Now().UnixMilli()
 		}
 		existingFaultTime, found := device.FaultTimeMap[hexFaultCode]
-		if !found || existingFaultTime < faultTime {
+		if !found || existingFaultTime > faultTime {
 			device.FaultTimeMap[hexFaultCode] = faultTime
 		}
 		hwlog.RunLog.Debugf("%s fault time: %d", hexFaultCode, device.FaultTimeMap[hexFaultCode])

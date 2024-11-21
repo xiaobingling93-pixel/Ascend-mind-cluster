@@ -168,13 +168,17 @@ const (
 	SeparateNPU
 )
 
-const L1_NotHandleFault = "NotHandleFault"
-const L2_RestartRequest = "RestartRequest"
-const L3_RestartBusiness = "RestartBusiness"
-const L4_FreeRestartNPU = "FreeRestartNPU"
-const L5_RestartNPU = "RestartNPU"
-const L6_SeparateNPU = "SeparateNPU"
+const (
+	NotHandleFaultDesc  = "NotHandleFault"
+	RestartRequestDesc  = "RestartRequest"
+	RestartBusinessDesc = "RestartBusiness"
+	FreeRestartNPUDesc  = "FreeRestartNPU"
+	RestartNPUDesc      = "RestartNPU"
+	SeparateNPUDesc     = "SeparateNPU"
+)
 
-const Ascend910_Server = "Ascend910"
-const Ascend310P_Server = "Ascend310P"
-const Ascend310_Server = "Ascend310"
+const (
+	Ascend910Server  = "Ascend910"
+	Ascend310PServer = "Ascend310P"
+	Ascend310Server  = "Ascend310"
+)

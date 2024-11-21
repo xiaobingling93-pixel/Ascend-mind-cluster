@@ -116,18 +116,18 @@ func getAdvanceDeviceCm(devInfo *constant.DeviceInfo) AdvanceDeviceCm {
 
 func getServerType(devInfo *constant.DeviceInfo) string {
 	for key, _ := range devInfo.DeviceList {
-		if strings.Contains(key, Ascend910_Server) {
-			return Ascend910_Server
+		if strings.Contains(key, Ascend910Server) {
+			return Ascend910Server
 		}
-		if strings.Contains(key, Ascend310P_Server) {
-			return Ascend310P_Server
+		if strings.Contains(key, Ascend310PServer) {
+			return Ascend310PServer
 		}
-		if strings.Contains(key, Ascend310_Server) {
-			return Ascend310_Server
+		if strings.Contains(key, Ascend310Server) {
+			return Ascend310Server
 		}
 	}
 	hwlog.RunLog.Errorf("cannot decide server type")
-	return Ascend910_Server
+	return Ascend910Server
 }
 
 // device plugin may merge multiple fault codes in one string
@@ -289,17 +289,17 @@ func isDeviceFaultEqual(one, other constant.DeviceFault) bool {
 
 func getFaultLevel(faultLevel string) int {
 	switch faultLevel {
-	case L1_NotHandleFault:
+	case NotHandleFaultDesc:
 		return NotHandleFault
-	case L2_RestartRequest:
+	case RestartRequestDesc:
 		return RestartRequest
-	case L3_RestartBusiness:
+	case RestartBusinessDesc:
 		return RestartBusiness
-	case L4_FreeRestartNPU:
+	case FreeRestartNPUDesc:
 		return FreeRestartNPU
-	case L5_RestartNPU:
+	case RestartNPUDesc:
 		return RestartNPU
-	case L6_SeparateNPU:
+	case SeparateNPUDesc:
 		return SeparateNPU
 	default:
 		return NotFaultLevel
