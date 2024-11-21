@@ -5,7 +5,6 @@ Copyright(C) 2024. Huawei Technologies Co.,Ltd. All rights reserved.
 /*
 Package utils is using for generating ranktable.
 */
-
 package utils
 
 import (
