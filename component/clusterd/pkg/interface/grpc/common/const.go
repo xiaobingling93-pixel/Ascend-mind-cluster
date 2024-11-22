@@ -118,3 +118,10 @@ const (
 	// QpsLimit max qps for grpc service
 	QpsLimit = 1000
 )
+
+const (
+	// UceFaultType uce fault type
+	UceFaultType = "0"
+	// NormalFaultType other uce type
+	NormalFaultType = "1"
+)

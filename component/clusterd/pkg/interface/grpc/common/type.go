@@ -51,3 +51,10 @@ type JobBaseInfo struct {
 	Namespace string
 	RecoverConfig
 }
+
+// RecoverResult recover result
+type RecoverResult struct {
+	Strategy       string
+	Code           RespCode
+	RecoverSuccess bool
+}

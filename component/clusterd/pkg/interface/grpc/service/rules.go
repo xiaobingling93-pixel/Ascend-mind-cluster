@@ -80,10 +80,15 @@ func (ctl *EventController) getFixRules() []common.TransRule {
 			Dst: common.InitState, Handler: ctl.handleFinish},
 		{Src: common.CheckRecoverResultState, Event: common.RecoverFailEvent,
 			Dst: common.NotifyDecidedStrategyState, Handler: ctl.handleNotifyDecidedStrategy},
-		{Src: common.CheckRecoverResultState, Event: common.DeviceCleanFailEvent,
+		{Src: common.CheckRecoverResultState, Event: common.RecoverableRetryErrorEvent,
 			Dst: common.WaitFaultFlushFinishedState, Handler: ctl.handleWaitFlushFinish},
+		{Src: common.CheckRecoverResultState, Event: common.UnRecoverableRetryErrorEvent,
+			Dst: common.KillPodForUnrecoverableRetryState, Handler: ctl.handleKillPod},
 		{Src: common.CheckRecoverResultState, Event: common.CheckResultFinishEvent,
 			Dst: common.ListenScheduleResultState, Handler: ctl.handleListenScheduleResult},
+
+		{Src: common.KillPodForUnrecoverableRetryState, Event: common.FinishKillPodEvent,
+			Dst: common.NotifyDecidedStrategyState, Handler: ctl.handleNotifyDecidedStrategy},
 	}
 }
 

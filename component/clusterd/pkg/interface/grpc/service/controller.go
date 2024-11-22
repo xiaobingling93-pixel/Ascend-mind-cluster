@@ -90,20 +90,26 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 
 func (ctl *EventController) saveCacheFault(faults []*pb.FaultRank) {
 	mergedFaults := common.RemoveSliceDuplicateFaults(faults)
+	hwlog.RunLog.Infof("jobId=%s, before append new Fault, normalFaults=%s, uceFaults=%s",
+		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String((ctl.cacheUceFault)))
 	for _, fault := range mergedFaults {
-		if fault.FaultType == "1" {
+		if fault.FaultType == common.NormalFaultType {
 			ctl.cacheNormalFault = append(ctl.cacheNormalFault, fault)
 		} else {
 			ctl.cacheUceFault = append(ctl.cacheUceFault, fault)
 		}
 	}
+	ctl.cacheNormalFault = common.RemoveSliceDuplicateFaults(ctl.cacheNormalFault)
+	ctl.cacheUceFault = common.RemoveSliceDuplicateFaults(ctl.cacheUceFault)
+	hwlog.RunLog.Infof("jobId=%s, after append new Fault, normalFaults=%s, uceFaults=%s",
+		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String((ctl.cacheUceFault)))
 }
 
-func (ctl *EventController) reset(useLock bool) {
-	if useLock {
-		ctl.lock.Lock()
-		defer ctl.lock.Unlock()
-	}
+func (ctl *EventController) reset() {
+	hwlog.RunLog.Infof("jobId=%s enter reset function", ctl.jobInfo.JobId)
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
+	hwlog.RunLog.Infof("jobId=%s's action path = {%s}", ctl.jobInfo.JobId, ctl.state.GetPathGraph())
 	if ctl.ctxCancelFunc != nil {
 		ctl.ctxCancelFunc()
 	}
@@ -159,7 +165,7 @@ func (ctl *EventController) selectKeepAlive(ctx context.Context, sendChan chan *
 
 func (ctl *EventController) keepAlive() {
 	hwlog.RunLog.Infof("listen new keep-alive, jobId=%s", ctl.jobInfo.JobId)
-	ctx, sendChan := ctl.getPreControllerAndSignalChan()
+	ctx, sendChan := ctl.getCtxAndSignalChan()
 	exit := false
 	for {
 		exit = ctl.selectKeepAlive(ctx, sendChan)
@@ -248,23 +254,29 @@ func (ctl *EventController) supportDumpStrategy() bool {
 
 func (ctl *EventController) addEvent(event string) {
 	if !ctl.state.RuleCheck(ctl.state.GetState(), event) {
-		hwlog.RunLog.Errorf("event add fail, order mix, jobId=%s, uuid=%s, event=%s",
+		hwlog.RunLog.Warnf("event add fail, order mix, jobId=%s, uuid=%s, event=%s",
 			ctl.jobInfo.JobId, ctl.uuid, event)
 		return
 	}
+	ctx, ch := ctl.getCtxAndEventChan()
+	if ch == nil {
+		hwlog.RunLog.Errorf("jobId=%s, event chan is nil", ctl.jobInfo.JobId)
+		return
+	}
 	select {
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("event add fail, controller context canceled, jobId=%s, uuid=%s, event=%s",
 			ctl.jobInfo.JobId, ctl.uuid, event)
-	case ctl.events <- event:
+	case ch <- event:
 		hwlog.RunLog.Infof("jobId=%s uuid=%s state is %s, event=%s enqueue success",
 			ctl.jobInfo.JobId, ctl.uuid, ctl.state.GetState(), event)
-	case <-time.After(time.Second):
-		ctl.reset(false)
+	default:
+		hwlog.RunLog.Infof("add event=%s timeout, reset state machine", event)
+		ctl.reset()
 	}
 }
 
-func (ctl *EventController) getPreControllerAndEventChan() (context.Context, chan string) {
+func (ctl *EventController) getCtxAndEventChan() (context.Context, chan string) {
 	ctl.lock.RLock()
 	defer ctl.lock.RUnlock()
 	return ctl.controllerContext, ctl.events
@@ -284,7 +296,7 @@ func (ctl *EventController) selectEventChan(ctx context.Context, eventChan chan 
 			hwlog.RunLog.Infof("jobId=%s's action path = {%s}", ctl.jobInfo.JobId, ctl.state.GetPathGraph())
 			if err != nil {
 				hwlog.RunLog.Errorf("jobId=%s trigger error, code=%d, err=%v", ctl.jobInfo.JobId, code, err)
-				ctl.reset(true)
+				ctl.reset()
 				return true
 			}
 			if nextEvent != "" {
@@ -300,7 +312,7 @@ func (ctl *EventController) selectEventChan(ctx context.Context, eventChan chan 
 
 func (ctl *EventController) listenEvent() {
 	hwlog.RunLog.Infof("start listen a new event, jobId=%s", ctl.jobInfo.JobId)
-	ctx, eventChan := ctl.getPreControllerAndEventChan()
+	ctx, eventChan := ctl.getCtxAndEventChan()
 	exit := false
 	for {
 		exit = ctl.selectEventChan(ctx, eventChan)
@@ -310,7 +322,7 @@ func (ctl *EventController) listenEvent() {
 	}
 }
 
-func (ctl *EventController) getPreControllerAndSignalChan() (context.Context, chan *pb.ProcessManageSignal) {
+func (ctl *EventController) getCtxAndSignalChan() (context.Context, chan *pb.ProcessManageSignal) {
 	ctl.lock.RLock()
 	defer ctl.lock.RUnlock()
 	return ctl.controllerContext, ctl.signalChan
@@ -367,12 +379,13 @@ func (ctl *EventController) selectSendChannel(ctx context.Context, sendChan chan
 }
 
 func (ctl *EventController) listenSendChannel(stream pb.Recover_SubscribeProcessManageSignalServer) {
-	ctl.reset(true)
-	ctx, sendChan := ctl.getPreControllerAndSignalChan()
+	ctl.reset()
+	ctx, sendChan := ctl.getCtxAndSignalChan()
 	hwlog.RunLog.Infof("start listen a new send channel, jobId=%s", ctl.jobInfo.JobId)
 	exit := false
 	for {
 		exit = ctl.selectSendChannel(ctx, sendChan, stream)
+
 		if exit {
 			break
 		}
@@ -380,12 +393,17 @@ func (ctl *EventController) listenSendChannel(stream pb.Recover_SubscribeProcess
 }
 
 func (ctl *EventController) signalEnqueue(signal *pb.ProcessManageSignal) (string, common.RespCode, error) {
+	ctx, sendChan := ctl.getCtxAndSignalChan()
+	if sendChan == nil {
+		hwlog.RunLog.Errorf("jobId=%s, sendChan is nil", ctl.jobInfo.JobId)
+		return "", common.SignalQueueBusy, errors.New("sendChan is nil")
+	}
 	select {
-	case ctl.signalChan <- signal:
+	case sendChan <- signal:
 		hwlog.RunLog.Infof("signal enqueue, jobId=%s, uuid=%s, signalType=%s, strategy=%s, faults=%s",
 			signal.JobId, signal.Uuid, signal.SignalType, signal.ChangeStrategy, common.Faults2String(signal.FaultRankIds))
 		return "", common.OK, nil
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case <-time.After(time.Second):
@@ -397,13 +415,11 @@ func (ctl *EventController) signalEnqueue(signal *pb.ProcessManageSignal) (strin
 }
 
 func (ctl *EventController) trigger(event string) (string, common.RespCode, error) {
-	ctl.lock.Lock()
-	defer ctl.lock.Unlock()
 	return ctl.state.Trigger(event)
 }
 
 func (ctl *EventController) handleFinish() (string, common.RespCode, error) {
-	ctl.reset(false)
+	ctl.reset()
 	return "", common.OK, nil
 }
 
@@ -447,13 +463,24 @@ func (ctl *EventController) handleNotifyStopTrain() (string, common.RespCode, er
 	return ctl.signalEnqueue(signal)
 }
 
+func (ctl *EventController) getCtxAndStopCompleteChan() (context.Context, chan *pb.StopCompleteRequest) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.controllerContext, ctl.reportStopCompleteChan
+}
+
 func (ctl *EventController) handleWaitReportStopComplete() (string, common.RespCode, error) {
+	ctx, reportChan := ctl.getCtxAndStopCompleteChan()
+	if reportChan == nil {
+		hwlog.RunLog.Infof("jobId=%s, reportChan is nil", ctl.jobInfo.JobId)
+		return "", common.OK, fmt.Errorf("jobId=%s, reportChan is nil", ctl.jobInfo.JobId)
+	}
 	select {
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s",
 			ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
-	case _ = <-ctl.reportStopCompleteChan:
+	case <-reportChan:
 		hwlog.RunLog.Infof("jobId=%s, outside triger event receiveReport", ctl.jobInfo.JobId)
 		return common.ReceiveReportEvent, common.OK, nil
 	case <-time.After(time.Duration(reportTimeoutMinutes) * time.Minute):
@@ -463,14 +490,13 @@ func (ctl *EventController) handleWaitReportStopComplete() (string, common.RespC
 }
 
 func (ctl *EventController) handleWaitFlushFinish() (string, common.RespCode, error) {
-	go func() {
-		select {
-		case <-time.After(time.Duration(faultFlushSeconds) * time.Second):
-			ctl.addEvent(common.FaultFlushFinishedEvent)
-		case <-ctl.controllerContext.Done():
-		}
-	}()
-	return "", common.OK, nil
+	ctx, _ := ctl.getCtxAndEventChan()
+	select {
+	case <-time.After(time.Duration(faultFlushSeconds) * time.Second):
+		return common.FaultFlushFinishedEvent, common.OK, nil
+	case <-ctx.Done():
+		return "", common.OK, nil
+	}
 }
 
 func (ctl *EventController) normalFaultAssociateSameNodeRank(worker job.PodWorker) ([]*pb.FaultRank, []string) {
@@ -484,7 +510,7 @@ func (ctl *EventController) normalFaultAssociateSameNodeRank(worker job.PodWorke
 	for _, rank := range removeSameRankIds {
 		res = append(res, &pb.FaultRank{
 			RankId:    rank,
-			FaultType: "1",
+			FaultType: common.NormalFaultType,
 		})
 	}
 	return res, removeSameRankIds
@@ -508,14 +534,16 @@ func (ctl *EventController) writeConfirmFaultAndWaitPlatResultFault(faults []*pb
 
 func isUceFault(faults []*pb.FaultRank) bool {
 	for _, fault := range faults {
-		if fault.FaultType == "1" {
+		if fault.FaultType == common.NormalFaultType {
 			return false
 		}
 	}
 	return true
 }
 
-func (ctl *EventController) takeUceFault2NormalFault() {
+func (ctl *EventController) takeUceFault2NormalFault() ([]*pb.FaultRank, []*pb.FaultRank) {
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
 	n := len(ctl.latestRecoverResult)
 	if n > 0 && ctl.latestRecoverResult[n-1].Strategy == common.ProcessRetryStrategyName {
 		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheUceFault...)
@@ -529,9 +557,18 @@ func (ctl *EventController) takeUceFault2NormalFault() {
 		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheUceFault...)
 		ctl.cacheUceFault = ctl.cacheUceFault[:0]
 	}
+	return ctl.cacheUceFault, ctl.cacheNormalFault
 }
 
-func (ctl *EventController) notifyFaultForUceFaultCase(worker job.PodWorker) (string, common.RespCode, error) {
+func (ctl *EventController) setCacheFault(uceFaults, normalFaults []*pb.FaultRank) {
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
+	ctl.cacheUceFault = uceFaults
+	ctl.cacheNormalFault = normalFaults
+}
+
+func (ctl *EventController) notifyFaultForUceFaultCase(worker job.PodWorker,
+	uceFaults, normalFaults []*pb.FaultRank) (string, common.RespCode, error) {
 	signal := &pb.ProcessManageSignal{
 		Uuid:           ctl.uuid,
 		JobId:          ctl.jobInfo.JobId,
@@ -540,16 +577,18 @@ func (ctl *EventController) notifyFaultForUceFaultCase(worker job.PodWorker) (st
 		ChangeStrategy: "",
 	}
 	if ctl.jobInfo.PlatFormMode {
-		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(ctl.cacheUceFault)
+		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(uceFaults)
 		if err != nil {
 			hwlog.RunLog.Errorf("write confirm fault or wait plat result fault timeout, err=%v", err)
 			return common.WriteConfirmFaultOrWaitResultFaultTimeoutEvent,
 				common.WriteConfirmFaultOrWaitPlatResultFault, nil
 		}
 		if !isUceFault(allFaults) {
-			ctl.cacheUceFault = ctl.cacheUceFault[:0]
+			uceFaults = uceFaults[:0]
 			allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank(worker)
-			ctl.cacheNormalFault = allFaults
+			normalFaults = allFaults
+			ctl.setCacheFault(uceFaults, normalFaults)
+
 			// label fault pod
 			err := common.LabelSoftWareFaultPod(ctl.jobInfo.JobId, allFaultRanks)
 			if err != nil {
@@ -561,31 +600,32 @@ func (ctl *EventController) notifyFaultForUceFaultCase(worker job.PodWorker) (st
 				hwlog.RunLog.Errorf("notify agent faultList error, err=%v", err)
 				return common.NotifyFailEvent, common.OperateConfigMapError, nil
 			}
-			signal.FaultRankIds = ctl.cacheNormalFault
+			signal.FaultRankIds = normalFaults
 			hwlog.RunLog.Infof("write configmap faultList success, %s", cm.Data[common.ResetInfoCMDataKey])
 		} else {
-			signal.FaultRankIds = ctl.cacheUceFault
+			signal.FaultRankIds = uceFaults
 		}
 	} else {
-		signal.FaultRankIds = ctl.cacheUceFault
+		signal.FaultRankIds = uceFaults
 	}
-
-	signal.FaultRankIds = append(signal.FaultRankIds, ctl.cacheUceFault...)
 	return ctl.signalEnqueue(signal)
 }
 
-func (ctl *EventController) notifyFaultForNormalFaultCase(worker job.PodWorker) (string, common.RespCode, error) {
+func (ctl *EventController) notifyFaultForNormalFaultCase(worker job.PodWorker,
+	uceFaults, normalFaults []*pb.FaultRank) (string, common.RespCode, error) {
 	if ctl.jobInfo.PlatFormMode {
-		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(ctl.cacheNormalFault)
+		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(normalFaults)
 		if err != nil {
 			hwlog.RunLog.Errorf("write confirm fault or wait plat result fault timeout, err=%v", err)
 			return common.WriteConfirmFaultOrWaitResultFaultTimeoutEvent,
 				common.WriteConfirmFaultOrWaitPlatResultFault, nil
 		}
-		ctl.cacheNormalFault = allFaults
+		ctl.setCacheFault(nil, allFaults)
+		normalFaults = allFaults
 	}
 	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank(worker)
-	ctl.cacheNormalFault = allFaults
+	ctl.setCacheFault(nil, allFaults)
+
 	// label fault pod
 	err := common.LabelSoftWareFaultPod(ctl.jobInfo.JobId, allFaultRanks)
 	if err != nil {
@@ -605,22 +645,22 @@ func (ctl *EventController) notifyFaultForNormalFaultCase(worker job.PodWorker) 
 		Actions:        globalFaultActions,
 		ChangeStrategy: "",
 	}
-	signal.FaultRankIds = append(signal.FaultRankIds, ctl.cacheNormalFault...)
+	signal.FaultRankIds = append(signal.FaultRankIds, allFaults...)
 	return ctl.signalEnqueue(signal)
 }
 
 func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, error) {
-	ctl.takeUceFault2NormalFault()
+	uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
 	worker := kube.JobMgr.GetBsWorker(ctl.jobInfo.JobId)
 	if worker == nil {
 		return "", common.JobNotExist, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
 	}
 	// if len(ctl.cacheUceFault) still bigger than 0 after takeUceFault2NormalFault
 	// that means job support retry strategy, and it's first time choose strategy case only have uce fault
-	if len(ctl.cacheUceFault) > 0 {
-		return ctl.notifyFaultForUceFaultCase(worker)
+	if len(uceFaults) > 0 {
+		return ctl.notifyFaultForUceFaultCase(worker, uceFaults, normalFaults)
 	}
-	return ctl.notifyFaultForNormalFaultCase(worker)
+	return ctl.notifyFaultForNormalFaultCase(worker, uceFaults, normalFaults)
 }
 
 func (ctl *EventController) firstChooseStrategy() string {
@@ -655,6 +695,8 @@ func (ctl *EventController) chooseForRecoverFail() string {
 }
 
 func (ctl *EventController) chooseStrategy() string {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
 	n := len(ctl.latestRecoverResult)
 	if n == 0 {
 		return ctl.firstChooseStrategy()
@@ -662,7 +704,7 @@ func (ctl *EventController) chooseStrategy() string {
 	res := ctl.latestRecoverResult[n-1]
 	if res.Strategy == common.ProcessRetryStrategyName {
 		return ctl.chooseForRetryFail()
-	} else if res.Strategy == common.ProcessRecoverStrategy {
+	} else if res.Strategy == common.ProcessRecoverStrategyName {
 		return ctl.chooseForRecoverFail()
 	}
 	return common.ProcessExitStrategyName
@@ -685,30 +727,100 @@ func (ctl *EventController) handleNotifyDecidedStrategy() (string, common.RespCo
 	return ctl.signalEnqueue(signal)
 }
 
-func (ctl *EventController) handleCheckRecoverResult() (string, common.RespCode, error) {
-	n := len(ctl.latestRecoverResult)
+func (ctl *EventController) getStrategyResult() ([]string, []*pb.RecoverStatusRequest) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.latestStrategy, ctl.latestRecoverResult
+}
+
+func (ctl *EventController) extractRecoverResult() (common.RecoverResult, error) {
+	latestStrategy, latestResult := ctl.getStrategyResult()
+	n := len(latestStrategy)
 	if n == 0 {
-		return "", common.ServerInnerError,
-			fmt.Errorf("unexpected case, jobId=%s, have not decide strategy", ctl.jobInfo.JobId)
+		hwlog.RunLog.Errorf("unexpected case, jobId=%s, have not decide strategy", ctl.jobInfo.JobId)
+		return common.RecoverResult{
+			Strategy:       "",
+			Code:           common.ServerInnerError,
+			RecoverSuccess: false,
+		}, fmt.Errorf("unexpected case, jobId=%s, have not decide strategy", ctl.jobInfo.JobId)
 	}
-	strategy := ctl.latestRecoverResult[n-1].Strategy
-	code := ctl.latestRecoverResult[n-1].Status.Code
-	recoverSuccess := ctl.latestRecoverResult[n-1].Status.Code == int32(common.OK)
-	switch strategy {
-	case common.ProcessRetryStrategyName, common.ProcessRecoverStrategyName:
-		if recoverSuccess {
+	if latestStrategy[n-1] == common.ProcessExitStrategyName {
+		return common.RecoverResult{
+			Strategy:       common.ProcessExitStrategyName,
+			Code:           common.OK,
+			RecoverSuccess: true,
+		}, nil
+	}
+	strategy := latestResult[n-1].Strategy
+	code := latestResult[n-1].Status.Code
+	recoverSuccess := latestResult[n-1].Status.Code == int32(common.OK)
+	return common.RecoverResult{
+		Strategy:       strategy,
+		Code:           common.RespCode(code),
+		RecoverSuccess: recoverSuccess,
+	}, nil
+}
+
+func (ctl *EventController) removeAgentStrategy(strategy string) {
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
+	var res []string
+	for _, s := range ctl.agentReportStrategies {
+		if s != strategy {
+			res = append(res, s)
+		}
+	}
+	ctl.agentReportStrategies = res
+}
+
+func (ctl *EventController) handleCheckRecoverResult() (string, common.RespCode, error) {
+	result, err := ctl.extractRecoverResult()
+	if err != nil {
+		return "", result.Code, err
+	}
+	switch result.Strategy {
+	case common.ProcessRetryStrategyName:
+		if result.RecoverSuccess {
 			return common.RecoverSuccessEvent, common.OK, nil
 		}
-		if strategy == common.ProcessRetryStrategyName && code == int32(common.CleanDeviceError) {
-			return common.DeviceCleanFailEvent, common.CleanDeviceError, nil
+		if result.Code == common.RecoverableRetryError {
+			return common.RecoverableRetryErrorEvent, common.RecoverableRetryError, nil
+		} else if result.Code == common.UnRecoverableRetryError {
+			ctl.removeAgentStrategy(common.ProcessRecoverStrategyName)
+			return common.UnRecoverableRetryErrorEvent, common.UnRecoverableRetryError, nil
+		}
+		ctl.removeAgentStrategy(common.ProcessDumpStrategyName)
+		return common.RecoverFailEvent, common.ClientError, nil
+	case common.ProcessRecoverStrategyName:
+		if result.RecoverSuccess {
+			return common.RecoverSuccessEvent, common.OK, nil
 		}
 		return common.RecoverFailEvent, common.ClientError, nil
 	case common.ProcessDumpStrategyName, common.ProcessExitStrategyName:
 		return common.CheckResultFinishEvent, common.OK, nil
 	default:
 		return "", common.ServerInnerError, fmt.Errorf("unexpected case, strategy=%s "+
-			"not support, jobId=%s", strategy, ctl.jobInfo.JobId)
+			"not support, jobId=%s", result.Strategy, ctl.jobInfo.JobId)
 	}
+}
+
+func (ctl *EventController) handleKillPod() (string, common.RespCode, error) {
+	worker := kube.JobMgr.GetBsWorker(ctl.jobInfo.JobId)
+	if worker == nil {
+		hwlog.RunLog.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
+		return "", common.JobNotExist, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
+	}
+	ctl.takeUceFault2NormalFault()
+	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank(worker)
+	ctl.setCacheFault(nil, allFaults)
+	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
+		allFaultRanks, common.NotifyFaultListOperation)
+	if err != nil {
+		hwlog.RunLog.Errorf("notify kill pod fail, err=%v", err)
+		return "", common.OperateConfigMapError, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
+	}
+	hwlog.RunLog.Infof("write configmap faultList success, %s", cm.Data[common.ResetInfoCMDataKey])
+	return common.FinishKillPodEvent, common.OK, nil
 }
 
 func (ctl *EventController) handleFaultRetry() (string, common.RespCode, error) {
@@ -750,6 +862,11 @@ func (ctl *EventController) handleFaultRetry() (string, common.RespCode, error) 
 }
 
 func (ctl *EventController) handleKillJob() (string, common.RespCode, error) {
+	ctx, sendChan := ctl.getCtxAndSignalChan()
+	if sendChan == nil {
+		return "", common.ServerInnerError,
+			fmt.Errorf("jobId=%s, sendChan is nil", ctl.jobInfo.JobId)
+	}
 	signal := &pb.ProcessManageSignal{
 		Uuid:           ctl.uuid,
 		JobId:          ctl.jobInfo.JobId,
@@ -759,10 +876,10 @@ func (ctl *EventController) handleKillJob() (string, common.RespCode, error) {
 		ChangeStrategy: "",
 	}
 	select {
-	case ctl.signalChan <- signal:
+	case sendChan <- signal:
 		hwlog.RunLog.Infof("kill master signal enqueue, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.OK, nil
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case <-time.After(time.Minute):
@@ -771,15 +888,30 @@ func (ctl *EventController) handleKillJob() (string, common.RespCode, error) {
 	}
 }
 
+func (ctl *EventController) getCtxAndReportRecoverStrategyChan() (context.Context, chan *pb.RecoverStrategyRequest) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.controllerContext, ctl.reportRecoverStrategyChan
+}
+
 func (ctl *EventController) handleWaitReportRecoverStrategy() (string, common.RespCode, error) {
+	ctx, strategyChan := ctl.getCtxAndReportRecoverStrategyChan()
+	if strategyChan == nil {
+		hwlog.RunLog.Errorf("jobId=%s, strategyChan is nil", ctl.jobInfo.JobId)
+		return "", common.ServerInnerError, fmt.Errorf("jobId=%s, strategyChan is nil", ctl.jobInfo.JobId)
+	}
 	go func() {
 		ctl.listenScheduleResult()
 	}()
 	select {
-	case req := <-ctl.reportRecoverStrategyChan:
+	case req, ok := <-strategyChan:
+		if !ok {
+			hwlog.RunLog.Warnf("strategyChan closed, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+			return "", common.OK, nil
+		}
 		ctl.agentReportStrategies = req.Strategies
 		return common.ReceiveReportEvent, common.OK, nil
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case <-time.After(time.Duration(reportTimeoutMinutes) * time.Minute):
@@ -788,13 +920,38 @@ func (ctl *EventController) handleWaitReportRecoverStrategy() (string, common.Re
 	}
 }
 
+func (ctl *EventController) getCtxAndScheduleResultChan() (context.Context, chan bool) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.controllerContext, ctl.scheduleResultChan
+}
+
+func (ctl *EventController) pgStatusEnqueue(pgRunning bool) {
+	ctx, ch := ctl.getCtxAndScheduleResultChan()
+	if ch == nil {
+		hwlog.RunLog.Warnf("resultCh is nil, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+		return
+	}
+	select {
+	case ch <- pgRunning:
+		hwlog.RunLog.Infof("schedule result enqueue success, jobId=%s, value=%s",
+			ctl.jobInfo.JobId, strconv.FormatBool(pgRunning))
+	case <-ctx.Done():
+		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+	case <-time.After(time.Second):
+		hwlog.RunLog.Errorf("schedule result enqueue timeout, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+	}
+}
+
 func (ctl *EventController) listenScheduleResult() {
+	pgRunning := false
 	worker := kube.JobMgr.GetBsWorker(ctl.jobInfo.JobId)
 	if worker == nil {
 		hwlog.RunLog.Warnf("jobId=%s not exist", ctl.jobInfo.JobId)
+		ctl.pgStatusEnqueue(false)
 		return
 	}
-	pgRunning := false
+
 	for i := 1; i <= common.CheckPGRunningRetryTimes; i++ {
 		time.Sleep(time.Second * common.SleepSecondBeforeCheckPGRunning)
 		hwlog.RunLog.Infof("check pg running %d times", i)
@@ -803,25 +960,43 @@ func (ctl *EventController) listenScheduleResult() {
 			break
 		}
 	}
-	select {
-	case ctl.scheduleResultChan <- pgRunning:
-		hwlog.RunLog.Infof("schedule result enqueue success, jobId=%s, value=%s",
-			ctl.jobInfo.JobId, strconv.FormatBool(pgRunning))
-	case <-ctl.controllerContext.Done():
-		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
-	case <-time.After(time.Second):
-		hwlog.RunLog.Errorf("schedule result enqueue timeout, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
-	}
+	ctl.pgStatusEnqueue(pgRunning)
+}
+
+func (ctl *EventController) appendStrategy(strategy string) {
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
+	ctl.latestStrategy = append(ctl.latestStrategy, strategy)
+}
+
+func (ctl *EventController) appendRecoverResult(req *pb.RecoverStatusRequest) {
+	ctl.lock.Lock()
+	defer ctl.lock.Unlock()
+	ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
+}
+
+func (ctl *EventController) getCtxAndResultChan() (context.Context, chan *pb.RecoverStatusRequest) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.controllerContext, ctl.reportStatusChan
 }
 
 func (ctl *EventController) handleDecideRetryStrategy() (string, common.RespCode, error) {
-	ctl.latestStrategy = append(ctl.latestStrategy, common.ProcessRetryStrategyName)
+	ctl.appendStrategy(common.ProcessRetryStrategyName)
+	ctx, ch := ctl.getCtxAndResultChan()
+	if ch == nil {
+		return "", common.OK, fmt.Errorf("jobId=%s, result chan is nil", ctl.jobInfo.JobId)
+	}
 	select {
-	case req := <-ctl.reportStatusChan:
+	case req, ok := <-ch:
+		if !ok {
+			hwlog.RunLog.Warnf("resultCh closed, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+			return "", common.OK, nil
+		}
 		hwlog.RunLog.Infof("cur state is wait retry strategy status, report strategy=%s result", req.Strategy)
-		ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
+		ctl.appendRecoverResult(req)
 		return common.ReceiveReportEvent, common.OK, nil
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case <-time.After(time.Duration(reportTimeoutMinutes) * time.Minute):
@@ -831,12 +1006,22 @@ func (ctl *EventController) handleDecideRetryStrategy() (string, common.RespCode
 }
 
 func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCode, error) {
-	ctl.latestStrategy = append(ctl.latestStrategy, common.ProcessRecoverStrategy)
+	ctl.appendStrategy(common.ProcessRecoverStrategyName)
+	ctx, resultCh := ctl.getCtxAndResultChan()
+	_, scheduleCh := ctl.getCtxAndScheduleResultChan()
+	if resultCh == nil || scheduleCh == nil {
+		hwlog.RunLog.Errorf("jobId=%s, resultCh or scheduleCh is nil", ctl.jobInfo.JobId)
+		return "", common.OK, fmt.Errorf("jobId=%s, resultCh or scheduleCh is nil", ctl.jobInfo.JobId)
+	}
 	timer := time.NewTimer(time.Duration(reportTimeoutMinutes) * time.Minute)
 	defer timer.Stop()
 	for {
 		select {
-		case scheduleSuccess := <-ctl.scheduleResultChan:
+		case scheduleSuccess, ok := <-scheduleCh:
+			if !ok {
+				hwlog.RunLog.Warnf("scheduleCh closed, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+				return "", common.OK, nil
+			}
 			ctl.haveGetScheduleResult = true
 			ctl.scheduleResult = scheduleSuccess
 			if !scheduleSuccess {
@@ -847,11 +1032,11 @@ func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCo
 				hwlog.RunLog.Errorf("clear reset configMap error, err=%v, jobId=%s, uuid=%s", err, ctl.jobInfo.JobId, ctl.uuid)
 				return common.ClearConfigMapFaultFailEvent, common.OperateConfigMapError, nil
 			}
-		case req := <-ctl.reportStatusChan:
+		case req := <-resultCh:
 			hwlog.RunLog.Infof("cur state is %s, strategy=%s, code=%d", ctl.state.GetState(), req.Strategy, req.Status.Code)
 			ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
 			return common.ReceiveReportEvent, common.OK, nil
-		case <-ctl.controllerContext.Done():
+		case <-ctx.Done():
 			hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 			return "", common.ControllerEventCancel, nil
 		case <-timer.C:
@@ -862,13 +1047,22 @@ func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCo
 }
 
 func (ctl *EventController) handleDecideDumpStrategy() (string, common.RespCode, error) {
-	ctl.latestStrategy = append(ctl.latestStrategy, common.ProcessDumpStrategyName)
+	ctl.appendStrategy(common.ProcessDumpStrategyName)
+	ctx, resultCh := ctl.getCtxAndResultChan()
+	if resultCh == nil {
+		hwlog.RunLog.Errorf("jobId=%s, resultCh is nil", ctl.jobInfo.JobId)
+		return "", common.ServerInnerError, fmt.Errorf("jobId=%s, resultCh is nil", ctl.jobInfo.JobId)
+	}
 	select {
-	case req := <-ctl.reportStatusChan:
+	case req, ok := <-resultCh:
+		if !ok {
+			hwlog.RunLog.Warnf("resultCh closed, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+			return "", common.OK, nil
+		}
 		hwlog.RunLog.Infof("cur state is %s, strategy=%s, code=%d", ctl.state.GetState(), req.Strategy, req.Status.Code)
 		ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
 		return common.ReceiveReportEvent, common.OK, nil
-	case <-ctl.controllerContext.Done():
+	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case <-time.After(time.Duration(reportTimeoutMinutes) * time.Minute):
@@ -878,7 +1072,7 @@ func (ctl *EventController) handleDecideDumpStrategy() (string, common.RespCode,
 }
 
 func (ctl *EventController) handleDecideExitStrategy() (string, common.RespCode, error) {
-	ctl.latestStrategy = append(ctl.latestStrategy, common.ProcessExitStrategyName)
+	ctl.appendStrategy(common.ProcessExitStrategyName)
 	return common.CheckResultFinishEvent, common.OK, nil
 }
 
@@ -914,14 +1108,12 @@ func (ctl *EventController) handleRestartAllProcess() (string, common.RespCode, 
 }
 
 func (ctl *EventController) handleWaitRestartAllProcess() (string, common.RespCode, error) {
-	go func() {
-		select {
-		case <-time.After(time.Minute):
-			ctl.addEvent(common.RestartProcessFinishEvent)
-		case <-ctl.controllerContext.Done():
-			hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s",
-				ctl.jobInfo.JobId, ctl.uuid)
-		}
-	}()
-	return "", common.OK, nil
+	ctx, _ := ctl.getCtxAndScheduleResultChan()
+	select {
+	case <-time.After(time.Minute):
+		return common.RestartProcessFinishEvent, common.OK, nil
+	case <-ctx.Done():
+		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
+		return "", common.ControllerEventCancel, nil
+	}
 }

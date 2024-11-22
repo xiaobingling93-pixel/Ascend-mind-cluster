@@ -22,10 +22,12 @@ const (
 	JobNotExist RespCode = 402
 	// ProcessRescheduleOff not open the switch of process-rescheduling
 	ProcessRescheduleOff RespCode = 403
-	// StopDeviceError stop device error
-	StopDeviceError RespCode = 405
-	// CleanDeviceError clean device error
-	CleanDeviceError RespCode = 406
+	// DumpFailError save checkpoint error
+	DumpFailError = 404
+	// RecoverableRetryError error can up to recover strategy
+	RecoverableRetryError = 405
+	// UnRecoverableRetryError error can not up to recover strategy
+	UnRecoverableRetryError = 406
 	// ClientError common client error
 	ClientError RespCode = 499
 

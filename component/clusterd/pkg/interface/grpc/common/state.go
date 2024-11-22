@@ -61,4 +61,7 @@ const (
 
 	// NotifyKillJobState send kill job signal to agent for job reschedule
 	NotifyKillJobState = "NotifyKillJobState"
+
+	// KillPodForUnrecoverableRetryState KillPodForUnrecoverableRetryError kill pod for unrecoverable retry error
+	KillPodForUnrecoverableRetryState = "KillPodForUnrecoverableRetryState"
 )
