@@ -10,8 +10,6 @@ package utils
 
 import (
 	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -23,6 +21,7 @@ import (
 
 const (
 	defaultDirPerm fs.FileMode = 0744
+	defaultDirSize             = 1000 // in megabytes
 )
 
 // GenRankTableDir generate rank table dir
@@ -32,24 +31,29 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 		return ranktableDir
 	}
 	if utils.IsExist(ranktableDir) {
-		isSymbolLink, err := IsSymbolicLink(ranktableDir)
+		validPath, err := utils.RealDirChecker(ranktableDir, true, false)
 		if err != nil {
-			hwlog.RunLog.Errorf("check rank table directory fail, err: %v", err)
+			hwlog.RunLog.Errorf("rank table directory existed but is invalid, err: %v", err)
 			return ""
 		}
-		if isSymbolLink {
-			hwlog.RunLog.Error("rank table directory is symbolic link")
-			return ""
-		}
-		return ranktableDir
+		return validPath
 	}
-	err := MakeDir(ranktableDir, defaultDirPerm)
+	checkedPath, err := utils.PathStringChecker(ranktableDir, true, false)
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
 		return ""
 	}
-	hwlog.RunLog.Infof("create rank table directory success, set mode to %v", defaultDirPerm)
-	return ranktableDir
+	if err := utils.MakeSureDir(checkedPath); err != nil {
+		hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
+		return ""
+	}
+	hwlog.RunLog.Info("create rank table directory success")
+	if err := utils.SafeChmod(checkedPath, defaultDirSize, defaultDirPerm); err != nil {
+		hwlog.RunLog.Errorf("failed to change rank table directory mode, err: %v", err)
+		return checkedPath
+	}
+	hwlog.RunLog.Infof("set rank table directory mode to %v success", defaultDirPerm)
+	return checkedPath
 }
 
 func readRankTableDir(job *mindxdlv1.AscendJob) string {
@@ -94,25 +98,6 @@ func podUseNpu(pod *corev1.Pod) bool {
 	}
 	hwlog.RunLog.Infof("pod %v not use npu", pod.Name)
 	return false
-}
-
-// MakeDir try to create the directory
-func MakeDir(dirPath string, mode fs.FileMode) error {
-	realPath, err := filepath.Abs(dirPath)
-	if err != nil {
-		return err
-	}
-	return os.MkdirAll(realPath, mode)
-}
-
-// IsSymbolicLink check file or directory is symbolic link or not
-func IsSymbolicLink(targetPath string) (bool, error) {
-	s, err := os.Lstat(targetPath)
-	if err != nil {
-		return false, err
-
-	}
-	return s.Mode()&os.ModeSymlink != 0, nil
 }
 
 const (
