@@ -10,6 +10,7 @@ package utils
 
 import (
 	"io/fs"
+	"os"
 	"strings"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -21,7 +22,6 @@ import (
 
 const (
 	defaultDirPerm fs.FileMode = 0744
-	defaultDirSize             = 1000 // in megabytes
 )
 
 // GenRankTableDir generate rank table dir
@@ -43,16 +43,11 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 		hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
 		return ""
 	}
-	if err := utils.MakeSureDir(checkedPath); err != nil {
-		hwlog.RunLog.Errorf("failed to create rank table directory, err: %v", err)
+	if err := os.MkdirAll(checkedPath, defaultDirPerm); err != nil {
+		hwlog.RunLog.Errorf("failed to create directory, err: %v", err)
 		return ""
 	}
-	hwlog.RunLog.Info("create rank table directory success")
-	if err := utils.SafeChmod(checkedPath, defaultDirSize, defaultDirPerm); err != nil {
-		hwlog.RunLog.Errorf("failed to change rank table directory mode, err: %v", err)
-		return checkedPath
-	}
-	hwlog.RunLog.Infof("set rank table directory mode to %v success", defaultDirPerm)
+	hwlog.RunLog.Infof("create rank table directory success, set mode to %v", defaultDirPerm)
 	return checkedPath
 }
 
