@@ -15,9 +15,9 @@ import (
 	"strings"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
-	"huawei.com/npu-exporter/v5/common-utils/utils"
 	corev1 "k8s.io/api/core/v1"
 
+	"ascend-common/common-utils/utils"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 )
 
