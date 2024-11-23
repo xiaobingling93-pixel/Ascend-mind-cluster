@@ -97,10 +97,10 @@ func CopyFile(src, dst string) error {
 	}
 
 	srcFile, err := os.Open(src)
+	defer closeFile(srcFile)
 	if err != nil {
 		return err
 	}
-	defer closeFile(srcFile)
 
 	srcInfo, err := os.Stat(src)
 	if err != nil {
@@ -108,10 +108,10 @@ func CopyFile(src, dst string) error {
 	}
 
 	dstFile, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcInfo.Mode())
+	defer closeFile(dstFile)
 	if err != nil {
 		return err
 	}
-	defer closeFile(dstFile)
 
 	if _, err = io.Copy(dstFile, srcFile); err != nil {
 		return err
