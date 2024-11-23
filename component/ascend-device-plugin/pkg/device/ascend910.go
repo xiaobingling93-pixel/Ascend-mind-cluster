@@ -1034,7 +1034,7 @@ func (hnm *HwAscend910Manager) restartProcess(taskName string, resetInfo *common
 		hwlog.RunLog.Errorf("failed to check the number of processes in the fault device, err: %v", err)
 		return
 	}
-	time.Sleep(common.WaitFaultSelfHealingTime * time.Second)
+	time.Sleep(common.GetWaitFaultSelfHealingTime() * time.Second)
 	if err := hnm.refreshDevFaultInfo(devFaultInfoList, classifyDevs); err != nil {
 		hwlog.RunLog.Errorf("failed to refresh device fault info, err %v", err)
 		return
@@ -1165,8 +1165,8 @@ func (hnm *HwAscend910Manager) updateResetCMStatus(taskName, policy, initPolicy,
 		hwlog.RunLog.Errorf("write reset info into reset cm failed, err: %v", err)
 		return err
 	}
-	hwlog.RunLog.Infof("sleep %d second for config map to sync", common.WaitProcessReadCMTime)
-	time.Sleep(common.WaitProcessReadCMTime * time.Second)
+	hwlog.RunLog.Infof("sleep %d second for config map to sync", common.GetWaitProcessReadCMTime())
+	time.Sleep(common.GetWaitProcessReadCMTime() * time.Second)
 	return nil
 }
 
@@ -1547,7 +1547,7 @@ func (hnm *HwAscend910Manager) isNetResetCompleted(logicId int32) bool {
 }
 
 func (hnm *HwAscend910Manager) waitDeviceResetComplete(logicId int32, totalTime *int, shouldCheckNet bool) error {
-	if err := wait.PollImmediate(time.Second, common.WaitDeviceResetTime*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(time.Second, common.GetWaitDeviceResetTime()*time.Second, func() (bool, error) {
 		*totalTime += 1
 		if *totalTime > common.MaxResetWaitRecoverTime {
 			return true, fmt.Errorf("wait device reset recover timeout")

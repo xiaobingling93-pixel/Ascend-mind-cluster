@@ -1160,7 +1160,7 @@ func (tool *AscendTools) doWriteFaultToEvent(faultInfo npuCommon.DevFaultInfo) e
 		return fmt.Errorf("failed to get name of assertion: %d", faultInfo.Assertion)
 	}
 	var faultLevelName string
-	if !common.NetworkFaultCodes.Has(faultInfo.EventID) {
+	if !common.IsNetworkFaultCodes(faultInfo.EventID) {
 		faultLevelName = common.GetFaultTypeByCode([]int64{faultInfo.EventID})
 	} else {
 		faultLevelName = common.GetNetworkFaultTypeByCode([]int64{faultInfo.EventID})
@@ -1275,7 +1275,7 @@ func (tool *AscendTools) generateChipFaultEventsBasedOnFaultCacheChange(device *
 	}
 	chipFaultCodes := make([]int64, 0, npuCommon.MaxErrorCodeCount)
 	for _, faultCode := range errCodes {
-		if common.NetworkFaultCodes.Has(faultCode) {
+		if common.IsNetworkFaultCodes(faultCode) {
 			continue
 		}
 		chipFaultCodes = append(chipFaultCodes, faultCode)
@@ -1307,7 +1307,7 @@ func (tool *AscendTools) generateNetworkFaultEventsBasedOnFaultCacheChange(devic
 	}
 	networkFaultCodes := make([]int64, 0, npuCommon.MaxErrorCodeCount)
 	for _, faultCode := range errCodes {
-		if !common.NetworkFaultCodes.Has(faultCode) {
+		if !common.IsNetworkFaultCodes(faultCode) {
 			continue
 		}
 		networkFaultCodes = append(networkFaultCodes, faultCode)

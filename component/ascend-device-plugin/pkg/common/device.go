@@ -105,6 +105,7 @@ func GetSwitchFaultInfo() SwitchFaultInfo {
 	SwitchFaultLock.Lock()
 	defer SwitchFaultLock.Unlock()
 	SwitchFaultLevelMapLock.Lock()
+	defer SwitchFaultLevelMapLock.Unlock()
 
 	faultLevel, NodeStatus := getSwitchFaultLevelAndNodeStatus()
 
