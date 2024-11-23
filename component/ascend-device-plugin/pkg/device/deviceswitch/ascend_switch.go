@@ -123,13 +123,13 @@ func UpdateSwitchFaultLevel() {
 	common.SwitchFaultLevelMapLock.Lock()
 	defer common.SwitchFaultLevelMapLock.Unlock()
 	common.SwitchFaultLevelMap = make(map[string]int, common.GeneralMapSize)
-	for _, code := range common.NotHandleFaultCodes {
+	for _, code := range common.GetNotHandleFaultCodes() {
 		common.SwitchFaultLevelMap[code] = common.NotHandleFaultLevel
 	}
-	for _, code := range common.PreSeparateFaultCodes {
+	for _, code := range common.GetPreSeparateFaultCodes() {
 		common.SwitchFaultLevelMap[code] = common.PreSeparateFaultLevel
 	}
-	for _, code := range common.SeparateFaultCodes {
+	for _, code := range common.GetSeparateFaultCodes() {
 		common.SwitchFaultLevelMap[code] = common.SeparateFaultLevel
 	}
 }

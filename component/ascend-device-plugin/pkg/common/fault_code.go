@@ -85,12 +85,12 @@ const (
 
 var (
 	faultTypeCode = FaultTypeCode{}
-	// NotHandleFaultCodes contains all fault code that believed to be not handled, in this case is L1
-	NotHandleFaultCodes = make([]string, 0, GeneralMapSize)
-	// PreSeparateFaultCodes contains all fault code that believed to be PreSeparate, in this case is L2-L3
-	PreSeparateFaultCodes = make([]string, 0, GeneralMapSize)
-	// SeparateFaultCodes contains all fault code that believed to be Separate, in this case is L4-L5
-	SeparateFaultCodes = make([]string, 0, GeneralMapSize)
+	// notHandleFaultCodes contains all fault code that believed to be not handled, in this case is L1
+	notHandleFaultCodes = make([]string, 0, GeneralMapSize)
+	// preSeparateFaultCodes contains all fault code that believed to be PreSeparate, in this case is L2-L3
+	preSeparateFaultCodes = make([]string, 0, GeneralMapSize)
+	// separateFaultCodes contains all fault code that believed to be Separate, in this case is L4-L5
+	separateFaultCodes = make([]string, 0, GeneralMapSize)
 	// initLogicIDs need init fault code device. add by train or inference
 	initLogicIDs []int32
 	// logicIDLock operate initLogicIDs lock
@@ -115,24 +115,24 @@ var (
 	manuallySeparateNpuMapLock sync.Mutex
 	// manuallySeparateNpuMap manually separate npu info cache
 	manuallySeparateNpuMap = make(map[int32]ManuallyFaultInfo, GeneralMapSize)
-	// FaultTypeSet is a set that contains all the fault level
-	FaultTypeSet = sets.NewString(NotHandleFault, RestartRequest, RestartBusiness, FreeRestartNPU,
+	// faultTypeSet is a set that contains all the fault level
+	faultTypeSet = sets.NewString(NotHandleFault, RestartRequest, RestartBusiness, FreeRestartNPU,
 		RestartNPU, PreSeparateNPU, SeparateNPU, ManuallySeparateNPU, SubHealthFault)
-	// FaultDurationTypeSet is a set that contains all the fault Duration level
-	FaultDurationTypeSet = sets.NewString(NotHandleFault, RestartRequest, RestartBusiness, FreeRestartNPU,
+	// faultDurationTypeSet is a set that contains all the fault Duration level
+	faultDurationTypeSet = sets.NewString(NotHandleFault, RestartRequest, RestartBusiness, FreeRestartNPU,
 		RestartNPU, PreSeparateNPU, SeparateNPU, SubHealthFault)
-	// NetworkFaultCodes is a set that contains all the network fault codes
-	NetworkFaultCodes = sets.NewInt64(LinkDownFaultCode)
+	// networkFaultCodes is a set that contains all the network fault codes
+	networkFaultCodes = sets.NewInt64(LinkDownFaultCode)
 )
 
 // fault customization
 var (
-	// WaitProcessReadCMTime is the time used in waiting for process read cm
-	WaitProcessReadCMTime time.Duration = DefaultProcessReadCMTime
-	// WaitFaultSelfHealingTime for waiting for fault self-healing
-	WaitFaultSelfHealingTime time.Duration = DefaultWaitFaultSelfHealingTime
-	// WaitDeviceResetTime is the time used in waiting device reset
-	WaitDeviceResetTime time.Duration = DefaultWaitDeviceResetTime
+	// waitProcessReadCMTime is the time used in waiting for process read cm
+	waitProcessReadCMTime time.Duration = DefaultProcessReadCMTime
+	// waitFaultSelfHealingTime for waiting for fault self-healing
+	waitFaultSelfHealingTime time.Duration = DefaultWaitFaultSelfHealingTime
+	// waitDeviceResetTime is the time used in waiting device reset
+	waitDeviceResetTime time.Duration = DefaultWaitDeviceResetTime
 	// faultFrequencyMap is the cache saving to occur frequency of a fault, key is event id
 	faultFrequencyMap = make(map[string]*FaultFrequencyCache, common.MaxErrorCodeCount)
 	// faultFrequencyMapLock is the lock of faultFrequencyMap
@@ -147,6 +147,46 @@ var (
 		"fault handling policy is set to NotHandleFault"
 	hbmTool = NewHbmFaultManager()
 )
+
+// GetNotHandleFaultCodes get not handle fault code
+func GetNotHandleFaultCodes() []string {
+	return notHandleFaultCodes
+}
+
+// GetPreSeparateFaultCodes get pre separate fault code
+func GetPreSeparateFaultCodes() []string {
+	return preSeparateFaultCodes
+}
+
+// GetSeparateFaultCodes get separate fault code
+func GetSeparateFaultCodes() []string {
+	return separateFaultCodes
+}
+
+// GetWaitProcessReadCMTime get wait process read cm time
+func GetWaitProcessReadCMTime() time.Duration {
+	return waitProcessReadCMTime
+}
+
+// SetWaitProcessReadCMTime set wait process read cm time
+func SetWaitProcessReadCMTime(time time.Duration) {
+	waitProcessReadCMTime = time
+}
+
+// GetWaitFaultSelfHealingTime get wait fault self healing time
+func GetWaitFaultSelfHealingTime() time.Duration {
+	return waitFaultSelfHealingTime
+}
+
+// GetWaitDeviceResetTime get wait device reset time
+func GetWaitDeviceResetTime() time.Duration {
+	return waitDeviceResetTime
+}
+
+// IsNetworkFaultCodes check if the fault code is network fault
+func IsNetworkFaultCodes(key int64) bool {
+	return networkFaultCodes.Has(key)
+}
 
 // ManuallyFaultInfo save the info of ManuallySeparateNPU
 type ManuallyFaultInfo struct {
@@ -424,19 +464,19 @@ func LoadFaultCode(faultCodeBytes []byte) error {
 
 func mappingChipFaultToNetworkFaultCodesSupport() {
 	for _, faultCode := range faultTypeCode.NotHandleFaultCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			faultTypeCode.NotHandleFaultNetworkCodes = append(faultTypeCode.NotHandleFaultNetworkCodes, faultCode)
 		}
 	}
 
 	for _, faultCode := range faultTypeCode.PreSeparateNPUCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			faultTypeCode.PreSeparateNPUNetworkCodes = append(faultTypeCode.PreSeparateNPUNetworkCodes, faultCode)
 		}
 	}
 
 	for _, faultCode := range faultTypeCode.SeparateNPUCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			faultTypeCode.SeparateNPUNetworkCodes = append(faultTypeCode.SeparateNPUNetworkCodes, faultCode)
 		}
 	}
@@ -444,28 +484,28 @@ func mappingChipFaultToNetworkFaultCodesSupport() {
 
 func mappingChipFaultToNetworkFaultCodesNotSupport() {
 	for _, faultCode := range faultTypeCode.RestartRequestCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			hwlog.RunLog.Warnf(networkFaultConfigureFailedMsg, faultCode, RestartRequest)
 			faultTypeCode.NotHandleFaultNetworkCodes = append(faultTypeCode.NotHandleFaultNetworkCodes, faultCode)
 		}
 	}
 
 	for _, faultCode := range faultTypeCode.RestartBusinessCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			hwlog.RunLog.Warnf(networkFaultConfigureFailedMsg, faultCode, RestartBusiness)
 			faultTypeCode.NotHandleFaultNetworkCodes = append(faultTypeCode.NotHandleFaultNetworkCodes, faultCode)
 		}
 	}
 
 	for _, faultCode := range faultTypeCode.RestartNPUCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			hwlog.RunLog.Warnf(networkFaultConfigureFailedMsg, faultCode, RestartNPU)
 			faultTypeCode.NotHandleFaultNetworkCodes = append(faultTypeCode.NotHandleFaultNetworkCodes, faultCode)
 		}
 	}
 
 	for _, faultCode := range faultTypeCode.FreeRestartNPUCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			hwlog.RunLog.Warnf(networkFaultConfigureFailedMsg, faultCode, FreeRestartNPU)
 			faultTypeCode.NotHandleFaultNetworkCodes = append(faultTypeCode.NotHandleFaultNetworkCodes, faultCode)
 		}
@@ -492,9 +532,9 @@ func LoadSwitchFaultCode(switchFaultCodeByte []byte) error {
 		return fmt.Errorf("failed to unmarsha switch fault code, err: %s", err.Error())
 	}
 
-	NotHandleFaultCodes = make([]string, 0, GeneralMapSize)
-	PreSeparateFaultCodes = make([]string, 0, GeneralMapSize)
-	SeparateFaultCodes = make([]string, 0, GeneralMapSize)
+	notHandleFaultCodes = make([]string, 0, GeneralMapSize)
+	preSeparateFaultCodes = make([]string, 0, GeneralMapSize)
+	separateFaultCodes = make([]string, 0, GeneralMapSize)
 	invalidFormatInfo := "failed to parse %s faultCode:%v, will ignore it," +
 		" please check if its format, such as: [0x00f1ff09,155914,cpu,na]"
 	for _, code := range switchFileInfo.NotHandleFaultCodes {
@@ -502,7 +542,7 @@ func LoadSwitchFaultCode(switchFaultCodeByte []byte) error {
 			hwlog.RunLog.Warnf(invalidFormatInfo, "NotHandleFaultCodes", code)
 			continue
 		}
-		NotHandleFaultCodes = append(NotHandleFaultCodes, code)
+		notHandleFaultCodes = append(notHandleFaultCodes, code)
 	}
 
 	for _, code := range switchFileInfo.SubHealthFaultCodes {
@@ -510,7 +550,7 @@ func LoadSwitchFaultCode(switchFaultCodeByte []byte) error {
 			hwlog.RunLog.Warnf(invalidFormatInfo, "SubHealthFaultCodes", code)
 			continue
 		}
-		PreSeparateFaultCodes = append(PreSeparateFaultCodes, code)
+		preSeparateFaultCodes = append(preSeparateFaultCodes, code)
 	}
 
 	switchFileInfo.SeparateFaultCodes = append(switchFileInfo.SeparateFaultCodes, switchFileInfo.ResetFaultCodes...)
@@ -519,7 +559,7 @@ func LoadSwitchFaultCode(switchFaultCodeByte []byte) error {
 			hwlog.RunLog.Warnf(invalidFormatInfo, "SeparateFaultCodes", code)
 			continue
 		}
-		SeparateFaultCodes = append(SeparateFaultCodes, code)
+		separateFaultCodes = append(separateFaultCodes, code)
 	}
 
 	return nil
@@ -589,33 +629,33 @@ func loadFaultDurationCustomization(customization []FaultDurationCustomization) 
 func loadGraceToleranceCustomization(customization GraceToleranceCustomization) {
 	if customization.WaitDeviceResetTime < MinWaitDeviceResetTime ||
 		customization.WaitDeviceResetTime > MaxWaitDeviceResetTime {
-		hwlog.RunLog.Errorf("WaitDeviceResetTime(%d) exceed limit(%d~%d), use default(%d)",
+		hwlog.RunLog.Errorf("waitDeviceResetTime(%d) exceed limit(%d~%d), use default(%d)",
 			customization.WaitDeviceResetTime, MinWaitDeviceResetTime,
 			MaxWaitDeviceResetTime, DefaultWaitDeviceResetTime)
-		WaitDeviceResetTime = DefaultWaitDeviceResetTime
+		waitDeviceResetTime = DefaultWaitDeviceResetTime
 	} else {
-		hwlog.RunLog.Debugf("modify WaitDeviceResetTime(%d) success", customization.WaitDeviceResetTime)
-		WaitDeviceResetTime = time.Duration(customization.WaitDeviceResetTime)
+		hwlog.RunLog.Debugf("modify waitDeviceResetTime(%d) success", customization.WaitDeviceResetTime)
+		waitDeviceResetTime = time.Duration(customization.WaitDeviceResetTime)
 	}
 	if customization.WaitProcessReadCMTime < MinWaitProcessReadCMTime || customization.
 		WaitProcessReadCMTime > MaxWaitProcessReadCMTime {
-		hwlog.RunLog.Errorf("WaitProcessReadCMTime(%d) exceed limit(%d~%d), use default(%d)",
+		hwlog.RunLog.Errorf("waitProcessReadCMTime(%d) exceed limit(%d~%d), use default(%d)",
 			customization.WaitProcessReadCMTime, MinWaitProcessReadCMTime,
 			MaxWaitProcessReadCMTime, DefaultProcessReadCMTime)
-		WaitProcessReadCMTime = DefaultProcessReadCMTime
+		waitProcessReadCMTime = DefaultProcessReadCMTime
 	} else {
-		hwlog.RunLog.Debugf("modify WaitProcessReadCMTime(%d) success", customization.WaitProcessReadCMTime)
-		WaitProcessReadCMTime = time.Duration(customization.WaitProcessReadCMTime)
+		hwlog.RunLog.Debugf("modify waitProcessReadCMTime(%d) success", customization.WaitProcessReadCMTime)
+		waitProcessReadCMTime = time.Duration(customization.WaitProcessReadCMTime)
 	}
 	if customization.WaitFaultSelfHealingTime < MinWaitFaultSelfHealingTime ||
 		time.Duration(customization.WaitFaultSelfHealingTime) > MaxWaitFaultSelfHealingTime {
-		hwlog.RunLog.Errorf("WaitFaultSelfHealingTime(%d) exceed limit(%d~%d), use default(%d)",
+		hwlog.RunLog.Errorf("waitFaultSelfHealingTime(%d) exceed limit(%d~%d), use default(%d)",
 			customization.WaitFaultSelfHealingTime,
-			MinWaitFaultSelfHealingTime, WaitProcessReadCMTime, DefaultWaitFaultSelfHealingTime)
-		WaitFaultSelfHealingTime = DefaultWaitFaultSelfHealingTime
+			MinWaitFaultSelfHealingTime, waitProcessReadCMTime, DefaultWaitFaultSelfHealingTime)
+		waitFaultSelfHealingTime = DefaultWaitFaultSelfHealingTime
 	} else {
-		hwlog.RunLog.Debugf("modify WaitFaultSelfHealingTime(%d) success", customization.WaitFaultSelfHealingTime)
-		WaitFaultSelfHealingTime = time.Duration(customization.WaitFaultSelfHealingTime)
+		hwlog.RunLog.Debugf("modify waitFaultSelfHealingTime(%d) success", customization.WaitFaultSelfHealingTime)
+		waitFaultSelfHealingTime = time.Duration(customization.WaitFaultSelfHealingTime)
 	}
 }
 
@@ -703,10 +743,10 @@ func validateFaultFrequencyCustomization(customization FaultFrequencyCustomizati
 			customization.EventId, customization.Times, MinFaultFrequencyTimes, MaxFaultFrequencyTimes, invalidMsg)
 		return false
 	}
-	if !FaultTypeSet.Has(customization.FaultHandling) {
+	if !faultTypeSet.Has(customization.FaultHandling) {
 		hwlog.RunLog.Warnf("EventIDs: %v, FaultHandling(%s) in this FaultFrequency is unrecognized. "+
 			"The supported range of FaultHandling in this FaultFrequency is %v. %s",
-			customization.EventId, customization.FaultHandling, FaultTypeSet.List(), invalidMsg)
+			customization.EventId, customization.FaultHandling, faultTypeSet.List(), invalidMsg)
 		return false
 	}
 	return true
@@ -732,10 +772,10 @@ func validateFaultDurationCustomization(faultDurationCustomization FaultDuration
 			MinRecoverTimeout, MaxRecoverTimeout, invalidMsg)
 		return false
 	}
-	if !FaultDurationTypeSet.Has(faultDurationCustomization.FaultHandling) {
+	if !faultDurationTypeSet.Has(faultDurationCustomization.FaultHandling) {
 		hwlog.RunLog.Warnf("EventIDs: %v, FaultHandling(%s) in this FaultDuration is unrecognized. "+
 			"The supported range of FaultHandling in this FaultDuration is %v. %s", faultDurationCustomization.EventId,
-			faultDurationCustomization.FaultHandling, FaultDurationTypeSet.List(), invalidMsg)
+			faultDurationCustomization.FaultHandling, faultDurationTypeSet.List(), invalidMsg)
 		return false
 	}
 	return true
@@ -769,12 +809,12 @@ func GetNetworkFaultTypeByCode(faultCodes []int64) string {
 func GetFaultType(faultCodes []int64, logicId int32) string {
 	newFaultCodes := make([]int64, 0)
 	for _, faultCode := range faultCodes {
-		if !NetworkFaultCodes.Has(faultCode) {
+		if !networkFaultCodes.Has(faultCode) {
 			newFaultCodes = append(newFaultCodes, faultCode)
 		}
 	}
 
-	faultTypes := make([]string, 0, len(FaultTypeSet))
+	faultTypes := make([]string, 0, len(faultTypeSet))
 	faultTypes = append(faultTypes, GetFaultTypeByCode(newFaultCodes))
 	faultTypes = append(faultTypes, GetFaultTypeFromFaultFrequency(logicId))
 	faultTypes = append(faultTypes, GetFaultTypeFromFaultDuration(logicId, ChipFaultMode))
@@ -788,12 +828,12 @@ func GetFaultType(faultCodes []int64, logicId int32) string {
 func GetNetworkFaultType(faultCodes []int64, logicId int32) string {
 	newNetworkFaultCodes := make([]int64, 0)
 	for _, faultCode := range faultCodes {
-		if NetworkFaultCodes.Has(faultCode) {
+		if networkFaultCodes.Has(faultCode) {
 			newNetworkFaultCodes = append(newNetworkFaultCodes, faultCode)
 		}
 	}
 
-	faultTypes := make([]string, 0, len(FaultTypeSet))
+	faultTypes := make([]string, 0, len(faultTypeSet))
 	faultTypes = append(faultTypes, GetNetworkFaultTypeByCode(newNetworkFaultCodes))
 	faultTypes = append(faultTypes, GetFaultTypeFromFaultDuration(logicId, NetworkFaultMode))
 	return getMostSeriousFaultType(faultTypes)
@@ -883,8 +923,8 @@ func GetFaultTypeFromFaultDuration(logicId int32, mode string) string {
 			continue
 		}
 
-		if (mode == ChipFaultMode && NetworkFaultCodes.Has(num)) ||
-			(mode == NetworkFaultMode && !NetworkFaultCodes.Has(num)) {
+		if (mode == ChipFaultMode && networkFaultCodes.Has(num)) ||
+			(mode == NetworkFaultMode && !networkFaultCodes.Has(num)) {
 			continue
 		}
 
@@ -994,7 +1034,7 @@ func SetNewFaultAndCacheOnceRecoverFault(logicID int32, faultInfos []common.DevF
 	// it must deal with two 'for', because the fault may recover one moment, in this case,
 	// the recover message and occur message both in faultInfos, this fault cannot be reports outside.
 	for _, faultInfo := range newFaultInfos {
-		if NetworkFaultCodes.Has(faultInfo.EventID) {
+		if networkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
 		if faultInfo.Assertion == common.FaultRecover {
@@ -1010,7 +1050,7 @@ func SetNewFaultAndCacheOnceRecoverFault(logicID int32, faultInfos []common.DevF
 		}
 	}
 	for _, faultInfo := range newFaultInfos {
-		if NetworkFaultCodes.Has(faultInfo.EventID) {
+		if networkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
 		if faultInfo.Assertion == common.FaultOccur || faultInfo.Assertion == common.FaultOnce {
@@ -1076,7 +1116,7 @@ func newFaultInfosForHBMErr(logicID int32, faultInfos []common.DevFaultInfo) []c
 
 func networkFaultRecoverAndFaultOnceHandle(logicID int32, faultInfos []common.DevFaultInfo, device *NpuDevice) {
 	for _, faultInfo := range faultInfos {
-		if !NetworkFaultCodes.Has(faultInfo.EventID) {
+		if !networkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
 		if faultInfo.Assertion == common.FaultRecover {
@@ -1095,7 +1135,7 @@ func networkFaultRecoverAndFaultOnceHandle(logicID int32, faultInfos []common.De
 
 func networkFaultOccurAndFaultOnceHandle(faultInfos []common.DevFaultInfo, device *NpuDevice) {
 	for _, faultInfo := range faultInfos {
-		if !NetworkFaultCodes.Has(faultInfo.EventID) {
+		if !networkFaultCodes.Has(faultInfo.EventID) {
 			continue
 		}
 		if faultInfo.Assertion == common.FaultOccur || faultInfo.Assertion == common.FaultOnce {
@@ -1604,8 +1644,8 @@ func GetTimeoutFaultCodes(mode string) []int64 {
 			hwlog.RunLog.Errorf(parseHexFailedMsg, eventId)
 			continue
 		}
-		if (mode == ChipFaultMode && NetworkFaultCodes.Has(num)) ||
-			(mode == NetworkFaultMode && !NetworkFaultCodes.Has(num)) {
+		if (mode == ChipFaultMode && networkFaultCodes.Has(num)) ||
+			(mode == NetworkFaultMode && !networkFaultCodes.Has(num)) {
 			continue
 		}
 
