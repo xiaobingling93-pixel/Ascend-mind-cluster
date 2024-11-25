@@ -787,7 +787,7 @@ func TestHwAscend910ManagerWaitForAllFaultyDeviceProcessesToZero(t *testing.T) {
 		hotResetManager: hotResetManager,
 	}
 	waitFlushingCMTime := 3
-	common.SetWaitProcessReadCMTime(time.Duration(waitFlushingCMTime))
+	common.WaitProcessReadCMTime = time.Duration(waitFlushingCMTime)
 	common.ParamOption.RealCardType = common.Ascend910
 	tests := []struct {
 		name    string

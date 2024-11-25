@@ -72,7 +72,7 @@ func DeepCopyInfos(infos map[string]*constant.SwitchInfo) map[string]*constant.S
 		copyVal, err := DeepCopy(val)
 		if err != nil {
 			hwlog.RunLog.Errorf("deep copy switchinfo failed , err is %v", err)
-			return nil
+			continue
 		}
 		res[key] = copyVal
 	}
