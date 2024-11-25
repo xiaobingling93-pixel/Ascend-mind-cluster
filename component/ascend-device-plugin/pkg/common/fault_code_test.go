@@ -127,8 +127,8 @@ func TestSetNewFaultAndCacheOnceRecoverFault(t *testing.T) {
 			}
 			device := &NpuDevice{FaultCodes: []int64{1}}
 			expectedFaultCodes, expectedFaultMapLen := []int64{0}, 2
-			networkFaultCodes = sets.NewInt64()
-			networkFaultCodes.Insert(LinkDownFaultCode)
+			NetworkFaultCodes = sets.NewInt64()
+			NetworkFaultCodes.Insert(LinkDownFaultCode)
 			SetNewFaultAndCacheOnceRecoverFault(logicID, faultInfos, device)
 			convey.So(device.FaultCodes, convey.ShouldResemble, expectedFaultCodes)
 			convey.So(len(recoverFaultMap[logicID]), convey.ShouldEqual, expectedFaultMapLen)
@@ -155,8 +155,8 @@ func TestSetNetworkNewFaultAndCacheOnceRecoverFault(t *testing.T) {
 			device := &NpuDevice{NetworkFaultCodes: []int64{LinkDownFaultCode}}
 			expectedNetworkFaultCodes := []int64{LinkDownFaultCode, LinkDownFaultCode}
 			expectedRecoverNetworkFaultMapLen := 1
-			networkFaultCodes = sets.NewInt64()
-			networkFaultCodes.Insert(LinkDownFaultCode)
+			NetworkFaultCodes = sets.NewInt64()
+			NetworkFaultCodes.Insert(LinkDownFaultCode)
 			SetNetworkNewFaultAndCacheOnceRecoverFault(logicID, faultInfos, device)
 			convey.So(device.NetworkFaultCodes, convey.ShouldResemble, expectedNetworkFaultCodes)
 			convey.So(len(recoverNetworkFaultMap[logicID]), convey.ShouldEqual, expectedRecoverNetworkFaultMapLen)
@@ -906,14 +906,14 @@ func TestLoadGraceToleranceCustomization(t *testing.T) {
 			WaitProcessReadCMTime:    30,
 			WaitFaultSelfHealingTime: 15,
 		}
-		waitDeviceResetTime = time.Duration(0)
-		waitProcessReadCMTime = time.Duration(0)
-		waitFaultSelfHealingTime = time.Duration(0)
+		WaitDeviceResetTime = time.Duration(0)
+		WaitProcessReadCMTime = time.Duration(0)
+		WaitFaultSelfHealingTime = time.Duration(0)
 		loadGraceToleranceCustomization(graceToleranceCustomization)
 		expectResetTime, expectReadCMTime, expectSelfHealingTime := 150, 30, 15
-		convey.So(waitDeviceResetTime, convey.ShouldEqual, expectResetTime)
-		convey.So(waitProcessReadCMTime, convey.ShouldEqual, expectReadCMTime)
-		convey.So(waitFaultSelfHealingTime, convey.ShouldEqual, expectSelfHealingTime)
+		convey.So(WaitDeviceResetTime, convey.ShouldEqual, expectResetTime)
+		convey.So(WaitProcessReadCMTime, convey.ShouldEqual, expectReadCMTime)
+		convey.So(WaitFaultSelfHealingTime, convey.ShouldEqual, expectSelfHealingTime)
 	})
 
 	convey.Convey("test loadGraceToleranceCustomization abnormal condition success", t, func() {
@@ -922,14 +922,14 @@ func TestLoadGraceToleranceCustomization(t *testing.T) {
 			WaitProcessReadCMTime:    91,
 			WaitFaultSelfHealingTime: 0,
 		}
-		waitDeviceResetTime = time.Duration(0)
-		waitProcessReadCMTime = time.Duration(0)
-		waitFaultSelfHealingTime = time.Duration(0)
+		WaitDeviceResetTime = time.Duration(0)
+		WaitProcessReadCMTime = time.Duration(0)
+		WaitFaultSelfHealingTime = time.Duration(0)
 		loadGraceToleranceCustomization(graceToleranceCustomization)
 		expectResetTime, expectReadCMTime, expectSelfHealingTime := 150, 30, 15
-		convey.So(waitDeviceResetTime, convey.ShouldEqual, expectResetTime)
-		convey.So(waitProcessReadCMTime, convey.ShouldEqual, expectReadCMTime)
-		convey.So(waitFaultSelfHealingTime, convey.ShouldEqual, expectSelfHealingTime)
+		convey.So(WaitDeviceResetTime, convey.ShouldEqual, expectResetTime)
+		convey.So(WaitProcessReadCMTime, convey.ShouldEqual, expectReadCMTime)
+		convey.So(WaitFaultSelfHealingTime, convey.ShouldEqual, expectSelfHealingTime)
 	})
 }
 
@@ -1524,7 +1524,7 @@ func TestGetTimeoutFaultCodes(t *testing.T) {
 		linkDownFaultCodeStr := strings.ToLower(strconv.FormatInt(LinkDownFaultCode, Hex))
 		CardDropFaultCodeStr := strings.ToLower(strconv.FormatInt(CardDropFaultCode, Hex))
 		ResetFinishFaultCodeStr := strings.ToLower(strconv.FormatInt(ResetFinishFaultCode, Hex))
-		networkFaultCodes = sets.NewInt64(LinkDownFaultCode)
+		NetworkFaultCodes = sets.NewInt64(LinkDownFaultCode)
 		faultDurationMap = map[string]*FaultDurationCache{
 			CardDropFaultCodeStr: {
 				Duration: map[int32]FaultDurationData{logicID: {TimeoutStatus: true}},
@@ -1568,8 +1568,8 @@ func TestLoadSwitchFaultCode(t *testing.T) {
 		convey.So(err, convey.ShouldBeNil)
 		err = LoadSwitchFaultCode(bytes)
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(len(notHandleFaultCodes) > 0, convey.ShouldBeTrue)
-		convey.So(notHandleFaultCodes[firstFaultIdx] == generalFaultCode, convey.ShouldBeTrue)
+		convey.So(len(NotHandleFaultCodes) > 0, convey.ShouldBeTrue)
+		convey.So(NotHandleFaultCodes[firstFaultIdx] == generalFaultCode, convey.ShouldBeTrue)
 	})
 }
 
@@ -1620,7 +1620,7 @@ func TestHbmFaultManager(t *testing.T) {
 	})
 }
 
-func TestUpdateDeviceFaultTimeMap(t *testing.T) {
+func Test_updateDeviceFaultTimeMap(t *testing.T) {
 	t.Run("Test_updateDeviceFaultTimeMap", func(t *testing.T) {
 		npuDevice := &NpuDevice{
 			FaultTimeMap: make(map[int64]int64),
