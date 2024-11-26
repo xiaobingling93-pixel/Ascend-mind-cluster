@@ -9,6 +9,7 @@ Package generator is interface of Ranktable generator.
 package generator
 
 import (
+	"github.com/looplab/fsm"
 	"k8s.io/api/core/v1"
 
 	"ascend-operator/pkg/ranktable/utils"
@@ -31,4 +32,5 @@ type RankTableGenerator interface {
 	ToString() (string, error)
 	GetConfigmapExist() utils.ConfigmapCheck
 	SetConfigmapExist(utils.ConfigmapCheck)
+	GetFsm(string) *fsm.FSM
 }

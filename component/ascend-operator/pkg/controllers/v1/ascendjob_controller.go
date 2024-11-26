@@ -59,6 +59,7 @@ import (
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
+	rktcommon "ascend-operator/pkg/ranktable/common"
 	"ascend-operator/pkg/ranktable/generator"
 	"ascend-operator/pkg/ranktable/utils"
 )
@@ -362,13 +363,20 @@ func (r *ASJobReconciler) deletePodForCmFile(uid types.UID, jobName, namespace s
 	curStatus := rtg.DeletePod(pod)
 	updateFileFail := curStatus == utils.CompletedRTStatus
 	updateCmFail := false
-	if r.configmapExist(rtg, jobName, namespace) {
-		rtg.SetStatus(utils.InitialRTStatus)
-		if ok := r.tryWriteCm(jobName, namespace, uid); !ok {
-			hwlog.RunLog.Error("failed to write ranktable to file and configmap")
-			updateCmFail = true
+	cmFsm := rtg.GetFsm(rktcommon.ConfigmapFsmName)
+	if cmFsm != nil && (cmFsm.Current() == rktcommon.RankTableSaved || cmFsm.Current() == rktcommon.RankTableReset) {
+		if r.configmapExist(rtg, jobName, namespace) {
+			rtg.SetStatus(utils.InitialRTStatus)
+			if ok := r.tryWriteCm(jobName, namespace, uid); !ok {
+				hwlog.RunLog.Error("failed to write ranktable to file and configmap")
+				updateCmFail = true
+				cmFsm.Event(context.Background(), rktcommon.DeletePodFailed)
+			} else {
+				cmFsm.Event(context.Background(), rktcommon.DeletePodSuccess)
+			}
 		}
 	}
+
 	if updateFileFail && updateCmFail {
 		rtg.SetStatus(utils.CompletedRTStatus)
 	}

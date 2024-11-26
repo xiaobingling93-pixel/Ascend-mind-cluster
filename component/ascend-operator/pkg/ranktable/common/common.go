@@ -37,8 +37,7 @@ type BaseGenerator struct {
 	dir            string
 	path           string
 	configmapExist utils.ConfigmapCheck
-	cmStatus       *fsm.FSM
-	fileStatus     *fsm.FSM
+	fsmMap         map[string]*fsm.FSM
 
 	servers    *sync.Map
 	rankTabler generator.RankTableGenerator
@@ -53,8 +52,12 @@ type BaseGenerator struct {
 func NewBaseGenerator(job *mindxdlv1.AscendJob, version string, r generator.RankTableGenerator) *BaseGenerator {
 	rankTableDir := utils.GenRankTableDir(job)
 	return &BaseGenerator{
-		dir:        rankTableDir,
-		path:       pathlib.Join(rankTableDir, rankTableFile),
+		dir:  rankTableDir,
+		path: pathlib.Join(rankTableDir, rankTableFile),
+		fsmMap: map[string]*fsm.FSM{
+			FileFsmName:      newRankTableFsm(),
+			ConfigmapFsmName: newRankTableFsm(),
+		},
 		servers:    &sync.Map{},
 		rankTabler: r,
 		Status:     utils.InitialRTStatus,
@@ -187,10 +190,16 @@ func (r *BaseGenerator) DeletePod(pod *corev1.Pod) utils.RankTableStatus {
 	if r.GetStatus() == utils.InitialRTStatus {
 		return utils.InitialRTStatus
 	}
-	r.SetStatus(utils.InitialRTStatus)
-	if err := r.WriteToFile(); err != nil {
-		hwlog.RunLog.Errorf("failed to write ranktable to file, err: %v", err)
-		r.SetStatus(utils.CompletedRTStatus)
+	fileFsm := r.GetFsm(FileFsmName)
+	if fileFsm != nil && (fileFsm.Current() == RankTableReset || fileFsm.Current() == RankTableSaved) {
+		r.SetStatus(utils.InitialRTStatus)
+		if err := r.WriteToFile(); err != nil {
+			hwlog.RunLog.Errorf("failed to write ranktable to file, err: %v", err)
+			r.SetStatus(utils.CompletedRTStatus)
+			fileFsm.Event(context.Background(), DeletePodFailed)
+		} else {
+			fileFsm.Event(context.Background(), DeletePodSuccess)
+		}
 	}
 	return r.GetStatus()
 }
@@ -214,6 +223,15 @@ func (r *BaseGenerator) GatherServerList() {
 	r.ServerCount = strconv.Itoa(len(r.ServerList))
 }
 
+// GetFsm get state machine by name
+func (r *BaseGenerator) GetFsm(name string) *fsm.FSM {
+	rtFsm, ok := r.fsmMap[name]
+	if !ok {
+		return nil
+	}
+	return rtFsm
+}
+
 func newRankTableFsm() *fsm.FSM {
 	return fsm.NewFSM(
 		RankTableInit,
@@ -223,18 +241,27 @@ func newRankTableFsm() *fsm.FSM {
 			{Name: DeletePodSuccess, Src: []string{RankTableReset}, Dst: RankTableInit},
 			{Name: DeletePodFailed, Src: []string{RankTableSaved}, Dst: RankTableReset},
 		},
-		fsm.Callbacks{
-			"enter_state": func(_ context.Context, e *fsm.Event) { fmt.Println("hello!") },
-		},
+		fsm.Callbacks{},
 	)
 }
 
 const (
-	RankTableInit  = "InitializingOrResetted"
+	// RankTableInit state: rank table is initializing os reset
+	RankTableInit = "InitializingOrReset"
+	// RankTableSaved state: rank table is saved
 	RankTableSaved = "Saved"
+	// RankTableReset state: rank table is resetting
 	RankTableReset = "Resetting"
 
-	SaveJobSuccess   = "SaveSuccess"
+	// SaveJobSuccess event: save rank table for job successfully
+	SaveJobSuccess = "SaveSuccess"
+	// DeletePodSuccess event: successfully update rank table when pod deleted
 	DeletePodSuccess = "DeletePodSuccess"
-	DeletePodFailed  = "DeletePodFailed"
+	// DeletePodFailed event: failed to update rank table when pod deleted
+	DeletePodFailed = "DeletePodFailed"
+
+	// FileFsmName name of state machine that manage saving rank table to file
+	FileFsmName = "FileStateMachine"
+	// ComfigmapFsmName name of state machine that manage saving rank table to config map
+	ConfigmapFsmName = "ConfigMapStateMachine"
 )
