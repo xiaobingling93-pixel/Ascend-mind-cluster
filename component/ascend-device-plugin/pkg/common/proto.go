@@ -158,6 +158,7 @@ type Option struct {
 	DealWatchHandler   bool     // update pod cache when receiving pod informer watch errors
 	EnableSwitchFault  bool     // if enable switch faul
 	CheckCachedPods    bool     // check cached pods periodically
+	EnableSetSlowNode  bool     // switch of set slow node notice environment
 }
 
 // GetAllDeviceInfoTypeList Get All Device Info Type List
