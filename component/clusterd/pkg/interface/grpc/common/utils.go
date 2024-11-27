@@ -206,10 +206,16 @@ func setNewTaskInfo(oldTaskResetInfo TaskResetInfo,
 	newTaskInfo.RankList = []*TaskDevInfo{}
 	newTaskInfo.UpdateTime = time.Now().Unix()
 	newTaskInfo.RetryTime = oldTaskResetInfo.RetryTime
+	if operation != NotifyFaultFlushingOperation {
+		newTaskInfo.FaultFlushing = false
+	} else {
+		newTaskInfo.FaultFlushing = true
+	}
 	if operation == RestartAllProcessOperation {
 		newTaskInfo.RetryTime += 1
+		return newTaskInfo, nil
 	}
-	if operation != FaultRankStatus {
+	if operation != NotifyFaultListOperation {
 		return newTaskInfo, nil
 	}
 	for _, rank := range faultRankList {
