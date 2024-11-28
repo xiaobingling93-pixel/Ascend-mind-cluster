@@ -503,8 +503,13 @@ func (tool *AscendTools) getFaultTimeAndLevelMap(
 	}
 	for _, eventId := range events {
 		faultLevel := getFaultLevelFunc([]int64{eventId}, device.LogicID)
+		faultTime, found := device.FaultTimeMap[eventId]
+		if !found {
+			hwlog.RunLog.Warnf("fault time map is inconsistance with faults, map: %s, codes: %s",
+				common.ObjToString(device.FaultTimeMap), common.ObjToString(events))
+		}
 		faultTimeAndLevel := common.FaultTimeAndLevel{
-			FaultTime:  device.FaultTimeMap[eventId],
+			FaultTime:  faultTime,
 			FaultLevel: faultLevel,
 		}
 		hexFaultCode := strings.ToUpper(strconv.FormatInt(eventId, common.Hex))
