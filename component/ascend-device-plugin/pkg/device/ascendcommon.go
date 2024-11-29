@@ -408,15 +408,16 @@ func (tool *AscendTools) getUsedChips() sets.String {
 		chipInfo, err := tool.dmgr.GetDevProcessInfo(logicID)
 		if err != nil {
 			// use vnpu will report an 8255 error
-			hwlog.RunLog.Debugf("get device list failed, err: %v", err)
+			hwlog.RunLog.Debugf("get device process info failed, err: %v", err)
 			continue
 		}
-
 		if chipInfo.ProcNum != 0 {
+			hwlog.RunLog.Debugf("the card logicID:[%d] is used, chipInfo: %#v", logicID, chipInfo)
 			chipName := fmt.Sprintf("%s-%d", common.ParamOption.RealCardType, logicID)
 			usedChips = append(usedChips, chipName)
 		}
 	}
+	hwlog.RunLog.Debugf("get used chips: %#v", usedChips)
 	return sets.NewString(usedChips...)
 }
 
