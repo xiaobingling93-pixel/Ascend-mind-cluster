@@ -1118,6 +1118,7 @@ func (ctl *EventController) handleWaitRestartAllProcess() (string, common.RespCo
 	case <-time.After(time.Minute):
 		return common.RestartProcessFinishEvent, common.OK, nil
 	case <-ctx.Done():
+		time.Sleep(time.Minute)
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	}
