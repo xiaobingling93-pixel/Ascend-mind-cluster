@@ -217,23 +217,47 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 	}
 	rtg.SetStatus(utils.CompletedRTStatus)
 	rtg.GatherServerList()
-	r.saveRanktable(rtg, ji)
+	r.saveRankTable(rtg, ji.mtObj.GetName(), ji.mtObj.GetNamespace(), ji.mtObj.GetUID())
 }
 
-func (r *ASJobReconciler) saveRanktable(rtg generator.RankTableGenerator, ji *jobInfo) {
-	saveRanktableSuccess := true
+func (r *ASJobReconciler) saveRankTable(rtg generator.RankTableGenerator,
+	jobName, namespace string, uid types.UID) {
+	r.saveRankTableFile(rtg)
+	r.saveRankTableConfigmap(rtg, jobName, namespace, uid)
+}
+
+func (r *ASJobReconciler) saveRankTableFile(rtg generator.RankTableGenerator) {
+	rtg.Lock()
+	defer rtg.Unlock()
+	curStatus := rtg.GetStatus()
+	if rtg.GetFileStatus() == curStatus {
+		return
+	}
 	if err := rtg.WriteToFile(); err != nil {
-		saveRanktableSuccess = false
 		hwlog.RunLog.Errorf("failed to write rank table to file, err: %v", err)
+		rtg.SetFileStatus(utils.UnknownStatus)
+		return
 	}
-	if r.configmapExist(rtg, ji.mtObj.GetName(), ji.mtObj.GetNamespace()) {
-		saveRanktableSuccess = r.tryWriteCm(ji.mtObj.GetName(), ji.mtObj.GetNamespace(),
-			ji.mtObj.GetUID()) && saveRanktableSuccess
+	rtg.SetFileStatus(curStatus)
+}
+
+func (r *ASJobReconciler) saveRankTableConfigmap(rtg generator.RankTableGenerator,
+	jobName, namespace string, uid types.UID) {
+	rtg.Lock()
+	defer rtg.Unlock()
+	if !r.configmapExist(rtg, jobName, namespace) {
+		return
 	}
-	if !saveRanktableSuccess {
-		hwlog.RunLog.Error("failed to save rank table")
-		rtg.SetStatus(utils.InitialRTStatus)
+	curStatus := rtg.GetStatus()
+	if rtg.GetConfigmapStatus() == curStatus {
+		return
 	}
+	if err := r.tryWriteCm(jobName, namespace, uid); err != nil {
+		hwlog.RunLog.Errorf("failed to write rank table to configmap, err: %v", err)
+		rtg.SetConfigmapStatus(utils.UnknownStatus)
+		return
+	}
+	rtg.SetConfigmapStatus(curStatus)
 }
 
 func (r *ASJobReconciler) configmapExist(rtg generator.RankTableGenerator, jobName, namespace string) bool {
@@ -255,17 +279,17 @@ func (r *ASJobReconciler) configmapExist(rtg generator.RankTableGenerator, jobNa
 	return true
 }
 
-func (r *ASJobReconciler) tryWriteCm(jobName, namespace string, uid types.UID) bool {
-	// try to write configmap
+func (r *ASJobReconciler) tryWriteCm(jobName, namespace string, uid types.UID) error {
 	hwlog.RunLog.Infof("start write rank table to configmap<%s> in namespace<%s>", configmapPrefix+jobName, namespace)
+	var err error
 	for i := 0; i < cmRetryTime; i++ {
-		if err := r.writeRanktableToCm(jobName, namespace, uid); err == nil {
+		if err = r.writeRanktableToCm(jobName, namespace, uid); err == nil {
 			hwlog.RunLog.Info("write rank table to configmap success")
-			return true
+			return nil
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return false
+	return err
 }
 
 func (r *ASJobReconciler) checkExistPod(pi *podInfo, index int, pod *corev1.Pod, jobStatus *commonv1.JobStatus) error {

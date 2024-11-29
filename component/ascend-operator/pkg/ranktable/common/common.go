@@ -34,6 +34,9 @@ type BaseGenerator struct {
 	dir            string
 	path           string
 	configmapExist utils.ConfigmapCheck
+	cmStatus       utils.RankTableStatus
+	fileStatus     utils.RankTableStatus
+	rtMu           sync.Mutex
 
 	servers    *sync.Map
 	rankTabler generator.RankTableGenerator
@@ -50,12 +53,24 @@ func NewBaseGenerator(job *mindxdlv1.AscendJob, version string, r generator.Rank
 	return &BaseGenerator{
 		dir:        rankTableDir,
 		path:       path.Join(rankTableDir, rankTableFile),
+		cmStatus:   utils.InitialRTStatus,
+		fileStatus: utils.InitialRTStatus,
 		servers:    &sync.Map{},
 		rankTabler: r,
 		Status:     utils.InitialRTStatus,
 		ServerList: []*Server{},
 		Version:    version,
 	}
+}
+
+// Lock is used to access the permission of rank table operations
+func (r *BaseGenerator) Lock() {
+	r.rtMu.Lock()
+}
+
+// Unlock is used to release the permission of rank table operations
+func (r *BaseGenerator) Unlock() {
+	r.rtMu.Unlock()
 }
 
 // GetConfigmapExist is used to get the configmap exist status.
@@ -76,6 +91,26 @@ func (r *BaseGenerator) SetStatus(status utils.RankTableStatus) {
 // GetStatus is used to get the status of ranktable.
 func (r *BaseGenerator) GetStatus() utils.RankTableStatus {
 	return r.Status
+}
+
+// SetFileStatus is used to set the status of ranktable in file.
+func (r *BaseGenerator) SetFileStatus(status utils.RankTableStatus) {
+	r.fileStatus = status
+}
+
+// GetFileStatus is used to get the status of ranktable in file.
+func (r *BaseGenerator) GetFileStatus() utils.RankTableStatus {
+	return r.fileStatus
+}
+
+// SetConfigmapStatus is used to set the status of ranktable in configmap.
+func (r *BaseGenerator) SetConfigmapStatus(status utils.RankTableStatus) {
+	r.cmStatus = status
+}
+
+// GetConfigmapStatus is used to get the status of ranktable in configmap.
+func (r *BaseGenerator) GetConfigmapStatus() utils.RankTableStatus {
+	return r.cmStatus
 }
 
 // WriteToFile is used to write ranktable to file.
@@ -179,17 +214,9 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 }
 
 // DeletePod is used to delete pod from ranktable.
-func (r *BaseGenerator) DeletePod(pod *corev1.Pod) utils.RankTableStatus {
+func (r *BaseGenerator) DeletePod(pod *corev1.Pod) {
 	r.servers.Delete(pod.UID)
-	if r.GetStatus() == utils.InitialRTStatus {
-		return utils.InitialRTStatus
-	}
 	r.SetStatus(utils.InitialRTStatus)
-	if err := r.WriteToFile(); err != nil {
-		hwlog.RunLog.Errorf("failed to write ranktable to file, err: %v", err)
-		r.SetStatus(utils.CompletedRTStatus)
-	}
-	return r.GetStatus()
 }
 
 // GatherServerList is used to gather server list.
