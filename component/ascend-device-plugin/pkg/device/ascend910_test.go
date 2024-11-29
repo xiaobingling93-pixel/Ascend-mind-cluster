@@ -399,14 +399,6 @@ func TestProcessAllTask(t *testing.T) {
 			taskPod: map[string]v1.Pod{
 				"task1": getSinglePod("pod1", map[string]string{}),
 			},
-			processPolicyTable: map[string]int{
-				common.EmptyError:     common.EmptyErrorLevel,
-				common.IgnoreError:    common.IgnoreErrorLevel,
-				common.RestartError:   common.RestartErrorLevel,
-				common.FreeResetError: common.FreeResetErrorLevel,
-				common.ResetError:     common.ResetErrorLevel,
-				common.IsolateError:   common.IsolateErrorLevel,
-			},
 		}
 		err := manager.processAllTask(mockGroupDevice())
 		convey.So(err, convey.ShouldBeNil)

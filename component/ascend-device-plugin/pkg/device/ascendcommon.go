@@ -838,19 +838,6 @@ func (tool *AscendTools) npuIsUsedNow(deviceName string) bool {
 	return false
 }
 
-// UnhealthyState state unhealthy info
-func (tool *AscendTools) unhealthyState(healthyState uint32, logicID int32) error {
-	phyID, err := tool.dmgr.GetPhysicIDFromLogicID(logicID)
-	if err != nil {
-		return fmt.Errorf("get phyID failed %v", err)
-	}
-	if _, _, err := tool.dmgr.GetDeviceErrorCode(logicID); err != nil {
-		return fmt.Errorf("get device error code failed %v", err)
-	}
-	hwlog.RunLog.Errorf("device logicID: %d, phyID: %d, state is %d", logicID, phyID, healthyState)
-	return nil
-}
-
 func (tool *AscendTools) getVGroupID(device string) (uint32, error) {
 	phyID, virID, err := common.GetDeviceID(device, common.VirtualDev)
 	if err != nil {
@@ -1224,7 +1211,7 @@ func (tool *AscendTools) doWriteFaultToEvent(faultInfo npuCommon.DevFaultInfo) e
 		event.Type = v1.EventTypeNormal
 	}
 	if _, err := tool.client.CreateEvent(event); err != nil {
-		return fmt.Errorf("failed to create event, %w", err)
+		return fmt.Errorf("failed to create event, %v", err)
 	}
 	return nil
 }
