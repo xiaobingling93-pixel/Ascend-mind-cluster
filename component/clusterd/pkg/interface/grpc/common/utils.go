@@ -294,11 +294,11 @@ func RemoveSliceDuplicateFaults(faults []*pb.FaultRank) []*pb.FaultRank {
 	return res
 }
 
-// LabelSoftWareFaultPod label fault for software fault
-func LabelSoftWareFaultPod(jobId string, rankList []string) error {
+// LabelFaultPod label fault for software fault
+func LabelFaultPod(jobId string, rankList []string) (map[string]string, error) {
 	worker := kube.JobMgr.GetBsWorker(jobId)
 	if worker == nil {
-		return fmt.Errorf("jobId=%s not exist", jobId)
+		return nil, fmt.Errorf("jobId=%s not exist", jobId)
 	}
 	var faultPodRankList []string
 	devicePerNode := worker.GetDeviceNumPerNode()
@@ -306,32 +306,56 @@ func LabelSoftWareFaultPod(jobId string, rankList []string) error {
 		faultRank, err := strconv.Atoi(rank)
 		if err != nil {
 			hwlog.RunLog.Errorf("parse pod rank failed, err is %v", err)
-			return err
+			return nil, err
 		}
 		faultPodRank := faultRank / devicePerNode
 		faultPodRankList = append(faultPodRankList, strconv.Itoa(faultPodRank))
 	}
 	faultPodRankList = util.RemoveSliceDuplicateElement(faultPodRankList)
-	if err := labelPodFault(worker, faultPodRankList); err != nil {
+	podMap, err := labelPodFault(worker, faultPodRankList)
+	if err != nil {
 		hwlog.RunLog.Errorf("label fault pod failed, err is %v", err)
-		return err
+		return nil, fmt.Errorf("label fault pod failed, err is %v", err)
 	}
-	return nil
+	return podMap, nil
 }
 
-func labelPodFault(worker job.PodWorker, faultPodRankList []string) error {
-	labelCache := make(map[string]struct{})
+func labelPodFault(worker job.PodWorker, faultPodRankList []string) (map[string]string, error) {
+	labelCache := make(map[string]string)
 	faultLabel := map[string]string{"fault-type": "software"}
 	for _, podRank := range faultPodRankList {
+		_, labeled := labelCache[podRank]
+		if labeled {
+			continue
+		}
 		pod := worker.GetPodByRankIndex(podRank)
-		key := pod.GetNamespace() + "/" + pod.GetName()
-		_, labeled := labelCache[key]
-		if pod != nil && !labeled {
-			if _, err := kube.RetryPatchPodLabels(pod, UpdatePodGroupTimes, faultLabel); err != nil {
-				return err
-			}
-			labelCache[key] = struct{}{}
+		if pod == nil {
+			hwlog.RunLog.Infof("discard nil pod")
+			continue
+		}
+		if _, err := kube.RetryPatchPodLabels(pod, UpdatePodGroupTimes, faultLabel); err != nil {
+			return nil, err
+		}
+		labelCache[podRank] = string(pod.UID)
+	}
+	return labelCache, nil
+}
+
+// FaultPodAllRescheduled check if all fault pod rescheduled
+func FaultPodAllRescheduled(jobId string, oldPodMap map[string]string) bool {
+	worker := kube.JobMgr.GetBsWorker(jobId)
+	if worker == nil {
+		hwlog.RunLog.Errorf("jobId=%s not exist", jobId)
+		return false
+	}
+	for podRank, oldPodId := range oldPodMap {
+		pod := worker.GetPodByRankIndex(podRank)
+		if pod == nil {
+			return false
+		}
+		if oldPodId == string(pod.UID) {
+			return false
 		}
 	}
-	return nil
+	return true
 }

@@ -37,6 +37,7 @@ type EventController struct {
 	faultFlushing             bool
 	keepAliveSecond           int
 	uuid                      string
+	faultPod                  map[string]string
 	events                    chan string
 	latestStrategy            []string
 	latestRecoverResult       []*pb.RecoverStatusRequest
@@ -63,6 +64,7 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		faultFlushing:             false,
 		keepAliveSecond:           keepAlive,
 		uuid:                      "",
+		faultPod:                  make(map[string]string),
 		events:                    make(chan string, eventChanLength),
 		latestStrategy:            []string{},
 		latestRecoverResult:       []*pb.RecoverStatusRequest{},
@@ -121,6 +123,7 @@ func (ctl *EventController) reset() {
 	ctl.faultFlushing = false
 	ctl.uuid = ""
 	ctl.latestStrategy = ctl.latestStrategy[:0]
+	ctl.faultPod = make(map[string]string)
 	close(ctl.events)
 	close(ctl.signalChan)
 	close(ctl.reportStopCompleteChan)
@@ -434,7 +437,7 @@ func (ctl *EventController) handleNotifyWaitFaultFlushing() (string, common.Resp
 		}
 		ctl.platStrategies = strategies
 	}
-	cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil,
+	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil,
 		common.NotifyFaultFlushingOperation)
 	if err != nil {
 		hwlog.RunLog.Errorf("notify agent faultFlushing error, err=%v", err)
@@ -445,7 +448,7 @@ func (ctl *EventController) handleNotifyWaitFaultFlushing() (string, common.Resp
 }
 
 func (ctl *EventController) handleFaultClear() (string, common.RespCode, error) {
-	cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, common.ClearOperation)
+	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, common.ClearOperation)
 	if err != nil {
 		hwlog.RunLog.Errorf("clear reset configmap error, err=%v", err)
 		return common.ClearConfigMapFaultFailEvent, common.OperateConfigMapError, nil
@@ -597,11 +600,11 @@ func (ctl *EventController) notifyFaultForUceFaultCase(worker job.PodWorker,
 			ctl.setCacheFault(uceFaults, normalFaults)
 
 			// label fault pod
-			err := common.LabelSoftWareFaultPod(ctl.jobInfo.JobId, allFaultRanks)
+			ctl.faultPod, err = common.LabelFaultPod(ctl.jobInfo.JobId, allFaultRanks)
 			if err != nil {
 				hwlog.RunLog.Errorf("label pod fault err: %v, jobId=%s", err, ctl.jobInfo.JobId)
 			}
-			cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
+			cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 				allFaultRanks, common.NotifyFaultListOperation)
 			if err != nil {
 				hwlog.RunLog.Errorf("notify agent faultList error, err=%v", err)
@@ -639,10 +642,12 @@ func (ctl *EventController) notifyFaultForNormalFaultCase(worker job.PodWorker,
 	ctl.setCacheFault(nil, allFaults)
 
 	// label fault pod
-	err := common.LabelSoftWareFaultPod(ctl.jobInfo.JobId, allFaultRanks)
+	var err error
+	ctl.faultPod, err = common.LabelFaultPod(ctl.jobInfo.JobId, allFaultRanks)
 	if err != nil {
 		hwlog.RunLog.Errorf("label pod fault err: %v, jobId=%s", err, ctl.jobInfo.JobId)
 	}
+	hwlog.RunLog.Infof("jobId=%s, label pod = %v", ctl.jobInfo.JobId, ctl.faultPod)
 	cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 		allFaultRanks, common.NotifyFaultListOperation)
 	if err != nil {
@@ -825,6 +830,12 @@ func (ctl *EventController) handleKillPod() (string, common.RespCode, error) {
 	ctl.takeUceFault2NormalFault()
 	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank(worker)
 	ctl.setCacheFault(nil, allFaults)
+	var err error
+	ctl.faultPod, err = common.LabelFaultPod(ctl.jobInfo.JobId, allFaultRanks)
+	if err != nil {
+		hwlog.RunLog.Errorf("label pod fault err: %v, jobId=%s", err, ctl.jobInfo.JobId)
+	}
+	hwlog.RunLog.Infof("jobId=%s, label pod = %v", ctl.jobInfo.JobId, ctl.faultPod)
 	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 		allFaultRanks, common.NotifyFaultListOperation)
 	if err != nil {
@@ -1088,10 +1099,10 @@ func (ctl *EventController) handleDecideExitStrategy() (string, common.RespCode,
 
 func (ctl *EventController) handleListenScheduleResult() (string, common.RespCode, error) {
 	scheduleSuccess := false
-	time.Sleep(time.Minute)
 	for i := 1; i <= common.CheckPGRunningRetryTimes; i++ {
 		time.Sleep(time.Second * common.SleepSecondBeforeCheckPGRunning)
-		if kube.JobMgr.JobRunning(ctl.jobInfo.JobId) {
+		if kube.JobMgr.JobRunning(ctl.jobInfo.JobId) &&
+			common.FaultPodAllRescheduled(ctl.jobInfo.JobId, ctl.faultPod) {
 			scheduleSuccess = true
 			break
 		}
