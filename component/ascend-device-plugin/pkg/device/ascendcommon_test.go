@@ -508,6 +508,52 @@ func TestGetDevStatesDevSet(t *testing.T) {
 	})
 }
 
+func TestGetUseChips(t *testing.T) {
+	convey.Convey("test getUseChips", t, func() {
+		tool := mockAscendTools()
+		convey.Convey("when presetVDevice is false, used chips should be empty", func() {
+			common.ParamOption.PresetVDevice = false
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 0)
+		})
+		common.ParamOption.PresetVDevice = true
+		convey.Convey("when get device list failed, used chips should be empty", func() {
+			err := fmt.Errorf("failed to get device list")
+			mockDeviceList := mockGetDeviceList(0, nil, err)
+			defer mockDeviceList.Reset()
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 0)
+		})
+		convey.Convey("when device list is empty, used chips should be empty", func() {
+			mockDeviceList := mockGetDeviceList(0, []int32{}, nil)
+			defer mockDeviceList.Reset()
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 0)
+		})
+		mockDeviceList := mockGetDeviceList(1, []int32{0}, nil)
+		defer mockDeviceList.Reset()
+		convey.Convey("when get process info failed, used chips should be empty", func() {
+			err := fmt.Errorf("failed to get device process info")
+			mockDevProcessInfo := mockGetDevProcessInfo(nil, err)
+			defer mockDevProcessInfo.Reset()
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 0)
+		})
+		convey.Convey("when device process num is 0, used chips should be empty", func() {
+			mockDevProcessInfo := mockGetDevProcessInfo(&npuCommon.DevProcessInfo{ProcNum: 0}, nil)
+			defer mockDevProcessInfo.Reset()
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 0)
+		})
+		convey.Convey("when device process num is not 0, used chips should not be empty", func() {
+			mockDevProcessInfo := mockGetDevProcessInfo(&npuCommon.DevProcessInfo{ProcNum: 1}, nil)
+			defer mockDevProcessInfo.Reset()
+			res := tool.getUsedChips()
+			convey.So(len(res), convey.ShouldEqual, 1)
+		})
+	})
+}
+
 func mockAscendTools() AscendTools {
 	return AscendTools{name: common.Ascend910, client: &kubeclient.ClientK8s{},
 		dmgr: &devmanager.DeviceManagerMock{}}
@@ -561,4 +607,18 @@ func TestAscendToolsGetDeviceFaults(t *testing.T) {
 			t.Errorf("getDeviceFaults() = %v, want %v", got, want)
 		}
 	})
+}
+
+func mockGetDeviceList(num int32, logicIDs []int32, err error) *gomonkey.Patches {
+	return gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)), "GetDeviceList",
+		func(_ *devmanager.DeviceManagerMock) (int32, []int32, error) {
+			return num, logicIDs, err
+		})
+}
+
+func mockGetDevProcessInfo(devProcessInfo *npuCommon.DevProcessInfo, err error) *gomonkey.Patches {
+	return gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)), "GetDevProcessInfo",
+		func(_ *devmanager.DeviceManagerMock, _ int32) (*npuCommon.DevProcessInfo, error) {
+			return devProcessInfo, err
+		})
 }

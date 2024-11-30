@@ -60,7 +60,6 @@ import (
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
-	"ascend-operator/pkg/ranktable/utils"
 )
 
 // NewReconciler new reconciler for AscendJob
@@ -314,7 +313,6 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 			r.rtGenerators[ascendJob.UID] = ranktable.NewGenerator(ascendJob)
 			hwlog.RunLog.Infof("create rtGenerator for frame %s ascendJob %s", frame, ascendJob.Name)
 		}
-
 		return true
 	}
 }
@@ -360,19 +358,8 @@ func (r *ASJobReconciler) deletePodForCmFile(uid types.UID, jobName, namespace s
 	if !exist {
 		return
 	}
-	curStatus := rtg.DeletePod(pod)
-	updateFileFail := curStatus == utils.CompletedRTStatus
-	updateCmFail := false
-	if r.configmapExist(rtg, jobName, namespace) {
-		rtg.SetStatus(utils.InitialRTStatus)
-		if ok := r.tryWriteCm(jobName, namespace, uid); !ok {
-			hwlog.RunLog.Error("failed to write ranktable to file and configmap")
-			updateCmFail = true
-		}
-	}
-	if updateFileFail && updateCmFail {
-		rtg.SetStatus(utils.CompletedRTStatus)
-	}
+	rtg.DeletePod(pod)
+	r.saveRankTable(rtg, jobName, namespace, uid)
 }
 
 // onPodDeleteFunc does some necessary processing logic when a pod is deleted.
@@ -554,23 +541,18 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, uid type
 	namespacedname := types.NamespacedName{Namespace: namespace, Name: configmapName}
 	err := r.Get(context.TODO(), namespacedname, cm)
 	if err != nil {
-		hwlog.RunLog.Infof("failed to get configmap in namespace %s, err: %v", namespace, err)
 		return err
 	}
 	rtg, ok := r.rtGenerators[uid]
 	if !ok {
-		err = fmt.Errorf("ranktable generaotor not found for job %s", jobName)
-		hwlog.RunLog.Error(err)
-		return err
+		return fmt.Errorf("ranktable generaotor not found for job %s", jobName)
 	}
 	cm.Data[configmapKey], err = rtg.ToString()
 	if err != nil {
-		hwlog.RunLog.Errorf("failed to get ranktable string, err: %v", err)
 		return err
 	}
 	cm.Data[configmapVersion] = strconv.FormatUint(uint64(time.Now().Unix()), decimal)
 	if err := r.Update(context.TODO(), cm); err != nil {
-		hwlog.RunLog.Errorf("failed to write configmap, err: %v", err)
 		return err
 	}
 	return nil
