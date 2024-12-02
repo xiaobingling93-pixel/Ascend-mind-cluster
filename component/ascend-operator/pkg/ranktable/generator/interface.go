@@ -8,7 +8,7 @@ Package generator is interface of Ranktable generator.
 package generator
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"ascend-operator/pkg/ranktable/utils"
 )
@@ -25,7 +25,7 @@ type RankTableGenerator interface {
 	SetStatus(utils.RankTableStatus)
 	GetStatus() utils.RankTableStatus
 	AddPod(*v1.Pod) error
-	DeletePod(*v1.Pod)
+	DeletePod()
 	GatherServerList()
 	ToString() (string, error)
 	GetConfigmapExist() utils.ConfigmapCheck

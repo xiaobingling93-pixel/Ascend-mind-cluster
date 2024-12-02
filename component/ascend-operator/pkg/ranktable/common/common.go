@@ -225,8 +225,8 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 }
 
 // DeletePod is used to delete pod from ranktable.
-func (r *BaseGenerator) DeletePod(pod *corev1.Pod) {
-	r.servers.Delete(pod.UID)
+func (r *BaseGenerator) DeletePod() {
+	r.servers.Range(func(key, value any) bool { r.servers.Delete(key); return true })
 	r.SetStatus(utils.InitialRTStatus)
 }
 
