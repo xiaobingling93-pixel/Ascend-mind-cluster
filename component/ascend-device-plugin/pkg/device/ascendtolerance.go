@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +32,7 @@ import (
 
 	"Ascend-device-plugin/pkg/common"
 	"Ascend-device-plugin/pkg/kubeclient"
+	"ascend-common/common-utils/hwlog"
 )
 
 var processPolicyTable = map[string]int{
