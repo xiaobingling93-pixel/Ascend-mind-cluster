@@ -4,32 +4,49 @@
 package faultmanager
 
 import (
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
 	"clusterd/pkg/common/constant"
 )
+
+func informInfoUpdate(newInfo any, whichToInformer int, isAdd bool) {
+	switch whichToInformer {
+	case constant.DeviceFaultType:
+		GlobalFaultProcessCenter.deviceCenter.updateOriginalCm(newInfo.(*constant.DeviceInfo), isAdd)
+	case constant.NodeFaultType:
+		GlobalFaultProcessCenter.nodeCenter.updateOriginalCm(newInfo.(*constant.NodeInfo), isAdd)
+	case constant.SwitchFaultType:
+		GlobalFaultProcessCenter.switchCenter.updateOriginalCm(newInfo.(*constant.SwitchInfo), isAdd)
+	default:
+		hwlog.RunLog.Errorf("cannot process %d", whichToInformer)
+		return
+	}
+	GlobalFaultProcessCenter.notifyFaultCenterProcess(whichToInformer)
+}
 
 // DeviceInfoCollector collects device info
 func DeviceInfoCollector(oldDevInfo, newDevInfo *constant.DeviceInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		GlobalFaultProcessCenter.informDeviceInfoAdd(newDevInfo)
+		informInfoUpdate(newDevInfo, constant.DeviceFaultType, true)
 	} else if operator == constant.DeleteOperator {
-		GlobalFaultProcessCenter.informDeviceInfoDel(newDevInfo)
+		informInfoUpdate(newDevInfo, constant.DeviceFaultType, false)
 	}
 }
 
 // SwitchInfoCollector collects switchinfo info of 900A3
 func SwitchInfoCollector(oldSwitchInfo, newSwitchInfo *constant.SwitchInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		GlobalFaultProcessCenter.informSwitchInfoAdd(newSwitchInfo)
+		informInfoUpdate(newSwitchInfo, constant.SwitchFaultType, true)
 	} else if operator == constant.DeleteOperator {
-		GlobalFaultProcessCenter.informSwitchInfoDel(newSwitchInfo)
+		informInfoUpdate(newSwitchInfo, constant.SwitchFaultType, false)
 	}
 }
 
 // NodeCollector collects node info
 func NodeCollector(oldNodeInfo, newNodeInfo *constant.NodeInfo, operator string) {
 	if operator == constant.AddOperator || operator == constant.UpdateOperator {
-		GlobalFaultProcessCenter.informNodeInfoAdd(newNodeInfo)
+		informInfoUpdate(newNodeInfo, constant.NodeFaultType, true)
 	} else if operator == constant.DeleteOperator {
-		GlobalFaultProcessCenter.informNodeInfoDel(newNodeInfo)
+		informInfoUpdate(newNodeInfo, constant.NodeFaultType, false)
 	}
 }

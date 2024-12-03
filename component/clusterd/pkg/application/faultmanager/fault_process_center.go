@@ -29,36 +29,6 @@ func NewFaultProcessCenter(ctx context.Context) {
 	go GlobalFaultProcessCenter.work(ctx)
 }
 
-func (center *FaultProcessCenter) informSwitchInfoAdd(newInfo *constant.SwitchInfo) {
-	center.switchCenter.updateOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SwitchFaultType)
-}
-
-func (center *FaultProcessCenter) informSwitchInfoDel(newInfo *constant.SwitchInfo) {
-	center.switchCenter.delOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.SwitchFaultType)
-}
-
-func (center *FaultProcessCenter) informDeviceInfoAdd(newInfo *constant.DeviceInfo) {
-	center.deviceCenter.updateOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DeviceFaultType)
-}
-
-func (center *FaultProcessCenter) informDeviceInfoDel(newInfo *constant.DeviceInfo) {
-	center.deviceCenter.delOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DeviceFaultType)
-}
-
-func (center *FaultProcessCenter) informNodeInfoAdd(newInfo *constant.NodeInfo) {
-	center.nodeCenter.updateOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NodeFaultType)
-}
-
-func (center *FaultProcessCenter) informNodeInfoDel(newInfo *constant.NodeInfo) {
-	center.nodeCenter.delOriginalCm(newInfo)
-	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.NodeFaultType)
-}
-
 func (center *FaultProcessCenter) notifyFaultCenterProcess(whichToProcess int) {
 	center.notifyProcessChan <- whichToProcess
 }

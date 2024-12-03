@@ -10,21 +10,22 @@ import (
 	"clusterd/pkg/common/constant"
 )
 
-func newBaseFaultCenter() baseFaultCenter {
-	return baseFaultCenter{
+func newBaseFaultCenter[T constant.ConfigMapInterface](cmManager *faultCenterCmManager[T]) baseFaultCenter[T] {
+	return baseFaultCenter[T]{
 		processorList:        make([]faultProcessor, 0),
 		lastProcessTime:      0,
 		subscribeChannelList: make([]chan struct{}, 0),
 		mutex:                sync.Mutex{},
 		processPeriod:        constant.FaultCenterProcessPeriod,
+		cmManager:            cmManager,
 	}
 }
 
-func (baseCenter *baseFaultCenter) isProcessLimited(currentTime int64) bool {
+func (baseCenter *baseFaultCenter[T]) isProcessLimited(currentTime int64) bool {
 	return baseCenter.lastProcessTime+baseCenter.processPeriod > currentTime
 }
 
-func (baseCenter *baseFaultCenter) process() {
+func (baseCenter *baseFaultCenter[T]) process() {
 	for _, processor := range baseCenter.processorList {
 		processor.process()
 	}
@@ -35,11 +36,11 @@ func (baseCenter *baseFaultCenter) process() {
 	}
 }
 
-func (baseCenter *baseFaultCenter) addProcessors(processors []faultProcessor) {
+func (baseCenter *baseFaultCenter[T]) addProcessors(processors []faultProcessor) {
 	baseCenter.processorList = append(baseCenter.processorList, processors...)
 }
 
-func (baseCenter *baseFaultCenter) register(ch chan struct{}) error {
+func (baseCenter *baseFaultCenter[T]) register(ch chan struct{}) error {
 	baseCenter.mutex.Lock()
 	defer baseCenter.mutex.Unlock()
 	if baseCenter.subscribeChannelList == nil {
@@ -51,4 +52,28 @@ func (baseCenter *baseFaultCenter) register(ch chan struct{}) error {
 	}
 	baseCenter.subscribeChannelList = append(baseCenter.subscribeChannelList, ch)
 	return nil
+}
+
+func (baseCenter *baseFaultCenter[T]) getOriginalCm() map[string]T {
+	return baseCenter.cmManager.getOriginalCm().configmap
+}
+
+func (baseCenter *baseFaultCenter[T]) setProcessingCm(cm map[string]T) {
+	baseCenter.cmManager.setProcessingCm(configMap[T]{configmap: cm})
+}
+
+func (baseCenter *baseFaultCenter[T]) getProcessingCm() map[string]T {
+	return baseCenter.cmManager.getProcessingCm().configmap
+}
+
+func (baseCenter *baseFaultCenter[T]) setProcessedCm(cm map[string]T) {
+	baseCenter.cmManager.setProcessedCm(configMap[T]{configmap: cm})
+}
+
+func (baseCenter *baseFaultCenter[T]) getProcessedCm() map[string]T {
+	return baseCenter.cmManager.getProcessedCm().configmap
+}
+
+func (baseCenter *baseFaultCenter[T]) updateOriginalCm(newInfo T, isAdd bool) {
+	baseCenter.cmManager.originalCm.updateCmInfo(newInfo, isAdd)
 }
