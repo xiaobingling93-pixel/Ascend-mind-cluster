@@ -181,6 +181,7 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 	}
 	if rtg.GetStatus() == utils.CompletedRTStatus {
 		hwlog.RunLog.Debugf("rank table already generated for job %s", ji.name)
+		r.checkPodDelete(rtg, ji)
 		return
 	}
 
@@ -218,6 +219,19 @@ func (r *ASJobReconciler) genRankTable(ji *jobInfo) {
 	rtg.SetStatus(utils.CompletedRTStatus)
 	rtg.GatherServerList()
 	r.saveRankTable(rtg, ji.mtObj.GetName(), ji.mtObj.GetNamespace(), ji.mtObj.GetUID())
+}
+
+func (r *ASJobReconciler) checkPodDelete(rtg generator.RankTableGenerator, ji *jobInfo) {
+	if len(ji.pods) >= int(ji.totalReplicas) {
+		return
+	}
+	r.deletePodForCmFile(rtg, ji.mtObj.GetUID(), ji.mtObj.GetName(), ji.mtObj.GetNamespace())
+}
+
+func (r *ASJobReconciler) deletePodForCmFile(rtg generator.RankTableGenerator,
+	uid types.UID, jobName, namespace string) {
+	rtg.DeletePod()
+	r.saveRankTable(rtg, jobName, namespace, uid)
 }
 
 func (r *ASJobReconciler) saveRankTable(rtg generator.RankTableGenerator,
