@@ -139,26 +139,30 @@ func TestGetChipCountOnRing(t *testing.T) {
 		convey.Convey("test 910 chip count on ring success", func() {
 			ascend910HotResetManager := newTestHotResetManager(common.Ascend910, common.Train)
 			convey.So(ascend910HotResetManager, convey.ShouldNotBeNil)
-			chipCountOnRing := ascend910HotResetManager.GetRingNum()
-			convey.So(chipCountOnRing, convey.ShouldEqual, common.Ascend910RingsNum)
+			resetDevNumOnce, err := ascend910HotResetManager.GetResetDevNumOnce()
+			convey.So(resetDevNumOnce, convey.ShouldEqual, common.Ascend910RingsNum)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("test 910B train chip count on ring success", func() {
 			ascend910BTrainHotResetManager := newTestHotResetManager(common.Ascend910B, common.Train)
 			convey.So(ascend910BTrainHotResetManager, convey.ShouldNotBeNil)
-			chipCountOnRing := ascend910BTrainHotResetManager.GetRingNum()
-			convey.So(chipCountOnRing, convey.ShouldEqual, common.Ascend910BRingsNumTrain)
+			resetDevNumOnce, err := ascend910BTrainHotResetManager.GetResetDevNumOnce()
+			convey.So(resetDevNumOnce, convey.ShouldEqual, common.Ascend910BRingsNumTrain)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("test 910B Infer chip count on ring success", func() {
 			ascend910BInferHotResetManager := newTestHotResetManager(common.Ascend910B, common.Infer)
 			convey.So(ascend910BInferHotResetManager, convey.ShouldNotBeNil)
-			chipCountOnRing := ascend910BInferHotResetManager.GetRingNum()
-			convey.So(chipCountOnRing, convey.ShouldEqual, common.Ascend910BRingsNumInfer)
+			resetDevNumOnce, err := ascend910BInferHotResetManager.GetResetDevNumOnce()
+			convey.So(resetDevNumOnce, convey.ShouldEqual, common.Ascend910BRingsNumInfer)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("test 910A3 chip count on ring success", func() {
 			ascend910A3HotResetManager := newTestHotResetManager(common.Ascend910A3, common.Train)
 			convey.So(ascend910A3HotResetManager, convey.ShouldNotBeNil)
-			chipCountOnRing := ascend910A3HotResetManager.GetRingNum()
-			convey.So(chipCountOnRing, convey.ShouldEqual, common.Ascend910A3RingsNum)
+			resetDevNumOnce, err := ascend910A3HotResetManager.GetResetDevNumOnce()
+			convey.So(resetDevNumOnce, convey.ShouldEqual, common.Ascend910A3RingsNum)
+			convey.So(err, convey.ShouldBeNil)
 		})
 	})
 }
@@ -331,6 +335,8 @@ func TestDevListByPolicyLevel(t *testing.T) {
 
 // TestGetNeedResetDevList for test get the needed be reseted device list
 func TestGetNeedResetDevList(t *testing.T) {
+	patch := gomonkey.ApplyMethodReturn(&HotResetTools{}, "GetResetDevNumOnce", common.Ascend910RingsNum, nil)
+	defer patch.Reset()
 	convey.Convey("test GetNeedResetDevMap", t, func() {
 		convey.Convey("test GetNeedResetDevMap success", func() {
 			tool := &HotResetTools{
@@ -364,7 +370,7 @@ func TestGetTaskResetInfo(t *testing.T) {
 	convey.Convey("test GetTaskResetInfo", t, func() {
 		convey.Convey("test GetTaskResetInfo success", func() {
 			tool := &HotResetTools{
-				ringNum:             common.Ascend910BRingsNumTrain,
+				resetDevNumOnce:     common.Ascend910BRingsNumTrain,
 				allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{"test": mockTaskDevInfoList()},
 			}
 			devFaultInfoList, ok := tool.allTaskDevFaultInfo["test"]
@@ -379,7 +385,7 @@ func TestGetTaskResetInfo(t *testing.T) {
 		})
 		convey.Convey("test GetTaskResetInfo failed", func() {
 			tool := &HotResetTools{
-				ringNum:             common.Ascend910BRingsNumTrain,
+				resetDevNumOnce:     common.Ascend910BRingsNumTrain,
 				allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{"test": mockWrongTaskDevInfoList()},
 			}
 			devFaultInfoList, ok := tool.allTaskDevFaultInfo["test"]
@@ -397,7 +403,7 @@ func TestGetTaskFaultRankInfo(t *testing.T) {
 	convey.Convey("test GetTaskFaultRankInfo", t, func() {
 		convey.Convey("test GetTaskFaultRankInfo success", func() {
 			tool := &HotResetTools{
-				ringNum:             common.Ascend910BRingsNumTrain,
+				resetDevNumOnce:     common.Ascend910BRingsNumTrain,
 				allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{"test": mockTaskDevInfoList()},
 			}
 			devFaultInfoList, ok := tool.allTaskDevFaultInfo["test"]
@@ -408,7 +414,7 @@ func TestGetTaskFaultRankInfo(t *testing.T) {
 		})
 		convey.Convey("test GetTaskFaultRankInfo failed", func() {
 			tool := &HotResetTools{
-				ringNum:             common.Ascend910BRingsNumTrain,
+				resetDevNumOnce:     common.Ascend910BRingsNumTrain,
 				allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{"test": mockWrongTaskDevInfoList()},
 			}
 			devFaultInfoList, ok := tool.allTaskDevFaultInfo["test"]
@@ -1189,7 +1195,7 @@ func TestHandleCMDeleteEvent(t *testing.T) {
 
 func newHotResetTools() *HotResetTools {
 	return &HotResetTools{
-		ringNum:          common.Ascend910RingsNum,
+		resetDevNumOnce:  common.Ascend910RingsNum,
 		resetTask:        map[string]struct{}{},
 		resetDev:         map[int32]struct{}{},
 		faultDev2PodMap:  map[int32]v1.Pod{},
