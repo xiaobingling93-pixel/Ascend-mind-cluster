@@ -28,13 +28,6 @@ func CreateOrUpdateConfigMap(k8s kubernetes.Interface, cm *v1.ConfigMap, cmName,
 		if !errors.IsAlreadyExists(cErr) {
 			return fmt.Errorf("unable to create ConfigMap: %v", cErr)
 		}
-
-		// To reduce the cm write operations
-		if !IsConfigMapChanged(k8s, cm, cmName, nameSpace) {
-			hwlog.RunLog.Infof("configMap not changed,no need update")
-			return nil
-		}
-
 		_, err := k8s.CoreV1().ConfigMaps(cm.ObjectMeta.Namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update ConfigMap: %v", err)
