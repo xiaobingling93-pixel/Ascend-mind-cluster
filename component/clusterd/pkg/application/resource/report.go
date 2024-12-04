@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -43,7 +44,7 @@ func AddNewMessageTotal() {
 }
 
 // Report new message report to configmaps, the number of configmap is determined by the number of messages
-func Report() {
+func Report(ctx context.Context) {
 	initTime = time.Now().UnixMilli()
 	reportTime = time.Now().UnixMilli()
 	timeSleepInitOnce := sync.Once{}
@@ -66,6 +67,9 @@ func Report() {
 			reportTime = time.Now().UnixMilli()
 			processCount++
 			limitRate()
+		case <-ctx.Done():
+			hwlog.RunLog.Info("FaultProcessCenter stop work")
+			return
 		}
 	}
 }
