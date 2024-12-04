@@ -59,7 +59,6 @@ func startInformer(ctx context.Context, recoverService kube.JobService) {
 	kube.AddCmNodeFunc(constant.Resource, resource.NodeCollector)
 	kube.AddCmDeviceFunc(constant.Resource, resource.DeviceInfoCollector)
 	kube.AddCmSwitchFunc(constant.Resource, resource.SwitchInfoCollector)
-	go resource.Report()
 }
 
 func main() {
