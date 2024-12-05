@@ -14,6 +14,12 @@ func GetJobKeyByPG(info *v1beta1.PodGroup) string {
 	return key
 }
 
+// GetJobNameByPG get job name by podGroup
+func GetJobNameByPG(info *v1beta1.PodGroup) string {
+	_, name := GetJobKeyAndNameByPG(info)
+	return name
+}
+
 // GetJobKeyAndNameByPG get job unique key and name by podGroup
 func GetJobKeyAndNameByPG(info *v1beta1.PodGroup) (key, name string) {
 	if info == nil {

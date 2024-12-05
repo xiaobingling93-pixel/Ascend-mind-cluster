@@ -8,6 +8,8 @@ import (
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
+
+	"clusterd/pkg/common/util"
 )
 
 const (
@@ -68,5 +70,11 @@ func DeletePod(podInfo *v1.Pod) {
 func GetPodByJobId(jobKey string) map[string]v1.Pod {
 	podManager.podMapMutex.RLock()
 	defer podManager.podMapMutex.RUnlock()
-	return podManager.podJobMap[jobKey]
+	localPodMap := podManager.podJobMap[jobKey]
+	newPodMap := new(map[string]v1.Pod)
+	err := util.DeepCopy(newPodMap, localPodMap)
+	if err != nil {
+		hwlog.RunLog.Errorf("copy podMap failed, err：%v", err)
+	}
+	return *newPodMap
 }

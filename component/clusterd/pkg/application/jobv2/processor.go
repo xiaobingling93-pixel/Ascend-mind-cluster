@@ -14,9 +14,14 @@ import (
 )
 
 func addJob(jobKey string) {
+	podGroupCache := podGroup.GetPodGroup(jobKey)
+	oldJobInfo := job.GetJobByNameSpaceAndName(podGroup.GetJobNameByPG(&podGroupCache), podGroupCache.Namespace)
+	if oldJobInfo.Name != "" && oldJobInfo.IsPreDelete && oldJobInfo.Key != jobKey {
+		// if old job is pre delete, and new job is add, delete old job cache
+		job.DeleteJobCache(oldJobInfo.Key)
+	}
 	jobInfo, ok := job.GetJobCache(jobKey)
 	if !ok {
-		podGroupCache := podGroup.GetPodGroup(jobKey)
 		job.InitCmAndCache(podGroupCache)
 		return
 	}
@@ -82,7 +87,8 @@ func getStatusByCache(podGroup v1beta1.PodGroup, podJobMap map[string]v1.Pod) (b
 		if p.Status.Phase != v1.PodSucceeded {
 			isSuccess = false
 		}
-		if p.Status.Phase != v1.PodRunning {
+		// pod is running and device is allocated, then rank table can be completed
+		if p.Status.Phase != v1.PodRunning || !pod.DeviceAllocateIsCompleted(p) {
 			isRunning = false
 		}
 	}

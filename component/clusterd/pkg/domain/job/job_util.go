@@ -128,7 +128,7 @@ func UpdateCmAndCache(status string, jobInfo constant.JobInfo, podGroup v1beta1.
 	for i := 0; i < jobInfo.TotalCmNum; i++ {
 		hccl := ""
 		if i < len(hccls) {
-			hccl = hccls[0]
+			hccl = hccls[i]
 		}
 		result = updateCM(jobInfo, i, hccl) && result
 	}
