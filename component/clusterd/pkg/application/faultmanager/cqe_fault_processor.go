@@ -27,28 +27,31 @@ func (processor *linkDownCqeFaultProcessCenter) process() {
 	processor.deviceCenter.setProcessingCm(deviceInfoCms)
 }
 
-func (processor *linkDownCqeFaultProcessCenter) updateDeviceCmInfo(nodeName string, deviceList map[string]cqeLinkDownFaultRank,
-	deviceInfoCms map[string]*constant.DeviceInfo) {
-	cmName := nodeNameToCmName(nodeName)
-	deviceInfo, ok := deviceInfoCms[cmName]
-	if !ok {
-		return
-	}
-	deviceFaultInfo, ok := processor.nodeDeviceFaultInfo[nodeName]
-	if !ok {
-		return
-	}
-	cardUnhealthyKey := getCardUnhealthyKey(deviceInfo)
-	for _, device := range deviceList {
-		if device.IsCqe {
-			processor.deleteCqeDevice(nodeName, device.DeviceName, &deviceFaultInfo.CardUnHealthy)
+func (processor *linkDownCqeFaultProcessCenter) updateDeviceCmInfo(faultNodeList []string,
+	jobDeviceList map[string]map[string]cqeLinkDownFaultRank, deviceInfoCms map[string]*constant.DeviceInfo) {
+	for _, nodeName := range faultNodeList {
+		cmName := nodeNameToCmName(nodeName)
+		deviceInfo, ok := deviceInfoCms[cmName]
+		if !ok {
+			return
 		}
-		if device.IsLinkDown {
-			processor.addLinkDownDevice(nodeName, device.DeviceName, &deviceFaultInfo.CardUnHealthy)
+		deviceFaultInfo, ok := processor.nodeDeviceFaultInfo[nodeName]
+		if !ok {
+			return
 		}
+		deviceList := jobDeviceList[nodeName]
+		cardUnhealthyKey := getCardUnhealthyKey(deviceInfo)
+		for _, device := range deviceList {
+			if device.IsCqe {
+				processor.deleteCqeDevice(nodeName, device.DeviceName, &deviceFaultInfo.CardUnHealthy)
+			}
+			if device.IsLinkDown {
+				processor.addLinkDownDevice(nodeName, device.DeviceName, &deviceFaultInfo.CardUnHealthy)
+			}
+		}
+		deviceInfoCms[cmName].DeviceList[cardUnhealthyKey] = strings.Join(deviceFaultInfo.CardUnHealthy, ",")
+		hwlog.RunLog.Infof("nodeName: %s current unhealthy card: %s", nodeName, deviceInfoCms[cmName].DeviceList[cardUnhealthyKey])
 	}
-	deviceInfoCms[cmName].DeviceList[cardUnhealthyKey] = strings.Join(deviceFaultInfo.CardUnHealthy, ",")
-	hwlog.RunLog.Infof("current unhealthy card: %s", deviceInfoCms[cmName].DeviceList[cardUnhealthyKey])
 }
 
 func (processor *linkDownCqeFaultProcessCenter) addLinkDownDevice(
@@ -77,7 +80,6 @@ func (processor *linkDownCqeFaultProcessCenter) handleLinkDownCqeFault(
 			delete(processor.linkDownCqeFaults, jobID)
 		}
 	}
-
 	for jobId, serverList := range jobServerInfoMap.InfoMap {
 		if _, ok := processor.linkDownCqeFaults[jobId]; !ok {
 			processor.linkDownCqeFaults[jobId] = make(map[string]map[string]cqeLinkDownFaultRank)
@@ -88,16 +90,26 @@ func (processor *linkDownCqeFaultProcessCenter) handleLinkDownCqeFault(
 				delete(processor.linkDownCqeFaults[jobId], nodeName)
 			}
 		}
-
+		faultNodeList := make([]string, 0)
+		jobHasCqe, jobHasLinkDown := false, false
 		for nodeName, deviceInfos := range serverList {
 			linkDownFaultList, hasCqe, hasLinkDown := processor.getNodeFaultRank(processor.nodeDeviceFaultInfo[nodeName], deviceInfos)
 			processor.linkDownCqeFaults[jobId][nodeName] = linkDownFaultList
-
-			if hasCqe && hasLinkDown {
-				processor.updateDeviceCmInfo(nodeName, processor.linkDownCqeFaults[jobId][nodeName], deviceInfoCms)
-				hwlog.RunLog.Infof("cqe linkDown_fault_info: job %s linkdownFaultList %s",
-					jobId, util.ObjToString(processor.linkDownCqeFaults[jobId]))
+			if hasCqe {
+				jobHasCqe = true
 			}
+			if hasLinkDown {
+				jobHasLinkDown = true
+			}
+			if hasCqe || hasLinkDown {
+				faultNodeList = append(faultNodeList, nodeName)
+			}
+			hwlog.RunLog.Debugf("nodeName: %s --linkDownFaultList %s--", nodeName, util.ObjToString(linkDownFaultList))
+			hwlog.RunLog.Debugf("hasCqe: %t --hasLinkDown %t--", hasCqe, hasLinkDown)
+		}
+		hwlog.RunLog.Debugf("jobId: %s --jobHasCqe: %t jobHasLinkDown %t--", jobId, jobHasCqe, jobHasLinkDown)
+		if jobHasCqe && jobHasLinkDown {
+			processor.updateDeviceCmInfo(faultNodeList, processor.linkDownCqeFaults[jobId], deviceInfoCms)
 		}
 	}
 }
