@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 )
 

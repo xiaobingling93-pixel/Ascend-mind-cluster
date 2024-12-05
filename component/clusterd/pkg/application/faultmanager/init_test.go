@@ -9,9 +9,9 @@ import (
 	"reflect"
 	"testing"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 )
 

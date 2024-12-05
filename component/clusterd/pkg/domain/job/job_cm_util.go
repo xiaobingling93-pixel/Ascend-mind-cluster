@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/interface/kube"

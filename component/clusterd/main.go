@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/jobv2"
 	"clusterd/pkg/application/resource"

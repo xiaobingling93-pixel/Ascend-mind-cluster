@@ -6,8 +6,7 @@ package resource
 import (
 	"sync"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/device"
 	"clusterd/pkg/domain/node"

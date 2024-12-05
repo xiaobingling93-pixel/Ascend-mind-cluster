@@ -6,7 +6,7 @@ package podGroup
 import (
 	"sync"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+	"ascend-common/common-utils/hwlog"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 )
 
