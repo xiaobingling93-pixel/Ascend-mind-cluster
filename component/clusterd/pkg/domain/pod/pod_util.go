@@ -6,6 +6,7 @@ package pod
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
@@ -14,10 +15,11 @@ import (
 )
 
 var (
-	podDeviceKey    = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
-	podRankIndexKey = "hccl/rankIndex"
-	torIpTag        = "sharedTorIp"
-	podLabelKey     = "app"
+	podDeviceKey       = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
+	podRankIndexKey    = "hccl/rankIndex"
+	torIpTag           = "sharedTorIp"
+	podLabelKey        = "app"
+	resourceNamePrefix = "huawei.com/"
 )
 
 // GetJobKeyByPod get job unique key by pod
@@ -169,4 +171,35 @@ func GetModelFramework(podJobMap map[string]v1.Pod) string {
 	}
 	hwlog.RunLog.Debug("get framework from pod failed")
 	return ""
+}
+
+// DeviceAllocateIsCompleted pod need to be allocated and have already been allocated
+func DeviceAllocateIsCompleted(p v1.Pod) bool {
+	// pod need to be allocated
+	containers := p.Spec.Containers
+	if len(containers) == 0 {
+		return true
+	}
+	shouldAllocated := false
+	for _, container := range containers {
+		resourceLimits := container.Resources.Limits
+		if len(resourceLimits) == 0 {
+			continue
+		}
+		for resourceName, resourceLimit := range resourceLimits {
+			if resourceLimit.Value() > 0 && strings.Contains(resourceName.String(), resourceNamePrefix) {
+				shouldAllocated = true
+				break
+			}
+		}
+		if shouldAllocated {
+			break
+		}
+	}
+	if !shouldAllocated {
+		return true
+	}
+	// pod already been allocated
+	_, exist := p.Annotations[podDeviceKey]
+	return exist
 }

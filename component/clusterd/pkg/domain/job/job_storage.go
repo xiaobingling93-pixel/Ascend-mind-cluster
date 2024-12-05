@@ -7,7 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
 )
 
 const (
@@ -41,7 +44,12 @@ func GetAllJobCache() map[string]constant.JobInfo {
 		allJob[jobKey] = jobInfo
 		return true
 	})
-	return allJob
+	newJob := new(map[string]constant.JobInfo)
+	err := util.DeepCopy(newJob, allJob)
+	if err != nil {
+		hwlog.RunLog.Errorf("copy job failed, err: %v", err)
+	}
+	return *newJob
 }
 
 // SaveJobCache save job cache info
@@ -52,6 +60,23 @@ func SaveJobCache(jobKey string, jobInfo constant.JobInfo) {
 // DeleteJobCache delete job cache info
 func DeleteJobCache(jobKey string) {
 	jobSummaryMap.Delete(jobKey)
+}
+
+// GetJobByNameSpaceAndName get job by job name and nameSpace
+func GetJobByNameSpaceAndName(name, nameSpace string) constant.JobInfo {
+	ji := constant.JobInfo{}
+	jobSummaryMap.Range(func(_, value any) bool {
+		jobInfo, ok := value.(constant.JobInfo)
+		if !ok {
+			return true
+		}
+		if jobInfo.Name == name && jobInfo.NameSpace == nameSpace {
+			ji = jobInfo
+			return false
+		}
+		return true
+	})
+	return ji
 }
 
 // GetShouldDeleteJobKey get should delete job key

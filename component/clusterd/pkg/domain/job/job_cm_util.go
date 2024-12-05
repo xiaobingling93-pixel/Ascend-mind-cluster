@@ -95,6 +95,7 @@ func preDeleteCM(jobInfo constant.JobInfo, podJobMap map[string]v1.Pod) bool {
 	data[configmapOperator] = operatorDelete
 	data[deleteTime] = strconv.Itoa(int(jobInfo.DeleteTime))
 	data[cmCutNumKey] = strconv.Itoa(jobInfo.TotalCmNum)
+	data[addTime] = strconv.Itoa(int(jobInfo.AddTime))
 	for i := 0; i < jobInfo.TotalCmNum; i++ {
 		var cmName string
 		if i == 0 {
