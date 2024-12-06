@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
+
+	"ascend-common/common-utils/hwlog"
 )
 
 var vcK8sClient *VcK8sClient

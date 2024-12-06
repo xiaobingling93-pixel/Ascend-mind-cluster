@@ -4,10 +4,10 @@
 package jobv2
 
 import (
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podGroup"

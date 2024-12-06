@@ -47,7 +47,7 @@ const (
 	pathLen               = 2
 	minLogLevel           = -1
 	maxLogLevel           = 3
-	maxEachLineLen        = 1024
+	maxEachLineLen        = 2048
 	defaultMaxEachLineLen = 256
 )
 

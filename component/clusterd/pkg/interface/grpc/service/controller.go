@@ -11,8 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"

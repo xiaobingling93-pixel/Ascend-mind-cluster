@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
+	"ascend-common/common-utils/hwlog"
 )
 
 // NewSignalWatcher create a new signal watcher

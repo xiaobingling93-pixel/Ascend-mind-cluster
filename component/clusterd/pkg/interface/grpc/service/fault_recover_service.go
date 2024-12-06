@@ -10,8 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"

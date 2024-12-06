@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
