@@ -1553,8 +1553,8 @@ func TestGetTimeoutFaultCodes(t *testing.T) {
 		}
 		expectedChipFaultCodesLen := 2
 		expectedNetworkFaultCodes := make(map[int64]FaultTimeAndLevel)
-		convey.So(len(GetTimeoutFaultLevelAndCodes(ChipFaultMode)), convey.ShouldResemble, expectedChipFaultCodesLen)
-		convey.So(GetTimeoutFaultLevelAndCodes(NetworkFaultMode), convey.ShouldResemble, expectedNetworkFaultCodes)
+		convey.So(len(GetTimeoutFaultLevelAndCodes(ChipFaultMode, logicID)), convey.ShouldResemble, expectedChipFaultCodesLen)
+		convey.So(GetTimeoutFaultLevelAndCodes(NetworkFaultMode, logicID), convey.ShouldResemble, expectedNetworkFaultCodes)
 	})
 }
 
