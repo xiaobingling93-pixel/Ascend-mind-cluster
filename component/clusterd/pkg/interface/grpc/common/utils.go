@@ -130,8 +130,8 @@ func ChangeProcessSchedulingMode(jobId, mode string) (*v1beta1.PodGroup, error) 
 		hwlog.RunLog.Error("can not find process rescheduling label when change")
 		return nil, fmt.Errorf("can not find process rescheduling label when change")
 	}
-	pg.Labels[constant.ProcessRecoverEnableLabel] = mode
-	return kube.UpdatePodGroup(&pg)
+	label := map[string]string{constant.ProcessRecoverEnableLabel: mode}
+	return kube.RetryPatchPodGroupLabel(&pg, constant.RetryTime, label)
 }
 
 // RetryWriteResetCM retry write the reset info configMap

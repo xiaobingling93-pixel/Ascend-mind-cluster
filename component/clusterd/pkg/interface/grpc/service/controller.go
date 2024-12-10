@@ -4,6 +4,7 @@
 package service
 
 import (
+	"clusterd/pkg/interface/kube"
 	"context"
 	"errors"
 	"fmt"
@@ -805,6 +806,27 @@ func (ctl *EventController) removeAgentStrategy(strategy string) {
 	ctl.agentReportStrategies = res
 }
 
+func (ctl *EventController) updateFixResult(strategy, value string) {
+	pg, err := kube.RetryGetPodGroup(ctl.jobInfo.PgName, ctl.jobInfo.Namespace, retryTimes)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to get pg when update fix result, err:%v, pgName=%s",
+			err, ctl.jobInfo.PgName)
+		return
+	}
+	if pg.Annotations == nil {
+		pg.Annotations = make(map[string]string)
+	}
+	newRecoverStatusAnnotation := map[string]string{
+		constant.ProcessRecoverStatusKey: value,
+	}
+	_, err = kube.RetryPatchPodGroupAnnotations(pg, retryTimes, newRecoverStatusAnnotation)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to path pg when update fix result, err:%v, pgName=%s",
+			err, ctl.jobInfo.PgName)
+	}
+	hwlog.RunLog.Infof("fix result annatate success, %s=%s", constant.ProcessRecoverStatusKey, value)
+}
+
 func (ctl *EventController) handleCheckRecoverResult() (string, common.RespCode, error) {
 	result, err := ctl.extractRecoverResult()
 	if err != nil {
@@ -813,8 +835,10 @@ func (ctl *EventController) handleCheckRecoverResult() (string, common.RespCode,
 	switch result.Strategy {
 	case constant.ProcessRetryStrategyName:
 		if result.RecoverSuccess {
+			ctl.updateFixResult(result.Strategy, constant.RetrySuccess)
 			return common.RecoverSuccessEvent, common.OK, nil
 		}
+		ctl.updateFixResult(result.Strategy, constant.RetryFailed)
 		if result.Code == common.RecoverableRetryError {
 			return common.RecoverableRetryErrorEvent, common.RecoverableRetryError, nil
 		}
@@ -825,10 +849,21 @@ func (ctl *EventController) handleCheckRecoverResult() (string, common.RespCode,
 		return common.UnRecoverableRetryErrorEvent, common.UnRecoverableRetryError, nil
 	case constant.ProcessRecoverStrategyName:
 		if result.RecoverSuccess {
+			ctl.updateFixResult(result.Strategy, constant.RecoverSuccess)
 			return common.RecoverSuccessEvent, common.OK, nil
 		}
+		ctl.updateFixResult(result.Strategy, constant.RecoverFailed)
 		return common.RecoverFailEvent, common.ClientError, nil
 	case constant.ProcessDumpStrategyName, constant.ProcessExitStrategyName:
+		if result.Strategy == constant.ProcessExitStrategyName {
+			ctl.updateFixResult(result.Strategy, constant.ExitCompleted)
+			return common.CheckResultFinishEvent, common.OK, nil
+		}
+		if result.RecoverSuccess {
+			ctl.updateFixResult(result.Strategy, constant.DumpSuccess)
+		} else {
+			ctl.updateFixResult(result.Strategy, constant.DumpFailed)
+		}
 		return common.CheckResultFinishEvent, common.OK, nil
 	default:
 		return "", common.ServerInnerError, fmt.Errorf("unexpected case, strategy=%s "+
