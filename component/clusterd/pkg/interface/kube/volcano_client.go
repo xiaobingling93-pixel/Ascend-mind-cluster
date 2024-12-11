@@ -106,7 +106,7 @@ func RetryPatchPodGroupAnnotations(pgName, pgNamespace string, retryTimes int,
 	for err != nil && retry < retryTimes {
 		retry++
 		time.Sleep(time.Second * time.Duration(retry))
-		pg, err = patchPodGroupAnnotation(pg.Name, pg.Namespace, annotations)
+		pg, err = patchPodGroupAnnotation(pgName, pgNamespace, annotations)
 	}
 	return pg, err
 }
@@ -135,7 +135,7 @@ func RetryPatchPodGroupLabel(pgName, nameSpace string, retryTimes int,
 	for err != nil && retry < retryTimes {
 		retry++
 		time.Sleep(time.Second * time.Duration(retry))
-		pg, err = patchPodGroupLabel(pg.Name, pg.Namespace, labels)
+		pg, err = patchPodGroupLabel(pgName, nameSpace, labels)
 	}
 	return pg, err
 }
