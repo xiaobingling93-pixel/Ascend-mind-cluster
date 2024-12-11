@@ -6,17 +6,16 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/job"
+	"clusterd/pkg/domain/podGroup"
 	"clusterd/pkg/interface/grpc/common"
 	"clusterd/pkg/interface/grpc/pb"
-	"clusterd/pkg/interface/kube"
 )
 
 var globalFaultBeaconSecond = 5
@@ -59,9 +58,9 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo faultmanager.JobFa
 		fault := &pb.FaultRank{
 			RankId: info.RankId,
 		}
-		fault.FaultType = common.NormalFaultType
-		if strings.Contains(info.FaultCode, constant.UceFaultCode) {
-			fault.FaultType = common.UceFaultType
+		fault.FaultType = constant.NormalFaultType
+		if info.DoStepRetry {
+			fault.FaultType = constant.UceFaultType
 		}
 		grpcFormatFaults = append(grpcFormatFaults, fault)
 	}
@@ -111,7 +110,7 @@ func (s *FaultRecoverService) checkFaultFromFaultCenter() {
 		case <-s.serviceCtx.Done():
 			return
 		case <-ticker.C:
-			hwlog.RunLog.Infof("ticker check npu fault from global center")
+			hwlog.RunLog.Debug("ticker check npu fault from global center")
 			s.checkFault()
 		}
 	}
@@ -124,10 +123,10 @@ func (s *FaultRecoverService) serveJobNum() int {
 }
 
 func (s *FaultRecoverService) preRegistry(req *pb.ClientInfo) (common.RespCode, error) {
-	if !kube.JobMgr.BsExist(req.JobId) {
+	if _, ok := job.GetJobCache(req.JobId); !ok {
 		return common.JobNotExist, fmt.Errorf("jobId=%s not exist, reuse registry", req.JobId)
 	}
-	if s.serveJobNum() >= common.MaxServeJobs {
+	if s.serveJobNum() >= constant.MaxServeJobs {
 		return common.OutOfMaxServeJobs,
 			fmt.Errorf("out of max serve jobs, reuse registry for jobId=%s", req.JobId)
 	}
@@ -159,7 +158,7 @@ func (s *FaultRecoverService) Register(ctx context.Context, req *pb.ClientInfo) 
 	if err != nil {
 		return &pb.Status{Code: int32(code), Info: err.Error()}, nil
 	}
-	jobName, pgName, namespace := common.GetJobInfo(req.JobId)
+	jobName, pgName, namespace := podGroup.GetPGFromCacheOrPod(req.JobId)
 	config, code, err :=
 		common.GetRecoverBaseInfo(pgName, namespace)
 	if err != nil {
@@ -291,7 +290,9 @@ func (s *FaultRecoverService) ReportProcessFault(ctx context.Context,
 		hwlog.RunLog.Warnf("global fault center is nil")
 	}
 	controller.saveCacheFault(request.FaultRankIds)
-	controller.addEvent(common.FaultOccurEvent)
+	if !common.IsUceFault(request.FaultRankIds) {
+		controller.addEvent(common.FaultOccurEvent)
+	}
 	return &pb.Status{
 		Code: int32(common.OK),
 		Info: "receive ReportProcessFault",

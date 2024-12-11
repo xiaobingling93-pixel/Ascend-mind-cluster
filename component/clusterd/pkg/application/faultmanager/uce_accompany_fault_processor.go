@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
@@ -106,7 +105,10 @@ func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
 				util.ObjToString(fault), util.ReadableMsTime(accompanyFaultTime))
 			faultMap = deleteFaultFromFaultMap(faultMap, fault)
 			newDeviceFaultQue = append(newDeviceFaultQue, fault)
+			continue
 		}
+		// cannot filter, add the aic/aiv fault into faultMap
+		faultMap = addFaultIntoFaultMap(faultMap, fault)
 		hwlog.RunLog.Warnf("cannot filter uce accompany like fault %s, uce fault time: %s",
 			util.ObjToString(fault), util.ReadableMsTime(uceFaultTime))
 	}

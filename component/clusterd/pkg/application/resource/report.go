@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -12,8 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/device"
@@ -38,19 +38,20 @@ var (
 // AddNewMessageTotal when receive new device info or receive new node info or event 5s,add message to chan
 func AddNewMessageTotal() {
 	if len(updateChan) == 0 {
-		updateChan <- 0
+		updateChan <- constant.AllProcessType
 	}
 }
 
 // Report new message report to configmaps, the number of configmap is determined by the number of messages
-func Report() {
+func Report(ctx context.Context) {
 	initTime = time.Now().UnixMilli()
 	reportTime = time.Now().UnixMilli()
 	timeSleepInitOnce := sync.Once{}
+	faultmanager.GlobalFaultProcessCenter.Register(updateChan, constant.AllProcessType)
 	go cycleReport()
 	for {
 		select {
-		case _, ok := <-updateChan:
+		case whichToReport, ok := <-updateChan:
 			if !ok {
 				hwlog.RunLog.Errorf("catch invalid update signal")
 				return
@@ -59,13 +60,30 @@ func Report() {
 				// when informer begin, frequent add messages
 				time.Sleep(time.Second)
 			})
-			deviceArr := device.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
-			nodeArr := node.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryNodeInfoToReport())
-			switchArr := switchinfo.GetSafeData(faultmanager.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
-			updateCmWithEmpty(deviceArr, nodeArr, switchArr)
+			switch whichToReport {
+			case constant.DeviceProcessType:
+				deviceArr := device.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
+				updateDeviceInfoCm(deviceArr)
+			case constant.NodeProcessType:
+				nodeArr := node.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryNodeInfoToReport())
+				updateNodeInfoCm(nodeArr)
+			case constant.SwitchProcessType:
+				switchArr := switchinfo.GetSafeData(faultmanager.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
+				updateSwitchInfoCm(switchArr)
+			case constant.AllProcessType:
+				deviceArr := device.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
+				nodeArr := node.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryNodeInfoToReport())
+				switchArr := switchinfo.GetSafeData(faultmanager.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
+				updateAllCm(deviceArr, nodeArr, switchArr)
+			default:
+				hwlog.RunLog.Errorf("unhandled type %d", whichToReport)
+			}
 			reportTime = time.Now().UnixMilli()
 			processCount++
 			limitRate()
+		case <-ctx.Done():
+			hwlog.RunLog.Info("reporter stop work")
+			return
 		}
 	}
 }
@@ -106,20 +124,27 @@ func StopReport() {
 	}
 }
 
-// updateCmWithEmpty if the length of the deviceArr or nodeArr decreases, use "" to flush extra configmap
-func updateCmWithEmpty(deviceArr, nodeArr, switchArr []string) {
-	if currentClusterDeviceCmNum < len(deviceArr) {
-		currentClusterDeviceCmNum = len(deviceArr)
+func updateAllCm(deviceArr, nodeArr, switchArr []string) {
+	updateSwitchInfoCm(switchArr)
+	updateNodeInfoCm(nodeArr)
+	updateDeviceInfoCm(deviceArr)
+}
+
+func updateSwitchInfoCm(switchArr []string) {
+	if currentClusterSwitchCmNum < len(switchArr) {
+		currentClusterSwitchCmNum = len(switchArr)
 	}
-	for i := 0; i < len(deviceArr) || i < currentClusterDeviceCmNum; i++ {
-		cmName := constant.ClusterDeviceInfo + strconv.Itoa(i)
+	for i := 0; i < currentClusterSwitchCmNum; i++ {
+		cmName := constant.ClusterSwitchInfo + strconv.Itoa(i)
 		cmContent := ""
-		if i < len(deviceArr) {
-			cmContent = deviceArr[i]
+		if i < len(switchArr) {
+			cmContent = switchArr[i]
 		}
 		updateConfig(cmName, cmContent)
 	}
+}
 
+func updateNodeInfoCm(nodeArr []string) {
 	if currentClusterNodeCmNum < len(nodeArr) {
 		currentClusterNodeCmNum = len(nodeArr)
 	}
@@ -131,15 +156,17 @@ func updateCmWithEmpty(deviceArr, nodeArr, switchArr []string) {
 		}
 		updateConfig(cmName, cmContent)
 	}
+}
 
-	if currentClusterSwitchCmNum < len(switchArr) {
-		currentClusterSwitchCmNum = len(switchArr)
+func updateDeviceInfoCm(deviceArr []string) {
+	if currentClusterDeviceCmNum < len(deviceArr) {
+		currentClusterDeviceCmNum = len(deviceArr)
 	}
-	for i := 0; i < currentClusterSwitchCmNum; i++ {
-		cmName := constant.ClusterSwitchInfo + strconv.Itoa(i)
+	for i := 0; i < len(deviceArr) || i < currentClusterDeviceCmNum; i++ {
+		cmName := constant.ClusterDeviceInfo + strconv.Itoa(i)
 		cmContent := ""
-		if i < len(switchArr) {
-			cmContent = switchArr[i]
+		if i < len(deviceArr) {
+			cmContent = deviceArr[i]
 		}
 		updateConfig(cmName, cmContent)
 	}

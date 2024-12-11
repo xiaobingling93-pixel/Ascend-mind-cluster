@@ -353,22 +353,10 @@ func (r *ASJobReconciler) onOwnerDeleteFunc() func(deleteEvent event.DeleteEvent
 	}
 }
 
-func (r *ASJobReconciler) deletePodForCmFile(uid types.UID, jobName, namespace string, pod *corev1.Pod) {
-	rtg, exist := r.rtGenerators[uid]
-	if !exist {
-		return
-	}
-	rtg.DeletePod(pod)
-	r.saveRankTable(rtg, jobName, namespace, uid)
-}
-
 // onPodDeleteFunc does some necessary processing logic when a pod is deleted.
 func (r *ASJobReconciler) onPodDeleteFunc() func(event.DeleteEvent) bool {
 	return func(e event.DeleteEvent) bool {
 		controllerRef := metav1.GetControllerOf(e.Object)
-		if controllerRef != nil {
-			r.deletePodForCmFile(controllerRef.UID, controllerRef.Name, e.Object.GetNamespace(), e.Object.(*corev1.Pod))
-		}
 		replicaType, ok := e.Object.GetLabels()[commonv1.ReplicaTypeLabel]
 		if !ok || len(replicaType) == 0 {
 			return false
@@ -558,6 +546,5 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, uid type
 	if err := r.Update(context.TODO(), cm); err != nil {
 		return err
 	}
-	rtg.SetTimeStamp(uint64(time.Now().Unix()))
 	return nil
 }

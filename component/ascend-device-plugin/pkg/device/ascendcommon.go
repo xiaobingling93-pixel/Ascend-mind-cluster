@@ -367,13 +367,6 @@ func getResetInfoData(resetInfo *v1.ConfigMap) ([]*common.TaskDevInfo, error) {
 		hwlog.RunLog.Debugf("reset configmap is initializing")
 		return nil, nil
 	}
-	checkCode, ok := resetInfo.Data[common.ResetInfoCMCheckCodeKey]
-	if !ok {
-		return nil, fmt.Errorf("%s not exist", common.ResetInfoCMCheckCodeKey)
-	}
-	if checkCode != common.MakeDataHash(taskResetInfo) {
-		return nil, fmt.Errorf("configmap check hash code error")
-	}
 	return taskResetInfo.RankList, nil
 }
 
@@ -491,7 +484,8 @@ func (tool *AscendTools) groupDevsByStatus(subClassDevices []*common.NpuDevice, 
 }
 
 func (tool *AscendTools) getFaultTimeAndLevelMap(
-	device *common.NpuDevice, isNetworkFault bool) map[string]common.FaultTimeAndLevel {
+	device *common.NpuDevice, timeoutFaults map[int64]common.FaultTimeAndLevel,
+	isNetworkFault bool) map[string]common.FaultTimeAndLevel {
 	result := make(map[string]common.FaultTimeAndLevel)
 	var events []int64
 	var getFaultLevelFunc func(events []int64, logicId int32) string
@@ -516,6 +510,10 @@ func (tool *AscendTools) getFaultTimeAndLevelMap(
 		hexFaultCode := strings.ToUpper(strconv.FormatInt(eventId, common.Hex))
 		result[hexFaultCode] = faultTimeAndLevel
 	}
+	for eventId, timeAndLevel := range timeoutFaults {
+		hexFaultCode := strings.ToUpper(strconv.FormatInt(eventId, common.Hex))
+		result[hexFaultCode] = timeAndLevel
+	}
 	return result
 }
 
@@ -523,8 +521,8 @@ func (tool *AscendTools) getFaultTimeAndLevelMap(
 func (tool *AscendTools) getDeviceFaults(device *common.NpuDevice) []common.DeviceFault {
 	deviceFaults := make([]common.DeviceFault, 0, common.MapSizeTwo)
 	if len(device.NetworkFaultCodes) != 0 || device.NetworkHealth == v1beta1.Unhealthy {
-		newCode := tool.removeDuplicateErr(append(device.NetworkFaultCodes,
-			common.GetTimeoutFaultCodes(common.NetworkFaultMode)...))
+		timeoutFaultLevelAndTime := common.GetTimeoutFaultLevelAndCodes(common.NetworkFaultMode)
+		newCode := tool.removeDuplicateErr(append(device.NetworkFaultCodes, common.Keys(timeoutFaultLevelAndTime)...))
 		faultType := common.GetNetworkFaultType(device.NetworkFaultCodes, device.LogicID)
 		deviceFaults = append(deviceFaults, common.DeviceFault{
 			FaultType:            common.CardNetworkUnhealthy,
@@ -533,12 +531,12 @@ func (tool *AscendTools) getDeviceFaults(device *common.NpuDevice) []common.Devi
 			FaultLevel:           faultType,
 			FaultHandling:        faultType,
 			FaultCode:            strings.ToUpper(common.Int64Tool.ToHexString(newCode)),
-			FaultTimeAndLevelMap: tool.getFaultTimeAndLevelMap(device, true),
+			FaultTimeAndLevelMap: tool.getFaultTimeAndLevelMap(device, timeoutFaultLevelAndTime, true),
 		})
 	}
 	if len(device.FaultCodes) != 0 || device.Health == v1beta1.Unhealthy {
-		newCode := tool.removeDuplicateErr(append(device.FaultCodes,
-			common.GetTimeoutFaultCodes(common.ChipFaultMode)...))
+		timeoutFaultLevelAndTime := common.GetTimeoutFaultLevelAndCodes(common.ChipFaultMode)
+		newCode := tool.removeDuplicateErr(append(device.FaultCodes, common.Keys(timeoutFaultLevelAndTime)...))
 		faultType := common.GetFaultType(device.FaultCodes, device.LogicID)
 		deviceFaults = append(deviceFaults, common.DeviceFault{
 			FaultType:            common.CardUnhealthy,
@@ -547,7 +545,7 @@ func (tool *AscendTools) getDeviceFaults(device *common.NpuDevice) []common.Devi
 			FaultLevel:           faultType,
 			FaultHandling:        faultType,
 			FaultCode:            strings.ToUpper(common.Int64Tool.ToHexString(newCode)),
-			FaultTimeAndLevelMap: tool.getFaultTimeAndLevelMap(device, false),
+			FaultTimeAndLevelMap: tool.getFaultTimeAndLevelMap(device, timeoutFaultLevelAndTime, false),
 		})
 	}
 	return deviceFaults

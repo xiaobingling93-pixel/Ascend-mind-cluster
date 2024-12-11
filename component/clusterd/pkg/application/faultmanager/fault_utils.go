@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"clusterd/pkg/application/job"
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
 
 func getNodeAndDeviceFromJobIdAndRankId(
-	jobId, rankId string, jobServerInfoMap job.JobServerInfoMap) (string, string, error) {
+	jobId, rankId string, jobServerInfoMap constant.JobServerInfoMap) (string, string, error) {
 	for _, server := range jobServerInfoMap.InfoMap[jobId] {
 		for _, dev := range server.DeviceList {
 			if dev.RankID == rankId {
@@ -128,6 +128,7 @@ func getServerType(devInfo *constant.DeviceInfo) string {
 // device plugin may merge multiple fault codes in one string
 func splitDeviceFault(faultInfo constant.DeviceFault, nodeName string) []constant.DeviceFault {
 	deviceFaults := make([]constant.DeviceFault, 0)
+	faultInfo.FaultCode = strings.Replace(faultInfo.FaultCode, " ", "", -1)
 	codes := strings.Split(faultInfo.FaultCode, ",")
 	for _, code := range codes {
 		faultTimeAndLevel, found := faultInfo.FaultTimeAndLevelMap[code]
@@ -146,7 +147,9 @@ func splitDeviceFault(faultInfo constant.DeviceFault, nodeName string) []constan
 			FaultLevel:           faultLevel,
 			FaultHandling:        faultLevel,
 			FaultCode:            code,
-			FaultTimeAndLevelMap: faultInfo.FaultTimeAndLevelMap,
+			FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+				code: faultTimeAndLevel,
+			},
 		}
 		deviceFaults = append(deviceFaults, newFault)
 	}
@@ -159,8 +162,7 @@ func mergeDeviceFault(notGroupDeviceFaults []constant.DeviceFault) ([]constant.D
 	for _, faultsGroup := range faultsGroupByType {
 		deviceName := faultsGroup[0].NPUName
 		fautLevels := make([]string, 0)
-		oldTimeAndLevelMap := faultsGroup[0].FaultTimeAndLevelMap
-		newTimeAndLevelMap := make(map[string]constant.FaultTimeAndLevel, len(oldTimeAndLevelMap))
+		newTimeAndLevelMap := make(map[string]constant.FaultTimeAndLevel, len(faultsGroup))
 		faultCodeList := make([]string, 0)
 		for _, fault := range faultsGroup {
 			if fault.NPUName != deviceName {
@@ -169,7 +171,7 @@ func mergeDeviceFault(notGroupDeviceFaults []constant.DeviceFault) ([]constant.D
 			}
 			faultCodeList = append(faultCodeList, fault.FaultCode)
 			fautLevels = append(fautLevels, fault.FaultLevel)
-			newTimeAndLevelMap[fault.FaultCode] = oldTimeAndLevelMap[fault.FaultCode]
+			newTimeAndLevelMap[fault.FaultCode] = fault.FaultTimeAndLevelMap[fault.FaultCode]
 		}
 		faultLevel := getMostSeriousFaultLevel(fautLevels)
 		mergeFault := constant.DeviceFault{
@@ -203,6 +205,29 @@ func deleteFaultFromFaultMap(faultMap map[string][]constant.DeviceFault,
 		newDeviceFaults = append(newDeviceFaults, fault)
 	}
 	faultMap[delFault.NPUName] = newDeviceFaults
+	return faultMap
+}
+
+func addFaultIntoFaultMap(faultMap map[string][]constant.DeviceFault,
+	addFault constant.DeviceFault) map[string][]constant.DeviceFault {
+	if faultMap == nil {
+		faultMap = make(map[string][]constant.DeviceFault)
+	}
+	deviceFaults, ok := faultMap[addFault.NPUName]
+	if !ok {
+		deviceFaults = make([]constant.DeviceFault, 0)
+	}
+	isExisting := false
+	for _, fault := range deviceFaults {
+		if reflect.DeepEqual(addFault, fault) {
+			isExisting = true
+			break
+		}
+	}
+	if !isExisting {
+		deviceFaults = append(deviceFaults, addFault)
+	}
+	faultMap[addFault.NPUName] = deviceFaults
 	return faultMap
 }
 
@@ -367,4 +392,32 @@ func getContainedElementIdx(element string, stringList []string) int {
 		}
 	}
 	return -1
+}
+
+func canDoStepRetry(uceDevice *uceDeviceInfo) bool {
+	if uceDevice.RecoverTime == constant.JobNotRecover {
+		return false
+	}
+	if time.Now().UnixMilli()-constant.JobReportRecoverTimeout <= uceDevice.RecoverTime {
+		return true
+	}
+	if uceDevice.FaultTime == constant.DeviceNotFault {
+		return false
+	}
+	if uceDevice.FaultTime+constant.JobReportRecoverTimeout >= uceDevice.RecoverTime {
+		return true
+	}
+	return false
+}
+
+func validBusinessRecoverTime(recoverTime int64) bool {
+	if recoverTime != constant.JobNotRecover &&
+		time.Now().UnixMilli()-constant.JobReportInfoExpiredTimeout <= recoverTime {
+		return true
+	}
+	return false
+}
+
+func validBusinessUceReportInfo(info *reportInfo) bool {
+	return validBusinessRecoverTime(info.RecoverTime)
 }

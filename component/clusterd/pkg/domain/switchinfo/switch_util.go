@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
 	"k8s.io/api/core/v1"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )

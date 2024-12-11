@@ -8,20 +8,21 @@ import (
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v6/common-utils/hwlog"
-
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
-	"clusterd/pkg/domain/device"
-	"clusterd/pkg/interface/kube"
+	"clusterd/pkg/domain/job"
 )
 
 func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
+	manager := faultCenterCmManager[*constant.DeviceInfo]{
+		mutex:        sync.RWMutex{},
+		originalCm:   configMap[*constant.DeviceInfo]{configmap: make(map[string]*constant.DeviceInfo)},
+		processingCm: configMap[*constant.DeviceInfo]{configmap: make(map[string]*constant.DeviceInfo)},
+		processedCm:  configMap[*constant.DeviceInfo]{configmap: make(map[string]*constant.DeviceInfo)},
+	}
 	deviceCenter := &deviceFaultProcessCenter{
-		baseFaultCenter: newBaseFaultCenter(),
-		mutex:           sync.RWMutex{},
-		originalCm:      make(map[string]*constant.DeviceInfo),
-		processingCm:    make(map[string]*constant.DeviceInfo),
+		baseFaultCenter: newBaseFaultCenter(&manager, constant.DeviceProcessType),
 	}
 
 	var processorForUceAccompanyFault = newUceAccompanyFaultProcessor(deviceCenter)
@@ -36,49 +37,6 @@ func newDeviceFaultProcessCenter() *deviceFaultProcessCenter {
 		processForJobFaultRank,        // this processor need to get filtered faults
 	})
 	return deviceCenter
-}
-
-func (deviceCenter *deviceFaultProcessCenter) getProcessingCm() map[string]*constant.DeviceInfo {
-	deviceCenter.mutex.RLock()
-	defer deviceCenter.mutex.RUnlock()
-	return device.DeepCopyInfos(deviceCenter.processingCm)
-}
-
-func (deviceCenter *deviceFaultProcessCenter) setProcessingCm(infos map[string]*constant.DeviceInfo) {
-	deviceCenter.mutex.Lock()
-	defer deviceCenter.mutex.Unlock()
-	deviceCenter.processingCm = device.DeepCopyInfos(infos)
-}
-
-func (deviceCenter *deviceFaultProcessCenter) getProcessedCm() map[string]*constant.DeviceInfo {
-	deviceCenter.mutex.RLock()
-	defer deviceCenter.mutex.RUnlock()
-	return device.DeepCopyInfos(deviceCenter.processedCm)
-}
-
-func (deviceCenter *deviceFaultProcessCenter) setProcessedCm(infos map[string]*constant.DeviceInfo) {
-	deviceCenter.mutex.Lock()
-	defer deviceCenter.mutex.Unlock()
-	deviceCenter.processedCm = device.DeepCopyInfos(infos)
-}
-
-func (deviceCenter *deviceFaultProcessCenter) updateOriginalCm(newInfo *constant.DeviceInfo) {
-	deviceCenter.mutex.Lock()
-	defer deviceCenter.mutex.Unlock()
-	length := len(deviceCenter.originalCm)
-	if length > constant.MaxSupportNodeNum {
-		hwlog.RunLog.Errorf("DeviceInfo length=%d > %d, SwitchInfo cm name=%s save failed",
-			length, constant.MaxSupportNodeNum, newInfo.CmName)
-		return
-	}
-	deviceCenter.originalCm[newInfo.CmName] = newInfo
-	hwlog.RunLog.Debugf("add DeviceInfo: %s", util.ObjToString(newInfo))
-}
-
-func (deviceCenter *deviceFaultProcessCenter) delOriginalCm(newInfo *constant.DeviceInfo) {
-	deviceCenter.mutex.Lock()
-	defer deviceCenter.mutex.Unlock()
-	delete(deviceCenter.originalCm, newInfo.CmName)
 }
 
 func (deviceCenter *deviceFaultProcessCenter) getUceFaultProcessor() (*uceFaultProcessor, error) {
@@ -118,14 +76,10 @@ func (deviceCenter *deviceFaultProcessCenter) callbackForReportUceInfo(jobId, ra
 }
 
 func (deviceCenter *deviceFaultProcessCenter) process() {
-	currentTime := time.Now().UnixMilli()
-	if deviceCenter.isProcessLimited(currentTime) {
+	if deviceCenter.isProcessLimited(time.Now().UnixMilli()) {
 		return
 	}
-	deviceCenter.lastProcessTime = currentTime
-	deviceCenter.setProcessingCm(deviceCenter.originalCm)
-	deviceCenter.jobServerInfoMap = kube.JobMgr.GetJobServerInfoMap()
+	deviceCenter.jobServerInfoMap = job.GetJobServerInfoMap()
 	hwlog.RunLog.Debugf("job server info map: %v", util.ObjToString(deviceCenter.jobServerInfoMap))
 	deviceCenter.baseFaultCenter.process()
-	deviceCenter.setProcessedCm(deviceCenter.processingCm)
 }

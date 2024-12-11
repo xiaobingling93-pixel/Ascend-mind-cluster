@@ -27,6 +27,8 @@ import (
 const (
 	defaultPerm   = 0644
 	rankTableFile = "hccl.json"
+	versionFile   = "version"
+	decimal       = 10
 )
 
 // BaseGenerator is the base struct for ranktable generator.
@@ -152,6 +154,33 @@ func (r *BaseGenerator) WriteToFile() error {
 		return err
 	}
 	hwlog.RunLog.Infof("write info into file: %s, and change mod to 666 success", r.path)
+	if err := r.writeVersion(); err != nil {
+		hwlog.RunLog.Errorf("failed to write version to file, err: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (r *BaseGenerator) writeVersion() error {
+	versionPath := path.Join(r.dir, versionFile)
+	if err := func() error {
+		f, err := os.OpenFile(versionPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultPerm)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		versionStr := strconv.FormatUint(r.GetTimeStamp(), decimal)
+		if _, err = f.WriteString(versionStr); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+	if err := os.Chmod(versionPath, defaultPerm); err != nil {
+		return err
+	}
+	hwlog.RunLog.Infof("write version into file: %s, and change mod to 644 success", versionPath)
 	return nil
 }
 
@@ -225,8 +254,8 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 }
 
 // DeletePod is used to delete pod from ranktable.
-func (r *BaseGenerator) DeletePod(pod *corev1.Pod) {
-	r.servers.Delete(pod.UID)
+func (r *BaseGenerator) DeletePod() {
+	r.servers = &sync.Map{}
 	r.SetStatus(utils.InitialRTStatus)
 }
 

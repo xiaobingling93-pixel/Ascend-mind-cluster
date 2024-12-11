@@ -4,6 +4,8 @@
 package constant
 
 // FaultTimeAndLevel of each fault code
+// some fault may not have accurate fault time and level,
+// for example: duration fault use current time as `FaultTime`
 type FaultTimeAndLevel struct {
 	FaultTime  int64  `json:"fault_time"`
 	FaultLevel string `json:"fault_level"`
@@ -82,4 +84,57 @@ type DeviceInfoCM struct {
 type DeviceInfoNoName struct {
 	DeviceList map[string]string
 	UpdateTime int64
+}
+
+// JobInfo : normal job info
+type JobInfo struct {
+	JobType           string
+	Framework         string
+	NameSpace         string
+	Name              string
+	Key               string
+	Replicas          int
+	Status            string
+	IsPreDelete       bool
+	JobRankTable      RankTable // when job is preDelete or status is pending, jobRankTable is nil
+	AddTime           int64
+	DeleteTime        int64
+	TotalCmNum        int
+	LastUpdatedCmTime int64
+}
+
+// RankTable rank table info
+type RankTable struct {
+	Status      string        `json:"status"`
+	ServerList  []*ServerHccl `json:"server_list"`
+	ServerCount string        `json:"server_count"`
+	Total       int           `json:"total"`
+}
+
+// ServerHccl to hccl
+type ServerHccl struct {
+	DeviceList []*Device `json:"device"`
+	ServerID   string    `json:"server_id"`
+	PodID      string    `json:"-"`
+	ServerName string    `json:"server_name"`
+}
+
+// Device to hccl with rankId
+type Device struct {
+	DeviceID string `json:"device_id"`
+	DeviceIP string `json:"device_ip"`
+	RankID   string `json:"rank_id"` // rank id
+}
+
+// PodDevice pod annotation device info
+type PodDevice struct {
+	Devices  []Device `json:"devices"`
+	PodName  string   `json:"pod_name"`
+	ServerID string   `json:"server_id"`
+}
+
+// JobServerInfoMap to store job server info
+type JobServerInfoMap struct {
+	InfoMap     map[string]map[string]ServerHccl
+	UceTolerate map[string]bool
 }

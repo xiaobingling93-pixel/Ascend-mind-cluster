@@ -6,7 +6,6 @@ package faultmanager
 import (
 	"sync"
 
-	"clusterd/pkg/application/job"
 	"clusterd/pkg/common/constant"
 )
 
@@ -14,22 +13,20 @@ type faultProcessor interface {
 	process()
 }
 
-type baseFaultCenter struct {
+type baseFaultCenter[T constant.ConfigMapInterface] struct {
 	processorList        []faultProcessor
 	lastProcessTime      int64
-	subscribeChannelList []chan struct{}
+	subscribeChannelList []chan int
 	mutex                sync.Mutex
 	processPeriod        int64
-	jobServerInfoMap     job.JobServerInfoMap
+	jobServerInfoMap     constant.JobServerInfoMap
+	cmManager            *faultCenterCmManager[T]
+	centerType           int
 }
 
 // deviceFaultProcessCenter
 type deviceFaultProcessCenter struct {
-	baseFaultCenter
-	mutex        sync.RWMutex
-	processingCm map[string]*constant.DeviceInfo
-	processedCm  map[string]*constant.DeviceInfo
-	originalCm   map[string]*constant.DeviceInfo
+	baseFaultCenter[*constant.DeviceInfo]
 }
 
 // GlobalFaultProcessCenter is a global instance of FaultProcessCenter used for processing faults.
@@ -58,9 +55,10 @@ type AdvanceDeviceFaultCm struct {
 // FaultRank defines the structure for storing fault rank information.
 // It includes the rank ID and fault code.
 type FaultRank struct {
-	RankId     string
-	FaultCode  string
-	FaultLevel string
+	RankId      string
+	FaultCode   string
+	FaultLevel  string
+	DoStepRetry bool
 }
 
 // JobFaultInfo job fault rank info
@@ -91,19 +89,11 @@ type jobRankFaultInfoProcessor struct {
 
 // nodeFaultProcessCenter
 type nodeFaultProcessCenter struct {
-	baseFaultCenter
-	processingCm map[string]*constant.NodeInfo
-	processedCm  map[string]*constant.NodeInfo
-	originalCm   map[string]*constant.NodeInfo
-	mutex        sync.RWMutex
+	baseFaultCenter[*constant.NodeInfo]
 }
 
 type switchFaultProcessCenter struct {
-	baseFaultCenter
-	processingCm map[string]*constant.SwitchInfo
-	processedCm  map[string]*constant.SwitchInfo
-	originalCm   map[string]*constant.SwitchInfo
-	mutex        sync.RWMutex
+	baseFaultCenter[*constant.SwitchInfo]
 }
 
 // uceAccompanyFaultProcessor:
@@ -136,7 +126,7 @@ type uceFaultProcessor struct {
 	uceDevicesOfUceJob map[string]uceJobInfo
 	// node->DeviceName->uceDeviceInfo
 	uceDeviceOfNode  map[string]uceNodeInfo
-	jobServerInfoMap job.JobServerInfoMap
+	jobServerInfoMap constant.JobServerInfoMap
 	nodeDeviceCmMap  map[string]AdvanceDeviceFaultCm
 }
 
@@ -206,3 +196,14 @@ const (
 	Ascend310PServer = "Ascend310P"
 	Ascend310Server  = "Ascend310"
 )
+
+type configMap[T constant.ConfigMapInterface] struct {
+	configmap map[string]T
+}
+
+type faultCenterCmManager[T constant.ConfigMapInterface] struct {
+	mutex        sync.RWMutex
+	originalCm   configMap[T]
+	processingCm configMap[T]
+	processedCm  configMap[T]
+}
