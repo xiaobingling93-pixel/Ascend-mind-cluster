@@ -4,7 +4,6 @@
 package service
 
 import (
-	"clusterd/pkg/interface/kube"
 	"context"
 	"errors"
 	"fmt"
@@ -20,6 +19,7 @@ import (
 	"clusterd/pkg/domain/podGroup"
 	"clusterd/pkg/interface/grpc/common"
 	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/kube"
 )
 
 var (
@@ -823,6 +823,7 @@ func (ctl *EventController) updateFixResult(strategy, value string) {
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to path pg when update fix result, err:%v, pgName=%s",
 			err, ctl.jobInfo.PgName)
+		return
 	}
 	hwlog.RunLog.Infof("fix result annatate success, %s=%s", constant.ProcessRecoverStatusKey, value)
 }
