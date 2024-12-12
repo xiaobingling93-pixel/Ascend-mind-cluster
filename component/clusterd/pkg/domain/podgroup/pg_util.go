@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package podGroup a series of pg util function
-package podGroup
+// Package podgroup a series of pg util function
+package podgroup
 
 import (
 	"strings"
@@ -103,6 +103,7 @@ func GetPGByPod(jobKey string) (jobName, pgName, namespace string) {
 		}
 	}
 
+	hwlog.RunLog.Errorf("job(uid=%s) relative pods is empty, get pgName, jobName failed", jobKey)
 	return
 }
 

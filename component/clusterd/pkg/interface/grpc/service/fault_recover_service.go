@@ -13,12 +13,12 @@ import (
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
-	"clusterd/pkg/domain/podGroup"
+	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/grpc/common"
 	"clusterd/pkg/interface/grpc/pb"
 )
 
-var globalFaultBeaconSecond = 5
+var globalFaultBeaconSecond = 2
 
 // FaultRecoverService is a service for fault recover
 type FaultRecoverService struct {
@@ -158,7 +158,13 @@ func (s *FaultRecoverService) Register(ctx context.Context, req *pb.ClientInfo) 
 	if err != nil {
 		return &pb.Status{Code: int32(code), Info: err.Error()}, nil
 	}
-	jobName, pgName, namespace := podGroup.GetPGFromCacheOrPod(req.JobId)
+	jobName, pgName, namespace := podgroup.GetPGFromCacheOrPod(req.JobId)
+	if jobName == "" || pgName == "" || namespace == "" {
+		return &pb.Status{
+			Code: int32(common.OperatePodGroupError),
+			Info: fmt.Sprintf("job(uid=%s) one of jobName, pgName, ns is empty", req.JobId),
+		}, nil
+	}
 	config, code, err :=
 		common.GetRecoverBaseInfo(pgName, namespace)
 	if err != nil {
