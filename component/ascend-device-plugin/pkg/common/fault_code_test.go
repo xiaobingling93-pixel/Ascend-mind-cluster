@@ -1422,7 +1422,6 @@ func TestGetNetworkFaultType(t *testing.T) {
 			},
 		}
 		convey.So(GetNetworkFaultType(faultCodes, logicId), convey.ShouldEqual, ManuallySeparateNPU)
-		convey.So(GetNetworkFaultType(faultCodes, logicId), convey.ShouldEqual, PreSeparateNPU)
 	})
 }
 
