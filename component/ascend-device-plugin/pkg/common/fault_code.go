@@ -1644,10 +1644,10 @@ func GetFrequencyFaultLevelAndCodes(mode string, logicId int32) map[int64]FaultT
 			continue
 		}
 
-		for _, faultTime := range faultFrequencyCache.Frequency[logicId] {
+		if int64(len(faultFrequencyCache.Frequency[logicId])) >= faultFrequencyCache.Times {
 			result[num] = FaultTimeAndLevel{
-				// frequency fault use unix time as `FaultTime`
-				FaultTime:  faultTime,
+				// frequency fault use timeWindowStart time as `FaultTime`
+				FaultTime:  time.Now().Unix() - faultFrequencyCache.TimeWindow,
 				FaultLevel: faultFrequencyCache.FaultHandling,
 			}
 		}
