@@ -138,6 +138,7 @@ func InitRankTableByPod(podJobMap map[string]v1.Pod, replicas int) constant.Rank
 		}
 		server.ServerID = podDevice.ServerID
 		server.PodID = podDevice.PodName
+		server.PodNameSpace = pod.Namespace
 		server.ServerName = pod.Spec.NodeName
 
 		podDeviceNum := len(podDevice.Devices)

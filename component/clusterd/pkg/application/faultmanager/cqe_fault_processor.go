@@ -134,11 +134,11 @@ func (processor *linkDownCqeFaultProcessCenter) getNodeFaultRank(deviceFaultInfo
 					DeviceName: deviceName,
 				}
 			}
-			if isCqeFault(fault) {
+			if isCqeFault(fault.FaultCode) {
 				cqeLinkDownFault.IsCqe = true
 				hasCqe = true
 			}
-			if isLinkDownFault(fault) {
+			if isLinkDownFault(fault.FaultCode) {
 				cqeLinkDownFault.IsLinkDown = true
 				cqeLinkDownFault.LinkDownFaultTime = fault.FaultTimeAndLevelMap[fault.FaultCode].FaultTime
 				hasLinkDown = true

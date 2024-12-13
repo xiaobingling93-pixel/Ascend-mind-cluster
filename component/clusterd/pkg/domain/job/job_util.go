@@ -190,10 +190,11 @@ func buildJobServerInfoMap(jobInfo constant.JobInfo) map[string]constant.ServerH
 	jobServerMap := make(map[string]constant.ServerHccl)
 	for _, server := range jobInfo.PreServerList {
 		copyServerHccl := constant.ServerHccl{
-			DeviceList: make([]constant.Device, 0),
-			ServerID:   server.ServerID,
-			PodID:      server.PodID,
-			ServerName: server.ServerName,
+			DeviceList:   make([]constant.Device, 0),
+			ServerID:     server.ServerID,
+			PodID:        server.PodID,
+			PodNameSpace: server.PodNameSpace,
+			ServerName:   server.ServerName,
 		}
 		for _, dev := range server.DeviceList {
 			copyDev := constant.Device{

@@ -4,6 +4,7 @@
 package faultmanager
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sync"
 
 	"clusterd/pkg/common/constant"
@@ -37,9 +38,47 @@ type FaultProcessCenter struct {
 	deviceCenter      *deviceFaultProcessCenter
 	nodeCenter        *nodeFaultProcessCenter
 	switchCenter      *switchFaultProcessCenter
+	faultJobCenter    *faultJobProcessCenter
 	faultJobProcessor *faultProcessorImpl
 	jobServerInfoMap  constant.JobServerInfoMap
 	notifyProcessChan chan int
+}
+
+type faultJobProcessCenter struct {
+	jobServerInfoMap constant.JobServerInfoMap
+	lastProcessTime  int64
+	deviceInfoCm     map[string]*constant.DeviceInfo
+	switchInfoCm     map[string]*constant.SwitchInfo
+	nodeInfoCm       map[string]*constant.NodeInfo
+	FaultJobs        map[string]*FaultJob
+}
+
+// FaultJob contain some fault info about a fault job
+type FaultJob struct {
+	IsA3Job             bool
+	NameSpace           string
+	PodNames            map[string]string
+	RelationFaults      []*faultInfo
+	TriggerFault        []faultInfo
+	processedFaultInfo  []faultInfo
+	FaultStrategy       FaultStrategy
+	SeparateNodes       sets.String
+	AllFaultCode        sets.String
+	ProcessingFaultCode sets.String
+	PodStrategiesMaps   map[string]string
+	FindNPUUnderSwitch  bool
+}
+
+type faultInfo struct {
+	FaultUid         string
+	FaultType        string
+	NodeName         string
+	NPUName          string
+	FaultCode        string
+	FaultLevel       string
+	FaultTime        int64
+	ExecutedStrategy string
+	DealMaxTime      int64
 }
 
 // AdvanceDeviceFaultCm more structure device info
@@ -163,6 +202,18 @@ type reportInfo struct {
 	CompleteTime int64
 }
 
+type simpleSwitchFaultInfo struct {
+	EventType          uint
+	AssembledFaultCode string
+	PeerPortDevice     uint
+	PeerPortId         uint
+	SwitchChipId       uint
+	SwitchPortId       uint
+	Severity           uint
+	Assertion          uint
+	AlarmRaisedTime    int64
+}
+
 // FaultLevel string describe
 const (
 	// NotHandleFault not handle fault
@@ -199,6 +250,23 @@ const (
 	Ascend310Server  = "Ascend310"
 )
 
+const (
+	invalidSuperPodIndex    = -2
+	patchPodTimes           = 3
+	faultJobProcessInterval = 5 * 1000
+	allCardId               = "FF"
+	switchFaultType         = "switchFault"
+	deviceFaultType         = "deviceFault"
+	nodeFaultType           = "nodeFault"
+	nodeUnhealthy           = "UnHealthy"
+	triggerFaultType        = "TriggerFault"
+	relationFaultType       = "RelationFaultCodes"
+	taskFaultKey            = "fault-type"
+	kilo                    = 1000
+	faultCustomizationPath  = "/home/hwMindX/relationFaultCustomization.json"
+	faultDuration           = "/home/hwMindX/faultDuration.json"
+)
+
 type configMap[T constant.ConfigMapInterface] struct {
 	configmap map[string]T
 }
@@ -208,4 +276,30 @@ type faultCenterCmManager[T constant.ConfigMapInterface] struct {
 	originalCm   configMap[T]
 	processingCm configMap[T]
 	processedCm  configMap[T]
+}
+
+// FaultStrategy fault strategies
+type FaultStrategy struct {
+	NodeLvList   map[string]string
+	DeviceLvList map[string][]DeviceStrategy
+}
+
+// RelationFaultStrategy relation fault strategy
+type RelationFaultStrategy struct {
+	TriggerFault   string
+	RelationFaults []string
+	FaultStrategy  string
+}
+
+// FaultDuration fault duration config
+type FaultDuration struct {
+	FaultCode       string
+	FaultType       string
+	TimeOutInterval int64
+}
+
+// DeviceStrategy device fault strategy
+type DeviceStrategy struct {
+	Strategy string
+	NPUName  string
 }
