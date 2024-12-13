@@ -744,7 +744,7 @@ func (ctl *EventController) chooseStrategy() string {
 			if err != nil {
 				hwlog.RunLog.Errorf("label pod fault err: %v, jobId=%s", err, ctl.jobInfo.JobId)
 			}
-			return ctl.chooseForRecoverFail()
+			return ctl.chooseForRecoverFail() // dump or exit
 		}
 		return strategy
 	}
