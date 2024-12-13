@@ -311,7 +311,7 @@ func labelPodFault(jobId string, faultPodRankList []string) (map[string]string, 
 			hwlog.RunLog.Infof("discard nil pod")
 			continue
 		}
-		if _, err := kube.RetryPatchPodLabels(&pod, constant.UpdatePodGroupTimes, faultLabel); err != nil {
+		if err := kube.RetryPatchPodLabels(pod.Name, pod.Namespace, constant.UpdatePodGroupTimes, faultLabel); err != nil {
 			return nil, err
 		}
 		labelCache[podRank] = string(pod.UID)

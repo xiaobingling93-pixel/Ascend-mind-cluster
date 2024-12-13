@@ -13,9 +13,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/utils"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
+
+func getFaultCodeTimeOutMap() map[string]int64 {
+	return faultCodeTimeOutMap
+}
+
+func setFaultCodeTimeOutMap(faultCode string, delTime int64) {
+	faultCodeTimeOutMap[faultCode] = delTime
+}
+
+func getFaultCodeDelMaxTime(faultCode string) int64 {
+	return getFaultCodeTimeOutMap()[faultCode]
+}
 
 func getNodeAndDeviceFromJobIdAndRankId(
 	jobId, rankId string, jobServerInfoMap constant.JobServerInfoMap) (string, string, error) {
@@ -323,25 +336,25 @@ func getCardUnhealthyKey(devInfo *constant.DeviceInfo) string {
 	return ""
 }
 
-func isUceFault(faultDevice constant.DeviceFault) bool {
-	if strings.Contains(faultDevice.FaultCode, constant.UceFaultCode) {
+func isUceFault(faultCode string) bool {
+	if strings.Contains(faultCode, constant.UceFaultCode) {
 		return true
 	}
 	return false
 }
 
-func isCqeFault(faultDevice constant.DeviceFault) bool {
-	return strings.Contains(faultDevice.FaultCode, constant.DevCqeFaultCode) ||
-		strings.Contains(faultDevice.FaultCode, constant.HostCqeFaultCode)
+func isCqeFault(faultCode string) bool {
+	return strings.Contains(faultCode, constant.DevCqeFaultCode) ||
+		strings.Contains(faultCode, constant.HostCqeFaultCode)
 }
 
-func isLinkDownFault(faultDevice constant.DeviceFault) bool {
-	return strings.Contains(faultDevice.FaultCode, constant.LinkDownFaultCode)
+func isLinkDownFault(faultCode string) bool {
+	return strings.Contains(faultCode, constant.LinkDownFaultCode)
 }
 
-func isUceAccompanyFault(faultDevice constant.DeviceFault) bool {
-	return strings.Contains(faultDevice.FaultCode, constant.AicFaultCode) ||
-		strings.Contains(faultDevice.FaultCode, constant.AivFaultCode)
+func isUceAccompanyFault(faultCode string) bool {
+	return strings.Contains(faultCode, constant.AicFaultCode) ||
+		strings.Contains(faultCode, constant.AivFaultCode)
 }
 
 func isDeviceFaultEqual(one, other constant.DeviceFault) bool {
@@ -420,4 +433,42 @@ func validBusinessRecoverTime(recoverTime int64) bool {
 
 func validBusinessUceReportInfo(info *reportInfo) bool {
 	return validBusinessRecoverTime(info.RecoverTime)
+}
+
+func initRelationFaultStrategies(fileBytes []byte) {
+	if err := json.Unmarshal(fileBytes, &relationFaultStrategies); err != nil {
+		hwlog.RunLog.Errorf("unmarshal fault code byte failed: %v", err)
+		return
+	}
+}
+
+func initFaultDuration(fileBytes []byte) {
+	if err := json.Unmarshal(fileBytes, &faultDurationStrategies); err != nil {
+		hwlog.RunLog.Errorf("unmarshal fault code byte failed: %v", err)
+		return
+	}
+}
+
+func initFaultCodeTimeOutMap() {
+	for _, strategy := range faultDurationStrategies {
+		setFaultCodeTimeOutMap(strategy.FaultCode, strategy.TimeOutInterval)
+	}
+}
+
+func initRelationFaultCodesMap() {
+	for _, strategy := range relationFaultStrategies {
+		triggerFaultMap.Insert(strategy.TriggerFault)
+		for _, fCode := range strategy.RelationFaults {
+			relationFaultTypeMap.Insert(fCode)
+		}
+	}
+}
+
+// LoadConfigFromFile load fault config and fault type from local file
+func LoadConfigFromFile(filePath string) []byte {
+	fileBytes, err := utils.LoadFile(filePath)
+	if err != nil {
+		return nil
+	}
+	return fileBytes
 }

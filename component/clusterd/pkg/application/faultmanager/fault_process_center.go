@@ -15,6 +15,7 @@ func (center *FaultProcessCenter) process() {
 	center.deviceCenter.process()
 	center.nodeCenter.process()
 	center.switchCenter.process()
+	center.faultJobCenter.process()
 }
 
 // NewFaultProcessCenter create deviceCenter,nodeCenter,switchCenter and work goroutine
@@ -23,6 +24,7 @@ func NewFaultProcessCenter(ctx context.Context) {
 		deviceCenter:      newDeviceFaultProcessCenter(),
 		nodeCenter:        newNodeFaultProcessCenter(),
 		switchCenter:      newSwitchFaultProcessCenter(),
+		faultJobCenter:    newFaultJobProcessCenter(),
 		notifyProcessChan: make(chan int, 1000),
 	}
 	go GlobalFaultProcessCenter.work(ctx)

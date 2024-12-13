@@ -123,7 +123,7 @@ func (processor *uceFaultProcessor) filterUceDeviceFaultInfo(
 	deviceName string, deviceFaultMap map[string][]constant.DeviceFault) map[string][]constant.DeviceFault {
 	for _, fault := range deviceFaultMap[deviceName] {
 		// filter device's uce fault
-		if isUceFault(fault) {
+		if isUceFault(fault.FaultCode) {
 			deviceFaultMap = deleteFaultFromFaultMap(deviceFaultMap, fault)
 		}
 	}
@@ -219,7 +219,7 @@ func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 	}
 	for _, deviceFaults := range deviceInfo.FaultDeviceList {
 		for _, fault := range deviceFaults {
-			if !isUceFault(fault) {
+			if !isUceFault(fault.FaultCode) {
 				continue
 			}
 			errorMsg := fmt.Sprintf("getUceFaultDevices cannot find uce fault time for device %s of node %s",

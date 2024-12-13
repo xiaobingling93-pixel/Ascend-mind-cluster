@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -133,4 +134,23 @@ func DeepCopy(dst, src interface{}) error {
 		return err
 	}
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
+}
+
+// IsSliceContain judges whether keyword in tasgetSlice
+func IsSliceContain(keyword interface{}, targetSlice interface{}) bool {
+	if targetSlice == nil {
+		return false
+	}
+	kind := reflect.TypeOf(targetSlice).Kind()
+	if kind != reflect.Slice && kind != reflect.Array {
+		return false
+	}
+
+	v := reflect.ValueOf(targetSlice)
+	for j := 0; j < v.Len(); j++ {
+		if v.Index(j).Interface() == keyword {
+			return true
+		}
+	}
+	return false
 }
