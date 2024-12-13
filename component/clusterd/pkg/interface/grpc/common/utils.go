@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -21,7 +22,6 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/pod"
-	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/grpc/pb"
 	"clusterd/pkg/interface/kube"
 )
@@ -119,19 +119,9 @@ func NewEventId(randLen int) string {
 }
 
 // ChangeProcessSchedulingMode change process scheduling mode
-func ChangeProcessSchedulingMode(jobId, mode string) (*v1beta1.PodGroup, error) {
-	pg := podgroup.GetPodGroup(jobId)
-	if pg.GetName() == "" {
-		hwlog.RunLog.Errorf("failed to get podGroup when change process scheduling")
-		return nil, fmt.Errorf("can not find podGroup")
-	}
-	_, ok := pg.Labels[constant.ProcessRecoverEnableLabel]
-	if !ok {
-		hwlog.RunLog.Error("can not find process rescheduling label when change")
-		return nil, fmt.Errorf("can not find process rescheduling label when change")
-	}
-	pg.Labels[constant.ProcessRecoverEnableLabel] = mode
-	return kube.UpdatePodGroup(&pg)
+func ChangeProcessSchedulingMode(jobInfo JobBaseInfo, mode string) (*v1beta1.PodGroup, error) {
+	label := map[string]string{constant.ProcessRecoverEnableLabel: mode}
+	return kube.RetryPatchPodGroupLabel(jobInfo.PgName, jobInfo.Namespace, constant.RetryTime, label)
 }
 
 // RetryWriteResetCM retry write the reset info configMap
@@ -189,6 +179,11 @@ func WriteResetInfoToCM(taskName, namespace string,
 
 func setNewTaskInfo(oldTaskResetInfo TaskResetInfo,
 	faultRankList []string, operation string) (TaskResetInfo, error) {
+	for _, rank := range oldTaskResetInfo.RankList {
+		if rank.Policy == constant.HotResetPolicy {
+			return TaskResetInfo{}, errors.New("hotReset=1 is not compatible with process-recover")
+		}
+	}
 	var newTaskInfo TaskResetInfo
 	newTaskInfo.RankList = []*TaskDevInfo{}
 	newTaskInfo.UpdateTime = time.Now().Unix()
