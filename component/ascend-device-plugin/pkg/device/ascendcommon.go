@@ -536,8 +536,7 @@ func (tool *AscendTools) getDeviceFaults(device *common.NpuDevice) []common.Devi
 		timeoutFaultLevelAndTime := common.GetTimeoutFaultLevelAndCodes(common.NetworkFaultMode, device.LogicID)
 		frequencyFaultLevelAndTime := common.GetFrequencyFaultLevelAndCodes(common.NetworkFaultMode, device.LogicID)
 		allFaultLevelAndTime := tool.combineFaultTimeMaps(timeoutFaultLevelAndTime, frequencyFaultLevelAndTime)
-		allFaultCodes := append(device.FaultCodes, common.Keys(allFaultLevelAndTime)...)
-		hwlog.RunLog.Infof("allFaultLevelAndTime: %v, allFaultCodes: %v", allFaultLevelAndTime, allFaultCodes)
+		allFaultCodes := append(device.NetworkFaultCodes, common.Keys(allFaultLevelAndTime)...)
 		newCode := tool.removeDuplicateErr(allFaultCodes)
 		faultType := common.GetNetworkFaultType(device.NetworkFaultCodes, device.LogicID)
 		deviceFaults = append(deviceFaults, common.DeviceFault{
