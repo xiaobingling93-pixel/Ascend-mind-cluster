@@ -131,6 +131,7 @@ func (s *FaultRecoverService) Inited(jobId string) (common.JobBaseInfo, bool) {
 	return info, ok
 }
 
+// Init put process recover enable switch to init state
 func (s *FaultRecoverService) Init(ctx context.Context, req *pb.ClientInfo) (*pb.Status, error) {
 	reqInfo := fmt.Sprintf("role=%s, jobId=%s", req.Role, req.JobId)
 	hwlog.RunLog.Infof("service receive Register request, %s", reqInfo)
