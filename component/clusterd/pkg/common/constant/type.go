@@ -3,6 +3,8 @@
 // Package constant a series of para
 package constant
 
+import "time"
+
 // FaultTimeAndLevel of each fault code
 // some fault may not have accurate fault time and level,
 // for example: duration fault use current time as `FaultTime`
@@ -39,7 +41,8 @@ type NodeInfoNoName struct {
 // NodeInfo node info
 type NodeInfo struct {
 	NodeInfoNoName
-	CmName string
+	CmName     string
+	UpdateTime time.Time
 }
 
 // FaultDev fault device struct
@@ -101,6 +104,7 @@ type JobInfo struct {
 	DeleteTime        int64
 	TotalCmNum        int
 	LastUpdatedCmTime int64
+	PreServerList     []ServerHccl
 }
 
 // RankTable rank table info
@@ -113,10 +117,11 @@ type RankTable struct {
 
 // ServerHccl to hccl
 type ServerHccl struct {
-	DeviceList []Device `json:"device"`
-	ServerID   string   `json:"server_id"`
-	PodID      string   `json:"-"`
-	ServerName string   `json:"server_name"`
+	DeviceList   []Device `json:"device"`
+	ServerID     string   `json:"server_id"`
+	PodID        string   `json:"-"`
+	PodNameSpace string   `json:"-"`
+	ServerName   string   `json:"server_name"`
 }
 
 // Device to hccl with rankId

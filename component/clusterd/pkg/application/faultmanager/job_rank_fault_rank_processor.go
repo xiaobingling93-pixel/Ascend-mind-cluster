@@ -21,12 +21,15 @@ func newJobRankFaultInfoProcessor(deviceCenter *deviceFaultProcessCenter) *jobRa
 }
 
 func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfos() map[string]JobFaultInfo {
+	processor.mutex.RLock()
+	defer processor.mutex.RUnlock()
 	result := new(map[string]JobFaultInfo)
 	err := util.DeepCopy(result, processor.jobFaultInfoMap)
 	if err != nil {
 		hwlog.RunLog.Errorf("get job fault rank failed, err: %v", err)
 		return nil
 	}
+	hwlog.RunLog.Debugf("get job fault rank: %v", util.ObjToString(*result))
 	return *result
 }
 
@@ -50,30 +53,12 @@ func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfosFilterLevel(
 }
 
 func (processor *jobRankFaultInfoProcessor) setJobFaultRankInfos(faultInfos map[string]JobFaultInfo) {
+	processor.mutex.Lock()
+	defer processor.mutex.Unlock()
 	processor.jobFaultInfoMap = faultInfos
 }
 
-func (processor *jobRankFaultInfoProcessor) process() {
-	deviceInfos := processor.deviceCenter.getProcessingCm()
-	nodesName := getNodesNameFromDeviceInfo(deviceInfos)
-	deviceCmForNodeMap := getAdvanceDeviceCmForNodeMap(deviceInfos)
-
-	jobFaultInfos := make(map[string]JobFaultInfo)
-	jobServerInfoMap := processor.deviceCenter.jobServerInfoMap
-	for jobId, serverList := range jobServerInfoMap.InfoMap {
-		jobFaultInfo := JobFaultInfo{
-			JobId:     jobId,
-			FaultList: make([]FaultRank, 0),
-		}
-
-		for _, nodeName := range nodesName {
-			faultRankList := processor.findFaultRankForJob(deviceCmForNodeMap, nodeName, serverList, jobId)
-			jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, faultRankList...)
-		}
-		jobFaultInfos[jobId] = jobFaultInfo
-	}
-	processor.setJobFaultRankInfos(jobFaultInfos)
-}
+func (processor *jobRankFaultInfoProcessor) process() {}
 
 func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]AdvanceDeviceFaultCm,
 	nodeName string, serverList map[string]constant.ServerHccl, jobId string) []FaultRank {

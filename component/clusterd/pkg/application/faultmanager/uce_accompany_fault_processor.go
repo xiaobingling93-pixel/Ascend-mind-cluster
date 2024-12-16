@@ -37,13 +37,13 @@ func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
 	}
 	for deviceName, deviceFaults := range deviceInfo.FaultDeviceList {
 		for _, fault := range deviceFaults {
-			if isUceFault(fault) {
+			if isUceFault(fault.FaultCode) {
 				errorMsg := fmt.Sprintf("uceAccompany cannot find uce fault time of device %s of node %s",
 					deviceName, nodeName)
 				processor.uceFaultTime[nodeName][deviceName] = getFaultTime(fault, errorMsg)
 				continue
 			}
-			if !isUceAccompanyFault(fault) {
+			if !isUceAccompanyFault(fault.FaultCode) {
 				continue
 			}
 			processor.inQue(nodeName, deviceName, fault)

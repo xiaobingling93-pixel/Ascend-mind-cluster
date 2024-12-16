@@ -85,3 +85,12 @@ const (
 	NodeProcessType
 	SwitchProcessType
 )
+
+const (
+	// SeparateFaultStrategy separate fault strategy
+	SeparateFaultStrategy = "Separate"
+	// SubHealthFaultStrategy subhealth fault strategy
+	SubHealthFaultStrategy = "SubHealth"
+	// SwitchFault switch fault strategy
+	SwitchFault = "switchFault"
+)
