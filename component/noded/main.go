@@ -103,8 +103,8 @@ func main() {
 func init() {
 	flag.BoolVar(&version, "version", false, "the version of the program")
 	flag.IntVar(&reportInterval, "reportInterval", defaultReportInterval,
-		"Interval of report node status")
-	flag.IntVar(&monitorPeriod, "monitorPeriod", defaultMonitorPeriod, "monitoring period of monitor ,"+
+		"Min interval of report node status")
+	flag.IntVar(&monitorPeriod, "monitorPeriod", defaultMonitorPeriod, "Monitoring period of monitor ,"+
 		"range [60,600] seconds")
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
