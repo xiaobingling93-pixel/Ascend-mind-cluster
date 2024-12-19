@@ -379,8 +379,7 @@ func (d *DeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType commo
 	}
 	rate, err := d.DcMgr.DcGetDeviceUtilizationRate(cardID, deviceID, deviceType)
 	if err != nil {
-		hwlog.RunLog.Error(err)
-		return common.UnRetError, fmt.Errorf("failed to get utilization by logicID(%d)", logicID)
+		return common.UnRetError, err
 	}
 
 	return uint32(rate), nil
@@ -775,8 +774,11 @@ func (d *DeviceManager) GetPCIEBandwidth(logicID int32, profilingTime int) (comm
 	}
 	pciePCIEBw, err := d.DcMgr.DcGetPCIEBandwidth(cardID, deviceID, profilingTime)
 	if err != nil {
-		hwlog.RunLog.Errorf("get pcie bandwidth failed by cardID(%d)/deviceID(%d), %v", cardID, deviceID, err)
+		hwlog.RunLog.ErrorfWithLimit(common.DomainForPcieBandwidth, logicID,
+			"get pcie bandwidth failed by cardID(%d)/deviceID(%d), %v", cardID, deviceID, err)
 		return common.PCIEBwStat{}, err
+	} else {
+		hwlog.ResetErrCnt(common.DomainForPcieBandwidth, logicID)
 	}
 	return pciePCIEBw, nil
 }

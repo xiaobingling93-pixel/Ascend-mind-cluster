@@ -1177,8 +1177,8 @@ func (d *DcManager) DcGetDeviceUtilizationRate(cardID, deviceID int32, devType c
 	var rate C.uint
 	if retCode := C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType),
 		&rate); int32(retCode) != common.Success {
-		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate: %d failed, "+
-			"error code: %d", cardID, deviceID, uint32(rate), int32(retCode))
+		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization(type %d) rate: %d failed, "+
+			"error code: %d", cardID, deviceID, devType, uint32(rate), int32(retCode))
 	}
 	if !common.IsValidUtilizationRate(uint32(rate)) {
 		return common.RetError, fmt.Errorf("get wrong device (cardID: %d, deviceID: %d) utilization rate: %d",
@@ -1329,7 +1329,7 @@ func (d *DcManager) DcGetDeviceNetWorkHealth(cardID, deviceID int32) (uint32, er
 		return common.UnRetError, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 
-	result := make(chan common.DeviceNetworkHealth)
+	result := make(chan common.DeviceNetworkHealth, 1)
 	go callDcmiGetDeviceNetworkHealth(cardID, deviceID, result)
 	select {
 	case res := <-result:

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -21,7 +22,6 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/pod"
-	"clusterd/pkg/domain/podGroup"
 	"clusterd/pkg/interface/grpc/pb"
 	"clusterd/pkg/interface/kube"
 )
@@ -38,6 +38,18 @@ func Faults2String(faults []*pb.FaultRank) string {
 		faultInfo = append(faultInfo, item.RankId+":"+item.FaultType)
 	}
 	return strings.Join(faultInfo, ",")
+}
+
+// Faults2Ranks return rank slice of faults
+func Faults2Ranks(faults []*pb.FaultRank) []string {
+	if len(faults) == 0 {
+		return nil
+	}
+	ranks := make([]string, 0, len(faults))
+	for _, item := range faults {
+		ranks = append(ranks, item.RankId)
+	}
+	return ranks
 }
 
 // String2Faults return faults split from string
@@ -84,9 +96,9 @@ func GetRecoverBaseInfo(name, namespace string) (RecoverConfig, RespCode, error)
 	value, ok := pg.Labels[constant.ProcessRecoverEnableLabel]
 	if !ok {
 		hwlog.RunLog.Warn("can not find process rescheduling label")
-		config.ProcessRescheduleOn = false
+		config.ProcessRecoverEnable = false
 	}
-	config.ProcessRescheduleOn = value == constant.ProcessRecoverEnable
+	config.ProcessRecoverEnable = value == constant.ProcessRecoverEnable
 	return config, OK, nil
 }
 
@@ -118,20 +130,10 @@ func NewEventId(randLen int) string {
 	return fmt.Sprintf("%X-%s", timestamp, randomNumberHex)
 }
 
-// ChangeProcessSchedulingMode change process scheduling mode
-func ChangeProcessSchedulingMode(jobId, mode string) (*v1beta1.PodGroup, error) {
-	pg := podGroup.GetPodGroup(jobId)
-	if pg.GetName() == "" {
-		hwlog.RunLog.Errorf("failed to get podGroup when change process scheduling")
-		return nil, fmt.Errorf("can not find podGroup")
-	}
-	_, ok := pg.Labels[constant.ProcessRecoverEnableLabel]
-	if !ok {
-		hwlog.RunLog.Error("can not find process rescheduling label when change")
-		return nil, fmt.Errorf("can not find process rescheduling label when change")
-	}
-	pg.Labels[constant.ProcessRecoverEnableLabel] = mode
-	return kube.UpdatePodGroup(&pg)
+// ChangeProcessRecoverEnableMode change process scheduling mode
+func ChangeProcessRecoverEnableMode(jobInfo JobBaseInfo, mode string) (*v1beta1.PodGroup, error) {
+	label := map[string]string{constant.ProcessRecoverEnableLabel: mode}
+	return kube.RetryPatchPodGroupLabel(jobInfo.PgName, jobInfo.Namespace, constant.RetryTime, label)
 }
 
 // RetryWriteResetCM retry write the reset info configMap
@@ -189,6 +191,11 @@ func WriteResetInfoToCM(taskName, namespace string,
 
 func setNewTaskInfo(oldTaskResetInfo TaskResetInfo,
 	faultRankList []string, operation string) (TaskResetInfo, error) {
+	for _, rank := range oldTaskResetInfo.RankList {
+		if rank.Policy == constant.HotResetPolicy {
+			return TaskResetInfo{}, errors.New("hotReset=1 is not compatible with process-recover")
+		}
+	}
 	var newTaskInfo TaskResetInfo
 	newTaskInfo.RankList = []*TaskDevInfo{}
 	newTaskInfo.UpdateTime = time.Now().Unix()
@@ -316,7 +323,7 @@ func labelPodFault(jobId string, faultPodRankList []string) (map[string]string, 
 			hwlog.RunLog.Infof("discard nil pod")
 			continue
 		}
-		if _, err := kube.RetryPatchPodLabels(&pod, constant.UpdatePodGroupTimes, faultLabel); err != nil {
+		if err := kube.RetryPatchPodLabels(pod.Name, pod.Namespace, constant.UpdatePodGroupTimes, faultLabel); err != nil {
 			return nil, err
 		}
 		labelCache[podRank] = string(pod.UID)
@@ -338,6 +345,7 @@ func FaultPodAllRescheduled(jobId string, oldPodMap map[string]string) bool {
 	return true
 }
 
+// IsUceFault check whether fault type is uce fault
 func IsUceFault(faults []*pb.FaultRank) bool {
 	for _, fault := range faults {
 		if fault.FaultType == constant.NormalFaultType {

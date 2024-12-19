@@ -55,6 +55,8 @@ const (
 	ProcessRecoverEnable = "on"
 	// ProcessRecoverPause close process recover temporarily
 	ProcessRecoverPause = "pause"
+	// ProcessRecoverInit init state before real open process-recover-enable
+	ProcessRecoverInit = ""
 )
 
 // write reset configmap operation
@@ -96,6 +98,10 @@ const (
 	CheckPeriod = 3
 	// ProcessControlTimeout wait process annotation until timeout
 	ProcessControlTimeout = 300
+	// RetrySuccess retry success
+	RetrySuccess = "retry-success"
+	// RetryFailed retry failed
+	RetryFailed = "retry-failed"
 	// RecoverSuccess process recover success
 	RecoverSuccess = "recover-success"
 	// RecoverFailed process recover failed
@@ -124,4 +130,6 @@ const (
 	UceFaultType = "0"
 	// NormalFaultType other uce type
 	NormalFaultType = "1"
+	// HotResetPolicy hot reset policy
+	HotResetPolicy = "reset"
 )
