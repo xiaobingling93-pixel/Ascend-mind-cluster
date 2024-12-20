@@ -552,7 +552,7 @@ func (tool *AscendTools) getDeviceFaultsWithMode(device *common.NpuDevice, fault
 	newCode := tool.removeDuplicateErr(allFaultCodes)
 	var faultType = ""
 	if mode == common.NetworkFaultMode {
-		faultType = common.GetNetworkFaultType(device.NetworkFaultCodes, device.LogicID)
+		faultType = common.GetNetworkFaultType(faultCodes, device.LogicID)
 	}
 	if mode == common.ChipFaultMode {
 		faultType = common.GetFaultType(faultCodes, device.LogicID)
