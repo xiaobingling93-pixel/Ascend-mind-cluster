@@ -533,17 +533,17 @@ func (tool *AscendTools) combineFaultTimeMaps(
 func (tool *AscendTools) getDeviceFaults(device *common.NpuDevice) []common.DeviceFault {
 	deviceFaults := make([]common.DeviceFault, 0, common.MapSizeTwo)
 	if len(device.NetworkFaultCodes) != 0 || device.NetworkHealth == v1beta1.Unhealthy {
-		deviceFaults = tool.getDeviceFaultsByMode(device, device.NetworkFaultCodes, deviceFaults,
+		deviceFaults = tool.getDeviceFaultsWithMode(device, device.NetworkFaultCodes, deviceFaults,
 			common.NetworkFaultMode, common.CardNetworkUnhealthy)
 	}
 	if len(device.FaultCodes) != 0 || device.Health == v1beta1.Unhealthy {
-		deviceFaults = tool.getDeviceFaultsByMode(device, device.FaultCodes, deviceFaults,
+		deviceFaults = tool.getDeviceFaultsWithMode(device, device.FaultCodes, deviceFaults,
 			common.ChipFaultMode, common.CardUnhealthy)
 	}
 	return deviceFaults
 }
 
-func (tool *AscendTools) getDeviceFaultsByMode(device *common.NpuDevice, faultCodes []int64,
+func (tool *AscendTools) getDeviceFaultsWithMode(device *common.NpuDevice, faultCodes []int64,
 	deviceFaults []common.DeviceFault, mode string, unhealthyType string) []common.DeviceFault {
 	timeoutFaultLevelAndTime := common.GetTimeoutFaultLevelAndCodes(mode, device.LogicID)
 	frequencyFaultLevelAndTime := common.GetFrequencyFaultLevelAndCodes(mode, device.LogicID)
