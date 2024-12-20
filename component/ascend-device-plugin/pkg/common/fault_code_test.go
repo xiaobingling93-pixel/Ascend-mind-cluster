@@ -1564,7 +1564,8 @@ func TestGetFrequencyFaultCodes(t *testing.T) {
 	convey.Convey("test GetTimeoutFaultCodes success", t, func() {
 		logicID := int32(0)
 		faultCode1 := "80C98000"
-		faultCode2 := "80E18005"
+		faultCode2 := "80C98008"
+		faultCode3 := "80E18005"
 		firstTime, secondTime, thirdTime := int64(10), int64(8), int64(2)
 		NetworkFaultCodes = sets.NewInt64(LinkDownFaultCode)
 		faultFrequencyMap = map[string]*FaultFrequencyCache{
@@ -1585,11 +1586,11 @@ func TestGetFrequencyFaultCodes(t *testing.T) {
 				},
 				FaultFrequency: FaultFrequency{
 					TimeWindow:    86400,
-					Times:         3,
+					Times:         2,
 					FaultHandling: ManuallySeparateNPU,
 				},
 			},
-			strings.ToLower(faultCode2): {
+			strings.ToLower(faultCode3): {
 				Frequency: map[int32][]int64{
 					logicID: {time.Now().Unix() - firstTime},
 				},
