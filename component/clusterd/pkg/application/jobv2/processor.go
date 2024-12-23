@@ -28,7 +28,7 @@ func addJob(jobKey string) {
 	}
 	jobInfo, ok := job.GetJobCache(jobKey)
 	if !ok {
-		job.InitCmAndCache(podGroupCache, nil)
+		job.InitCmAndCache(podGroupCache)
 		return
 	}
 	if jobInfo.Status == job.StatusJobPending {
@@ -56,14 +56,14 @@ func updateJob(jobKey string) {
 		// updateJob to preDelete
 		if !jobInfo.IsPreDelete {
 			hwlog.RunLog.Debugf("job %s updateJob to preDeleteJob", jobInfo.Name)
-			job.PreDeleteCmAndCache(podJobMap, jobKey)
+			job.PreDeleteCmAndCache(jobKey)
 		}
 		return
 	}
 	// updateJob to addJob
 	if status == job.StatusJobPending && jobInfo.Status != job.StatusJobPending {
 		hwlog.RunLog.Debugf("job %s updateJob to addJob", jobInfo.Name)
-		job.InitCmAndCache(pg, jobInfo.PreServerList)
+		job.InitCmAndCache(pg)
 		return
 	}
 	// update job to running or completed or failed
@@ -140,7 +140,7 @@ func preDeleteJob(jobKey string) {
 		uniqueQueue.Store(jobKey, queueOperatorUpdate)
 		return
 	}
-	job.PreDeleteCmAndCache(podJobMap, jobKey)
+	job.PreDeleteCmAndCache(jobKey)
 }
 
 func deleteJob(joKey string) {

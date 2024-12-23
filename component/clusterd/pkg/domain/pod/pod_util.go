@@ -114,25 +114,40 @@ func GetSharedTorIpByPod(pods map[string]v1.Pod) string {
 	return string(shardTorIpBytes)
 }
 
+// GetEnvByPod get pod env
+func GetEnvByPod(pods map[string]v1.Pod, envName string) string {
+	for _, po := range pods {
+		for _, container := range po.Spec.Containers {
+			for _, env := range container.Env {
+				if env.Name == envName {
+					return env.Value
+				}
+			}
+		}
+	}
+	return ""
+}
+
 // InitRankTableByPod init rank table by pod
-func InitRankTableByPod(podJobMap map[string]v1.Pod, replicas int) constant.RankTable {
+func InitRankTableByPod(podJobMap map[string]v1.Pod, replicas int) (constant.RankTable, int) {
 	var rankTable constant.RankTable
 	if replicas <= 0 {
 		hwlog.RunLog.Error("illegal param replicas")
-		return rankTable
+		return rankTable, 0
 	}
+	completedPodNum := 0
 	rankTable.ServerList = make([]constant.ServerHccl, 0, replicas)
-	hwlog.RunLog.Debugf("len of podJobMap: %d", len(podJobMap))
 	for _, pod := range podJobMap {
 		nodeRank := getNodeRank(pod)
 		if nodeRank == -1 || nodeRank >= replicas {
 			hwlog.RunLog.Warnf("illegal job information, replicas is %d, but nodeRank is %d", replicas, nodeRank)
 			continue
 		}
-		hwlog.RunLog.Debugf("pod %s nodeRank: %d", pod.Name, nodeRank)
 		var server constant.ServerHccl
-		podDevice := getPodDevice(pod)
-		hwlog.RunLog.Debugf("pod %s podDevice: %v", pod.Name, podDevice)
+		podDevice, isShouldAllocated := getPodDevice(pod)
+		if len(podDevice.Devices) > 0 || !isShouldAllocated {
+			completedPodNum++
+		}
 		if len(podDevice.Devices) == 0 {
 			continue
 		}
@@ -160,19 +175,19 @@ func InitRankTableByPod(podJobMap map[string]v1.Pod, replicas int) constant.Rank
 		return iRankID < jRankID
 	})
 	rankTable.ServerCount = strconv.Itoa(len(rankTable.ServerList))
-	return rankTable
+	return rankTable, completedPodNum
 }
 
-func getPodDevice(pod v1.Pod) constant.PodDevice {
+func getPodDevice(pod v1.Pod) (constant.PodDevice, bool) {
 	deviceInfo, exist := pod.Annotations[podDeviceKey]
 	if !exist {
-		return constant.PodDevice{}
+		return constant.PodDevice{}, shouldAllocated(pod.Spec.Containers)
 	}
 	var podDevice constant.PodDevice
 	if err := json.Unmarshal([]byte(deviceInfo), &podDevice); err != nil {
 		hwlog.RunLog.Errorf("parse annotation of pod %s/%s error: %v", pod.Namespace, pod.Name, err)
 	}
-	return podDevice
+	return podDevice, true
 }
 
 func getNodeRank(pod v1.Pod) int {
@@ -195,7 +210,7 @@ func GetPodDeviceNumByJobId(jobKey string) int {
 	defer podManager.podMapMutex.RUnlock()
 	podJobMap := podManager.podJobMap[jobKey]
 	for _, pod := range podJobMap {
-		podDevice := getPodDevice(pod)
+		podDevice, _ := getPodDevice(pod)
 		if len(podDevice.Devices) != 0 {
 			return len(podDevice.Devices)
 		}
@@ -232,28 +247,27 @@ func DeviceAllocateIsCompleted(p v1.Pod) bool {
 	// pod need to be allocated
 	containers := p.Spec.Containers
 	if len(containers) == 0 {
-		return true
+		return false
 	}
-	shouldAllocated := false
-	for _, container := range containers {
-		resourceLimits := container.Resources.Limits
-		if len(resourceLimits) == 0 {
-			continue
-		}
-		for resourceName, resourceLimit := range resourceLimits {
-			if resourceLimit.Value() > 0 && strings.Contains(resourceName.String(), resourceNamePrefix) {
-				shouldAllocated = true
-				break
-			}
-		}
-		if shouldAllocated {
-			break
-		}
-	}
-	if !shouldAllocated {
+	if !shouldAllocated(containers) {
 		return true
 	}
 	// pod already been allocated
 	_, exist := p.Annotations[podDeviceKey]
 	return exist
+}
+
+func shouldAllocated(containers []v1.Container) bool {
+	for _, container := range containers {
+		resourceLimits := container.Resources.Limits
+		if len(resourceLimits) == 0 {
+			continue
+		}
+		for resourceName := range resourceLimits {
+			if strings.Contains(resourceName.String(), resourceNamePrefix) {
+				return true
+			}
+		}
+	}
+	return false
 }

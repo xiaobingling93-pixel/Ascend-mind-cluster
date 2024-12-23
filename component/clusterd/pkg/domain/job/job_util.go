@@ -19,6 +19,8 @@ import (
 const (
 	cmDataInitLength = 16
 	safeDeviceSize   = 1000
+	vcJobKind        = "Job"
+	masterAddr       = "MASTER_ADDR"
 )
 
 const (
@@ -40,7 +42,7 @@ const (
 )
 
 // PreDeleteCmAndCache set job status
-func PreDeleteCmAndCache(podJobMap map[string]v1.Pod, jobKey string) {
+func PreDeleteCmAndCache(jobKey string) {
 	jobInfo, ok := GetJobCache(jobKey)
 	if !ok {
 		return
@@ -53,7 +55,7 @@ func PreDeleteCmAndCache(podJobMap map[string]v1.Pod, jobKey string) {
 	jobInfo.DeleteTime = time.Now().Unix()
 	jobInfo.LastUpdatedCmTime = time.Now().Unix()
 	hccls := getHcclSlice(jobInfo.JobRankTable)
-	if preDeleteCM(jobInfo, podJobMap, hccls) {
+	if preDeleteCM(jobInfo, hccls) {
 		hwlog.RunLog.Debugf("pre delete job:%s success", jobInfo.Name)
 		SaveJobCache(jobKey, jobInfo)
 	}
@@ -72,7 +74,7 @@ func DeleteCmAndCache(jobKey string) {
 }
 
 // InitCmAndCache init cm and cache
-func InitCmAndCache(podGroup v1beta1.PodGroup, preServers []constant.ServerHccl) {
+func InitCmAndCache(podGroup v1beta1.PodGroup) {
 	if len(podGroup.Name) == 0 || len(podGroup.GetOwnerReferences()) == 0 {
 		hwlog.RunLog.Error("podGroup is nil, init configmap failed")
 		return
@@ -85,10 +87,6 @@ func InitCmAndCache(podGroup v1beta1.PodGroup, preServers []constant.ServerHccl)
 	jobInfo.JobRankTable = constant.RankTable{}
 	jobInfo.AddTime = time.Now().Unix()
 	jobInfo.LastUpdatedCmTime = time.Now().Unix()
-	hwlog.RunLog.Errorf("InitCmAndCache, preServers: %v", preServers)
-	if len(preServers) > 0 {
-		jobInfo.PreServerList = preServers
-	}
 	if initCM(jobInfo) {
 		hwlog.RunLog.Debugf("init job:%s success", jobInfo.Name)
 		SaveJobCache(jobInfo.Key, jobInfo)
@@ -117,22 +115,21 @@ func UpdateCmAndCache(status string, jobInfo constant.JobInfo, podGroup v1beta1.
 	}
 	jobInfo.Status = status
 	jobInfo.IsPreDelete = false
-	jobInfo.JobRankTable = pod.InitRankTableByPod(podJobMap, jobInfo.Replicas)
+	var completedPodNum int
+	jobInfo.JobRankTable, completedPodNum = pod.InitRankTableByPod(podJobMap, jobInfo.Replicas)
 	if jobInfo.Framework == "" {
 		// vcjob framework in pod label, it is empty when init jobInfo with podGroup
 		jobInfo.Framework = pod.GetModelFramework(podJobMap)
 	}
 	jobInfo.LastUpdatedCmTime = time.Now().Unix()
-	if len(jobInfo.JobRankTable.ServerList) == jobInfo.Replicas {
+	if completedPodNum == jobInfo.Replicas {
 		jobInfo.JobRankTable.Status = StatusRankTableComplete
+		jobInfo.PreServerList = jobInfo.JobRankTable.ServerList
+		initJobShareTorInfo(jobInfo, podJobMap)
 	} else {
 		jobInfo.JobRankTable.Status = StatusRankTableInit
 	}
 	jobInfo.JobRankTable.Total = jobInfo.TotalCmNum
-	if jobInfo.JobRankTable.Status == StatusRankTableComplete {
-		jobInfo.PreServerList = jobInfo.JobRankTable.ServerList
-	}
-	hwlog.RunLog.Debugf("UpdateCmAndCache, JobRankTable: %v", jobInfo.JobRankTable)
 	hccls := getHcclSlice(jobInfo.JobRankTable)
 	result := true
 	for i := 0; i < jobInfo.TotalCmNum; i++ {
@@ -146,6 +143,24 @@ func UpdateCmAndCache(status string, jobInfo constant.JobInfo, podGroup v1beta1.
 		hwlog.RunLog.Debugf("update job:%s success", jobInfo.Name)
 		SaveJobCache(jobInfo.Key, jobInfo)
 	}
+}
+
+func initJobShareTorInfo(jobInfo constant.JobInfo, podJobMap map[string]v1.Pod) {
+	if jobInfo.Framework != ptFramework {
+		return
+	}
+	if jobInfo.MasterAddr != "" || jobInfo.SharedTorIp != "" {
+		return
+	}
+	jobInfo.SharedTorIp = pod.GetSharedTorIpByPod(podJobMap)
+	if jobInfo.JobType == vcJobKind {
+		if len(jobInfo.JobRankTable.ServerList) > 0 {
+			jobInfo.MasterAddr = jobInfo.JobRankTable.ServerList[0].ServerID
+		}
+	} else {
+		jobInfo.MasterAddr = pod.GetEnvByPod(podJobMap, masterAddr)
+	}
+
 }
 
 func getHcclSlice(table constant.RankTable) []string {

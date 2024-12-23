@@ -4,7 +4,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -73,7 +72,7 @@ func UpdateProcessConfirmFault(name, namespace string, cacheRanks []*pb.FaultRan
 	}
 	rankStr, _ := pg.Annotations[constant.ProcessConfirmFaultKey]
 	if len(rankStr) > 0 {
-		return fmt.Errorf("plat not clear pre confirm fault, jobName=%s", name)
+		return fmt.Errorf("plat not clear pre confirm fault, pgName=%s", name)
 	}
 	allFaultRanks := common.RemoveSliceDuplicateFaults(cacheRanks)
 	newConfirm := map[string]string{
@@ -120,15 +119,11 @@ func pullProcessResultFault(name, namespace string) ([]*pb.FaultRank, []*pb.Faul
 		hwlog.RunLog.Warnf("can not fiind ProcessResultFaultKey, name:%s", name)
 		return nil, nil, fmt.Errorf("processResultFaultKey not exist, name:%s", name)
 	}
-	rankSlice := strings.Split(resultRanks, ",")
-	if len(rankSlice) == 0 {
-		err = errors.New("processResultFault lenth is 0")
-	}
 	confirmRanks, ok := pg.Annotations[constant.ProcessConfirmFaultKey]
 	if !ok {
 		confirmRanks = ""
 	}
-	return common.String2Faults(resultRanks), common.String2Faults(confirmRanks), err
+	return common.String2Faults(resultRanks), common.String2Faults(confirmRanks), nil
 }
 
 // WaitProcessResultFault block process until ProcessResultFaultKey's ranks not empty

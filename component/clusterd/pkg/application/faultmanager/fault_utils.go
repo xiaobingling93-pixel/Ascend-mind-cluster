@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"ascend-common/common-utils/hwlog"
@@ -17,6 +18,16 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
+
+// isNodeReady returns the node ready status
+func isNodeReady(node *v1.Node) bool {
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == v1.NodeReady {
+			return cond.Status == v1.ConditionTrue
+		}
+	}
+	return false
+}
 
 func getFaultCodeTimeOutMap() map[string]int64 {
 	return faultCodeTimeOutMap
@@ -443,10 +454,34 @@ func initRelationFaultStrategies(fileBytes []byte) {
 }
 
 func initFaultDuration(fileBytes []byte) {
-	if err := json.Unmarshal(fileBytes, &faultDurationStrategies); err != nil {
+	var tmpFaultDurationStrategies []FaultDuration
+	if err := json.Unmarshal(fileBytes, &tmpFaultDurationStrategies); err != nil {
 		hwlog.RunLog.Errorf("unmarshal fault code byte failed: %v", err)
 		return
 	}
+	if len(tmpFaultDurationStrategies) == 0 {
+		hwlog.RunLog.Error("fault duration fault config is invalid")
+		return
+	}
+	for _, faultConfig := range tmpFaultDurationStrategies {
+		if validateFaultDurationConfig(faultConfig) {
+			continue
+		}
+		faultDurationStrategies = append(faultDurationStrategies, faultConfig)
+	}
+}
+
+func validateFaultDurationConfig(faultConfig FaultDuration) bool {
+	if faultConfig.FaultCode == "" {
+		hwlog.RunLog.Error("fault code is empty")
+		return false
+	}
+	if faultConfig.TimeOutInterval < 0 {
+		hwlog.RunLog.Error("fault code time interval is invalid",
+			faultConfig.TimeOutInterval)
+		return false
+	}
+	return true
 }
 
 func initFaultCodeTimeOutMap() {
