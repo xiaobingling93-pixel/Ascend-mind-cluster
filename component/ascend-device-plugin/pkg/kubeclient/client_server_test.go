@@ -223,16 +223,21 @@ func TestTryUpdatePodCacheAnnotation(t *testing.T) {
 
 // TestGetManuallySeparateNPUIDFromDeviceInfo returns the ManuallySeparateNPU from device info
 func TestGetManuallySeparateNPUIDFromDeviceInfo(t *testing.T) {
-	utKubeClient, err := NewClientK8s()
+	utKubeClient, err := initK8S()
 	if err != nil {
 		t.Fatal("TestGetManuallySeparateNPUIDFromDeviceInfo init kubernetes failed")
 	}
+	nodeName, err := GetNodeNameFromEnv()
+	if err != nil {
+		t.Fatal("get nodeName failed")
+	}
+	deviceInfoCMName := common.DeviceInfoCMNamePrefix + nodeName
 	convey.Convey("return the ManuallySeparateNPU failed when deviceInfoCMName is none", t, func() {
 		phyIDs := utKubeClient.GetManuallySeparateNPUIDFromDeviceInfo("", common.DeviceInfoCMNameSpace)
 		convey.So(phyIDs, convey.ShouldEqual, make([]int32, 0))
 	})
 	convey.Convey("return the ManuallySeparateNPU success", t, func() {
-		phyIDs := utKubeClient.GetManuallySeparateNPUIDFromDeviceInfo(utKubeClient.DeviceInfoName, common.DeviceInfoCMNameSpace)
+		phyIDs := utKubeClient.GetManuallySeparateNPUIDFromDeviceInfo(deviceInfoCMName, common.DeviceInfoCMNameSpace)
 		convey.So(phyIDs, convey.ShouldEqual, make([]int32, 0))
 	})
 }
