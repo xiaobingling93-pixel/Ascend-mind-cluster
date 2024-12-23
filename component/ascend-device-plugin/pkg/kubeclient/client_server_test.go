@@ -227,11 +227,7 @@ func TestGetManuallySeparateNPUIDFromDeviceInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal("TestGetManuallySeparateNPUIDFromDeviceInfo init kubernetes failed")
 	}
-	nodeName, err := GetNodeNameFromEnv()
-	if err != nil {
-		t.Fatal("get nodeName failed")
-	}
-	deviceInfoCMName := common.DeviceInfoCMNamePrefix + nodeName
+	deviceInfoCMName := common.DeviceInfoCMNamePrefix + nodeNameValue
 	convey.Convey("return the ManuallySeparateNPU failed when deviceInfoCMName is none", t, func() {
 		phyIDs := utKubeClient.GetManuallySeparateNPUIDFromDeviceInfo("", common.DeviceInfoCMNameSpace)
 		convey.So(phyIDs, convey.ShouldEqual, make([]int32, 0))
