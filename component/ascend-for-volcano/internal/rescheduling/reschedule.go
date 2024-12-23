@@ -961,7 +961,6 @@ func (reScheduler *ReScheduler) reduceScoreForLastFaultNode(faultJob *FaultJob, 
 			scoreMap[faultNodeName] = score
 		}
 	}
-
 }
 
 // GenerateNodeRankIndexTaskMap get the nodeName, rankIndex, and Occurrence of nodes in a job
