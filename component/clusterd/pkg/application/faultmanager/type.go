@@ -273,9 +273,15 @@ type configMap[T constant.ConfigMapInterface] struct {
 
 type faultCenterCmManager[T constant.ConfigMapInterface] struct {
 	mutex        sync.RWMutex
+	cmBuffer     []informerConfigmap[T]
 	originalCm   configMap[T]
 	processingCm configMap[T]
 	processedCm  configMap[T]
+}
+
+type informerConfigmap[T constant.ConfigMapInterface] struct {
+	isAdd bool
+	cm    T
 }
 
 // FaultStrategy fault strategies

@@ -11,11 +11,11 @@ import (
 func informInfoUpdate(newInfo any, whichToInformer int, isAdd bool) {
 	switch whichToInformer {
 	case constant.DeviceProcessType:
-		GlobalFaultProcessCenter.deviceCenter.updateOriginalCm(newInfo.(*constant.DeviceInfo), isAdd)
+		GlobalFaultProcessCenter.deviceCenter.collectInformerCm(newInfo.(*constant.DeviceInfo), isAdd)
 	case constant.NodeProcessType:
-		GlobalFaultProcessCenter.nodeCenter.updateOriginalCm(newInfo.(*constant.NodeInfo), isAdd)
+		GlobalFaultProcessCenter.nodeCenter.collectInformerCm(newInfo.(*constant.NodeInfo), isAdd)
 	case constant.SwitchProcessType:
-		GlobalFaultProcessCenter.switchCenter.updateOriginalCm(newInfo.(*constant.SwitchInfo), isAdd)
+		GlobalFaultProcessCenter.switchCenter.collectInformerCm(newInfo.(*constant.SwitchInfo), isAdd)
 	default:
 		hwlog.RunLog.Errorf("cannot process %d", whichToInformer)
 		return

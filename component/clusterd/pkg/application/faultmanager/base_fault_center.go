@@ -34,6 +34,7 @@ func (baseCenter *baseFaultCenter[T]) process() {
 		return
 	}
 	baseCenter.lastProcessTime = currentTime
+	baseCenter.updateOriginalCm()
 	baseCenter.setProcessingCm(baseCenter.getOriginalCm())
 	for _, processor := range baseCenter.processorList {
 		processor.process()
@@ -92,6 +93,10 @@ func (baseCenter *baseFaultCenter[T]) getProcessedCm() map[string]T {
 	return baseCenter.cmManager.getProcessedCm().configmap
 }
 
-func (baseCenter *baseFaultCenter[T]) updateOriginalCm(newInfo T, isAdd bool) {
-	baseCenter.cmManager.updateOriginalCm(newInfo, isAdd)
+func (baseCenter *baseFaultCenter[T]) updateOriginalCm() {
+	baseCenter.cmManager.updateBatchOriginalCm()
+}
+
+func (baseCenter *baseFaultCenter[T]) collectInformerCm(newInfo T, isAdd bool) {
+	baseCenter.cmManager.collectInformerCm(newInfo, isAdd)
 }

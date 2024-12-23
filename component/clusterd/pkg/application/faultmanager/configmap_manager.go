@@ -45,6 +45,31 @@ func (manager *faultCenterCmManager[T]) updateOriginalCm(newInfo T, isAdd bool) 
 	manager.originalCm.updateCmInfo(newInfo, isAdd)
 }
 
+func (manager *faultCenterCmManager[T]) collectInformerCm(newInfo T, isAdd bool) {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+	manager.cmBuffer = append(manager.cmBuffer, informerConfigmap[T]{isAdd: isAdd, cm: newInfo})
+}
+
+func (manager *faultCenterCmManager[T]) updateBatchOriginalCm() {
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+	if len(manager.cmBuffer) == 0 {
+		return
+	}
+	handleFlag := make(map[string]bool)
+	nextTurnBuffer := make([]informerConfigmap[T], 0)
+	for _, informerCm := range manager.cmBuffer {
+		if _, found := handleFlag[informerCm.cm.GetCmName()]; found {
+			nextTurnBuffer = append(nextTurnBuffer, informerCm)
+		} else {
+			handleFlag[informerCm.cm.GetCmName()] = true
+			manager.updateOriginalCm(informerCm.cm, informerCm.isAdd)
+		}
+	}
+	manager.cmBuffer = nextTurnBuffer
+}
+
 func (cm *configMap[T]) deepCopy() configMap[T] {
 	result := new(map[string]T)
 	err := util.DeepCopy(result, cm.configmap)
