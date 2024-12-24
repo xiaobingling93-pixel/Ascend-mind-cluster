@@ -29,7 +29,7 @@ const (
 	mockFaultCode  = "0000001D"
 )
 
-func TestDeepEqualFaultDevInfo(t *testing.T) {
+func TestDeepEqualFaultDevInfo01(t *testing.T) {
 	convey.Convey("test DeepEqualFaultDevInfo", t, func() {
 		convey.Convey("two nil FaultDevInfo should be deep equal", func() {
 			res := DeepEqualFaultDevInfo(nil, nil)
@@ -42,115 +42,61 @@ func TestDeepEqualFaultDevInfo(t *testing.T) {
 		})
 
 		convey.Convey("two FaultDevInfo with different node status should not be deep equal", func() {
-			faultDevInfo1 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-			}
-			faultDevInfo2 := &FaultDevInfo{
-				NodeStatus: nodeHealthy,
-			}
+			faultDevInfo1 := mockFaultDevInfo(nodeUnHealthy, nil)
+			faultDevInfo2 := mockFaultDevInfo(nodeHealthy, nil)
 			res := DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2)
 			convey.So(res, convey.ShouldEqual, false)
 		})
 
 		convey.Convey("two FaultDevInfo with different device type should not be deep equal", func() {
-			faultDevInfo1 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   mockDeviceID,
-					},
-				},
-			}
-			faultDevInfo2 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: "memory",
-						DeviceId:   mockDeviceID,
-					},
-				},
-			}
+			faultDevInfo1 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, "",
+				mockDeviceID, nil)})
+			faultDevInfo2 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev("memory", "",
+				mockDeviceID, nil)})
 			res := DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2)
 			convey.So(res, convey.ShouldEqual, false)
 		})
+	})
+}
 
+func TestDeepEqualFaultDevInfo02(t *testing.T) {
+	convey.Convey("test DeepEqualFaultDevInfo", t, func() {
 		convey.Convey("two FaultDevInfo with different fault level should not be deep equal", func() {
-			faultDevInfo1 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   mockDeviceID,
-						FaultLevel: NotHandleFault,
-					},
-				},
-			}
-			faultDevInfo2 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   mockDeviceID,
-						FaultLevel: PreSeparateFault,
-					},
-				},
-			}
-			res := DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2)
-			convey.So(res, convey.ShouldEqual, false)
+			faultDevInfo1 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, NotHandleFault,
+				mockDeviceID, nil)})
+			faultDevInfo2 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, PreSeparateFault,
+				mockDeviceID, nil)})
+			convey.So(DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2), convey.ShouldEqual, false)
 		})
 		convey.Convey("two FaultDevInfo with different fault code should not be deep equal", func() {
-			faultDevInfo1 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   mockDeviceID,
-						FaultLevel: PreSeparateFault,
-						FaultCode:  []string{mockFaultCode},
-					},
-				},
-			}
-			faultDevInfo2 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   mockDeviceID,
-						FaultLevel: PreSeparateFault,
-						FaultCode:  []string{"2800001F"},
-					},
-				},
-			}
-			res := DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2)
-			convey.So(res, convey.ShouldEqual, false)
+			faultDevInfo1 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, NotHandleFault,
+				mockDeviceID, []string{mockFaultCode})})
+			faultDevInfo2 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, NotHandleFault,
+				mockDeviceID, []string{"2800001F"})})
+			convey.So(DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2), convey.ShouldEqual, false)
 		})
-
 		convey.Convey("two FaultDevInfo with same attribute should be deep equal", func() {
-			faultDevInfo1 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   0,
-						FaultLevel: PreSeparateFault,
-						FaultCode:  []string{mockFaultCode},
-					},
-				},
-			}
-			faultDevInfo2 := &FaultDevInfo{
-				NodeStatus: nodeUnHealthy,
-				FaultDevList: []*FaultDev{
-					{
-						DeviceType: mockDeviceType,
-						DeviceId:   0,
-						FaultLevel: PreSeparateFault,
-						FaultCode:  []string{mockFaultCode},
-					},
-				},
-			}
+			faultDevInfo1 := mockFaultDevInfo(nodeUnHealthy, []*FaultDev{mockFaultDev(mockDeviceType, NotHandleFault,
+				mockDeviceID, []string{mockFaultCode})})
+			faultDevInfo2 := faultDevInfo1
 			res := DeepEqualFaultDevInfo(faultDevInfo1, faultDevInfo2)
 			convey.So(res, convey.ShouldEqual, true)
 		})
 	})
+}
+
+func mockFaultDevInfo(status string, devs []*FaultDev) *FaultDevInfo {
+	return &FaultDevInfo{
+		FaultDevList: devs,
+		NodeStatus:   status,
+	}
+}
+
+func mockFaultDev(tp, level string, id int64, faultCode []string) *FaultDev {
+	return &FaultDev{
+		DeviceType: tp,
+		DeviceId:   id,
+		FaultLevel: level,
+		FaultCode:  faultCode,
+	}
 }
