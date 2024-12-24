@@ -6,8 +6,6 @@ package faultmanager
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -52,9 +50,6 @@ func (fJobCenter *faultJobProcessCenter) InitFaultJobs() {
 		if !ok {
 			tmpFaultJob = &FaultJob{}
 		}
-		tmpFaultJob.TriggerFault = nil
-		tmpFaultJob.AllFaultCode = make(sets.String)
-		tmpFaultJob.SeparateNodes = make(sets.String)
 		tmpFaultJob.initFaultJobAttr()
 		for nodeName, serverList := range serverLists {
 			tmpFaultJob.IsA3Job = deviceCmForNodeMap[nodeName].SuperPodID >= 0
