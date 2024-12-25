@@ -83,7 +83,10 @@ func TestUpdatePodList(t *testing.T) {
 
 // TestRefreshPodList test get pod list by field selector with cache
 func TestRefreshPodList(t *testing.T) {
-	client, _ := newTestClientK8s()
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestRefreshPodList init kubernetes failed")
+	}
 	testPod := v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID: "testUid",
@@ -121,6 +124,10 @@ func TestRefreshPodList(t *testing.T) {
 
 // TestGetAllPodListCache test get pod list by field selector with cache
 func TestGetAllPodListCache(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetAllPodListCache init kubernetes failed")
+	}
 	expectPodCache := []v1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -129,7 +136,6 @@ func TestGetAllPodListCache(t *testing.T) {
 			},
 		},
 	}
-	client, _ := newTestClientK8s()
 	convey.Convey("test get pod list by field selector with cache", t, func() {
 		podCache = map[types.UID]*podInfo{
 			"testPod": {
@@ -148,6 +154,10 @@ func TestGetAllPodListCache(t *testing.T) {
 
 // TestGetActivePodListCache01 test get active pod list with cache
 func TestGetActivePodListCache01(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetActivePodListCache01 init kubernetes failed")
+	}
 	expectPodCache := []v1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -156,7 +166,6 @@ func TestGetActivePodListCache01(t *testing.T) {
 			},
 		},
 	}
-	client, _ := newTestClientK8s()
 	convey.Convey("test get active pod list when pod name err", t, func() {
 		podCache = map[types.UID]*podInfo{
 			"testPod": {
@@ -189,7 +198,10 @@ func TestGetActivePodListCache01(t *testing.T) {
 
 // TestGetActivePodListCache02 test get active pod list with cache
 func TestGetActivePodListCache02(t *testing.T) {
-	client, _ := newTestClientK8s()
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetActivePodListCache02 init kubernetes failed")
+	}
 	convey.Convey("test get active pod list when pod namespace err", t, func() {
 		podCache = map[types.UID]*podInfo{
 			"testPod": {
@@ -208,11 +220,14 @@ func TestGetActivePodListCache02(t *testing.T) {
 
 // TestGetNodeServerIDCache test case for get server id
 func TestGetNodeServerIDCache(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetNodeServerIDCache init kubernetes failed")
+	}
 	patch := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{}},
 	}, nil)
 	defer patch.Reset()
-	client, _ := newTestClientK8s()
 	convey.Convey("test server id", t, func() {
 		nodeServerIp = "test server id"
 		id, err := client.GetNodeServerIDCache()
@@ -229,11 +244,14 @@ func TestGetNodeServerIDCache(t *testing.T) {
 
 // TestGetServerUsageLabelCache test case for get server usage
 func TestGetServerUsageLabelCache(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetServerUsageLabelCache init kubernetes failed")
+	}
 	patch := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{}},
 	}, nil)
 	defer patch.Reset()
-	client, _ := newTestClientK8s()
 	convey.Convey("test usage label", t, func() {
 		serverUsageLabel = "test usage label"
 		usage, err := client.GetServerUsageLabelCache()
@@ -250,6 +268,10 @@ func TestGetServerUsageLabelCache(t *testing.T) {
 
 // TestGetA800IA2Label test case for get a800 ia2 label
 func TestGetA800IA2Label(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetA800IA2Label init kubernetes failed")
+	}
 	node := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: make(map[string]string),
@@ -261,7 +283,6 @@ func TestGetA800IA2Label(t *testing.T) {
 	defer patch.Reset()
 	convey.Convey("test usage label with infer", t, func() {
 		serverUsageLabel = ""
-		client, _ := newTestClientK8s()
 		usage, err := client.GetServerUsageLabelCache()
 		fmt.Printf("usage: %s\n", usage)
 		convey.So(usage == common.Infer, convey.ShouldBeTrue)
@@ -271,6 +292,10 @@ func TestGetA800IA2Label(t *testing.T) {
 
 // TestCheckPodInCache01 test case for check pod in cache
 func TestCheckPodInCache01(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestCheckPodInCache01 init kubernetes failed")
+	}
 	pod1 := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       "xxxxxxxxx1",
@@ -284,7 +309,6 @@ func TestCheckPodInCache01(t *testing.T) {
 	})
 	defer patch1.Reset()
 	convey.Convey("test check pod in cache", t, func() {
-		client, _ := newTestClientK8s()
 		pod1UpdateTime := time.Now().Add(-time.Hour).Add(-time.Minute)
 		expectNewPodCache := map[types.UID]*podInfo{}
 		podCache = map[types.UID]*podInfo{
@@ -302,6 +326,10 @@ func TestCheckPodInCache01(t *testing.T) {
 
 // TestCheckPodInCache02 test case for check pod in cache
 func TestCheckPodInCache02(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestCheckPodInCache02 init kubernetes failed")
+	}
 	pod2 := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       "xxxxxxxxx2",
@@ -315,7 +343,6 @@ func TestCheckPodInCache02(t *testing.T) {
 	})
 	defer patch1.Reset()
 	convey.Convey("test check pod in cache", t, func() {
-		client, _ := newTestClientK8s()
 		pod2UpdateTime := time.Now().Add(-time.Minute)
 		expectNewPodCache := map[types.UID]*podInfo{
 			"xxxxxxxxx2": {
