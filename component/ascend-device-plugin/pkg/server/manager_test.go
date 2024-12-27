@@ -16,6 +16,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -178,6 +179,8 @@ func TestUpdateNode(t *testing.T) {
 			return testLabel, nil
 		})
 	defer mockGetNewNodeLabel.Reset()
+	mockMarshal := gomonkey.ApplyFuncReturn(json.Marshal, new([]byte), nil)
+	defer mockMarshal.Reset()
 	convey.Convey("test update node when get node error", t, func() {
 		err := hdm.UpdateNode()
 		convey.So(err.Error(), convey.ShouldEqual, "update node label failed")
