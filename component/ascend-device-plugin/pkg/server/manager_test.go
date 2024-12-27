@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -169,12 +168,6 @@ func TestUpdateNode(t *testing.T) {
 		err := hdm.UpdateNode()
 		convey.So(err.Error(), convey.ShouldEqual, "GetNode error")
 	})
-	testLabel := make(map[string]string)
-	testLabel[common.ServerTypeLabelKey] = common.ParamOption.RealCardType +
-		common.MiddelLine + strconv.Itoa(int(common.ParamOption.AiCoreCount))
-	mockGetNewNodeLabel := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(HwDevManager)), "getNewNodeLabel",
-		func(_ *HwDevManager, _ *v1.Node) (map[string]string, error) { return testLabel, nil })
-	defer mockGetNewNodeLabel.Reset()
 	mockMarshal := gomonkey.ApplyFuncReturn(json.Marshal, []byte{0}, nil)
 	defer mockMarshal.Reset()
 	mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
