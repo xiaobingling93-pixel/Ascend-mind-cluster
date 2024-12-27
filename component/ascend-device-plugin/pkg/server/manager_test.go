@@ -175,7 +175,7 @@ func TestUpdateNode(t *testing.T) {
 	mockGetNewNodeLabel := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(HwDevManager)), "getNewNodeLabel",
 		func(_ *HwDevManager, _ *v1.Node) (map[string]string, error) { return testLabel, nil })
 	defer mockGetNewNodeLabel.Reset()
-	mockMarshal := gomonkey.ApplyFuncReturn(json.Marshal, new([]byte), nil)
+	mockMarshal := gomonkey.ApplyFuncReturn(json.Marshal, []byte{0}, nil)
 	defer mockMarshal.Reset()
 	mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
 		*v1.Node, error) {
