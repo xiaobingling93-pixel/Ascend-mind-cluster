@@ -62,7 +62,7 @@ func createFile(filePath string) error {
 	return f.Chmod(common.SocketChmod)
 }
 
-// TestTestNewHwDevManager for testTestNewHwDevManager
+// TestNewHwDevManager for testNewHwDevManager
 func TestNewHwDevManager(t *testing.T) {
 	patch := setPatch()
 	defer patch.Reset()
@@ -101,6 +101,38 @@ func TestNewHwDevManager(t *testing.T) {
 			res := NewHwDevManager(&devmanager.DeviceManagerMock{})
 			convey.So(res, convey.ShouldNotBeNil)
 		})
+	})
+}
+
+// TestSetAscendManager for testSetAscendManager
+func TestSetAscendManager(t *testing.T) {
+	var hdm HwDevManager
+	devM := &devmanager.DeviceManagerMock{}
+	mockGetChipAiCoreCount := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetChipAiCoreCount",
+		func(_ *device.AscendTools) (int32, error) {
+			return common.DeviceNotSupport, nil
+		})
+	defer mockGetChipAiCoreCount.Reset()
+	convey.Convey("test devType is Ascend310", t, func() {
+		mockGetDevType := gomonkey.ApplyFuncReturn(devmanager.DeviceManager.GetDevType, common.Ascend310)
+		defer mockGetDevType.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test devType is Ascend310P", t, func() {
+		mockGetDevType := gomonkey.ApplyFuncReturn(devmanager.DeviceManager.GetDevType, common.Ascend310P)
+		defer mockGetDevType.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test GetChipAiCoreCount return error", t, func() {
+		mockGetChipAiCoreCount = gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetChipAiCoreCount",
+			func(_ *device.AscendTools) (int32, error) {
+				return 0, fmt.Errorf("GetChipAiCoreCount error")
+			})
+		defer mockGetChipAiCoreCount.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err, convey.ShouldEqual, "GetChipAiCoreCount error")
 	})
 }
 
