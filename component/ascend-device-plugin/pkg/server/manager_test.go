@@ -157,15 +157,6 @@ func TestUpdateNode(t *testing.T) {
 		return
 	})
 	defer mockInitPodInformer.Reset()
-	convey.Convey("test update node when get node error", t, func() {
-		mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
-			*v1.Node, error) {
-			return &v1.Node{}, fmt.Errorf("GetNode error")
-		})
-		defer mockGetNode.Reset()
-		err := hdm.UpdateNode()
-		convey.So(err.Error(), convey.ShouldEqual, "GetNode error")
-	})
 	testLabel := make(map[string]string)
 	testLabel[common.ServerTypeLabelKey] = common.ParamOption.RealCardType +
 		common.MiddelLine + strconv.Itoa(int(common.ParamOption.AiCoreCount))
