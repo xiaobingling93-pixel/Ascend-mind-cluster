@@ -168,7 +168,7 @@ func TestUpdateNode(t *testing.T) {
 	})
 	defer mockGetNode.Reset()
 	convey.Convey("test update node when get node error", t, func() {
-		mockGetNode = gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
+		mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
 			*v1.Node, error) {
 			return nil, fmt.Errorf("GetNode error")
 		})
