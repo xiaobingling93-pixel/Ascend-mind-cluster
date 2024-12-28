@@ -215,10 +215,15 @@ func TestGetNewNodeLabel(t *testing.T) {
 			})
 		defer mockGetDeviceUsage.Reset()
 		mockGetValidChipInfo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
-			"GetValidChipInfo", func(_ *devmanager.DeviceManagerMock) (npuCommon.ChipInfo, error) {
-				return npuCommon.ChipInfo{Name: "testName"}, nil
+			"GetValidChipInfo", func(_ *devmanager.DeviceManagerMock, _ int32) (npuCommon.BoardInfo, error) {
+				return npuCommon.BoardInfo{BoardId: common.A300IA2BoardId}, nil
 			})
 		defer mockGetValidChipInfo.Reset()
+		mockGetBoardInfo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+			"GetBoardInfo", func(_ *devmanager.DeviceManagerMock) (npuCommon.ChipInfo, error) {
+				return npuCommon.ChipInfo{Name: "testName"}, nil
+			})
+		defer mockGetBoardInfo.Reset()
 		mockIsContainAll300IDuo := gomonkey.ApplyFuncReturn(common.IsContainAll300IDuo, true)
 		defer mockIsContainAll300IDuo.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
