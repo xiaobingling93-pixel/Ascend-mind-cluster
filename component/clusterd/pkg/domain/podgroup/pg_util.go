@@ -93,25 +93,11 @@ func JudgeIsRunningByJobKey(jobKey string) bool {
 	return podGroup.Status.Phase == v1beta1.PodGroupRunning
 }
 
-// GetPGByPod get PodGroup by pod info
-func GetPGByPod(jobKey string) (jobName, pgName, namespace string) {
-	podJobMap := pod.GetPodByJobId(jobKey)
-	for _, po := range podJobMap {
-		jobName, pgName, namespace = pod.GetPGInfo(&po)
-		if jobName != "" && pgName != "" && namespace != "" {
-			return jobName, pgName, namespace
-		}
-	}
-
-	hwlog.RunLog.Errorf("job(uid=%s) relative pods is empty, get pgName, jobName failed", jobKey)
-	return
-}
-
 // GetPGFromCacheOrPod return job's name, podGroup name and namespace
 func GetPGFromCacheOrPod(jobKey string) (jobName, pgName, namespace string) {
 	pg := GetPodGroup(jobKey)
 	if pg.Name == "" {
-		return GetPGByPod(jobKey)
+		return pod.GetPGByPod(jobKey)
 	}
 	return GetJobNameByPG(&pg), pg.GetName(), pg.Namespace
 }
