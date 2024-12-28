@@ -208,10 +208,16 @@ func TestGetNewNodeLabel(t *testing.T) {
 			Name:   "node",
 		}}
 	convey.Convey("test getNewNodeLabel success", t, func() {
-		mockGetDeviceUsage := gomonkey.ApplyMethod(&device.AscendTools{}, "GetDeviceUsage", func(_ *device.AscendTools) string {
-			return common.Infer
-		})
+		mockGetDeviceUsage := gomonkey.ApplyMethod(&device.AscendTools{}, "GetDeviceUsage",
+			func(_ *device.AscendTools) string {
+				return common.Infer
+			})
 		defer mockGetDeviceUsage.Reset()
+		mockUpdateChipNameToNode := gomonkey.ApplyMethod(reflect.TypeOf(new(HwDevManager)), "updateChipNameToNode",
+			func(_ *HwDevManager) (map[string]string, error) {
+				return map[string]string{common.ChipNameLabel: "testName"}, nil
+			})
+		defer mockUpdateChipNameToNode.Reset()
 		mockIsContainAll300IDuo := gomonkey.ApplyFuncReturn(common.IsContainAll300IDuo, true)
 		defer mockIsContainAll300IDuo.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
