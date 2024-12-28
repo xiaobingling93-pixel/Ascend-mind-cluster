@@ -208,10 +208,8 @@ func TestGetNewNodeLabel(t *testing.T) {
 			Labels: map[string]string{common.ServerTypeLabelKey: "test server type"},
 			Name:   "node",
 		}}
-	mockGetDmgr := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetDmgr", func(
-		_ *device.AscendTools) devmanager.DeviceInterface {
-		return &devmanager.DeviceManagerMock{}
-	})
+	mockGetDmgr := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetDmgr",
+		func(_ *device.AscendTools) devmanager.DeviceInterface { return &devmanager.DeviceManagerMock{} })
 	defer mockGetDmgr.Reset()
 	convey.Convey("test getNewNodeLabel when chip info error", t, func() {
 		mockGetValidChipInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
@@ -221,7 +219,7 @@ func TestGetNewNodeLabel(t *testing.T) {
 		defer mockGetValidChipInfo.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
 		convey.So(labelMap, convey.ShouldBeNil)
-		convey.So(err, convey.ShouldEqual, "chip info error")
+		convey.So(err.Error(), convey.ShouldEqual, "chip info error")
 	})
 	convey.Convey("test getNewNodeLabel success", t, func() {
 		mockGetDeviceUsage := gomonkey.ApplyMethod(&device.AscendTools{}, "GetDeviceUsage",
@@ -242,7 +240,8 @@ func TestGetNewNodeLabel(t *testing.T) {
 		mockIsContainAll300IDuo := gomonkey.ApplyFuncReturn(common.IsContainAll300IDuo, true)
 		defer mockIsContainAll300IDuo.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
-		convey.So(labelMap, convey.ShouldResemble, make(map[string]string))
+		convey.So(labelMap, convey.ShouldEqual, map[string]string{common.InferCardKey: common.A300IDuoLabel,
+			common.ChipNameLabel: "testName"})
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
