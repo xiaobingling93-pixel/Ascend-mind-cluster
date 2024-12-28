@@ -214,12 +214,12 @@ func TestGetNewNodeLabel(t *testing.T) {
 				return common.Infer
 			})
 		defer mockGetDeviceUsage.Reset()
-		mockGetValidChipInfo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+		mockGetValidChipInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
 			"GetValidChipInfo", func(_ *devmanager.DeviceManagerMock, _ int32) (npuCommon.BoardInfo, error) {
 				return npuCommon.BoardInfo{BoardId: common.A300IA2BoardId}, nil
 			})
 		defer mockGetValidChipInfo.Reset()
-		mockGetBoardInfo := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+		mockGetBoardInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
 			"GetBoardInfo", func(_ *devmanager.DeviceManagerMock) (npuCommon.ChipInfo, error) {
 				return npuCommon.ChipInfo{Name: "testName"}, nil
 			})
