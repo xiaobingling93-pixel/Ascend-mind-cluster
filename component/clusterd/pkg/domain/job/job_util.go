@@ -125,7 +125,7 @@ func UpdateCmAndCache(status string, jobInfo constant.JobInfo, podGroup v1beta1.
 	if completedPodNum == jobInfo.Replicas {
 		jobInfo.JobRankTable.Status = StatusRankTableComplete
 		jobInfo.PreServerList = jobInfo.JobRankTable.ServerList
-		initJobShareTorInfo(jobInfo, podJobMap)
+		initJobShareTorInfo(&jobInfo, podJobMap)
 	} else {
 		jobInfo.JobRankTable.Status = StatusRankTableInit
 	}
@@ -145,7 +145,7 @@ func UpdateCmAndCache(status string, jobInfo constant.JobInfo, podGroup v1beta1.
 	}
 }
 
-func initJobShareTorInfo(jobInfo constant.JobInfo, podJobMap map[string]v1.Pod) {
+func initJobShareTorInfo(jobInfo *constant.JobInfo, podJobMap map[string]v1.Pod) {
 	if jobInfo.Framework != ptFramework {
 		return
 	}
@@ -160,7 +160,6 @@ func initJobShareTorInfo(jobInfo constant.JobInfo, podJobMap map[string]v1.Pod) 
 	} else {
 		jobInfo.MasterAddr = pod.GetEnvByPod(podJobMap, masterAddr)
 	}
-
 }
 
 func getHcclSlice(table constant.RankTable) []string {
