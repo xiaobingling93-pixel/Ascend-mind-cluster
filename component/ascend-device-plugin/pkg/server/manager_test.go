@@ -208,6 +208,10 @@ func TestGetNewNodeLabel(t *testing.T) {
 			Name:   "node",
 		}}
 	convey.Convey("test getNewNodeLabel success", t, func() {
+		mockGetDeviceUsage := gomonkey.ApplyMethod(&HwDevManager{}, "GetDeviceUsage", func(_ *HwDevManager) string {
+			return common.Infer
+		})
+		defer mockGetDeviceUsage.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
 		convey.So(err, convey.ShouldBeNil)
 		convey.So(labelMap, convey.ShouldResemble, make(map[string]string))
