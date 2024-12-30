@@ -16,6 +16,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -33,6 +34,7 @@ import (
 	"Ascend-device-plugin/pkg/device"
 	"Ascend-device-plugin/pkg/kubeclient"
 	"ascend-common/devmanager"
+	npuCommon "ascend-common/devmanager/common"
 )
 
 const (
@@ -62,7 +64,7 @@ func createFile(filePath string) error {
 	return f.Chmod(common.SocketChmod)
 }
 
-// TestTestNewHwDevManager for testTestNewHwDevManager
+// TestNewHwDevManager for testNewHwDevManager
 func TestNewHwDevManager(t *testing.T) {
 	patch := setPatch()
 	defer patch.Reset()
@@ -101,6 +103,146 @@ func TestNewHwDevManager(t *testing.T) {
 			res := NewHwDevManager(&devmanager.DeviceManagerMock{})
 			convey.So(res, convey.ShouldNotBeNil)
 		})
+	})
+}
+
+// TestSetAscendManager for testSetAscendManager
+func TestSetAscendManager(t *testing.T) {
+	var hdm HwDevManager
+	devM := &devmanager.DeviceManagerMock{}
+	mockGetChipAiCoreCount := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetChipAiCoreCount",
+		func(_ *device.AscendTools) (int32, error) {
+			return common.DeviceNotSupport, nil
+		})
+	defer mockGetChipAiCoreCount.Reset()
+	convey.Convey("test devType is Ascend310", t, func() {
+		mockGetDevType := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)), "GetDevType",
+			func(_ *devmanager.DeviceManagerMock) string {
+				return common.Ascend310
+			})
+		defer mockGetDevType.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test devType is Ascend310P", t, func() {
+		mockGetDevType := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)), "GetDevType",
+			func(_ *devmanager.DeviceManagerMock) string {
+				return common.Ascend310P
+			})
+		defer mockGetDevType.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test GetChipAiCoreCount return error", t, func() {
+		mockGetChipAiCoreCount = gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetChipAiCoreCount",
+			func(_ *device.AscendTools) (int32, error) {
+				return 0, fmt.Errorf("GetChipAiCoreCount error")
+			})
+		defer mockGetChipAiCoreCount.Reset()
+		err := hdm.setAscendManager(devM)
+		convey.So(err.Error(), convey.ShouldEqual, "GetChipAiCoreCount error")
+	})
+}
+
+// TestUpdateNode for test update node
+func TestUpdateNode(t *testing.T) {
+	var hdm HwDevManager
+	hdm.manager = device.NewHwAscend310Manager()
+	convey.Convey("test update node when scene is edge", t, func() {
+		tmpBuildScene := common.ParamOption.BuildScene
+		common.ParamOption.BuildScene = common.EdgeScene
+		err := hdm.UpdateNode()
+		convey.So(err, convey.ShouldBeNil)
+		common.ParamOption.BuildScene = tmpBuildScene
+	})
+	mockInitPodInformer := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "InitPodInformer", func(_ *kubeclient.ClientK8s) {})
+	defer mockInitPodInformer.Reset()
+	convey.Convey("test update node when get node error", t, func() {
+		mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
+			*v1.Node, error) {
+			return &v1.Node{}, fmt.Errorf("GetNode error")
+		})
+		defer mockGetNode.Reset()
+		err := hdm.UpdateNode()
+		convey.So(err.Error(), convey.ShouldEqual, "GetNode error")
+	})
+	mockMarshal := gomonkey.ApplyFuncReturn(json.Marshal, []byte{0}, nil)
+	defer mockMarshal.Reset()
+	convey.Convey("test update node when update node label success", t, func() {
+		testLabel := map[string]string{"testKey": "testValue"}
+		mockGetNewNodeLabel := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(HwDevManager)), "getNewNodeLabel",
+			func(_ *HwDevManager, _ *v1.Node) (map[string]string, error) { return testLabel, nil })
+		defer mockGetNewNodeLabel.Reset()
+		mockGetNode := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "GetNode", func(_ *kubeclient.ClientK8s) (
+			*v1.Node, error) {
+			return &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: make(map[string]string),
+					Labels:      make(map[string]string),
+					Name:        "node",
+				},
+				Status: v1.NodeStatus{Addresses: getAddresses()},
+			}, nil
+		})
+		defer mockGetNode.Reset()
+		mockPatchNodeState := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "PatchNodeState", func(
+			_ *kubeclient.ClientK8s, _, _ *v1.Node) (*v1.Node, []byte, error) {
+			return &v1.Node{}, []byte{}, nil
+		})
+		defer mockPatchNodeState.Reset()
+		err := hdm.UpdateNode()
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+// TestGetNewNodeLabel for test getNewNodeLabel
+func TestGetNewNodeLabel(t *testing.T) {
+	hdm := &HwDevManager{
+		manager: device.NewHwAscend310Manager(),
+		allInfo: common.NpuAllInfo{
+			AllDevs: []common.NpuDevice{{LogicID: 0}},
+		},
+	}
+	testNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{common.ServerTypeLabelKey: "test server type"},
+			Name:   "node",
+		}}
+	mockGetDmgr := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)), "GetDmgr",
+		func(_ *device.AscendTools) devmanager.DeviceInterface { return &devmanager.DeviceManagerMock{} })
+	defer mockGetDmgr.Reset()
+	convey.Convey("test getNewNodeLabel when chip info error", t, func() {
+		mockGetValidChipInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+			"GetValidChipInfo", func(_ *devmanager.DeviceManagerMock) (npuCommon.ChipInfo, error) {
+				return npuCommon.ChipInfo{}, fmt.Errorf("chip info error")
+			})
+		defer mockGetValidChipInfo.Reset()
+		labelMap, err := hdm.getNewNodeLabel(testNode)
+		convey.So(labelMap, convey.ShouldBeNil)
+		convey.So(err.Error(), convey.ShouldEqual, "chip info error")
+	})
+	convey.Convey("test getNewNodeLabel success", t, func() {
+		mockGetDeviceUsage := gomonkey.ApplyMethod(&device.AscendTools{}, "GetDeviceUsage",
+			func(_ *device.AscendTools) string {
+				return common.Infer
+			})
+		defer mockGetDeviceUsage.Reset()
+		mockGetBoardInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+			"GetBoardInfo", func(_ *devmanager.DeviceManagerMock, _ int32) (npuCommon.BoardInfo, error) {
+				return npuCommon.BoardInfo{BoardId: common.A300IA2BoardId}, nil
+			})
+		defer mockGetBoardInfo.Reset()
+		mockGetValidChipInfo := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+			"GetValidChipInfo", func(_ *devmanager.DeviceManagerMock) (npuCommon.ChipInfo, error) {
+				return npuCommon.ChipInfo{Name: "testName"}, nil
+			})
+		defer mockGetValidChipInfo.Reset()
+		mockIsContainAll300IDuo := gomonkey.ApplyFuncReturn(common.IsContainAll300IDuo, true)
+		defer mockIsContainAll300IDuo.Reset()
+		labelMap, err := hdm.getNewNodeLabel(testNode)
+		convey.So(labelMap, convey.ShouldResemble, map[string]string{common.InferCardKey: common.A300IDuoLabel,
+			common.ChipNameLabel: "testName"})
+		convey.So(err, convey.ShouldBeNil)
 	})
 }
 
