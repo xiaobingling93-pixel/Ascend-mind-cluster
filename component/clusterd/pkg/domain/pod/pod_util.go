@@ -287,3 +287,17 @@ func shouldAllocated(containers []v1.Container) bool {
 	}
 	return false
 }
+
+// GetPGByPod get PodGroup by pod info
+func GetPGByPod(jobKey string) (jobName, pgName, namespace string) {
+	podJobMap := GetPodByJobId(jobKey)
+	for _, po := range podJobMap {
+		jobName, pgName, namespace = GetPGInfo(&po)
+		if jobName != "" && pgName != "" && namespace != "" {
+			return jobName, pgName, namespace
+		}
+	}
+
+	hwlog.RunLog.Errorf("job(uid=%s) relative pods is empty, get pgName, jobName failed", jobKey)
+	return
+}
