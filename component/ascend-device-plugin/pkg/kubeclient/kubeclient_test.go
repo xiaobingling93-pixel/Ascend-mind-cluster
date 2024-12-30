@@ -16,8 +16,11 @@ Copyright(C) 2024. Huawei Technologies Co.,Ltd. All rights reserved.
 package kubeclient
 
 import (
-	"Ascend-device-plugin/pkg/common"
 	"fmt"
+	"os"
+	"reflect"
+	"testing"
+
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	v1 "k8s.io/api/core/v1"
@@ -29,9 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-helpers/node/util"
-	"os"
-	"reflect"
-	"testing"
+
+	"Ascend-device-plugin/pkg/common"
 )
 
 // TestNewClientK8s test create k8s client

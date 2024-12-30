@@ -71,7 +71,7 @@ func TestUpdatePodList(t *testing.T) {
 		}
 		convey.So(podCache, convey.ShouldResemble, expectPodCache)
 	})
-	convey.Convey("test update pod list when operator is EventTypeUpdate", t, func() {
+	convey.Convey("test update pod list when operator is EventTypeDelete", t, func() {
 		UpdatePodList(nil, testPod, EventTypeDelete)
 		convey.So(podCache, convey.ShouldResemble, make(map[types.UID]*podInfo))
 	})
