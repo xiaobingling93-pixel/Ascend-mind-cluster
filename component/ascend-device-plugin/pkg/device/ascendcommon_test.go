@@ -16,6 +16,8 @@
 package device
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -74,6 +76,75 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 	return newGroupDevice
 }
 
+// TestGetChipAICore for test GetChipAICore
+func TestGetChipAICore(t *testing.T) {
+	convey.Convey("test GetChipAICore", t, func() {
+		// 01-stub ParamOption, get chip ai core success, should be equal to coreCnt
+		coreCnt := int32(8)
+		tool := mockAscendTools()
+		mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{AiCoreCount: coreCnt})
+		defer mockOption.Reset()
+		convey.So(tool.GetChipAICore() == coreCnt, convey.ShouldBeTrue)
+	})
+}
+
+// TestGetName for test GetName
+func TestGetName(t *testing.T) {
+	convey.Convey("test GetName", t, func() {
+		// 01-get ascend tools name success, should be equal to toolName
+		tool := mockAscendTools()
+		toolName := "mock tool"
+		tool.name = toolName
+		convey.So(tool.GetName() == toolName, convey.ShouldBeTrue)
+	})
+}
+
+// TestConvertLogicIDsToDeviceNames for test convertLogicIDsToDeviceNames
+func TestConvertLogicIDsToDeviceNames(t *testing.T) {
+	convey.Convey("test convertLogicIDsToDeviceNames", t, func() {
+		convey.Convey("01-get device run mode failed, should return empty string", func() {
+			tool := mockAscendTools()
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{RealCardType: ""})
+			defer mockOption.Reset()
+			logicIds := []int32{3}
+			convey.So(tool.convertLogicIDsToDeviceNames(logicIds), convey.ShouldEqual, "")
+		})
+		convey.Convey("02-convert logic ids to device names success, should return Ascend910-1", func() {
+			tool := mockAscendTools()
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{RealCardType: common.Ascend910A3})
+			defer mockOption.Reset()
+			logicIds := []int32{3}
+			convey.So(tool.convertLogicIDsToDeviceNames(logicIds), convey.ShouldEqual, "Ascend910-1")
+		})
+	})
+}
+
+// TestHandleManuallySeparateNPUFaultInfo for test  handleManuallySeparateNPUFaultInfo
+func TestHandleManuallySeparateNPUFaultInfo(t *testing.T) {
+	convey.Convey("test handleManuallySeparateNPUFaultInfo", t, func() {
+		convey.Convey("01-get device run mode fail, should return empty string", func() {
+			tool := mockAscendTools()
+			convey.So(tool.handleManuallySeparateNPUFaultInfo(), convey.ShouldEqual, "")
+		})
+		tool := mockAscendTools()
+		mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{RealCardType: common.Ascend910A3})
+		defer mockOption.Reset()
+		convey.Convey("02-manually fault cache is empty, should return empty string", func() {
+			convey.So(tool.handleManuallySeparateNPUFaultInfo(), convey.ShouldEqual, "")
+		})
+		mockStatus := gomonkey.ApplyFuncReturn(common.QueryManuallyFaultNPULogicIDsByHandleStatus, []int32{3})
+		defer mockStatus.Reset()
+		mockMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetManuallySeparateNPUIDFromDeviceInfo",
+			func(_ *kubeclient.ClientK8s, deviceInfoCMName, deviceInfoCMNamespace string) []int32 {
+				return []int32{1}
+			})
+		defer mockMethod.Reset()
+		convey.Convey("03-handle fault info success, manually separate npu 1, should return Ascend910-1", func() {
+			convey.So(tool.handleManuallySeparateNPUFaultInfo(), convey.ShouldEqual, "Ascend910-1")
+		})
+	})
+}
+
 // TestIsDeviceStatusChange testIsDeviceStatusChange
 func TestIsDeviceStatusChange(t *testing.T) {
 	tool := mockAscendTools()
@@ -94,6 +165,407 @@ func TestIsDeviceStatusChange(t *testing.T) {
 		tool.UpdateHealth(devices, aiCoreDevice, common.Ascend310P)
 		res := tool.GetChange(devices, oldDevice)
 		convey.So(res, convey.ShouldNotBeNil)
+	})
+}
+
+// TestSetAICoreHealthyIfVNpu for test setAICoreHealthyIfVNpu
+func TestSetAICoreHealthyIfVNpu(t *testing.T) {
+	convey.Convey("test setAICoreHealthyIfVNpu", t, func() {
+		groupDevices := map[string][]*common.NpuDevice{common.Ascend910: {{LogicID: 1, Health: v1beta1.Healthy}}}
+		aiCoreDevs := []*common.NpuDevice{{LogicID: 1, Health: v1beta1.Unhealthy}}
+		convey.Convey("01-presetVDevice is false, not update aiCoreDevs", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{PresetVDevice: false})
+			defer mockOption.Reset()
+			setAICoreHealthyIfVNpu(groupDevices, aiCoreDevs)
+			convey.So(aiCoreDevs[0].Health == v1beta1.Healthy, convey.ShouldBeTrue)
+		})
+		convey.Convey("presetVDevice is true, update aiCoreDevs, aiCoreDevs[0] should be Unhealthy", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{PresetVDevice: true})
+			defer mockOption.Reset()
+			setAICoreHealthyIfVNpu(groupDevices, aiCoreDevs)
+			convey.So(aiCoreDevs[0].Health == v1beta1.Healthy, convey.ShouldBeFalse)
+		})
+	})
+}
+
+// TestSetHealthyIfDuoCard for test setHealthyIfDuoCard
+func TestSetHealthyIfDuoCard(t *testing.T) {
+	convey.Convey("test setHealthyIfDuoCard", t, func() {
+		convey.Convey("01-not contain atlas 300IDuo, should not update groupDevice", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ProductTypes: []string{}})
+			defer mockOption.Reset()
+			setHealthyIfDuoCard(map[string][]*common.NpuDevice{})
+		})
+		convey.Convey("02-HotReset is false, should not update groupDevice", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ProductTypes: []string{common.Atlas300IDuo}, HotReset: common.HotResetTrainOnLine})
+			defer mockOption.Reset()
+			setHealthyIfDuoCard(map[string][]*common.NpuDevice{})
+		})
+		convey.Convey("03-not found devices, should not update groupDevice", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ProductTypes: []string{common.Atlas300IDuo}, HotReset: common.HotResetInfer})
+			defer mockOption.Reset()
+			setHealthyIfDuoCard(map[string][]*common.NpuDevice{})
+		})
+		convey.Convey("04-update unhealthy card status, should update groupDevice", func() {
+			mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ProductTypes: []string{common.Atlas300IDuo}, HotReset: common.HotResetInfer})
+			defer mockOption.Reset()
+			groupDevices := map[string][]*common.NpuDevice{
+				common.Ascend310P: {{CardID: 0, Health: v1beta1.Healthy}, {CardID: 0, Health: v1beta1.Unhealthy}},
+			}
+			setHealthyIfDuoCard(groupDevices)
+			convey.So(groupDevices[common.Ascend310P][0].Health == v1beta1.Healthy, convey.ShouldBeFalse)
+		})
+	})
+}
+
+// TestIsHealthy for test isHealthy
+func TestIsHealthy(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test isHealthy", t, func() {
+		device := &common.NpuDevice{
+			FaultCodes: []int64{int64(0x80C98008), int64(0x80CB8008)},
+			LogicID:    0,
+			DeviceName: "Ascend910-0",
+		}
+		convey.Convey("01-normal npu is healthy, device should be healthy", func() {
+			mockFaultType := gomonkey.ApplyFuncReturn(common.GetFaultType, common.NormalNPU)
+			defer mockFaultType.Reset()
+			convey.So(tool.isHealthy(device) == v1beta1.Healthy, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-PreSeparate npu is healthy and npu is used now, device should be healthy", func() {
+			mockFaultType := gomonkey.ApplyFuncReturn(common.GetFaultType, common.PreSeparateNPU)
+			defer mockFaultType.Reset()
+			mockNpuIsUseNow := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(AscendTools)), "npuIsUsedNow",
+				func(_ *AscendTools, deviceName string) bool { return true })
+			defer mockNpuIsUseNow.Reset()
+			convey.So(tool.isHealthy(device) == v1beta1.Healthy, convey.ShouldBeTrue)
+		})
+		convey.Convey("03-PreSeparate npu is healthy and npu is not used now, device should be unhealthy", func() {
+			mockFaultType := gomonkey.ApplyFuncReturn(common.GetFaultType, common.PreSeparateNPU)
+			defer mockFaultType.Reset()
+			mockNpuIsUseNow := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(AscendTools)), "npuIsUsedNow",
+				func(_ *AscendTools, deviceName string) bool { return false })
+			defer mockNpuIsUseNow.Reset()
+			convey.So(tool.isHealthy(device) == v1beta1.Unhealthy, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestIsNetworkHealthy for test isNetworkHealthy
+func TestIsNetworkHealthy(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test isNetworkHealthy", t, func() {
+		device := &common.NpuDevice{}
+		convey.Convey("01-network faultType is NormalNpu, network should be healthy", func() {
+			mockFaultType := gomonkey.ApplyFuncReturn(common.GetNetworkFaultType, common.NormalNPU)
+			defer mockFaultType.Reset()
+			convey.So(tool.isNetworkHealthy(device) == v1beta1.Healthy, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-network faultType is PreSeparateNpu, network should be unhealthy", func() {
+			mockFaultType := gomonkey.ApplyFuncReturn(common.GetNetworkFaultType, common.PreSeparateNPU)
+			defer mockFaultType.Reset()
+			convey.So(tool.isNetworkHealthy(device) == v1beta1.Unhealthy, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestMoreThanFiveMin for test moreThanFiveMin
+func TestMoreThanFiveMin(t *testing.T) {
+	convey.Convey("test moreThanFiveMin", t, func() {
+		// 01-AlarmRaisedTime is 0, should return false
+		device := &common.NpuDevice{AlarmRaisedTime: 0}
+		convey.So(moreThanFiveMin(device), convey.ShouldBeFalse)
+		// 02-more then five minutes, should return true
+		device.AlarmRaisedTime = 3000
+		convey.So(moreThanFiveMin(device), convey.ShouldBeTrue)
+	})
+}
+
+// TestNetworkMoreThanFiveMin for test networkMoreThanFiveMin
+func TestNetworkMoreThanFiveMin(t *testing.T) {
+	convey.Convey("test networkMoreThanFiveMin", t, func() {
+		// 01-AlarmRaisedTime is 0, should return false
+		device := &common.NpuDevice{NetworkAlarmRaisedTime: 0}
+		convey.So(networkMoreThanFiveMin(device), convey.ShouldBeFalse)
+		// 02-more then five minutes, should return true
+		device.NetworkAlarmRaisedTime = 3000
+		convey.So(networkMoreThanFiveMin(device), convey.ShouldBeTrue)
+	})
+}
+
+// TestLogFaultModeChange for test LogFaultModeChange
+func TestLogFaultModeChange(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test LogFaultModeChange", t, func() {
+		convey.Convey("01-faultMode is empty, should update fault mode", func() {
+			device := &common.NpuDevice{LogicID: 1}
+			mockFaultMode := gomonkey.ApplyGlobalVar(&faultMode, map[int32]string{})
+			defer mockFaultMode.Reset()
+			tool.LogFaultModeChange(device, []int32{0, 1}, common.Polling)
+			convey.So(faultMode[1] == common.Polling, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-old mode is equal to new mode, should not update fault mode", func() {
+			device := &common.NpuDevice{LogicID: 1}
+			mockFaultMode := gomonkey.ApplyGlobalVar(&faultMode, map[int32]string{1: common.Polling})
+			defer mockFaultMode.Reset()
+			tool.LogFaultModeChange(device, []int32{0, 1}, common.Polling)
+			convey.So(faultMode[1] == common.Polling, convey.ShouldBeTrue)
+		})
+		convey.Convey("03-old mode is different from new mode, should update fault mode", func() {
+			device := &common.NpuDevice{LogicID: 1, Health: v1beta1.Unhealthy, AlarmRaisedTime: 3000}
+			mockFaultMode := gomonkey.ApplyGlobalVar(&faultMode, map[int32]string{1: common.Subscribe})
+			defer mockFaultMode.Reset()
+			tool.LogFaultModeChange(device, []int32{0, 1}, common.Polling)
+			convey.So(faultMode[1] == common.Polling, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestGetNPUsByShareMode for test getNPUsByShareMode
+func TestGetNPUsByShareMode(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test getNPUsByShareMode", t, func() {
+		// 01-stub ShareCount, get npu by share mode success, share devices number is equal to ShareCount
+		mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ShareCount: 2})
+		defer mockOption.Reset()
+		davinCiDev := common.DavinCiDev{LogicID: 1, PhyID: 1, CardID: 1, IP: "127.0.0.1"}
+		devs := tool.getNPUsByShareMode(davinCiDev)
+		convey.So(len(devs) == 2, convey.ShouldBeTrue)
+		convey.So(devs[0].IP == "127.0.0.1", convey.ShouldBeTrue)
+		convey.So(devs[0].DeviceName == "Ascend910-1-0", convey.ShouldBeTrue)
+	})
+}
+
+// TestAssembleShareModeDevices for test assembleShareModeDevices
+func TestAssembleShareModeDevices(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test assembleShareModeDevices", t, func() {
+		// 01-get npu by share mode success, update npuDevs ans devTypes
+		mockOption := gomonkey.ApplyGlobalVar(&common.ParamOption, common.Option{ShareCount: 1})
+		defer mockOption.Reset()
+		davinCiDev := common.DavinCiDev{LogicID: 1, PhyID: 1, CardID: 1, IP: "127.0.0.1"}
+		npuDevs := &[]common.NpuDevice{}
+		devTypes := &[]string{}
+		tool.assembleShareModeDevices(davinCiDev, npuDevs, devTypes)
+		convey.So(len(*npuDevs) == 1, convey.ShouldBeTrue)
+		convey.So(len(*devTypes) == 1, convey.ShouldBeTrue)
+		convey.So((*npuDevs)[0].IP == "127.0.0.1", convey.ShouldBeTrue)
+	})
+}
+
+// TestSetDeviceUsage for test SetDeviceUsage
+func TestSetDeviceUsage(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test SetDeviceUsage", t, func() {
+		convey.Convey("01-node info is nil, should return error", func() {
+			mockGetNodeMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+				"GetNode", func(_ *kubeclient.ClientK8s) (*v1.Node, error) {
+					return nil, errors.New("node is nil")
+				})
+			defer mockGetNodeMethod.Reset()
+			convey.So(tool.SetDeviceUsage(2), convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-Nodes are used for inference, should return nil", func() {
+			node := getMockNode()
+			node.Labels[common.ServerUsageLabelKey] = common.Infer
+			mockGetNodeMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+				"GetNode", func(_ *kubeclient.ClientK8s) (*v1.Node, error) { return node, nil })
+			defer mockGetNodeMethod.Reset()
+			convey.So(tool.SetDeviceUsage(2), convey.ShouldBeNil)
+		})
+		node := getMockNode()
+		node.Labels[common.ServerUsageLabelKey] = common.Train
+		mockGetNodeMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+			"GetNode", func(_ *kubeclient.ClientK8s) (*v1.Node, error) { return node, nil })
+		defer mockGetNodeMethod.Reset()
+		convey.Convey("03-get board error, should return error", func() {
+			mockGetServerBoardIdMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(AscendTools)),
+				"GetServerBoardId", func(_ *AscendTools, devLogicID int32) (uint32, error) {
+					return 0, errors.New("get board error")
+				})
+			defer mockGetServerBoardIdMethod.Reset()
+			convey.So(tool.SetDeviceUsage(2), convey.ShouldNotBeNil)
+		})
+		convey.Convey("04-get board success, should return nil", func() {
+			mockGetServerBoardIdMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(AscendTools)),
+				"GetServerBoardId", func(_ *AscendTools, devLogicID int32) (uint32, error) {
+					return 0x3c, nil
+				})
+			defer mockGetServerBoardIdMethod.Reset()
+			convey.So(tool.SetDeviceUsage(2), convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestGetServerBoardId for test GetServerBoardId
+func TestGetServerBoardId(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test GetServerBoardId", t, func() {
+		convey.Convey("01-board id is not empty, should return nil", func() {
+			tool.boardId = common.A800IA2NoneHccsBoardId
+			_, err := tool.GetServerBoardId(2)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("02-board id is empty, should return nil", func() {
+			tool.boardId = common.EmptyBoardId
+			boardId, err := tool.GetServerBoardId(2)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(boardId == 0, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestWriteFaultToEvent for test writeFaultToEvent
+func TestWriteFaultToEvent(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test writeFaultToEvent", t, func() {
+		mockDoWriteFaultToEventMethod := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(AscendTools)),
+			"doWriteFaultToEvent", func(_ *AscendTools, faultInfo npuCommon.DevFaultInfo) error {
+				return errors.New("write fault to event fail")
+			})
+		defer mockDoWriteFaultToEventMethod.Reset()
+		faultInfo := []npuCommon.DevFaultInfo{{LogicID: 0, Assertion: 3, EventID: common.CardDropFaultCode}}
+		tool.writeFaultToEvent(faultInfo)
+	})
+}
+
+// TestDoWriteFaultToEvent for test doWriteFaultToEvent
+func TestDoWriteFaultToEvent(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test doWriteFaultToEvent", t, func() {
+		mockGetNodeNameFromEnv := gomonkey.ApplyFuncReturn(kubeclient.GetNodeNameFromEnv, "mock node", nil)
+		defer mockGetNodeNameFromEnv.Reset()
+		mockGetPodNameFromEnv := gomonkey.ApplyFuncReturn(common.GetPodNameFromEnv, "mock pod", nil)
+		defer mockGetPodNameFromEnv.Reset()
+		mockCreateEvent := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+			"CreateEvent", func(_ *kubeclient.ClientK8s, evt *v1.Event) (*v1.Event, error) { return nil, nil })
+		defer mockCreateEvent.Reset()
+		convey.Convey("01-assertion is invalid, should return error", func() {
+			faultInfo := npuCommon.DevFaultInfo{LogicID: 0, Assertion: 3, EventID: common.CardDropFaultCode}
+			convey.So(tool.doWriteFaultToEvent(faultInfo), convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-write fault to event success, should return nil", func() {
+			faultInfo := npuCommon.DevFaultInfo{LogicID: 0, Assertion: npuCommon.FaultRecover, EventID: common.LinkDownFaultCode}
+			convey.So(tool.doWriteFaultToEvent(faultInfo), convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestHandleDropCardFaultEvents for test HandleDropCardFaultEvents
+func TestHandleDropCardFaultEvents(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test HandleDropCardFaultEvents", t, func() {
+		mockSaveDevFaultInfo := gomonkey.ApplyFunc(common.SaveDevFaultInfo, func(devFaultInfo npuCommon.DevFaultInfo) {})
+		defer mockSaveDevFaultInfo.Reset()
+		convey.Convey("01-occur fault event, CardDrop should be true", func() {
+			mockCheckCardDropFault := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(AscendTools)),
+				"checkCardDropFault", func(_ *AscendTools, logicID int32) bool { return true })
+			defer mockCheckCardDropFault.Reset()
+			npuDevice := &common.NpuDevice{LogicID: 1, CardDrop: false}
+			tool.generateCardDropFaultEvents(npuDevice)
+			convey.So(npuDevice.CardDrop, convey.ShouldBeTrue)
+		})
+		convey.Convey("recover fault event, CardDrop should be false", func() {
+			mockCheckCardDropFault := gomonkey.ApplyPrivateMethod(reflect.TypeOf(new(AscendTools)),
+				"checkCardDropFault", func(_ *AscendTools, logicID int32) bool { return false })
+			defer mockCheckCardDropFault.Reset()
+			npuDevice := &common.NpuDevice{LogicID: 1, CardDrop: true}
+			tool.generateCardDropFaultEvents(npuDevice)
+			convey.So(npuDevice.CardDrop, convey.ShouldBeFalse)
+		})
+	})
+}
+
+// TestCheckCardDropFault for test checkCardDropFault
+func TestCheckCardDropFault(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test checkCardDropFault", t, func() {
+		convey.Convey("01-check card drop fault fail, should return false", func() {
+			convey.So(tool.checkCardDropFault(1), convey.ShouldBeFalse)
+		})
+		convey.Convey("02-check card drop fault success, should return true", func() {
+			mockGetDeviceIPAddress := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+				"GetDeviceHealth", func(_ *devmanager.DeviceManagerMock, logicID int32) (uint32, error) {
+					return 0, errors.New("error is " + npuCommon.DeviceNotReadyErrCodeStr)
+				})
+			defer mockGetDeviceIPAddress.Reset()
+			convey.So(tool.checkCardDropFault(1), convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestHandleLostChipFaultEvents for test HandleLostChipFaultEvents
+func TestHandleLostChipFaultEvents(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test HandleLostChipFaultEvents", t, func() {
+		device := &common.NpuDevice{
+			FaultCodes: []int64{},
+			LogicID:    1,
+		}
+		mockGlobalVar := gomonkey.ApplyGlobalVar(&isFirstFlushFault, true)
+		defer mockGlobalVar.Reset()
+		convey.Convey("01-get device all error code fail, devFaultInfoMap should not be updated", func() {
+			mockGetDeviceAllErrorCode := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+				"GetDeviceAllErrorCode", func(_ *devmanager.DeviceManagerMock, logicID int32) (int32, []int64, error) {
+					return 1, nil, errors.New("mock failure message")
+				})
+			defer mockGetDeviceAllErrorCode.Reset()
+			tool.HandleLostChipFaultEvents(device, nil)
+			faultInfo := common.GetAndCleanFaultInfo()
+			convey.So(len(faultInfo) == 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-handle lost chip fault event, devFaultInfoMap should be updated", func() {
+			mockGetDeviceAllErrorCode := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+				"GetDeviceAllErrorCode", func(_ *devmanager.DeviceManagerMock, logicID int32) (int32, []int64, error) {
+					return 1, []int64{common.LinkDownFaultCode, common.CardDropFaultCode}, nil
+				})
+			defer mockGetDeviceAllErrorCode.Reset()
+			tool.HandleLostChipFaultEvents(device, nil)
+			faultInfoMap := common.GetAndCleanFaultInfo()
+			convey.So(len(faultInfoMap) == 1, convey.ShouldBeTrue)
+			faultInfo, ok := faultInfoMap[1]
+			convey.So(ok, convey.ShouldBeTrue)
+			convey.So(len(faultInfo) == 1, convey.ShouldBeTrue)
+			convey.So(faultInfo[0].EventID == common.CardDropFaultCode, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestHandleLostNetworkFaultEvents for test HandleLostNetworkFaultEvents
+func TestHandleLostNetworkFaultEvents(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test HandleLostNetworkFaultEvents", t, func() {
+		device := &common.NpuDevice{
+			FaultCodes: []int64{},
+			LogicID:    1,
+		}
+		mockGlobalVar := gomonkey.ApplyGlobalVar(&isFirstFlushFault, true)
+		defer mockGlobalVar.Reset()
+
+		convey.Convey("01-get device all error code fail, devFaultInfoMap should not be updated", func() {
+			mockGetDeviceAllErrorCode := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+				"GetDeviceAllErrorCode", func(_ *devmanager.DeviceManagerMock, logicID int32) (int32, []int64, error) {
+					return 1, nil, errors.New("mock failure message")
+				})
+			defer mockGetDeviceAllErrorCode.Reset()
+			tool.HandleLostNetworkFaultEvents(device, nil)
+			faultInfo := common.GetAndCleanFaultInfo()
+			convey.So(len(faultInfo) == 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-handle lost network fault event, devFaultInfoMap should be updated", func() {
+			mockGetDeviceAllErrorCode := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
+				"GetDeviceAllErrorCode", func(_ *devmanager.DeviceManagerMock, logicID int32) (int32, []int64, error) {
+					return 1, []int64{common.LinkDownFaultCode, common.CardDropFaultCode}, nil
+				})
+			defer mockGetDeviceAllErrorCode.Reset()
+			tool.HandleLostNetworkFaultEvents(device, nil)
+			faultInfoMap := common.GetAndCleanFaultInfo()
+			convey.So(len(faultInfoMap) == 1, convey.ShouldBeTrue)
+			faultInfo, ok := faultInfoMap[1]
+			convey.So(ok, convey.ShouldBeTrue)
+			convey.So(len(faultInfo) == 1, convey.ShouldBeTrue)
+			convey.So(faultInfo[0].EventID == common.LinkDownFaultCode, convey.ShouldBeTrue)
+		})
 	})
 }
 
@@ -479,6 +951,75 @@ func TestRemoveDuplicateErr(t *testing.T) {
 		oldErrors = []int64{code98008, code98008, code98008, code98008, code98008, code98008, codeB8008, codeB8008}
 		newErrors = tool.removeDuplicateErr(oldErrors)
 		convey.So(len(baseErrors), convey.ShouldEqual, len(newErrors))
+	})
+}
+
+// TestGetResetInfoData for test getResetInfoData
+func TestGetResetInfoData(t *testing.T) {
+	convey.Convey("test getResetInfoData", t, func() {
+		resetInfo := &v1.ConfigMap{}
+		convey.Convey("01-reset.json not exist, should return error", func() {
+			_, err := getResetInfoData(resetInfo)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-unmarshal fail, should return error", func() {
+			mockUnmarshal := gomonkey.ApplyFuncReturn(json.Unmarshal, errors.New("fail"))
+			defer mockUnmarshal.Reset()
+			resetInfo.Data = map[string]string{common.ResetInfoCMDataKey: "yyy"}
+			_, err := getResetInfoData(resetInfo)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("03-unmarshal success, should return nil", func() {
+			taskResetInfo := common.TaskResetInfo{RankList: []*common.TaskDevInfo{{RankId: 0}, {RankId: 1}}, UpdateTime: 20}
+			resetByte, err := json.Marshal(taskResetInfo)
+			convey.So(err, convey.ShouldBeNil)
+			resetInfo.Data = map[string]string{common.ResetInfoCMDataKey: string(resetByte)}
+			devInfo, err := getResetInfoData(resetInfo)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(len(devInfo) == 2, convey.ShouldBeTrue)
+		})
+
+	})
+}
+
+// TestNpuIsUsedNow for test npuIsUsedNow
+func TestNpuIsUsedNow(t *testing.T) {
+	convey.Convey("test npuIsUsedNow", t, func() {
+		tool := mockAscendTools()
+		annotationTag := fmt.Sprintf("%s%s", common.ResourceNamePrefix, common.Ascend910)
+		pods := []v1.Pod{
+			{ObjectMeta: metav1.ObjectMeta{Name: "mock pod1", Annotations: map[string]string{annotationTag: ""}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "mock pod2", Annotations: map[string]string{annotationTag: "device1,device2"}}},
+		}
+		mockMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetActivePodListCache",
+			func(_ *kubeclient.ClientK8s) []v1.Pod { return pods })
+		defer mockMethod.Reset()
+		convey.Convey("01-device exist, should return true", func() {
+			convey.So(tool.npuIsUsedNow("device1"), convey.ShouldBeTrue)
+		})
+		convey.Convey("02-device not exist, should return false", func() {
+			convey.So(tool.npuIsUsedNow("device3"), convey.ShouldBeFalse)
+		})
+	})
+}
+
+// TestGetRealUsedDevices for test getRealUsedDevices
+func TestGetRealUsedDevices(t *testing.T) {
+	convey.Convey("test getRealUsedDevices", t, func() {
+		tool := mockAscendTools()
+		annotationTag := common.ResourceNamePrefix + common.PodRealAlloc
+		pods := []v1.Pod{
+			{ObjectMeta: metav1.ObjectMeta{Name: "mock pod1", Annotations: map[string]string{"test tag": "device3"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "mock pod2", Annotations: map[string]string{annotationTag: "device1,device2"}}},
+		}
+		mockMethod := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetActivePodListCache",
+			func(_ *kubeclient.ClientK8s) []v1.Pod { return pods })
+		defer mockMethod.Reset()
+		usedDevice := tool.getRealUsedDevices()
+		// 01-annotationTag has target device, should contain target device
+		convey.So(usedDevice.Has("device1"), convey.ShouldBeTrue)
+		// 02-annotationTag has not target device, should not contain target device
+		convey.So(usedDevice.Has("device3"), convey.ShouldBeFalse)
 	})
 }
 
