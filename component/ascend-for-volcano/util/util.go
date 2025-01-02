@@ -139,7 +139,7 @@ func Min(x, y int) int {
 	return y
 }
 
-// IsSliceContain judges whether keyword in tasgetSlice
+// IsSliceContain judges whether keyword in targetSlice
 func IsSliceContain(keyword interface{}, targetSlice interface{}) bool {
 	if targetSlice == nil {
 		klog.V(LogErrorLev).Infof("IsSliceContain :%s", ArgumentError)
