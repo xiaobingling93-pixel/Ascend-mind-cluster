@@ -39,8 +39,16 @@ const (
 	maxCardNPUNum = 4
 )
 
-func buildInitMyJobPluginTestCases() []itest.InitMyJobPluginTestCase {
-	return []itest.InitMyJobPluginTestCase{
+// initMyJobPluginTestCase test case
+type initMyJobPluginTestCase struct {
+	Name    string
+	Attr    util.SchedulerJobAttr
+	Env     plugin.ScheduleEnv
+	WantErr error
+}
+
+func buildInitMyJobPluginTestCases() []initMyJobPluginTestCase {
+	return []initMyJobPluginTestCase{
 		{
 			Name: "01-InitMyJobPlugin return nil",
 			Attr: util.SchedulerJobAttr{
@@ -69,7 +77,14 @@ func TestInitMyJobPlugin(t *testing.T) {
 	}
 }
 
-func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
+// validNPUJobTestCase validNPUJob test case
+type validNPUJobTestCase struct {
+	WantErr *api.ValidateResult
+	Name    string
+	Attr    util.SchedulerJobAttr
+}
+
+func buildValidNPUJobTestCase01() []validNPUJobTestCase {
 	job01 := test.FakeNormalTestJob("job01", 1)
 	test.SetFakeJobResRequest(job01, util.NPU310CardName, "1")
 	attr1 := itest.FakeSchedulerJobAttrByJob(job01)
@@ -79,7 +94,7 @@ func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
 	job03 := test.FakeNormalTestJob("job02", 1)
 	test.SetFakeJobResRequest(job03, util.NPU310CardName, "2")
 	attr3 := itest.FakeSchedulerJobAttrByJob(job03)
-	return []itest.ValidNPUJobTestCase{
+	return []validNPUJobTestCase{
 		{
 			Name:    "01-ValidNPUJob should return error when job request no npu",
 			Attr:    attr1,
@@ -119,8 +134,16 @@ func TestValidNPUJob(t *testing.T) {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase1() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
+type checkNodeNPUByTaskTestCase struct {
+	Task    *api.TaskInfo
+	Name    string
+	Attr    util.SchedulerJobAttr
+	Node    plugin.NPUNode
+	WantErr error
+}
+
+func buildCheckNodeNPUByTaskTestCase1() checkNodeNPUByTaskTestCase {
+	return checkNodeNPUByTaskTestCase{
 		Name: "01-CheckNodeNPUByTask when return nil node npu meet task req",
 		Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
 		Node: plugin.NPUNode{
@@ -133,8 +156,8 @@ func buildCheckNodeNPUByTaskTestCase1() itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase2() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCase2() checkNodeNPUByTaskTestCase {
+	return checkNodeNPUByTaskTestCase{
 		Name: "02-CheckNodeNPUByTask return err when task is not npu task",
 		Task: test.FakeTaskWithResReq("pod1", util.NPU310PCardName, util.NPUIndex2),
 		Node: plugin.NPUNode{
@@ -147,8 +170,8 @@ func buildCheckNodeNPUByTaskTestCase2() itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase3() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCase3() checkNodeNPUByTaskTestCase {
+	return checkNodeNPUByTaskTestCase{
 		Name: "03-CheckNodeNPUByTask return err when node has no req npu",
 		Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
 		Node: plugin.NPUNode{
@@ -161,8 +184,8 @@ func buildCheckNodeNPUByTaskTestCase3() itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase4() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCase4() checkNodeNPUByTaskTestCase {
+	return checkNodeNPUByTaskTestCase{
 		Name: "04-CheckNodeNPUByTask return err when node has no req npu",
 		Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
 		Node: plugin.NPUNode{
@@ -175,8 +198,8 @@ func buildCheckNodeNPUByTaskTestCase4() itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase5() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCase5() checkNodeNPUByTaskTestCase {
+	return checkNodeNPUByTaskTestCase{
 		Name: "05-CheckNodeNPUByTask return err when node has no enough npu",
 		Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
 		Node: plugin.NPUNode{
@@ -189,8 +212,8 @@ func buildCheckNodeNPUByTaskTestCase5() itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCases() []itest.CheckNodeNPUByTaskTestCase {
-	return []itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCases() []checkNodeNPUByTaskTestCase {
+	return []checkNodeNPUByTaskTestCase{
 		buildCheckNodeNPUByTaskTestCase1(),
 		buildCheckNodeNPUByTaskTestCase2(),
 		buildCheckNodeNPUByTaskTestCase3(),
@@ -238,8 +261,17 @@ func TestScoreBestNPUNodes(t *testing.T) {
 	})
 }
 
-func buildUseAnnotationTestCases01() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+type useAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildUseAnnotationTestCases01() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
 			Name: "01-UseAnnotation success when node resource meet task req",
 			Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
@@ -284,8 +316,8 @@ func buildUseAnnotationTestCases01() []itest.UseAnnotationTestCase {
 	}
 }
 
-func buildUseAnnotationTestCases02() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+func buildUseAnnotationTestCases02() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
 			Name: "04-UseAnnotation return err when node annotation resource less than task req npu",
 			Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex2),
@@ -330,9 +362,17 @@ func TestUseAnnotation(t *testing.T) {
 	}
 }
 
-func buildJudgeNodeAndTaskNPUTestCases() []itest.JudgeNodeAndTaskNPUTestCase {
+// judgeNodeAndTaskNPUTestCase JudgeNodeAndTaskNPU test case
+type judgeNodeAndTaskNPUTestCase struct {
+	NodeTop []int
+	Name    string
+	TaskNPU int
+	WantErr error
+}
+
+func buildJudgeNodeAndTaskNPUTestCases() []judgeNodeAndTaskNPUTestCase {
 	const npuNum65 = 65
-	return []itest.JudgeNodeAndTaskNPUTestCase{
+	return []judgeNodeAndTaskNPUTestCase{
 		{
 			Name:    "01-JudgeNodeAndTaskNPU return err when task npu nun is 0",
 			TaskNPU: 0,
@@ -368,8 +408,15 @@ func TestJudgeNodeAndTaskNPU(t *testing.T) {
 	}
 }
 
-func buildSetMaxNodeNPUNumTestCase() []itest.SetMaxNodeNPUNumTestCase {
-	return []itest.SetMaxNodeNPUNumTestCase{
+// setMaxNodeNPUNumTestCase  SetMaxNodeNPUNum test case
+type setMaxNodeNPUNumTestCase struct {
+	Name    string
+	Num     int
+	WantNum int
+}
+
+func buildSetMaxNodeNPUNumTestCase() []setMaxNodeNPUNumTestCase {
+	return []setMaxNodeNPUNumTestCase{
 		{
 			Name:    "01-SetMaxNodeNPUNum the get num not equal wantNum when num is invalid",
 			Num:     -1,

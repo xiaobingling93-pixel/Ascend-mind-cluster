@@ -48,7 +48,14 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
+// validNPUJobTestCase validNPUJob test case
+type validNPUJobTestCase struct {
+	WantErr *api.ValidateResult
+	Name    string
+	Attr    util.SchedulerJobAttr
+}
+
+func buildValidNPUJobTestCase01() []validNPUJobTestCase {
 	job01 := test.FakeNormalTestJob("job01", 1)
 	test.SetFakeJobResRequest(job01, util.NPU310PCardName, "1")
 	attr1 := itest.FakeSchedulerJobAttrByJob(job01)
@@ -58,7 +65,7 @@ func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
 	job03 := test.FakeNormalTestJob("job02", 1)
 	test.SetFakeJobResRequest(job03, util.NPU310PCardName, "2")
 	attr3 := itest.FakeSchedulerJobAttrByJob(job03)
-	return []itest.ValidNPUJobTestCase{
+	return []validNPUJobTestCase{
 		{
 			Name:    "01-ValidNPUJob should return nil when job request no npu",
 			Attr:    attr1,
@@ -77,7 +84,7 @@ func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
 	}
 }
 
-func buildValidNPUJobTestCase02() []itest.ValidNPUJobTestCase {
+func buildValidNPUJobTestCase02() []validNPUJobTestCase {
 	job04 := test.FakeNormalTestJob("job04", util.NPUIndex2)
 	test.SetFakeJobResRequest(job04, util.NPU310PCardName, "1")
 	attr4 := itest.FakeSchedulerJobAttrByJob(job04)
@@ -90,7 +97,7 @@ func buildValidNPUJobTestCase02() []itest.ValidNPUJobTestCase {
 	job06 := test.FakeNormalTestJob("job06", util.NPUIndex2)
 	test.SetFakeJobResRequest(job06, util.NPU310PCardName, "2")
 	attr6 := itest.FakeSchedulerJobAttrByJob(job06)
-	return []itest.ValidNPUJobTestCase{
+	return []validNPUJobTestCase{
 		{
 			Name:    "04-ValidNPUJob should return nil when task request no npu",
 			Attr:    attr4,
@@ -127,8 +134,17 @@ func TestValidNPUJob(t *testing.T) {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCases01() []itest.CheckNodeNPUByTaskTestCase {
-	return []itest.CheckNodeNPUByTaskTestCase{
+// checkNodeNPUByTaskTestCase CheckNodeNPUByTask test case
+type checkNodeNPUByTaskTestCase struct {
+	Task    *api.TaskInfo
+	Name    string
+	Attr    util.SchedulerJobAttr
+	Node    plugin.NPUNode
+	WantErr error
+}
+
+func buildCheckNodeNPUByTaskTestCases01() []checkNodeNPUByTaskTestCase {
+	return []checkNodeNPUByTaskTestCase{
 		{
 			Name: "01-CheckNodeNPUByTask return err when task is nil",
 			Task: nil,
@@ -168,8 +184,8 @@ func buildCheckNodeNPUByTaskTestCases01() []itest.CheckNodeNPUByTaskTestCase {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCases02() []itest.CheckNodeNPUByTaskTestCase {
-	return []itest.CheckNodeNPUByTaskTestCase{
+func buildCheckNodeNPUByTaskTestCases02() []checkNodeNPUByTaskTestCase {
+	return []checkNodeNPUByTaskTestCase{
 		{
 			Name: "04-CheckNodeNPUByTask return err when tp.Type is util.JobTypeStCut",
 			Task: test.FakeTaskWithResReq("pod1", util.NPU310PCardName, util.NPUIndex4),
@@ -241,8 +257,18 @@ func TestCheckNodeNPUByTask(t *testing.T) {
 	}
 }
 
-func buildScoreBestNPUNodesTestCases01() []itest.ScoreBestNPUNodesTestCase {
-	return []itest.ScoreBestNPUNodesTestCase{
+type scoreBestNPUNodesTestCase struct {
+	Task     *api.TaskInfo
+	Nodes    []*api.NodeInfo
+	ScoreMap map[string]float64
+	WantSMap map[string]float64
+	Name     string
+	WantErr  error
+	Attr     util.SchedulerJobAttr
+}
+
+func buildScoreBestNPUNodesTestCases01() []scoreBestNPUNodesTestCase {
+	return []scoreBestNPUNodesTestCase{
 		{
 			Name:     "01-ScoreBestNPUNodes return err when task is nil",
 			Task:     nil,
@@ -282,8 +308,8 @@ func buildScoreBestNPUNodesTestCases01() []itest.ScoreBestNPUNodesTestCase {
 	}
 }
 
-func buildScoreBestNPUNodesTestCases02() []itest.ScoreBestNPUNodesTestCase {
-	return []itest.ScoreBestNPUNodesTestCase{
+func buildScoreBestNPUNodesTestCases02() []scoreBestNPUNodesTestCase {
+	return []scoreBestNPUNodesTestCase{
 		{
 			Name:     "05-ScoreBestNPUNodes return nil when tp.Type is JobTypeWhole",
 			Task:     test.FakeNormalTestTask("pod1", "node1", "vcjob"),
@@ -341,8 +367,18 @@ func TestScoreBestNPUNodes(t *testing.T) {
 	}
 }
 
-func buildUseAnnotationTestCases01() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+// UseAnnotationTestCase useAnnotation test case
+type useAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildUseAnnotationTestCases01() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
 			Name: "01-UseAnnotation return nil when task is nil",
 			Task: nil,
@@ -379,8 +415,8 @@ func buildUseAnnotationTestCases01() []itest.UseAnnotationTestCase {
 	}
 }
 
-func buildUseAnnotationTestCases02() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+func buildUseAnnotationTestCases02() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
 			Name: "04-UseAnnotation return nil when tp.VJob is JobTypeWhole",
 			Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
@@ -452,8 +488,18 @@ func TestUseAnnotation(t *testing.T) {
 	}
 }
 
-func buildReleaseAnnotationTestCase01() itest.ReleaseAnnotationTestCase {
-	test1 := itest.ReleaseAnnotationTestCase{
+// releaseAnnotationTestCase releaseAnnotation test case
+type releaseAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildReleaseAnnotationTestCase01() releaseAnnotationTestCase {
+	test1 := releaseAnnotationTestCase{
 		Name: "01-ReleaseAnnotation return node when job is not VJob",
 		Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
 		Node: plugin.NPUNode{
@@ -471,8 +517,8 @@ func buildReleaseAnnotationTestCase01() itest.ReleaseAnnotationTestCase {
 	return test1
 }
 
-func buildReleaseAnnotationTestCase02() itest.ReleaseAnnotationTestCase {
-	test2 := itest.ReleaseAnnotationTestCase{
+func buildReleaseAnnotationTestCase02() releaseAnnotationTestCase {
+	test2 := releaseAnnotationTestCase{
 		Name: "02-ReleaseAnnotation return node  when type  is util.JobTypeWhole",
 		Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
 		Node: plugin.NPUNode{
@@ -490,8 +536,8 @@ func buildReleaseAnnotationTestCase02() itest.ReleaseAnnotationTestCase {
 	return test2
 }
 
-func buildReleaseAnnotationTestCase03() itest.ReleaseAnnotationTestCase {
-	test3 := itest.ReleaseAnnotationTestCase{
+func buildReleaseAnnotationTestCase03() releaseAnnotationTestCase {
+	test3 := releaseAnnotationTestCase{
 		Name: "03-ReleaseAnnotation return node  when type  is util.JobTypeDyCut",
 		Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
 		Node: plugin.NPUNode{
@@ -509,8 +555,8 @@ func buildReleaseAnnotationTestCase03() itest.ReleaseAnnotationTestCase {
 	return test3
 }
 
-func buildReleaseAnnotationTestCase04() itest.ReleaseAnnotationTestCase {
-	test4 := itest.ReleaseAnnotationTestCase{
+func buildReleaseAnnotationTestCase04() releaseAnnotationTestCase {
+	test4 := releaseAnnotationTestCase{
 		Name: "04-ReleaseAnnotation return node  when type  is other",
 		Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
 		Node: plugin.NPUNode{
@@ -528,8 +574,8 @@ func buildReleaseAnnotationTestCase04() itest.ReleaseAnnotationTestCase {
 	return test4
 }
 
-func buildReleaseAnnotationTestCase() []itest.ReleaseAnnotationTestCase {
-	tests := []itest.ReleaseAnnotationTestCase{
+func buildReleaseAnnotationTestCase() []releaseAnnotationTestCase {
+	tests := []releaseAnnotationTestCase{
 		buildReleaseAnnotationTestCase01(),
 		buildReleaseAnnotationTestCase02(),
 		buildReleaseAnnotationTestCase03(),

@@ -26,13 +26,29 @@ import (
 	"testing"
 
 	"volcano.sh/volcano/pkg/scheduler/api"
+
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend310/chip310x4"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	itest "volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/test"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/util"
 )
+
+const (
+	MockTaskNumTwo   = 2
+	MockJobNamespace = "vcjob"
+	MockPodOneName   = "pod1"
+	MockNodeOneName  = "node1"
+)
+
+type nilTPTestCase struct {
+	name               string
+	tp                 *asend310
+	wantNode           *plugin.NPUNode
+	wantArr            []int
+	wantValidateResult *api.ValidateResult
+	wantErr            error
+}
 
 // TestNew
 func TestNew(t *testing.T) {
@@ -57,6 +73,24 @@ type initMyJobPluginTestCase struct {
 	env     plugin.ScheduleEnv
 	handler base.AscendHandler
 	wantErr error
+}
+
+func initNode(nodeName string, annoKey string, annoVal string) plugin.NPUNode {
+	return plugin.NPUNode{CommonNode: plugin.CommonNode{
+		Name:       nodeName,
+		Annotation: map[string]string{annoKey: annoVal},
+	}}
+}
+
+func buildNilTPTestCase(funcName string) nilTPTestCase {
+	return nilTPTestCase{
+		name: "00-" + funcName + " will return when tp is nil",
+		wantValidateResult: &api.ValidateResult{
+			Pass:    false,
+			Reason:  "invalid argument",
+			Message: "invalid argument"},
+		wantErr: fmt.Errorf("nil plugin %s", PluginName),
+	}
 }
 
 func buildInitMyJobPluginTestCases() []initMyJobPluginTestCase {
@@ -94,6 +128,13 @@ func buildInitMyJobPluginTestCases() []initMyJobPluginTestCase {
 }
 
 func TestInitMyJobPlugin(t *testing.T) {
+	testCase := buildNilTPTestCase("InitMyJobPlugin")
+	t.Run(testCase.name, func(t *testing.T) {
+		if err := testCase.tp.InitMyJobPlugin(util.SchedulerJobAttr{},
+			plugin.ScheduleEnv{}); !reflect.DeepEqual(err, testCase.wantErr) {
+			t.Errorf("InitMyJobPlugin() = %v, want %v", err, testCase.wantErr)
+		}
+	})
 	npu := New(PluginName)
 	testCases := buildInitMyJobPluginTestCases()
 	for _, tt := range testCases {
@@ -106,28 +147,31 @@ func TestInitMyJobPlugin(t *testing.T) {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCases() []itest.CheckNodeNPUByTaskTestCase {
-	return []itest.CheckNodeNPUByTaskTestCase{
+// checkNodeNPUByTaskTestCase CheckNodeNPUByTask test case
+type checkNodeNPUByTaskTestCase struct {
+	Task    *api.TaskInfo
+	Name    string
+	Attr    util.SchedulerJobAttr
+	Node    plugin.NPUNode
+	WantErr error
+}
+
+func buildCheckNodeNPUByTaskTestCases() []checkNodeNPUByTaskTestCase {
+	return []checkNodeNPUByTaskTestCase{
 		{
-			Name: "01-CheckNodeNPUByTask return err when task is nil",
-			Task: nil,
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Name:       "node1",
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1"},
-				},
-			},
+			Name:    "01-CheckNodeNPUByTask return err when task is nil",
+			Task:    nil,
+			Node:    initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1"),
 			WantErr: errors.New(util.ArgumentError),
 		},
 		{
 			Name: "02-CheckNodeNPUByTask return err when node annotation is nil",
-			Task: test.FakeTaskWithResReq("pod1", util.NPU310CardName, util.NPUIndex2),
+			Task: test.FakeTaskWithResReq(MockPodOneName, util.NPU310CardName, MockTaskNumTwo),
 			Node: plugin.NPUNode{
 				CommonNode: plugin.CommonNode{
-					Name:       "node1",
+					Name:       MockNodeOneName,
 					Annotation: nil,
-				},
-			},
+				}},
 			WantErr: errors.New(util.ArgumentError),
 		},
 	}
@@ -146,28 +190,39 @@ func TestCheckNodeNPUByTask(t *testing.T) {
 	}
 }
 
-func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
-	return []itest.ScoreBestNPUNodesTestCase{
+// scoreBestNPUNodesTestCase scoreBestNPUNodes test case
+type scoreBestNPUNodesTestCase struct {
+	Task     *api.TaskInfo
+	Nodes    []*api.NodeInfo
+	ScoreMap map[string]float64
+	WantSMap map[string]float64
+	Name     string
+	WantErr  error
+	Attr     util.SchedulerJobAttr
+}
+
+func buildScoreBestNPUNodesTestCases() []scoreBestNPUNodesTestCase {
+	return []scoreBestNPUNodesTestCase{
 		{
 			Name:     "01-ScoreBestNPUNodes return err when task is nil",
 			Task:     nil,
-			Nodes:    []*api.NodeInfo{test.FakeNormalTestNode("node1")},
-			ScoreMap: map[string]float64{"node1": 0},
-			WantSMap: map[string]float64{"node1": 0},
+			Nodes:    []*api.NodeInfo{test.FakeNormalTestNode(MockNodeOneName)},
+			ScoreMap: map[string]float64{MockNodeOneName: 0},
+			WantSMap: map[string]float64{MockNodeOneName: 0},
 			WantErr:  errors.New(util.ArgumentError),
 		},
 		{
 			Name:     "02-ScoreBestNPUNodes return err when nodes is empty",
-			Task:     test.FakeNormalTestTask("pod1", "node1", "vcjob"),
+			Task:     test.FakeNormalTestTask(MockPodOneName, MockNodeOneName, MockJobNamespace),
 			Nodes:    []*api.NodeInfo{},
-			ScoreMap: map[string]float64{"node1": 0},
-			WantSMap: map[string]float64{"node1": 0},
+			ScoreMap: map[string]float64{MockNodeOneName: 0},
+			WantSMap: map[string]float64{MockNodeOneName: 0},
 			WantErr:  errors.New(util.ArgumentError),
 		},
 		{
 			Name:     "03-ScoreBestNPUNodes return err when scoreMap is empty",
-			Task:     test.FakeNormalTestTask("pod1", "node1", "vcjob"),
-			Nodes:    []*api.NodeInfo{test.FakeNormalTestNode("node1")},
+			Task:     test.FakeNormalTestTask(MockPodOneName, MockNodeOneName, MockJobNamespace),
+			Nodes:    []*api.NodeInfo{test.FakeNormalTestNode(MockNodeOneName)},
 			ScoreMap: map[string]float64{},
 			WantSMap: map[string]float64{},
 			WantErr:  errors.New(util.ArgumentError),
@@ -188,26 +243,28 @@ func TestScoreBestNPUNodes(t *testing.T) {
 	}
 }
 
-func buildUseAnnotationTestCases() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+// useAnnotationTestCase useAnnotation test case
+type useAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildUseAnnotationTestCases() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
-			Name: "01-ScoreBestNPUNodes return nil when task is nil",
-			Task: nil,
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1"},
-				},
-			},
+			Name:     "01-ScoreBestNPUNodes return nil when task is nil",
+			Task:     nil,
+			Node:     initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1"),
 			WantNode: nil,
 		},
 		{
-			Name: "02-ScoreBestNPUNodes return nil when node annotation is nil",
-			Task: test.FakeNormalTestTask("pod1", "node1", "vcjob"),
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: nil,
-				},
-			},
+			Name:     "02-ScoreBestNPUNodes return nil when node annotation is nil",
+			Task:     test.FakeNormalTestTask(MockPodOneName, MockNodeOneName, MockJobNamespace),
+			Node:     plugin.NPUNode{CommonNode: plugin.CommonNode{}},
 			WantNode: nil,
 		},
 	}
@@ -279,22 +336,23 @@ func TestAscend310Name(t *testing.T) {
 	}
 }
 
-func buildReleaseAnnotationTestCases() []itest.ReleaseAnnotationTestCase {
-	return []itest.ReleaseAnnotationTestCase{
-		{
-			Name: "01-ReleaseAnnotation return nil when call this fn",
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1"},
-				},
-			},
-			WantNode: &plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1"},
-				},
-			},
-		},
-	}
+// releaseAnnotationTestCase releaseAnnotation test case
+type releaseAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildReleaseAnnotationTestCases() []releaseAnnotationTestCase {
+	node := initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1")
+	return []releaseAnnotationTestCase{{
+		Name:     "01-ReleaseAnnotation return nil when call this fn",
+		Node:     node,
+		WantNode: &node,
+	}}
 }
 
 func TestReleaseAnnotation(t *testing.T) {
