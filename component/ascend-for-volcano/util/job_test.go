@@ -23,6 +23,9 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"volcano.sh/apis/pkg/apis/scheduling"
 	"volcano.sh/volcano/pkg/scheduler/api"
 )
 
@@ -115,7 +118,7 @@ type SetVJobTypeTest struct {
 func buildSetVJobTypeTestCase() []SetVJobTypeTest {
 	return []SetVJobTypeTest{
 		{
-			name: "01-TestSetVJobType JobTypeUnknown status",
+			name: "01-SetJobType JobTypeUnknown status",
 			nJob: &NPUJob{
 				Tasks: map[api.TaskID]NPUTask{},
 				VJob:  &VJob{},
@@ -123,10 +126,19 @@ func buildSetVJobTypeTestCase() []SetVJobTypeTest {
 			want: JobTypeUnknown,
 		},
 		{
-			name: "02-TestSetVJobType JobTypeWhole status",
+			name: "02-SetJobType JobTypeWhole status",
 			nJob: &NPUJob{
 				Tasks: map[api.TaskID]NPUTask{"task01": {ReqNPUNum: 1, VTask: &VTask{Type: JobTypeWhole}}},
 				VJob:  &VJob{},
+			},
+			want: JobTypeWhole,
+		},
+		{
+			name: "03-SetJobType ReqNPUNum is zero",
+			nJob: &NPUJob{
+				Tasks: map[api.TaskID]NPUTask{"task01": {ReqNPUNum: 1, VTask: &VTask{Type: JobTypeWhole}},
+					"task00": {ReqNPUNum: 0, VTask: &VTask{Type: JobTypeWhole}}},
+				VJob: &VJob{},
 			},
 			want: JobTypeWhole,
 		},
@@ -171,6 +183,295 @@ func TestSetVJobStatusByInf(t *testing.T) {
 			tt.nJob.SetJobStatusByInf(tt.vcJob)
 			if got := tt.nJob.Status; got != tt.want {
 				t.Errorf("Name() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSchedulerJobAttrIsJobSinglePodDelete(t *testing.T) {
+	type fields struct {
+		ComJob ComJob
+		NPUJob *NPUJob
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{
+			name: "01-IsJobSinglePodDelete  SchedulingTaskNum equal npu tasks",
+			fields: fields{
+				NPUJob: &NPUJob{
+					SchedulingTaskNum: 1,
+					Tasks:             map[api.TaskID]NPUTask{"task01": {ReqNPUNum: 1}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "02-IsJobSinglePodDelete SchedulingTaskNum not equal npu tasks",
+			fields: fields{
+				NPUJob: &NPUJob{
+					SchedulingTaskNum: 1,
+					Tasks: map[api.TaskID]NPUTask{
+						"task01": {ReqNPUNum: 1}, "task00": {ReqNPUNum: 1}},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sJob := SchedulerJobAttr{
+				ComJob: tt.fields.ComJob,
+				NPUJob: tt.fields.NPUJob,
+			}
+			if got := sJob.IsJobSinglePodDelete(); got != tt.want {
+				t.Errorf("IsJobSinglePodDelete() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUJobIsNPUJob(t *testing.T) {
+	type fields struct {
+		ReqNPUName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{
+			name:   "01-IsNPUJob npu job",
+			fields: fields{ReqNPUName: AscendNPUCore},
+			want:   true,
+		},
+		{
+			name:   "02-IsNPUJob not npu job",
+			fields: fields{ReqNPUName: ""},
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nJob := &NPUJob{
+				ReqNPUName: tt.fields.ReqNPUName,
+			}
+			if got := nJob.IsNPUJob(); got != tt.want {
+				t.Errorf("IsNPUJob() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUJobGetNPUTaskNumInJob(t *testing.T) {
+	type fields struct {
+		ReqNPUName string
+		Tasks      map[api.TaskID]NPUTask
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   int
+	}{
+		{
+			name:   "01-GetNPUTaskNumInJob not npu job",
+			fields: fields{ReqNPUName: ""},
+			want:   0,
+		},
+		{
+			name: "02-GetNPUTaskNumInJob npu job",
+			fields: fields{
+				ReqNPUName: AscendNPUCore,
+				Tasks:      map[api.TaskID]NPUTask{"task01": {ReqNPUName: Ascend910bName}},
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nJob := &NPUJob{
+				Tasks:      tt.fields.Tasks,
+				ReqNPUName: tt.fields.ReqNPUName,
+			}
+			if got := nJob.GetNPUTaskNumInJob(); got != tt.want {
+				t.Errorf("GetNPUTaskNumInJob() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUJobGetSchedulingTaskNum(t *testing.T) {
+	type fields struct {
+		Tasks      map[api.TaskID]NPUTask
+		ReqNPUName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   int
+	}{
+		{
+			name: "01-GetSchedulingTaskNum not npu job",
+			fields: fields{
+				ReqNPUName: "",
+			},
+			want: 0,
+		},
+		{
+			name: "02-GetSchedulingTaskNum npu job",
+			fields: fields{
+				ReqNPUName: AscendNPUCore,
+				Tasks:      map[api.TaskID]NPUTask{"task01": {ReqNPUName: Ascend910bName}},
+			},
+			want: 1,
+		},
+		{
+			name: "03-GetSchedulingTaskNum npu job",
+			fields: fields{
+				ReqNPUName: AscendNPUCore,
+				Tasks: map[api.TaskID]NPUTask{
+					"task01": {ReqNPUName: Ascend910bName, NodeName: "node01"},
+					"task00": {ReqNPUName: NPU310CardName}},
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nJob := &NPUJob{
+				Tasks:      tt.fields.Tasks,
+				ReqNPUName: tt.fields.ReqNPUName,
+			}
+			if got := nJob.GetSchedulingTaskNum(); got != tt.want {
+				t.Errorf("GetSchedulingTaskNum() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUJobGetVTaskNumInVJob(t *testing.T) {
+	type fields struct {
+		Tasks      map[api.TaskID]NPUTask
+		ReqNPUName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   int
+	}{
+		{
+			name:   "01-GetVTaskNumInVJob not vnpu job",
+			fields: fields{ReqNPUName: ""},
+			want:   0,
+		},
+		{
+			name: "02-GetVTaskNumInVJob vnpu job",
+			fields: fields{
+				ReqNPUName: AscendNPUCore,
+				Tasks:      map[api.TaskID]NPUTask{"task01": {ReqNPUName: AscendNPUCore}},
+			},
+			want: 1,
+		},
+		{
+			name: "03-GetVTaskNumInVJob vnpu job",
+			fields: fields{
+				ReqNPUName: AscendNPUCore,
+				Tasks: map[api.TaskID]NPUTask{
+					"task01": {ReqNPUName: AscendNPUCore},
+					"task00": {ReqNPUName: Ascend910bName},
+				},
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nJob := &NPUJob{
+				Tasks:      tt.fields.Tasks,
+				ReqNPUName: tt.fields.ReqNPUName,
+			}
+			if got := nJob.GetVTaskNumInVJob(); got != tt.want {
+				t.Errorf("GetVTaskNumInVJob() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReferenceNameOfJob(t *testing.T) {
+	tests := []struct {
+		name string
+		job  *api.JobInfo
+		want string
+	}{
+		{
+			name: "01-ReferenceNameOfJob nil job",
+			job:  nil,
+			want: "",
+		},
+		{
+			name: "02-ReferenceNameOfJob nil podgroup",
+			job:  &api.JobInfo{},
+			want: "",
+		},
+		{
+			name: "03-ReferenceNameOfJob nil podgroup ownerreference",
+			job:  &api.JobInfo{PodGroup: &api.PodGroup{}},
+			want: "",
+		},
+		{
+			name: "04-ReferenceNameOfJob podgroup has ownerreference",
+			job: &api.JobInfo{PodGroup: &api.PodGroup{
+				PodGroup: scheduling.PodGroup{ObjectMeta: v1.ObjectMeta{
+					OwnerReferences: []v1.OwnerReference{{Name: "test"}}}},
+			}},
+			want: "test",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ReferenceNameOfJob(tt.job); got != tt.want {
+				t.Errorf("ReferenceNameOfJob() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUuidOfJob(t *testing.T) {
+	tests := []struct {
+		name string
+		job  *api.JobInfo
+		want types.UID
+	}{
+		{
+			name: "01-UuidOfJob nil job",
+			job:  nil,
+			want: "",
+		},
+		{
+			name: "02-UuidOfJob nil podgroup",
+			job:  &api.JobInfo{},
+			want: "",
+		},
+		{
+			name: "03-UuidOfJob nil podgroup ownerreference",
+			job:  &api.JobInfo{PodGroup: &api.PodGroup{}},
+			want: "",
+		},
+		{
+			name: "04-UuidOfJob podgroup has ownerreference",
+			job: &api.JobInfo{PodGroup: &api.PodGroup{
+				PodGroup: scheduling.PodGroup{ObjectMeta: v1.ObjectMeta{
+					OwnerReferences: []v1.OwnerReference{{Name: "test", UID: "test-uid"}}}},
+			}},
+			want: "test-uid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := UuidOfJob(tt.job); got != tt.want {
+				t.Errorf("UuidOfJob() = %v, want %v", got, tt.want)
 			}
 		})
 	}

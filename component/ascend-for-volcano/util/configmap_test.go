@@ -213,3 +213,75 @@ func TestUpdateConfigmapIncrementally(t *testing.T) {
 		})
 	}
 }
+
+func TestInformerConfigmapFilter(t *testing.T) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "01-InformerConfigmapFilter will return false when obj is not configmap",
+			args: args{obj: &v1.Pod{}},
+			want: false,
+		},
+		{
+			name: "02-InformerConfigmapFilter not device info and node info",
+			args: args{obj: &v1.ConfigMap{}},
+			want: false,
+		},
+		{
+			name: "03-InformerConfigmapFilter device info",
+			args: args{obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: DevInfoNameSpace, Name: DevInfoPreName},
+			}},
+			want: true,
+		},
+		{
+			name: "04-InformerConfigmapFilter node info",
+			args: args{obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: MindXDlNameSpace, Name: NodeDCmInfoNamePrefix},
+			}},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := InformerConfigmapFilter(tt.args.obj); got != tt.want {
+				t.Errorf("InformerConfigmapFilter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMakeDataHash(t *testing.T) {
+	type args struct {
+		data interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "01-MakeDataHash will return nil when data is nil",
+			args: args{data: nil},
+			want: "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+		},
+		{
+			name: "02-MakeDataHash will return hash when data is not nil",
+			args: args{data: map[string]string{"ascend": "data"}},
+			want: "89ecd37935daa8bc23378c7f6fb47d62d961fd1cf57e6ef4d0bf8572f2bad96f",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MakeDataHash(tt.args.data); got != tt.want {
+				t.Errorf("MakeDataHash() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

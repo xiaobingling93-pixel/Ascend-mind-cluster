@@ -578,3 +578,135 @@ func TestSetVTaskStatusFromInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestReferenceNameOfTask(t *testing.T) {
+	tests := []struct {
+		name string
+		task *api.TaskInfo
+		want string
+	}{
+		{
+			name: "01-ReferenceNameOfTask nil job",
+			task: nil,
+			want: "",
+		},
+		{
+			name: "02-ReferenceNameOfTask nil pod",
+			task: &api.TaskInfo{},
+			want: "",
+		},
+		{
+			name: "03-ReferenceNameOfTask  nil pod ownerreference",
+			task: &api.TaskInfo{Pod: &v1.Pod{}},
+			want: "",
+		},
+		{
+			name: "04-ReferenceNameOfTask podgroup has ownerreference",
+			task: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{{
+					Name: "test-uid",
+				}},
+			}}},
+			want: "test-uid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ReferenceNameOfTask(tt.task); got != tt.want {
+				t.Errorf("ReferenceNameOfTask() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUTaskIsVNPUTask(t *testing.T) {
+	tests := []struct {
+		name string
+		task *NPUTask
+		want bool
+	}{
+		{
+			name: "01-IsVNPUTask nil task",
+			task: nil,
+			want: false,
+		},
+		{
+			name: "02-IsVNPUTask non vnpu task",
+			task: &NPUTask{ReqNPUName: Ascend910bName},
+			want: false,
+		},
+		{
+			name: "03-IsVNPUTask vnpu task",
+			task: &NPUTask{ReqNPUName: AscendNPUCore},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.task.IsVNPUTask(); got != tt.want {
+				t.Errorf("IsVNPUTask() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNPUTaskInitVTask(t *testing.T) {
+	tests := []struct {
+		name       string
+		task       *NPUTask
+		taskInfo   *api.TaskInfo
+		taskStatus int
+		taskType   int
+		wantErr    bool
+	}{
+		{
+			name: "01-InitVTask task whole",
+			task: &NPUTask{ReqNPUName: Ascend910bName, VTask: &VTask{}},
+			taskInfo: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{AscendNPUPodRealUse: Ascend910bName}}}},
+			taskStatus: TaskStatusInit,
+			taskType:   JobTypeWhole,
+			wantErr:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.task.InitVTask(tt.taskInfo); (err != nil) != tt.wantErr ||
+				(tt.task.Status != tt.taskStatus) || (tt.task.Type != tt.taskType) {
+				t.Errorf("InitVTask() error = %v, wantErr %v, getTaskStatus:%v, wantTaskStatsu:%v, "+
+					"getTaskType:%v, wantTaskType:%v", err, tt.wantErr, tt.task.Status,
+					tt.taskStatus, tt.task.Type, tt.taskType)
+			}
+		})
+	}
+}
+
+func TestGetVTaskUsePhysicsNamesByInfo(t *testing.T) {
+	tests := []struct {
+		name     string
+		taskInfo *api.TaskInfo
+		want     []string
+	}{
+		{
+			name: "01-getVTaskUsePhysicsNamesByInfo exist huawei.com/AscendReal annotation",
+			taskInfo: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{AscendNPUPodRealUse: "0,1"},
+			}}},
+			want: []string{"0", "1"},
+		},
+		{
+			name: "02-getVTaskUsePhysicsNamesByInfo not exist huawei.com/AscendReal annotation",
+			taskInfo: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{Ascend910bName: "0,1"},
+			}}},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getVTaskUsePhysicsNamesByInfo(tt.taskInfo); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getVTaskUsePhysicsNamesByInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
