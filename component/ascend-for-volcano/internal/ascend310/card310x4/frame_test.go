@@ -25,9 +25,9 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
 	"volcano.sh/volcano/pkg/scheduler/api"
 
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
 	itest "volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/test"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
@@ -35,81 +35,149 @@ import (
 )
 
 const (
-	npuNum4 = 4
+	MockTaskNumOne      = 1
+	MockTaskNumTwo      = 2
+	MockResourceNumZero = 0
+	MockResourceNumOne  = 1
+	MockNeedOne         = "1"
+	MockNeedTwo         = "2"
+	MockNeedThree       = "3"
+	MockNeedFive        = "5"
+	MockJobName         = "testJob"
+	MockPodZeroName     = "pod0"
+	MockPodOneName      = "pod1"
+	MockNodeOneName     = "node1"
 )
 
-func buildValidNPUJobTestCase01() []itest.ValidNPUJobTestCase {
-	job01 := test.FakeNormalTestJob("job01", 1)
-	test.SetFakeJobResRequest(job01, util.NPU310CardName, "1")
-	attr1 := itest.FakeSchedulerJobAttrByJob(job01)
-	job02 := test.FakeNormalTestJob("job02", 1)
-	test.SetFakeJobResRequest(job02, util.NPU310CardName, "5")
-	attr2 := itest.FakeSchedulerJobAttrByJob(job02)
-	job03 := test.FakeNormalTestJob("job02", 1)
-	test.SetFakeJobResRequest(job03, util.NPU310CardName, "2")
-	attr3 := itest.FakeSchedulerJobAttrByJob(job03)
-	return []itest.ValidNPUJobTestCase{
-		{
-			Name:    "01-ValidNPUJob should return nil when job request no npu",
-			Attr:    attr1,
-			WantErr: nil,
-		},
-		{
-			Name: "02-ValidNPUJob should return error when tasks request npu more than 4",
-			Attr: attr2,
-			WantErr: &api.ValidateResult{
-				Pass:    false,
-				Reason:  "job require npu num is invalid",
-				Message: "task <vcjob/job02-pod0> req npu <5> is invalid",
-			},
-		},
-		{
-			Name:    "03-ValidNPUJob should return nil when tasks request is valid",
-			Attr:    attr3,
-			WantErr: nil,
-		},
+type nilTPTestCase struct {
+	name               string
+	tp                 *card310x4
+	wantNode           *plugin.NPUNode
+	wantArr            []int
+	wantValidateResult *api.ValidateResult
+	wantErr            error
+}
+
+func NewCard310x4(schedulerName string) *card310x4 {
+	tp := &card310x4{}
+	tp.SetMaxCardNPUNum(maxCardNPUNum)
+	tp.SetMaxNodeNPUNum(maxNodeNPUNum)
+	tp.SetPluginName(schedulerName)
+	tp.SetAnnoName(util.NPU310CardName)
+	tp.SetAnnoPreVal(util.NPU310CardNamePre)
+	tp.SetDefaultJobSchedulerConfig(nil)
+	tp.affScoreList = [][]int{
+		{affScore0, affScore2, affScore1, affScore3},
+		{affScore4, affScore0, affScore1, affScore2},
+		{affScore4, affScore4, affScore0, affScore1},
+		{affScore4, affScore4, affScore4, affScore0},
+	}
+	return tp
+}
+
+func initNPU(attr util.SchedulerJobAttr, env plugin.ScheduleEnv) base.AscendHandler {
+	npu := New(SchedulerName)
+	npu.SetSchedulerAttr(attr)
+	npu.SetSchedulerEnv(env)
+	return npu
+}
+
+func initAttr(jobName string, taskNum int, need string) util.SchedulerJobAttr {
+	job := test.FakeNormalTestJob(jobName, taskNum)
+	test.SetFakeJobResRequest(job, util.NPU310CardName, need)
+	return itest.FakeSchedulerJobAttrByJob(job)
+}
+
+func initNode(nodeName string, annoKey string, annoVal string) plugin.NPUNode {
+	return plugin.NPUNode{CommonNode: plugin.CommonNode{
+		Name:       nodeName,
+		Annotation: map[string]string{annoKey: annoVal},
+	}}
+}
+
+func buildNilTPTestCase(funcName string) nilTPTestCase {
+	return nilTPTestCase{
+		name: "00-" + funcName + " will return when tp is nil",
+		wantValidateResult: &api.ValidateResult{
+			Pass:    false,
+			Reason:  "invalid argument",
+			Message: "invalid argument"},
+		wantErr: errors.New("invalid argument"),
 	}
 }
 
-func buildValidNPUJobTestCase02() []itest.ValidNPUJobTestCase {
-	job04 := test.FakeNormalTestJob("job04", util.NPUIndex2)
-	test.SetFakeJobResRequest(job04, util.NPU310CardName, "1")
-	attr4 := itest.FakeSchedulerJobAttrByJob(job04)
-	task := util.NPUTask{ReqNPUNum: 1}
-	attr4.Tasks[test.FakeTaskName1] = task
-	job05 := test.FakeNormalTestJob("job05", util.NPUIndex2)
-	test.SetFakeJobResRequest(job05, util.NPU310CardName, "5")
-	attr5 := itest.FakeSchedulerJobAttrByJob(job05)
-	attr5.Tasks[test.FakeTaskName1] = task
-	job06 := test.FakeNormalTestJob("job06", util.NPUIndex2)
-	test.SetFakeJobResRequest(job06, util.NPU310CardName, "2")
-	attr6 := itest.FakeSchedulerJobAttrByJob(job06)
-	return []itest.ValidNPUJobTestCase{
-		{
-			Name:    "04-ValidNPUJob should return nil when task request no npu",
-			Attr:    attr4,
-			WantErr: nil,
+// validNPUJobTestCase validNPUJob test case
+type validNPUJobTestCase struct {
+	WantErr *api.ValidateResult
+	Name    string
+	Attr    util.SchedulerJobAttr
+}
+
+func buildValidNPUJobTestCases01() []validNPUJobTestCase {
+	testCases := make([]validNPUJobTestCase, 0)
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
+	testCases = append(testCases, validNPUJobTestCase{
+		Name:    "01-ValidNPUJob should return nil when job request no npu",
+		Attr:    attr,
+		WantErr: nil,
+	})
+	attr = initAttr(MockJobName, MockTaskNumOne, MockNeedFive)
+	testCases = append(testCases, validNPUJobTestCase{
+		Name: "02-ValidNPUJob should return error when tasks request npu more than 4",
+		Attr: attr,
+		WantErr: &api.ValidateResult{
+			Pass:    false,
+			Reason:  "job require npu num is invalid",
+			Message: "task <vcjob/testJob-pod0> req npu <5> is invalid",
 		},
-		{
-			Name: "05-ValidNPUJob should return error when task request npu more than 4",
-			Attr: attr5,
-			WantErr: &api.ValidateResult{
-				Pass:    false,
-				Reason:  "job require npu num is invalid",
-				Message: "task <vcjob/job05-pod0> req npu <5> is invalid",
-			},
+	})
+	attr = initAttr(MockJobName, MockTaskNumOne, MockNeedTwo)
+	testCases = append(testCases, validNPUJobTestCase{
+		Name:    "03-ValidNPUJob should return nil when tasks request is valid",
+		Attr:    attr,
+		WantErr: nil,
+	})
+	return testCases
+}
+
+func buildValidNPUJobTestCase02() []validNPUJobTestCase {
+	testCases := make([]validNPUJobTestCase, 0)
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
+	attr.Tasks[test.FakeTaskName1] = util.NPUTask{ReqNPUNum: 1}
+	testCases = append(testCases, validNPUJobTestCase{
+		Name:    "04-ValidNPUJob should return nil when task request no npu",
+		Attr:    attr,
+		WantErr: nil,
+	})
+	attr = initAttr(MockJobName, MockTaskNumTwo, MockNeedFive)
+	attr.Tasks[test.FakeTaskName1] = util.NPUTask{ReqNPUNum: 1}
+	testCases = append(testCases, validNPUJobTestCase{
+		Name: "05-ValidNPUJob should return error when task request npu more than 4",
+		Attr: attr,
+		WantErr: &api.ValidateResult{
+			Pass:    false,
+			Reason:  "job require npu num is invalid",
+			Message: "task <vcjob/testJob-pod0> req npu <5> is invalid",
 		},
-		{
-			Name:    "03-ValidNPUJob should return nil when tasks request is valid",
-			Attr:    attr6,
-			WantErr: nil,
-		},
-	}
+	})
+	attr = initAttr(MockJobName, MockTaskNumTwo, MockNeedTwo)
+	testCases = append(testCases, validNPUJobTestCase{
+		Name:    "06-ValidNPUJob should return nil when tasks request is valid",
+		Attr:    attr,
+		WantErr: nil,
+	})
+	return testCases
 }
 
 func TestValidNPUJob(t *testing.T) {
+	testCase := buildNilTPTestCase("ValidNPUJob")
+	t.Run(testCase.name, func(t *testing.T) {
+		if res := testCase.tp.ValidNPUJob(); !reflect.DeepEqual(res, testCase.wantValidateResult) {
+			t.Errorf("ValidNPUJob() = %v, want %v", res, testCase.wantValidateResult)
+		}
+	})
 	npu := New(SchedulerName)
-	testCases := buildValidNPUJobTestCase01()
+	testCases := buildValidNPUJobTestCases01()
 	testCases = append(testCases, buildValidNPUJobTestCase02()...)
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -121,119 +189,106 @@ func TestValidNPUJob(t *testing.T) {
 	}
 }
 
-func buildCheckNodeNPUByTaskTestCase1() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
-		Name: "01-CheckNodeNPUByTask when return nil node npu meet task req",
-		Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, util.NPUIndex3),
-		Node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name:       "node1",
-				Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-2"},
-			},
-		},
-		WantErr: nil,
-	}
+// checkNodeNPUByTaskTestCase CheckNodeNPUByTask test case
+type checkNodeNPUByTaskTestCase struct {
+	Task    *api.TaskInfo
+	Name    string
+	Attr    util.SchedulerJobAttr
+	Node    plugin.NPUNode
+	WantErr error
 }
 
-func buildCheckNodeNPUByTaskTestCase2() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
-		Name: "02-CheckNodeNPUByTask return err when task is not npu task",
-		Task: test.FakeTaskWithResReq("pod1", util.NPU310CardName, util.NPUIndex3),
-		Node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name:       "node1",
-				Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-2"},
-			},
+func buildCheckNodeNPUByTaskTestCases() []checkNodeNPUByTaskTestCase {
+	node := initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1,Ascend310-2")
+	return []checkNodeNPUByTaskTestCase{
+		{
+			Name:    "01-CheckNodeNPUByTask return nil when node npu meet task req",
+			Task:    &api.TaskInfo{Job: MockJobName},
+			Node:    node,
+			WantErr: fmt.Errorf("%s is not npu job", MockJobName),
 		},
-		WantErr: errors.New("task<pod1> is not npu task"),
-	}
-}
 
-func buildCheckNodeNPUByTaskTestCase3() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
-		Name: "03-CheckNodeNPUByTask return err when node has no req npu",
-		Task: test.FakeTaskWithResReq("pod0", util.NPU310PCardName, util.NPUIndex3),
-		Node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name:       "node1",
-				Annotation: map[string]string{util.NPU310PCardName: "Ascend310-0,Ascend310-1,Ascend310-2"},
-			},
+		{
+			Name:    "02-CheckNodeNPUByTask return err when task is not npu task",
+			Task:    &api.TaskInfo{Name: MockPodOneName, Job: test.FakeJobName},
+			Node:    node,
+			WantErr: fmt.Errorf("task<%s> is not npu task", MockPodOneName),
 		},
-		WantErr: errors.New("getUsableTopFromNode node1 don't have huawei.com/Ascend310"),
-	}
-}
-
-func buildCheckNodeNPUByTaskTestCase4() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
-		Name: "04-CheckNodeNPUByTask return err when node has no req npu",
-		Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, util.NPUIndex3),
-		Node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name:       "node1",
-				Annotation: map[string]string{util.NPU310CardName: "Ascend310-0, Ascend310-1"},
-			},
+		{
+			Name:    "03-CheckNodeNPUByTask return err when node has no req npu",
+			Task:    test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, util.NPUIndex3),
+			Node:    initNode(MockNodeOneName, util.NPU310PCardName, ""),
+			WantErr: fmt.Errorf("getUsableTopFromNode %s don't have %s", MockNodeOneName, util.NPU310CardName),
 		},
-		WantErr: errors.New("checkNodeNPUByTask the npus on this node don't satisfy the schedulable topology : req" +
-			" npu(3) illegal not meet node top<[]>"),
-	}
-}
-
-func buildCheckNodeNPUByTaskTestCase5() itest.CheckNodeNPUByTaskTestCase {
-	return itest.CheckNodeNPUByTaskTestCase{
-		Name: "05-CheckNodeNPUByTask return err when node has no req npu",
-		Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, util.NPUIndex3),
-		Node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name:       "node1",
-				Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-4"},
-			},
+		{
+			Name: "04-CheckNodeNPUByTask return err when node has no req npu",
+			Task: test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, util.NPUIndex3),
+			Node: initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0, Ascend310-1"),
+			WantErr: fmt.Errorf("checkNodeNPUByTask %s : %v", util.NodeNotMeetTopologyWarning,
+				fmt.Errorf("req npu(%d) illegal not meet node top<%v>", util.NPUIndex3, []int{})),
 		},
-		WantErr: fmt.Errorf("checkNodeNPUByTask the npus on this node don't satisfy the schedulable " +
-			"topology : req npu(3) illegal not meet node top<[0 1 4]>"),
-	}
-}
-
-func buildCheckNodeNPUByTaskTestCases() []itest.CheckNodeNPUByTaskTestCase {
-	return []itest.CheckNodeNPUByTaskTestCase{
-		buildCheckNodeNPUByTaskTestCase1(),
-		buildCheckNodeNPUByTaskTestCase2(),
-		buildCheckNodeNPUByTaskTestCase3(),
-		buildCheckNodeNPUByTaskTestCase4(),
-		buildCheckNodeNPUByTaskTestCase5(),
+		{
+			Name: "05-CheckNodeNPUByTask return err when node has no req npu",
+			Task: test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, util.NPUIndex3),
+			Node: initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1,Ascend310-4"),
+			WantErr: fmt.Errorf("checkNodeNPUByTask %s : %v", util.NodeNotMeetTopologyWarning,
+				fmt.Errorf("req npu(%d) illegal not meet node top<%v>", util.NPUIndex3, []int{0, 1, 4})),
+		},
+		{
+			Name:    "06-CheckNodeNPUByTask return nil when node npu meet task req",
+			Task:    test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, util.NPUIndex3),
+			Node:    node,
+			WantErr: nil,
+		},
 	}
 }
 
 // TestCheckNodeNPUByTask
 func TestCheckNodeNPUByTask(t *testing.T) {
-	npu := New(SchedulerName)
-	job := test.FakeNormalTestJob("job", 1)
-	test.SetFakeJobResRequest(job, util.NPU310CardName, "3")
-	attr1 := itest.FakeSchedulerJobAttrByJob(job)
-	npu.SetSchedulerAttr(attr1)
-	npu.SetSchedulerEnv(plugin.ScheduleEnv{
-		Jobs: map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr1}},
+	testCase := buildNilTPTestCase("CheckNodeNPUByTask")
+	t.Run(testCase.name, func(t *testing.T) {
+		if err := testCase.tp.CheckNodeNPUByTask(nil,
+			plugin.NPUNode{}); !reflect.DeepEqual(err, testCase.wantErr) {
+			t.Errorf("CheckNodeNPUByTask() = %v, want %v", err, testCase.wantErr)
+		}
 	})
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedThree)
+	env := plugin.ScheduleEnv{
+		Jobs: map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr}},
+	}
+	npu := initNPU(attr, env)
 	testCases := buildCheckNodeNPUByTaskTestCases()
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
 			if err := npu.CheckNodeNPUByTask(tt.Task, tt.Node); !reflect.DeepEqual(err, tt.WantErr) {
-				t.Errorf("ValidNPUJob() error = %v, wantErr %v", err, tt.WantErr)
+				t.Errorf("CheckNodeNPUByTask() error = %v, wantErr %v", err, tt.WantErr)
 			}
 		})
 	}
 }
 
-func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
+// scoreBestNPUNodesTestCase scoreBestNPUNodes test case
+type scoreBestNPUNodesTestCase struct {
+	Task     *api.TaskInfo
+	Nodes    []*api.NodeInfo
+	ScoreMap map[string]float64
+	WantSMap map[string]float64
+	Name     string
+	WantErr  error
+	Attr     util.SchedulerJobAttr
+}
+
+func buildScoreBestNPUNodesTestCases() []scoreBestNPUNodesTestCase {
 	const (
 		score32 = 32
 		score24 = 24
 		score16 = 16
 		score8  = 8
 	)
-	return []itest.ScoreBestNPUNodesTestCase{
+	return []scoreBestNPUNodesTestCase{
 		{
 			Name:     "01-ScoreBestNPUNodes when return nil node npu meet task req",
-			Task:     test.FakeTaskWithResReq("pod1", util.NPU310CardName, 1),
+			Task:     test.FakeTaskWithResReq("pod1", util.NPU310CardName, MockResourceNumOne),
 			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node4"}},
 			ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node4": 0},
 			WantSMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node4": 0},
@@ -241,15 +296,15 @@ func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
 		},
 		{
 			Name:     "02-ScoreBestNPUNodes when return nil node npu meet task req",
-			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
-			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node4"}},
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumOne),
+			Nodes:    []*api.NodeInfo{nil, {Name: "node0"}, {Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node4"}},
 			ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node4": 0},
 			WantSMap: map[string]float64{"node1": score32, "node2": score16, "node3": score24, "node4": score8},
 			WantErr:  nil,
 		},
 		{
 			Name:     "03-ScoreBestNPUNodes return nil when node npu meet task req",
-			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumOne),
 			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node5"}},
 			ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node5": 0},
 			WantSMap: map[string]float64{"node1": score32, "node2": score16, "node3": score24, "node5": 0},
@@ -257,7 +312,7 @@ func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
 		},
 		{
 			Name:     "04-ScoreBestNPUNodes return err when node npu not meet task req",
-			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumOne),
 			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node6"}},
 			ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node6": 0},
 			WantSMap: map[string]float64{"node1": score32, "node2": score16, "node3": score24, "node6": 0},
@@ -265,7 +320,7 @@ func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
 		},
 		{
 			Name:     "05-ScoreBestNPUNodes return nil when node npu not meet task req",
-			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumOne),
 			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node7"}},
 			ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node7": 0},
 			WantSMap: map[string]float64{"node1": score32, "node2": score16, "node3": score24, "node7": score32},
@@ -274,13 +329,19 @@ func buildScoreBestNPUNodesTestCases() []itest.ScoreBestNPUNodesTestCase {
 	}
 }
 
-// TestCheckNodeNPUByTask
-func TestScoreBestNPUNodes(t *testing.T) {
-	npu := New(SchedulerName)
-	job := test.FakeNormalTestJob("job", 1)
-	test.SetFakeJobResRequest(job, util.NPU310CardName, "1")
-	attr := itest.FakeSchedulerJobAttrByJob(job)
-	env := plugin.ScheduleEnv{
+func buildTaskNPUNumTestCase() scoreBestNPUNodesTestCase {
+	return scoreBestNPUNodesTestCase{
+		Name:     "06-ScoreBestNPUNodes return err when taskNPUNum is invalid",
+		Task:     test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumZero),
+		Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}, {Name: "node3"}, {Name: "node4"}},
+		ScoreMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node4": 0},
+		WantSMap: map[string]float64{"node1": 0, "node2": 0, "node3": 0, "node4": 0},
+		WantErr:  errors.New("task<pod0> req npu num<5> is invalid"),
+	}
+}
+
+func initScheduleEnv(attr util.SchedulerJobAttr) plugin.ScheduleEnv {
+	return plugin.ScheduleEnv{
 		Jobs: map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr}},
 		Nodes: map[string]plugin.NPUNode{
 			"node1": {CommonNode: plugin.CommonNode{Annotation: map[string]string{util.NPU310CardName: "Ascend310-0"}}},
@@ -296,8 +357,20 @@ func TestScoreBestNPUNodes(t *testing.T) {
 			"node7": {CommonNode: plugin.CommonNode{Annotation: map[string]string{util.NPU310CardName: "Ascend310-4"}}},
 		},
 	}
-	npu.SetSchedulerAttr(attr)
-	npu.SetSchedulerEnv(env)
+}
+
+// TestCheckNodeNPUByTask
+func TestScoreBestNPUNodes(t *testing.T) {
+	testCase := buildNilTPTestCase("ScoreBestNPUNodes")
+	t.Run(testCase.name, func(t *testing.T) {
+		if err := testCase.tp.ScoreBestNPUNodes(nil, nil,
+			nil); !reflect.DeepEqual(err, testCase.wantErr) {
+			t.Errorf("ScoreBestNPUNodes() = %v, want %v", err, testCase.wantErr)
+		}
+	})
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
+	env := initScheduleEnv(attr)
+	npu := initNPU(attr, env)
 	testCases := buildScoreBestNPUNodesTestCases()
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -308,99 +381,143 @@ func TestScoreBestNPUNodes(t *testing.T) {
 			}
 		})
 	}
+	attr = initAttr(MockJobName, MockTaskNumOne, MockNeedFive)
+	env = initScheduleEnv(attr)
+	npu = initNPU(attr, env)
+	extraTestCase := buildTaskNPUNumTestCase()
+	t.Run(extraTestCase.Name, func(t *testing.T) {
+		err := npu.ScoreBestNPUNodes(extraTestCase.Task, extraTestCase.Nodes, extraTestCase.ScoreMap)
+		if !reflect.DeepEqual(err, extraTestCase.WantErr) || !reflect.DeepEqual(extraTestCase.ScoreMap,
+			extraTestCase.WantSMap) {
+			t.Errorf("ScoreBestNPUNodes() scoreMap: %v, wantSMap: %v, error = %v, wantErr %v",
+				extraTestCase.ScoreMap, extraTestCase.WantSMap, err, extraTestCase.WantErr)
+		}
+	})
 }
 
-func buildUseAnnotationTestCases01() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
+// useAnnotationTestCase useAnnotation test case
+type useAnnotationTestCase struct {
+	Task     *api.TaskInfo
+	WantNode *plugin.NPUNode
+	Name     string
+	Node     plugin.NPUNode
+	PodAnno  string
+	Attr     util.SchedulerJobAttr
+}
+
+func buildUseAnnotationTestCases() []useAnnotationTestCase {
+	return []useAnnotationTestCase{
 		{
-			Name: "01-UseAnnotation task will select the npu which is the only one on the card",
-			Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-4,Ascend310-5"},
-				},
-			},
+			Name:    "01-UseAnnotation task will select the npu which is the only one on the card",
+			Task:    test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, MockResourceNumOne),
+			Node:    initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-4,Ascend310-5"),
 			PodAnno: "Ascend310-0",
-			WantNode: &plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Allocate: map[v1.ResourceName]float64{util.NPU310CardName: 0},
-				},
-			},
 		},
 		{
 			Name: "02-UseAnnotation task will select the npu which is on the card that has 3 npu other than 2",
-			Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-2,Ascend310-4," +
-						"Ascend310-5"},
-				},
-			},
+			Task: test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, MockResourceNumOne),
+			Node: initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1,Ascend310-2,"+
+				"Ascend310-4,Ascend310-5"),
 			PodAnno: "Ascend310-0",
-			WantNode: &plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Allocate: map[v1.ResourceName]float64{util.NPU310CardName: npuNum4 * util.NPUHexKilo},
-				},
-			},
 		},
-	}
-}
-
-func buildUseAnnotationTestCases02() []itest.UseAnnotationTestCase {
-	return []itest.UseAnnotationTestCase{
 		{
 			Name: "03-UseAnnotation task will select the npu which is on the card that has 3 npu other than 2",
-			Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-4,Ascend310-5," +
-						"Ascend310-6"},
-				},
-			},
+			Task: test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, MockResourceNumOne),
+			Node: initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1,Ascend310-4,"+
+				"Ascend310-5,Ascend310-6"),
 			PodAnno: "Ascend310-4",
-			WantNode: &plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-5,Ascend310-6"},
-				},
-			},
 		},
 		{
 			Name: "04-UseAnnotation task will select the npu which is on the card that has 2 npu other than 4",
-			Task: test.FakeTaskWithResReq("pod0", util.NPU310CardName, 1),
-			Node: plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-4,Ascend310-5," +
-						"Ascend310-6,Ascend310-7"},
-				},
-			},
+			Task: test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, MockResourceNumOne),
+			Node: initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-1,Ascend310-4,"+
+				"Ascend310-5,Ascend310-6,Ascend310-7"),
 			PodAnno: "Ascend310-0",
-			WantNode: &plugin.NPUNode{
-				CommonNode: plugin.CommonNode{
-					Annotation: map[string]string{util.NPU310CardName: "Ascend310-1,Ascend310-4,Ascend310-5,Ascend310-6," +
-						"Ascend310-0,Ascend310-7"},
-				},
-			},
+		},
+		{
+			Name:     "05-UseAnnotation return nil when task is not npu task",
+			Task:     test.FakeTaskWithResReq(MockPodOneName, util.NPU310CardName, MockResourceNumOne),
+			Node:     initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0,Ascend310-4,Ascend310-5"),
+			PodAnno:  "Ascend310-0",
+			WantNode: nil,
 		},
 	}
 }
 
 func TestUseAnnotation(t *testing.T) {
-	npu := New(SchedulerName)
-	job := test.FakeNormalTestJob("job", 1)
-	test.SetFakeJobResRequest(job, util.NPU310CardName, "1")
-	attr := itest.FakeSchedulerJobAttrByJob(job)
-	npu.SetSchedulerAttr(attr)
+	testCase := buildNilTPTestCase("UseAnnotation")
+	t.Run(testCase.name, func(t *testing.T) {
+		if res := testCase.tp.UseAnnotation(nil,
+			plugin.NPUNode{}); !reflect.DeepEqual(res, testCase.wantNode) {
+			t.Errorf("UseAnnotation() = %v, want %v", res, testCase.wantNode)
+		}
+	})
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
 	env := plugin.ScheduleEnv{Jobs: map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr}}}
-	npu.SetSchedulerEnv(env)
-	testCases := buildUseAnnotationTestCases01()
-	testCases = append(testCases, buildUseAnnotationTestCases02()...)
+	npu := initNPU(attr, env)
+	testCases := buildUseAnnotationTestCases()
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
 			node := npu.UseAnnotation(tt.Task, tt.Node)
-			if !reflect.DeepEqual(node.Annotation, tt.Node.Annotation) ||
-				!reflect.DeepEqual(tt.Task.Pod.Annotations[util.NPU310CardName], tt.PodAnno) {
+			if node == nil && !reflect.DeepEqual(node, tt.WantNode) {
+				t.Errorf("UseAnnotation() node: %v, wantNode: %v", node, tt.WantNode)
+			}
+			if node != nil && (!reflect.DeepEqual(node.Annotation, tt.Node.Annotation) ||
+				!reflect.DeepEqual(tt.Task.Pod.Annotations[util.NPU310CardName], tt.PodAnno)) {
 				t.Errorf("UseAnnotation() node: %v, wantNode: %v, anno %v, wantAnno %v",
 					node, tt.WantNode, tt.Task.Pod.Annotations, tt.PodAnno)
+			}
+		})
+	}
+}
+
+type selectNPUFromNodeTestCase struct {
+	Name      string
+	Task      *api.TaskInfo
+	Node      plugin.NPUNode
+	WantSlice []int
+	WantErr   error
+}
+
+func buildSelectNPUFromNodeTestCases() []selectNPUFromNodeTestCase {
+	return []selectNPUFromNodeTestCase{
+		{
+			Name:      "01-SelectNPUFromNode return error when node without target annotation",
+			Task:      test.FakeTaskWithResReq(MockPodZeroName, util.NPU310CardName, MockResourceNumOne),
+			Node:      initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0"),
+			WantSlice: nil,
+			WantErr:   errors.New("getUsableTopFromNode  don't have huawei.com/Ascend310"),
+		},
+		{
+			Name:      "02-SelectNPUFromNode return error when task request illegal npu number",
+			Task:      test.FakeTaskWithResReq("pod0", util.NPU310CardName, MockResourceNumOne),
+			Node:      initNode(MockNodeOneName, util.NPU310CardName, "Ascend310-0"),
+			WantSlice: nil,
+			WantErr:   errors.New("illegal request npu number: 5"),
+		},
+	}
+}
+
+func TestSelectNPUFromNode(t *testing.T) {
+	testCase := buildNilTPTestCase("SelectNPUFromNode")
+	t.Run(testCase.name, func(t *testing.T) {
+		if res, err := testCase.tp.SelectNPUFromNode(nil, plugin.NPUNode{}); !reflect.DeepEqual(res,
+			testCase.wantArr) && !reflect.DeepEqual(err, testCase.wantErr) {
+			t.Errorf("SelectNPUFromNode() res: %v, err: %v, want %v", res, err, testCase.wantErr)
+		}
+	})
+	testCases := buildSelectNPUFromNodeTestCases()
+	tp := NewCard310x4(SchedulerName)
+	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedFive)
+	tp.SetSchedulerAttr(attr)
+	env := plugin.ScheduleEnv{Jobs: map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr}}}
+	tp.SetSchedulerEnv(env)
+	for _, tt := range testCases {
+		t.Run(tt.Name, func(t *testing.T) {
+			if res, err := tp.SelectNPUFromNode(tt.Task, tt.Node); !reflect.DeepEqual(res,
+				tt.WantSlice) && !reflect.DeepEqual(err, tt.WantErr) {
+				t.Errorf("SelectNPUFromNode() res: %v, err: %v, wantSlice: %v, wantErr: %v",
+					res, err, tt.WantSlice, tt.WantErr)
 			}
 		})
 	}

@@ -51,12 +51,11 @@ func New(name string) base.AscendHandler {
 
 // ValidNPUJob check job req npu num
 func (tp *card310x4) ValidNPUJob() *api.ValidateResult {
-	klog.V(util.LogInfoLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
 	if tp == nil {
 		err := errors.New(util.ArgumentError)
 		return &api.ValidateResult{Pass: false, Reason: err.Error(), Message: err.Error()}
 	}
-
+	klog.V(util.LogInfoLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
 	taskNum := len(tp.Tasks)
 	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob card-mode job<%s> has <%d> tasks.",
 		tp.GetPluginName(), tp.Name, taskNum)
