@@ -6,6 +6,7 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -71,6 +72,10 @@ func updateCM(jobInfo constant.JobInfo, index int, hccl string) bool {
 	data[cmIndex] = strconv.Itoa(index)
 	data[cmCutNumKey] = strconv.Itoa(jobInfo.TotalCmNum)
 	data[hcclJson] = hccl
+	// deleteTime should be changed to updateTime next version
+	if jobInfo.Status == StatusJobFail || jobInfo.Status == StatusJobCompleted {
+		data[deleteTime] = strconv.Itoa(int(time.Now().Unix()))
+	}
 	var cmName string
 	if index == 0 {
 		cmName = fmt.Sprintf("%s-%s", configmapPrefix, jobInfo.Name)
@@ -100,6 +105,7 @@ func preDeleteCM(jobInfo constant.JobInfo, hccls []string) bool {
 	data[deleteTime] = strconv.Itoa(int(jobInfo.DeleteTime))
 	data[cmCutNumKey] = strconv.Itoa(jobInfo.TotalCmNum)
 	data[addTime] = strconv.Itoa(int(jobInfo.AddTime))
+	result := true
 	for i := 0; i < jobInfo.TotalCmNum; i++ {
 		var cmName string
 		if i == 0 {
@@ -114,10 +120,11 @@ func preDeleteCM(jobInfo constant.JobInfo, hccls []string) bool {
 		err := kube.CreateOrUpdateConfigMap(cmName, jobInfo.NameSpace, data, getDefaultLabel())
 		if err != nil {
 			hwlog.RunLog.Errorf("delete configmap failed, err: %v", err)
+			result = false
 			continue
 		}
 	}
-	return true
+	return result
 }
 
 func deleteCm(jobInfo constant.JobInfo) bool {
