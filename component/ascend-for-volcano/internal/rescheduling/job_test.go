@@ -24,10 +24,13 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"k8s.io/api/core/v1"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/framework"
+
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/util"
 )
 
 type FaultJobTestField struct {
@@ -238,4 +241,138 @@ func TestGetIds(t *testing.T) {
 			t.Errorf("return [0] when name == node1 result = %v, want %v", result, true)
 		}
 	})
+}
+
+func TestGetJobFaultRescheduleLabel(t *testing.T) {
+	t.Run("01-GetJobFaultRescheduleLabel return error when job is nil", func(t *testing.T) {
+		fJob := &FaultJob{JobUID: "test"}
+		res := fJob.GetJobFaultRescheduleLabel(nil)
+		if res != JobOffRescheduleLabelValue {
+			t.Errorf("GetJobFaultRescheduleLabel() res = %v, wantRes is %v", res, JobOffRescheduleLabelValue)
+		}
+	})
+}
+
+type getJobElasticSchedulingLabelTestCase struct {
+	name    string
+	fJob    *FaultJob
+	job     *plugin.SchedulerJob
+	wantRes string
+}
+
+func buildGetJobElasticSchedulingLabelTestCases() []getJobElasticSchedulingLabelTestCase {
+	return []getJobElasticSchedulingLabelTestCase{
+		{
+			name:    "01-GetJobElasticSchedulingLabel return off when job is nil",
+			fJob:    &FaultJob{JobUID: "test"},
+			job:     nil,
+			wantRes: JobOffRescheduleLabelValue,
+		},
+		{
+			name: "02-GetJobElasticSchedulingLabel return on when ElasticSchedulingKey exist",
+			fJob: &FaultJob{JobUID: "test"},
+			job: &plugin.SchedulerJob{SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{
+					ElasticSchedulingKey: JobOnElasticScheduling,
+				}}}},
+			wantRes: JobOnElasticScheduling,
+		},
+	}
+}
+
+func TestGetJobElasticSchedulingLabel(t *testing.T) {
+	testCases := buildGetJobElasticSchedulingLabelTestCases()
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			res := tt.fJob.GetJobElasticSchedulingLabel(tt.job)
+			if res != tt.wantRes {
+				t.Errorf("GetJobElasticSchedulingLabel() res = %v, wantRes is %v", res, tt.wantRes)
+			}
+		})
+	}
+}
+
+type isNormalJobNeedRestartTestCase struct {
+	name    string
+	fJob    *FaultJob
+	wantRes bool
+}
+
+func buildIsNormalJobNeedRestartTestCases() []isNormalJobNeedRestartTestCase {
+	return []isNormalJobNeedRestartTestCase{
+		{
+			name:    "01-IsNormalJobNeedRestart return false when fJob is nil",
+			fJob:    nil,
+			wantRes: false,
+		},
+		{
+			name:    "02-IsNormalJobNeedRestart return true when IsSoftwareFault is true",
+			fJob:    &FaultJob{FaultTasks: []FaultTask{{IsSoftwareFault: true}}},
+			wantRes: true,
+		},
+		{
+			name: "03-IsNormalJobNeedRestart return true when FaultHandling is PreSeparateNPU",
+			fJob: &FaultJob{FaultTasks: []FaultTask{{
+				Reason: []FaultReasonList{
+					{FaultDeviceList: FaultDeviceList{FaultHandling: PreSeparateNPU}},
+				},
+			}}},
+			wantRes: true,
+		},
+	}
+}
+
+func TestIsNormalJobNeedRestart(t *testing.T) {
+	testCases := buildIsNormalJobNeedRestartTestCases()
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if res := tt.fJob.IsNormalJobNeedRestart(); res != tt.wantRes {
+				t.Errorf("IsNormalJobNeedRestart() res = %v, wantRes is %v", res, tt.wantRes)
+			}
+		})
+	}
+}
+
+func TestGetJobFaultNPUTaskNum(t *testing.T) {
+	t.Run("01-GetJobFaultNPUTaskNum return 0 when fJob.FaultTasks is empty slice",
+		func(t *testing.T) {
+			fJob := &FaultJob{FaultTasks: []FaultTask{}}
+			if res := fJob.GetJobFaultNPUTaskNum(); res != 0 {
+				t.Errorf("GetJobFaultNPUTaskNum() res = %v, wantRes = 0", res)
+			}
+		})
+	t.Run("02-GetJobFaultNPUTaskNum return greater than 0 when fJob.FaultTasks is not empty slice",
+		func(t *testing.T) {
+			fJob := &FaultJob{FaultTasks: []FaultTask{{
+				UseCardName: []string{"npu1", "npu2"},
+			}}}
+			if res := fJob.GetJobFaultNPUTaskNum(); res <= 0 {
+				t.Errorf("GetJobFaultNPUTaskNum() res = %v, wantRes > 0", res)
+			}
+		})
+}
+
+func TestIsJobGraceDeleteSuccess(t *testing.T) {
+	fJob := &FaultJob{FaultTasks: []FaultTask{{
+		IsFaultTask: true,
+		TaskUID:     "task01",
+		UseCardName: []string{"npu1", "npu2"},
+	}}}
+	jobInfo := test.FakeNormalTestJob("job0", util.NPUIndex2)
+	jobInfo.Tasks = map[api.TaskID]*api.TaskInfo{"task01": {Pod: &v1.Pod{}}}
+	t.Run("01-isJobGraceDeleteSuccess return true when jobInfo.Tasks is not nil", func(t *testing.T) {
+		if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
+			t.Errorf("isJobGraceDeleteSuccess() res = %v, wantRes is false", res)
+		}
+	})
+	t.Run("02-isJobGraceDeleteSuccess return true when jobInfo.PodGroup.Labels is not nil",
+		func(t *testing.T) {
+			fJob.PendingSessionNum = spPendingTimes
+			jobInfo.PodGroup.Labels = map[string]string{
+				util.SinglePodTag: util.EnableFunc,
+			}
+			if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
+				t.Errorf("isJobGraceDeleteSuccess() res = %v, wantRes is false", res)
+			}
+		})
 }

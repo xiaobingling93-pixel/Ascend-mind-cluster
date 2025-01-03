@@ -21,11 +21,15 @@ package rescheduling
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/client-go/kubernetes"
 	"volcano.sh/volcano/pkg/scheduler/api"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
@@ -95,7 +99,7 @@ func buildDealReSchedulerCacheSetFaultNodesFromCMTests() []DealReSchedulerCacheS
 		wantErr: true,
 	}
 	test2 := DealReSchedulerCacheSetFaultNodesFromCMTests{
-		name:    "01-DealReSchedulerCache_SetFaultNodesFromCM()  succeed",
+		name:    "02-DealReSchedulerCache_SetFaultNodesFromCM()  succeed",
 		fields:  field2,
 		wantErr: false,
 	}
@@ -299,4 +303,445 @@ func TestMaxLengthOfRescheduleReason(t *testing.T) {
 	if len(result) > validLengthOfInfo {
 		fmt.Printf("%s", result[:validLengthOfInfo])
 	}
+}
+
+func initDealReSchedulerCache() *DealReSchedulerCache {
+	fields := fakeReSchedulerCache()
+	fields.DealReSchedulerConfigmap = fakeNormalReSchedulerCMData()
+	return &DealReSchedulerCache{
+		DealReSchedulerConfigmap:   fields.DealReSchedulerConfigmap,
+		FaultNodes:                 fields.FaultNodes,
+		FaultJobs:                  fields.FaultJobs,
+		AllocNodeRankOccurrenceMap: fields.AllocNodeRankOccurrenceMap,
+	}
+}
+
+func TestGetFaultNodesFromCM(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-getFaultNodesFromCM return error when json unmarshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return errors.New("json unmarshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.getFaultNodesFromCM(""); err == nil {
+				t.Errorf("getFaultNodesFromCM() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-getFaultNodesFromCM return nil when json unmarshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.getFaultNodesFromCM(""); err != nil {
+				t.Errorf("getFaultNodesFromCM() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestGetFaultJobsFromCM(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-getFaultJobsFromCM return error when json unmarshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return errors.New("json unmarshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.getFaultJobsFromCM(""); err == nil {
+				t.Errorf("getFaultJobsFromCM() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-getFaultJobsFromCM return nil when json unmarshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.getFaultJobsFromCM(""); err != nil {
+				t.Errorf("getFaultJobsFromCM() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestGetRetryTimesFromCM(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-getRetryTimesFromCM return error when json unmarshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return errors.New("json unmarshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.getRetryTimesFromCM(""); err == nil {
+				t.Errorf("getRetryTimesFromCM() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-getRetryTimesFromCM return nil when json unmarshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.getRetryTimesFromCM(""); err != nil {
+				t.Errorf("getRetryTimesFromCM() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestGetRecentReschedulingRecordsFromCm(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-getRecentReschedulingRecordsFromCm return error when json unmarshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return errors.New("json unmarshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.getRecentReschedulingRecordsFromCm(""); err == nil {
+				t.Errorf("getRecentReschedulingRecordsFromCm() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-getRecentReschedulingRecordsFromCm return nil when json unmarshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.getRecentReschedulingRecordsFromCm(""); err != nil {
+				t.Errorf("getRecentReschedulingRecordsFromCm() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestGetNodeRankOccurrenceMapFromCM(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-getNodeRankOccurrenceMapFromCM return error when json unmarshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return errors.New("json unmarshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.getNodeRankOccurrenceMapFromCM(""); err == nil {
+				t.Errorf("getNodeRankOccurrenceMapFromCM() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-getNodeRankOccurrenceMapFromCM return nil when json unmarshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v any) error {
+				return nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.getNodeRankOccurrenceMapFromCM(""); err != nil {
+				t.Errorf("getNodeRankOccurrenceMapFromCM() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestSetFaultJobsFromCM(t *testing.T) {
+	var reCache *DealReSchedulerCache
+	t.Run("01-setFaultJobsFromCM return error when reCache is nil", func(t *testing.T) {
+		if err := reCache.SetFaultJobsFromCM(""); err == nil {
+			t.Errorf("SetFaultJobsFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	reCache = initDealReSchedulerCache()
+	t.Run("02-setFaultJobsFromCM return error when len(jobType) is 0", func(t *testing.T) {
+		if err := reCache.SetFaultJobsFromCM(""); err == nil {
+			t.Errorf("SetFaultJobsFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	t.Run("03-setFaultJobsFromCM return nil when getFaultNodesFromCM success", func(t *testing.T) {
+		if err := reCache.SetFaultJobsFromCM(CmFaultNodeKind); err != nil {
+			t.Errorf("SetFaultJobsFromCM() error = %v, wantErr is nil", err)
+		}
+	})
+	t.Run("04-setFaultJobsFromCM return nil when faultJobData is empty", func(t *testing.T) {
+		reCache.CMData[CmFaultJob910bx2Kind] = ""
+		if err := reCache.SetFaultJobsFromCM(CmFaultJob910bx2Kind); err != nil {
+			t.Errorf("SetFaultJobsFromCM() error = %v, wantErr is nil", err)
+		}
+	})
+	t.Run("05-setFaultJobsFromCM return nil when faultJobData unmarshal failed", func(t *testing.T) {
+		reCache.CMData[CmFaultJob910bx2Kind] = "testCMData"
+		if err := reCache.SetFaultJobsFromCM(CmFaultJob910bx2Kind); err == nil {
+			t.Errorf("SetFaultJobsFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+}
+
+func TestSetRetryTimesFromCM(t *testing.T) {
+	var reCache *DealReSchedulerCache
+	t.Run("01-SetRetryTimesFromCM return error when reCache is nil", func(t *testing.T) {
+		if err := reCache.SetRetryTimesFromCM(); err == nil {
+			t.Errorf("SetRetryTimesFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	reCache = initDealReSchedulerCache()
+	t.Run("02-SetRetryTimesFromCM return error when getRetryTimesFromCM failed", func(t *testing.T) {
+		reCache.CMData[CmJobRemainRetryTimes] = "testCMData"
+		if err := reCache.SetRetryTimesFromCM(); err == nil {
+			t.Errorf("SetRetryTimesFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	t.Run("03-SetRetryTimesFromCM return error when getRetryTimesFromCM success", func(t *testing.T) {
+		faultCM := map[api.JobID]*RemainRetryTimes{}
+		reCache.CMData[CmJobRemainRetryTimes] = dealMarshal(faultCM)
+		if err := reCache.SetRetryTimesFromCM(); err != nil {
+			t.Errorf("SetRetryTimesFromCM() error = %v, wantErr is nil", err)
+		}
+	})
+}
+
+type dealReSchedulerCacheTestCase struct {
+	name             string
+	reCache          *DealReSchedulerCache
+	firstStartup     bool
+	wantErr          bool
+	mockGetConfigMap func(kubernetes.Interface, string, string) (*v1.ConfigMap, error)
+}
+
+func buildSetJobRecentRescheduleRecordsTestCases() []dealReSchedulerCacheTestCase {
+	return []dealReSchedulerCacheTestCase{
+		{
+			name:    "01-SetJobRecentRescheduleRecords return error when reCache is nil",
+			reCache: nil, wantErr: true,
+			mockGetConfigMap: func(_ kubernetes.Interface, _, _ string) (*v1.ConfigMap, error) {
+				return nil, nil
+			},
+		},
+		{
+			name:    "02-SetJobRecentRescheduleRecords return error when GetConfigMap failed",
+			reCache: initDealReSchedulerCache(), firstStartup: true, wantErr: true,
+			mockGetConfigMap: func(_ kubernetes.Interface, _, _ string) (*v1.ConfigMap, error) {
+				return nil, errors.New("get config map failed")
+			},
+		},
+		{
+			name:    "03-SetJobRecentRescheduleRecords return nil when CMData is empty",
+			reCache: initDealReSchedulerCache(), firstStartup: true, wantErr: false,
+			mockGetConfigMap: func(_ kubernetes.Interface, _, _ string) (*v1.ConfigMap, error) {
+				return &v1.ConfigMap{Data: map[string]string{CmJobRescheduleReasonsKey: ""}}, nil
+			},
+		},
+		{
+			name:    "04-SetJobRecentRescheduleRecords return error when getRecentReschedulingRecordsFromCm failed",
+			reCache: initDealReSchedulerCache(), firstStartup: true, wantErr: true,
+			mockGetConfigMap: func(_ kubernetes.Interface, _, _ string) (*v1.ConfigMap, error) {
+				return &v1.ConfigMap{Data: map[string]string{CmJobRescheduleReasonsKey: "testCMData"}}, nil
+			},
+		},
+		{
+			name:    "05-SetJobRecentRescheduleRecords return nil when getRecentReschedulingRecordsFromCm success",
+			reCache: initDealReSchedulerCache(), firstStartup: true, wantErr: false,
+			mockGetConfigMap: func(_ kubernetes.Interface, _, _ string) (*v1.ConfigMap, error) {
+				cmValue := dealMarshal(map[api.JobID]*RescheduleReason{})
+				return &v1.ConfigMap{Data: map[string]string{CmJobRescheduleReasonsKey: cmValue}}, nil
+			},
+		},
+	}
+}
+
+func TestSetJobRecentRescheduleRecords(t *testing.T) {
+	testCases := buildSetJobRecentRescheduleRecordsTestCases()
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(util.GetConfigMap, tt.mockGetConfigMap)
+			defer patch.Reset()
+
+			err := tt.reCache.SetJobRecentRescheduleRecords(&tt.firstStartup, nil)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SetJobRecentRescheduleRecords() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestSetNodeRankOccurrenceMapFromCM(t *testing.T) {
+	var reCache *DealReSchedulerCache
+	t.Run("01-SetNodeRankOccurrenceMapFromCM return error when reCache is nil", func(t *testing.T) {
+		if err := reCache.SetNodeRankOccurrenceMapFromCM(); err == nil {
+			t.Errorf("SetNodeRankOccurrenceMapFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	reCache = initDealReSchedulerCache()
+	t.Run("02-SetNodeRankOccurrenceMapFromCM return error when CMData is empty", func(t *testing.T) {
+		if err := reCache.SetNodeRankOccurrenceMapFromCM(); err == nil {
+			t.Errorf("SetNodeRankOccurrenceMapFromCM() error = %v, wantErr is not nil", err)
+		}
+	})
+	reCache.CMData[CmNodeRankTimeMapKind] = "testCMData"
+	t.Run("03-SetNodeRankOccurrenceMapFromCM return error when getNodeRankOccurrenceMapFromCM failed",
+		func(t *testing.T) {
+			if err := reCache.SetNodeRankOccurrenceMapFromCM(); err == nil {
+				t.Errorf("SetNodeRankOccurrenceMapFromCM() error = %v, wantErr is not nil", err)
+			}
+		})
+	reCache.CMData[CmNodeRankTimeMapKind] = dealMarshal(map[api.JobID][]*AllocNodeRankOccurrence{})
+	t.Run("04-SetNodeRankOccurrenceMapFromCM return nil when getNodeRankOccurrenceMapFromCM success",
+		func(t *testing.T) {
+			if err := reCache.SetNodeRankOccurrenceMapFromCM(); err != nil {
+				t.Errorf("SetNodeRankOccurrenceMapFromCM() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestMarshalCacheDataToString(t *testing.T) {
+	t.Run("01-marshalCacheDataToString return error when reCache is nil", func(t *testing.T) {
+		patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+			return nil, errors.New("marshal failed")
+		})
+		defer patch.Reset()
+		reCache := initDealReSchedulerCache()
+		if _, err := reCache.marshalCacheDataToString(nil); err == nil {
+			t.Errorf("marshalCacheDataToString() error = %v, wantErr is not nil", err)
+		}
+	})
+}
+
+func TestWriteFaultNodesToCMString(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-writeFaultNodesToCMString return error when marshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, errors.New("marshal failed")
+			})
+			defer patch.Reset()
+			if _, _, err := reCache.writeFaultNodesToCMString(); err == nil {
+				t.Errorf("writeFaultNodesToCMString() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-writeFaultNodesToCMString return error when marshal success",
+		func(t *testing.T) {
+			if _, _, err := reCache.writeFaultNodesToCMString(); err != nil {
+				t.Errorf("writeFaultNodesToCMString() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestGetFaultNodeToCm(t *testing.T) {
+	t.Run("01-getFaultNodeToCm return error when marshal failed",
+		func(t *testing.T) {
+			realFaultNode := []FaultNode{
+				{
+					NodeName:            "node0",
+					UpdateTime:          fakeTime,
+					UnhealthyNPU:        []string{"Ascend910-0"},
+					NetworkUnhealthyNPU: nil,
+					IsFaultNode:         true,
+					NodeDEnable:         true,
+					NodeHealthState:     NodeCardUnhealthy,
+					AllCards: []string{"Ascend910-0", "Ascend910-1", "Ascend910-2", "Ascend910-3",
+						"Ascend910-4", "Ascend910-5", "Ascend910-6", "Ascend910-7"},
+					FaultCards: []FaultCard{
+						*fakeTestFaultCardUnhealthy("Ascend910-0", "node0", NodeCardUnhealthy),
+						*fakeTestFaultCardHealthy("Ascend910-1", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-2", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-3", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-4", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-5", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-6", "node0"),
+						*fakeTestFaultCardHealthy("Ascend910-7", "node0"),
+					},
+				},
+			}
+			if res := getFaultNodeToCm(realFaultNode); res == nil {
+				t.Errorf("getFaultNodeToCm() res = %v, wantRes is not nil", res)
+			}
+		})
+}
+
+func TestWriteFaultJobsToCMString(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	t.Run("01-writeFaultJobsToCMString return error when marshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, errors.New("marshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeFaultJobsToCMString(); err == nil {
+				t.Errorf("writeFaultJobsToCMString() error = %v, wantErr is not nil", err)
+			}
+		})
+}
+
+func TestWriteRemainTimesToCMString(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	reCache.JobRemainRetryTimes = make(map[api.JobID]*RemainRetryTimes)
+	reCache.JobRemainRetryTimes["testUid"] = &RemainRetryTimes{
+		UUID:  "testUuid",
+		Times: 0,
+	}
+	t.Run("01-writeRemainTimesToCMString return error when marshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, errors.New("marshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeRemainTimesToCMString(); err == nil {
+				t.Errorf("writeRemainTimesToCMString() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("01-writeRemainTimesToCMString return error when marshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeRemainTimesToCMString(); err != nil {
+				t.Errorf("writeRemainTimesToCMString() error = %v, wantErr is nil", err)
+			}
+		})
+}
+
+func TestWriteRescheduleReasonsToCMString(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	reCache.JobRecentRescheduleRecords = make(map[api.JobID]*RescheduleReason)
+	reCache.JobRecentRescheduleRecords["testUid"] = &RescheduleReason{
+		JobID:                "jobId",
+		TotalRescheduleTimes: 0,
+		RescheduleRecords:    []RescheduleRecord{},
+		AdditionalInfo:       "additionalInfo",
+	}
+	t.Run("01-writeRescheduleReasonsToCMString return error when marshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, errors.New("marshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeRescheduleReasonsToCMString(); err == nil {
+				t.Errorf("writeRescheduleReasonsToCMString() error = %v, wantErr is not nil", err)
+			}
+		})
+}
+
+func TestWriteNodeRankOccurrenceMapToCMString(t *testing.T) {
+	reCache := initDealReSchedulerCache()
+	reCache.AllocNodeRankOccurrenceMap = map[api.JobID][]*AllocNodeRankOccurrence{
+		"testUid": {
+			{
+				NodeName:  "node0",
+				RankIndex: "rank0",
+			},
+		},
+	}
+	t.Run("01-writeNodeRankOccurrenceMapToCMString return error when marshal failed",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, errors.New("marshal failed")
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeNodeRankOccurrenceMapToCMString(); err == nil {
+				t.Errorf("writeNodeRankOccurrenceMapToCMString() error = %v, wantErr is not nil", err)
+			}
+		})
+	t.Run("02-writeNodeRankOccurrenceMapToCMString return nil when marshal success",
+		func(t *testing.T) {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(interface{}) ([]byte, error) {
+				return nil, nil
+			})
+			defer patch.Reset()
+			if _, err := reCache.writeNodeRankOccurrenceMapToCMString(); err != nil {
+				t.Errorf("writeNodeRankOccurrenceMapToCMString() error = %v, wantErr is nil", err)
+			}
+		})
 }
