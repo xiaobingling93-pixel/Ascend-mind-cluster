@@ -370,7 +370,7 @@ func TestIsJobGraceDeleteSuccess(t *testing.T) {
 	jobInfo := test.FakeNormalTestJob(mockJobName, util.NPUIndex2)
 	t.Run("01-isJobGraceDeleteSuccess return true when jobInfo.Tasks is nil", func(t *testing.T) {
 		if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
-			t.Errorf("GetJobFaultNPUTaskNum() returned %v, want true", res)
+			t.Errorf("isJobGraceDeleteSuccess() returned %v, want true", res)
 		}
 	})
 	t.Run("02-isJobGraceDeleteSuccess return true when jobInfo.PodGroup.Labels is not nil",
@@ -383,7 +383,7 @@ func TestIsJobGraceDeleteSuccess(t *testing.T) {
 				util.SinglePodTag: util.EnableFunc,
 			}
 			if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
-				t.Errorf("GetJobFaultNPUTaskNum() returned %v, want true", res)
+				t.Errorf("isJobGraceDeleteSuccess() returned %v, want true", res)
 			}
 		})
 }
@@ -531,12 +531,12 @@ func TestDeleteJobWithFaultLabels(t *testing.T) {
 }
 
 func TestIsJobSingleRescheduling(t *testing.T) {
-	t.Run("01-isJobSingleRescheduling return true when pod-rescheduling label is on", func(t *testing.T) {
+	t.Run("01-IsJobSingleRescheduling return true when pod-rescheduling label is on", func(t *testing.T) {
 		fJob := &FaultJob{JobUID: mockJobUID, SubHealthyStrategy: util.SubHealthyForceExit}
 		sJob := &plugin.SchedulerJob{}
 		sJob.Label = map[string]string{util.SinglePodTag: util.EnableFunc}
-		if res := fJob.IsJobSingleRescheduling(sJob); res == false {
-			t.Errorf("isJobSingleRescheduling() res = %v, wantRes is true", res)
+		if res := fJob.IsJobSingleRescheduling(sJob); !res {
+			t.Errorf("IsJobSingleRescheduling() res = %v, wantRes is true", res)
 		}
 	})
 }
@@ -546,7 +546,7 @@ func TestIsProcessReschedulingJob(t *testing.T) {
 		fJob := &FaultJob{JobUID: mockJobUID, SubHealthyStrategy: util.SubHealthyForceExit}
 		sJob := &plugin.SchedulerJob{}
 		sJob.Label = map[string]string{util.ProcessRecoverEnable: util.EnableFunc}
-		if res := fJob.IsProcessReschedulingJob(sJob); res == false {
+		if res := fJob.IsProcessReschedulingJob(sJob); !res {
 			t.Errorf("IsProcessReschedulingJob() res = %v, wantRes is true", res)
 		}
 	})
