@@ -50,7 +50,7 @@ func TestUpdatePodList(t *testing.T) {
 	}
 	podCache = make(map[types.UID]*podInfo)
 	convey.Convey("test update pod list when operator is EventTypeAdd", t, func() {
-		UpdatePodList(nil, testPod, EventTypeAdd)
+		UpdatePodList(testPod, EventTypeAdd)
 		expectPodCache := map[types.UID]*podInfo{
 			testPod.UID: {
 				Pod:        testPod,
@@ -62,7 +62,7 @@ func TestUpdatePodList(t *testing.T) {
 	testPod.Namespace = "testPod1"
 	testPod.Namespace = "testNamespace1"
 	convey.Convey("test update pod list when operator is EventTypeUpdate", t, func() {
-		UpdatePodList(nil, testPod, EventTypeUpdate)
+		UpdatePodList(testPod, EventTypeUpdate)
 		expectPodCache := map[types.UID]*podInfo{
 			testPod.UID: {
 				Pod:        testPod,
@@ -72,11 +72,15 @@ func TestUpdatePodList(t *testing.T) {
 		convey.So(podCache, convey.ShouldResemble, expectPodCache)
 	})
 	convey.Convey("test update pod list when operator is EventTypeDelete", t, func() {
-		UpdatePodList(nil, testPod, EventTypeDelete)
+		UpdatePodList(testPod, EventTypeDelete)
 		convey.So(podCache, convey.ShouldResemble, make(map[types.UID]*podInfo))
 	})
 	convey.Convey("test update pod list when operator is default", t, func() {
-		UpdatePodList(nil, testPod, "default")
+		UpdatePodList(testPod, "default")
+		convey.So(podCache, convey.ShouldResemble, make(map[types.UID]*podInfo))
+	})
+	convey.Convey("test update pod list failed when newPod is not ok", t, func() {
+		UpdatePodList(nil, "default")
 		convey.So(podCache, convey.ShouldResemble, make(map[types.UID]*podInfo))
 	})
 }
