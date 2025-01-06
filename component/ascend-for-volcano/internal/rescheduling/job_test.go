@@ -340,6 +340,7 @@ const (
 	mockCardName1 = "npu1"
 	mockCardName2 = "npu2"
 	mockJobUID    = "vcjob/job0"
+	mockNumFive   = 5
 )
 
 func TestGetJobFaultNPUTaskNum(t *testing.T) {
@@ -595,7 +596,7 @@ func TestIsNormalTaskCanBeDelete(t *testing.T) {
 	dpi.superPod = true
 	t.Run("02-isNormalTaskCanBeDelete return false when fJob.PendingSessionNum less than 6",
 		func(t *testing.T) {
-			fJob.PendingSessionNum = 5
+			fJob.PendingSessionNum = mockNumFive
 			res := fJob.isNormalTaskCanBeDelete(FaultTask{}, schedulerJob, plugin.ScheduleEnv{}, dpi)
 			if res {
 				t.Errorf("isNormalTaskCanBeDelete() res = %v, wantRes is false", res)
