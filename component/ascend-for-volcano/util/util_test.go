@@ -204,8 +204,8 @@ func buildConfigFromSchedulerConfigMapTest() []configFromSchedulerConfigMapTest 
 				configKey:      CMSelectorKey,
 				configurations: []config.Configuration{{Name: configKey + "0"}, {Name: configKey + "1"}},
 			},
-			want:    &config.Configuration{Name: configKey + "0"},
-			wantErr: false,
+			want:    nil,
+			wantErr: true,
 		},
 	}
 }
