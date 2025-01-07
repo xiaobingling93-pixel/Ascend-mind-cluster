@@ -1238,7 +1238,7 @@ func TestConvertFaultTaskToRecords(t *testing.T) {
 		func(t *testing.T) {
 			res := convertFaultTaskToRecords(nil)
 			if len(res) != 0 {
-				t.Errorf("updateRescheduleReason() res = %v, wantRes is empty slice", res)
+				t.Errorf("convertFaultTaskToRecords() res = %v, wantRes is empty slice", res)
 			}
 		})
 	t.Run("02-convertFaultTaskToRecords() return slice when fJob is not nil",
@@ -1304,7 +1304,7 @@ func TestScoreBestNPUNodes(t *testing.T) {
 		})
 }
 
-func FakeSchedulerJobAttrByJob(job *api.JobInfo) util.SchedulerJobAttr {
+func fakeSchedulerJobAttrByJob(job *api.JobInfo) util.SchedulerJobAttr {
 	attr := util.SchedulerJobAttr{
 		ComJob: util.ComJob{
 			Name:      job.UID,
@@ -1331,7 +1331,7 @@ func TestValidJobByReschedule(t *testing.T) {
 	reScheduler := fakeTestTTReScheduler(TestReScheduler{})
 	reScheduler.DealReSchedulerCache = fakeCacheWithFJobReSchedulerAddFaultJobWithSession()
 	jobInfo1 := mockJobInfo(mockJobName1, test.NPUIndex4)
-	curSchedulerJob := FakeSchedulerJobAttrByJob(jobInfo1)
+	curSchedulerJob := fakeSchedulerJobAttrByJob(jobInfo1)
 	t.Run("01-ValidJobByReschedule() return nil when IsJobSinglePodDelete return true",
 		func(t *testing.T) {
 			res := reScheduler.ValidJobByReschedule(curSchedulerJob)
@@ -1378,7 +1378,7 @@ func TestCheckFJobUsedNormNodeRelease(t *testing.T) {
 	}
 	curFJob := fakeFaultJob()
 	jobInfo1 := mockJobInfo(mockJobName1, test.NPUIndex4)
-	curSchedulerJob := FakeSchedulerJobAttrByJob(jobInfo1)
+	curSchedulerJob := fakeSchedulerJobAttrByJob(jobInfo1)
 	t.Run("01-checkFJobUsedNormNodeRelease() return error when node in faultJob hasn't been released",
 		func(t *testing.T) {
 			err := reScheduler.checkFJobUsedNormNodeRelease(curFJob, curSchedulerJob)
@@ -1455,7 +1455,7 @@ func TestGetNPUNodeOfGiveNodeNameFromReScheduler(t *testing.T) {
 				t.Errorf("getNPUNodeOfGiveNodeNameFromReScheduler() res = %v, wantRes is nil", res)
 			}
 		})
-	t.Run("02-getNPUNodeOfGiveNodeNameFromReScheduler() return not nil  when get node success",
+	t.Run("03-getNPUNodeOfGiveNodeNameFromReScheduler() return not nil  when get node success",
 		func(t *testing.T) {
 			res := reScheduler.getNPUNodeOfGiveNodeNameFromReScheduler("node1")
 			if res == nil {
