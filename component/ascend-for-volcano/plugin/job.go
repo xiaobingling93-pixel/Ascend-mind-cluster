@@ -87,6 +87,10 @@ func GetTaskLabels(task *api.TaskInfo) map[string]string {
 
 // GetJobSelectorFromVcJob get job selector.
 func GetJobSelectorFromVcJob(job *api.JobInfo) map[string]string {
+	if job == nil {
+		klog.V(util.LogErrorLev).Infof("GetJobSelectorFromVcJob job nil.")
+		return nil
+	}
 	var jobLabel = make(map[string]string, util.MapInitNum)
 	for _, task := range job.Tasks {
 		taskSelectors := task.Pod.Spec.NodeSelector
@@ -115,9 +119,12 @@ func GetJobLabelFromVcJob(job *api.JobInfo) map[string]string {
 		return nil
 	}
 	resLabel := make(map[string]string, util.MapInitNum)
-	for labelKey, labelValue := range job.PodGroup.Labels {
-		resLabel[labelKey] = labelValue
+	if job.PodGroup != nil {
+		for labelKey, labelValue := range job.PodGroup.Labels {
+			resLabel[labelKey] = labelValue
+		}
 	}
+
 	for _, task := range job.Tasks {
 		taskSelector := GetTaskLabels(task)
 		for k, v := range taskSelector {
@@ -356,14 +363,6 @@ func (sJob *SchedulerJob) updateResetConfigMap(sHandle *ScheduleHandler) {
 		return
 	}
 	sHandle.JobDeleteFlag[sJob.Name] = struct{}{}
-}
-
-func getJobName(server Server) string {
-	var str string
-	for jobName := range server.Jobs {
-		str += string(jobName) + " "
-	}
-	return strings.TrimSpace(str)
 }
 
 func updateResetCm(sJob *SchedulerJob, k8sClient kubernetes.Interface, resetCm TaskResetInfo, isSinglePod bool) error {
@@ -1793,6 +1792,9 @@ func setUsedTorAttr(tors []*Tor, torNums map[string]int, addSharedTorNum int) {
 // GetJobInfoAllocatedTaskNum get job allocated task num
 func GetJobInfoAllocatedTaskNum(jobInfo *api.JobInfo) int32 {
 	allocated := int32(0)
+	if jobInfo == nil {
+		return allocated
+	}
 	for _, task := range jobInfo.Tasks {
 		if task.NodeName != "" {
 			allocated++

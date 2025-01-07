@@ -53,9 +53,9 @@ type checkNPUResourceStableTest struct {
 
 func buildVCheckNPUResourceStableTest() []checkNPUResourceStableTest {
 	tJob := SchedulerJob{handler: New(testPluginName), SchedulerJobAttr: util.SchedulerJobAttr{NPUJob: &util.
-		NPUJob{ReqNPUName: util.NPU310PCardName}}}
+	NPUJob{ReqNPUName: util.NPU310PCardName}}}
 	vJob := SchedulerJob{handler: New(testPluginName), SchedulerJobAttr: util.SchedulerJobAttr{NPUJob: &util.
-		NPUJob{ReqNPUName: util.AscendNPUCore}}}
+	NPUJob{ReqNPUName: util.AscendNPUCore}}}
 	tests := []checkNPUResourceStableTest{
 		{
 			name:    "01-CheckNPUResourceStable no annotation test",
@@ -326,6 +326,80 @@ func TestCheckNPUResourceStableReScheduling(t *testing.T) {
 			}
 			if err := n.CheckNPUResourceStableReScheduling(tt.args.vcJob.SchedulerJobAttr); (err != nil) != tt.wantErr {
 				t.Errorf("CheckNPUResourceStableReScheduling() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+type nPUNodeGetNewNPUNodeAnnotationTest struct {
+	name            string
+	usedTop         []int
+	resourceName    string
+	resourceNamePre string
+	npuNode         *NPUNode
+	want            string
+	wantErr         bool
+}
+
+func buildNPUNodeGetNewNPUNodeAnnotationTest() []nPUNodeGetNewNPUNodeAnnotationTest {
+	return []nPUNodeGetNewNPUNodeAnnotationTest{
+		{
+			name:    "01-GetNewNPUNodeAnnotation return error when npuNode is nil",
+			npuNode: nil,
+			wantErr: true,
+		},
+		{
+			name:            "02-GetNewNPUNodeAnnotation return error when npuNode annotation is empty",
+			npuNode:         &NPUNode{},
+			usedTop:         []int{0},
+			resourceName:    Ascend910,
+			resourceNamePre: util.NPU910CardNamePre,
+			wantErr:         true,
+		},
+		{
+			name: "03-GetNewNPUNodeAnnotation return empty when npuNode annotation is empty",
+			npuNode: &NPUNode{CommonNode: CommonNode{
+				Annotation: map[string]string{Ascend910: ""}}},
+			usedTop:         []int{0},
+			resourceName:    Ascend910,
+			resourceNamePre: util.NPU910CardNamePre,
+			want:            "",
+			wantErr:         false,
+		},
+		{
+			name: "04-GetNewNPUNodeAnnotation return error when string to int error",
+			npuNode: &NPUNode{CommonNode: CommonNode{
+				Annotation: map[string]string{Ascend910: "Ascend910-s"}}},
+			usedTop:         []int{0},
+			resourceName:    Ascend910,
+			resourceNamePre: util.NPU910CardNamePre,
+			want:            "",
+			wantErr:         true,
+		},
+		{
+			name: "05-GetNewNPUNodeAnnotation return Ascend910-1 when get npu node annotation",
+			npuNode: &NPUNode{CommonNode: CommonNode{
+				Annotation: map[string]string{Ascend910: "Ascend910-0,Ascend910-1"}}},
+			usedTop:         []int{0},
+			resourceName:    Ascend910,
+			resourceNamePre: util.NPU910CardNamePre,
+			want:            "Ascend910-1",
+			wantErr:         false,
+		},
+	}
+}
+
+func TestNPUNodeGetNewNPUNodeAnnotation(t *testing.T) {
+	tests := buildNPUNodeGetNewNPUNodeAnnotationTest()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.npuNode.GetNewNPUNodeAnnotation(tt.usedTop, tt.resourceName, tt.resourceNamePre)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNewNPUNodeAnnotation() error = %v, wantErr = %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GetNewNPUNodeAnnotation() got = %v, want = %v", got, tt.want)
 			}
 		})
 	}

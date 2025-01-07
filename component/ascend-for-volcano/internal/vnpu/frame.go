@@ -109,7 +109,10 @@ func getAiCoreNumFromTask(task *api.TaskInfo) (int, error) {
 	for _, container := range task.Pod.Spec.Containers {
 		coreNum, ok := container.Resources.Requests[util.AscendNPUCore]
 		if !ok {
-			return 0, errors.New("getAiCoreNumFromTask get resource requests failed")
+			continue
+		}
+		if coreNum.Value() == 0 {
+			continue
 		}
 		return int(coreNum.Value()), nil
 	}
@@ -128,7 +131,7 @@ func getResTemplateFromTaskSetting(coreNum int, cpuLevel, dvpp string) string {
 			virTemplate = virTemplate + "_1c"
 		}
 	case util.NPUIndex4:
-		virTemplate = getVirTemplate(dvpp, virTemplate, cpuLevel)
+		virTemplate = getVirTemplate(dvpp, cpuLevel)
 	default:
 		klog.V(util.LogErrorLev).Infof(coreNumErr, coreNum)
 		return ""
@@ -213,17 +216,17 @@ func getB4TempFromTaskLabel(dvpp string) string {
 	return virTemplate
 }
 
-func getVirTemplate(dvpp string, virTemplate string, cpuLevel string) string {
+func getVirTemplate(dvpp string, cpuLevel string) string {
 	switch dvpp {
 	case plugin.AscendDVPPEnabledOn:
-		virTemplate = plugin.VNPUTempVir04C4cDVPP
+		return plugin.VNPUTempVir04C4cDVPP
 	case plugin.AscendDVPPEnabledOff:
-		virTemplate = plugin.VNPUTempVir04C3NDVPP
+		return plugin.VNPUTempVir04C3NDVPP
 	default:
-		virTemplate = plugin.VNPUTempVir04
+		virTemplate := plugin.VNPUTempVir04
 		if cpuLevel == plugin.AscendVNPULevelLow {
 			virTemplate = virTemplate + "_3c"
 		}
+		return virTemplate
 	}
-	return virTemplate
 }

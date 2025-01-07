@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"volcano.sh/apis/pkg/apis/scheduling"
 	"volcano.sh/volcano/pkg/scheduler/api"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
@@ -45,6 +47,32 @@ func TestGetJobLabelFromVcJob(t *testing.T) {
 			name: "01-GetJobLabelFromVcJob get ok test",
 			args: args{job: tJob},
 			want: map[string]string{"haha": "who"},
+		},
+		{
+			name: "02-GetJobLabelFromVcJob return nil when job is nil",
+			args: args{job: nil}, want: nil,
+		},
+		{
+			name: "03-GetJobLabelFromVcJob return nil when job tasks is empty",
+			args: args{job: &api.JobInfo{}}, want: map[string]string{},
+		},
+		{
+			name: "04-GetJobLabelFromVcJob return selector when job tasks not empty",
+			args: args{job: &api.JobInfo{Tasks: map[api.TaskID]*api.TaskInfo{
+				"task1": {Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					"a": "1"}}}}},
+			}}, want: map[string]string{"a": "1"},
+		},
+		{
+			name: "05-GetJobLabelFromVcJob return selector when job tasks not empty",
+			args: args{job: &api.JobInfo{Tasks: map[api.TaskID]*api.TaskInfo{
+				"task1": {Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					"a": "1", "b": "1"}}}},
+				"task2": {Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					"a": "1"}}}}},
+				PodGroup: &api.PodGroup{PodGroup: scheduling.PodGroup{
+					ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"c": "0"}}}},
+			}}, want: map[string]string{"a": "1", "b": "1", "c": "0"},
 		},
 	}
 	for _, tt := range tests {
@@ -69,10 +97,16 @@ type getJobNPUTasksTest struct {
 func buildGetJobNPUTasksTest() []getJobNPUTasksTest {
 	tJob1 := test.FakeNormalTestJob("test1", 1)
 	test.AddFakeTaskResReq(tJob1.Tasks[`"vcjob"-"pod"`], util.NPU910CardName, util.NPUIndex8)
+	tJob2 := test.FakeNormalTestJob("test1", 0)
 	tests := []getJobNPUTasksTest{
 		{
-			name: "01-GetJobNPUTasks job nil test.",
+			name: "01-GetJobNPUTasks return nil when job is nil",
 			args: getJobNPUTasksArgs{vcJob: nil},
+			want: nil,
+		},
+		{
+			name: "02-GetJobNPUTasks return nil when job tasks is empty",
+			args: getJobNPUTasksArgs{vcJob: tJob2},
 			want: nil,
 		},
 	}
@@ -115,6 +149,33 @@ func buildGetJobSelectorFromVcJobTest() []getJobSelectorFromVcJobTest {
 			args: getJobSelectorFromVcJobArgs{job: tJob1},
 			want: map[string]string{"haha": "heihei"},
 		},
+		{
+			name: "03-GetJobSelectorFromVcJob return nil when job is nil",
+			args: getJobSelectorFromVcJobArgs{job: nil},
+			want: nil,
+		},
+		{
+			name: "04-GetJobSelectorFromVcJob return nil when job tasks is empty",
+			args: getJobSelectorFromVcJobArgs{job: &api.JobInfo{}},
+			want: map[string]string{},
+		},
+		{
+			name: "05-GetJobSelectorFromVcJob return selector when job tasks not empty",
+			args: getJobSelectorFromVcJobArgs{
+				job: &api.JobInfo{Tasks: map[api.TaskID]*api.TaskInfo{
+					"task1": {Pod: &v1.Pod{Spec: v1.PodSpec{NodeSelector: map[string]string{"a": "1"}}}}}}},
+			want: map[string]string{"a": "1"},
+		},
+		{
+			name: "06-GetJobSelectorFromVcJob return selector when job tasks not empty",
+			args: getJobSelectorFromVcJobArgs{
+				job: &api.JobInfo{Tasks: map[api.TaskID]*api.TaskInfo{
+					"task1": {Pod: &v1.Pod{Spec: v1.PodSpec{NodeSelector: map[string]string{
+						"a": "1", "b": "1"}}}},
+					"task2": {Pod: &v1.Pod{Spec: v1.PodSpec{NodeSelector: map[string]string{
+						"a": "1", "b": "1"}}}}}}},
+			want: map[string]string{"a": "1", "b": "1"},
+		},
 	}
 	return tests
 }
@@ -150,6 +211,11 @@ func TestGetTaskSelectors(t *testing.T) {
 			name: "02-GetTaskSelectors ok test.",
 			args: args{task: tTasks[1]},
 			want: map[string]string{"haha": "who"},
+		},
+		{
+			name: "01-GetTaskSelectors return nil when task is nil",
+			args: args{task: nil},
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -239,6 +305,14 @@ func buildGetVCTaskReqNPUTypeFromTaskInfoTest() []getVCTaskReqNPUTypeFromTaskInf
 			args:  getVCTaskReqNPUTypeFromTaskInfoArgs{vcTask: tTasks[0]},
 			want:  util.NPU910CardName,
 			want1: util.NPUIndex8,
+		},
+		{
+			name: "03-GetVCTaskReqNPUTypeFromTaskInfo no res test.",
+			args: getVCTaskReqNPUTypeFromTaskInfoArgs{vcTask: &api.TaskInfo{Resreq: &api.Resource{
+				ScalarResources: map[v1.ResourceName]float64{v1.ResourceName("abc"): float64(util.NPUIndex8)},
+			}}},
+			want:  "",
+			want1: 0,
 		},
 	}
 	return tests
@@ -712,6 +786,173 @@ func TestSchedulerJobUpdateResetConfigMap(t *testing.T) {
 				JobReadyTag:      tt.fields.JobReadyTag,
 			}
 			sJob.updateResetConfigMap(tt.args.sHandle)
+		})
+	}
+}
+
+func TestIsSelectorContains(t *testing.T) {
+	tests := []struct {
+		name     string
+		defValue string
+		jobValue string
+		want     bool
+	}{
+		{
+			name:     "01-isSelectorContains return true when jobValue is empty",
+			defValue: "",
+			jobValue: "",
+			want:     true,
+		},
+		{
+			name:     "02-isSelectorContains return true when jobValue contains defValue",
+			defValue: "0|1",
+			jobValue: "1",
+			want:     true,
+		},
+		{
+			name:     "03-isSelectorContains return false when jobValue not contains defValue",
+			defValue: "0|1",
+			jobValue: "2",
+			want:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isSelectorContains(tt.defValue, tt.jobValue); got != tt.want {
+				t.Errorf("isSelectorContains() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsEachStringContainsSameElement(t *testing.T) {
+	tests := []struct {
+		name   string
+		first  string
+		second string
+		seq    string
+		want   bool
+	}{
+		{
+			name:   "01-isEachStringContainsSameElement return true when first equals second",
+			first:  "x",
+			second: "x",
+			want:   true,
+		},
+		{
+			name:   "02-isEachStringContainsSameElement return true when first contains second",
+			first:  "x",
+			second: "x,y,z",
+			want:   true,
+		},
+		{
+			name:   "03-isEachStringContainsSameElement return false when first not contains second",
+			first:  "x,y,z",
+			second: "a",
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isEachStringContainsSameElement(tt.first, tt.second, tt.seq); got != tt.want {
+				t.Errorf("isEachStringContainsSameElement() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetTaskLabels(t *testing.T) {
+	tests := []struct {
+		name string
+		task *api.TaskInfo
+		want map[string]string
+	}{
+		{
+			name: "01-GetTaskLabels return nil when task is nil",
+			task: nil,
+			want: nil,
+		},
+		{
+			name: "02-GetTaskLabels return labels when task labels not nil",
+			task: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}}},
+			want: map[string]string{"foo": "bar"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetTaskLabels(tt.task); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetTaskLabels() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInitVcJobHcclIndex(t *testing.T) {
+	tests := []struct {
+		name    string
+		taskInf *api.TaskInfo
+		want    map[string]string
+	}{
+		{
+			name:    "01-InitVcJobHcclIndex do nothing when task not exist hccl/rankIndex annotation",
+			taskInf: &api.TaskInfo{Pod: &v1.Pod{}},
+			want:    map[string]string{},
+		},
+
+		{
+			name: "02-InitVcJobHcclIndex do nothing when task not exist hccl/rankIndex annotation",
+			taskInf: &api.TaskInfo{Pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{podRankIndex: "0"}}}},
+			want: map[string]string{podRankIndex: "0"},
+		},
+		{
+			name: "03-InitVcJobHcclIndex set annotation when task exist hccl/rankIndex annotation",
+			taskInf: &api.TaskInfo{Pod: &v1.Pod{
+				Spec: v1.PodSpec{Containers: []v1.Container{{
+					Name: "container1",
+					Env:  []v1.EnvVar{{Name: vcTaskIndex, Value: "1"}},
+				}}}}},
+			want: map[string]string{podRankIndex: "1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initVcJobHcclIndex(tt.taskInf)
+			if !reflect.DeepEqual(tt.taskInf.Pod.Annotations, tt.want) {
+				t.Errorf("InitVcJobHcclIndex() = %v, want %v", tt.taskInf.Pod.Annotations, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetJobInfoAllocatedTaskNum(t *testing.T) {
+	tests := []struct {
+		name    string
+		jobInfo *api.JobInfo
+		want    int32
+	}{
+		{
+			name:    "01-GetJobInfoAllocatedTaskNum return 0 when jobInfo is nil",
+			jobInfo: nil,
+			want:    0,
+		},
+		{
+			name:    "02-GetJobInfoAllocatedTaskNum return 0 when jobInfo not exist task",
+			jobInfo: &api.JobInfo{},
+			want:    0,
+		},
+		{
+			name: "03-GetJobInfoAllocatedTaskNum return 1 when jobInfo exist one task",
+			jobInfo: &api.JobInfo{Tasks: map[api.TaskID]*api.TaskInfo{
+				"task1": {TransactionContext: api.TransactionContext{NodeName: "node1"}}}},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetJobInfoAllocatedTaskNum(tt.jobInfo); got != tt.want {
+				t.Errorf("GetJobInfoAllocatedTaskNum() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

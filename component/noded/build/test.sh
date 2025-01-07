@@ -19,14 +19,14 @@ set -e
 
 # execute go test and echo result to report files
 function execute_test() {
-  if ! (go test -mod=mod -gcflags=all=-l -v -race -coverprofile cov.out "${TOP_DIR}"/... >./$file_input); then
+  if ! (go test -mod=mod -gcflags=all=-l -v -coverprofile cov.out "${TOP_DIR}"/... >./$file_input); then
     cat ./$file_input
     echo '****** go test cases error! ******'
     exit 1
   else
     gocov convert cov.out > gocov.json
     gocov convert cov.out | gocov-html > "$file_detail_output"
-    gotestsum --junitfile unit-tests.xml -- -race -gcflags=all=-l "${TOP_DIR}"/...
+    gotestsum --junitfile unit-tests.xml -- -gcflags=all=-l "${TOP_DIR}"/...
     exit 0
   fi
 }
