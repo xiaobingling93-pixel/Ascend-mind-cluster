@@ -13,7 +13,7 @@ import (
 )
 
 func TestSplitDeviceFault(t *testing.T) {
-	t.Run("Test_splitDeviceFault", func(t *testing.T) {
+	t.Run("TestSplitDeviceFault", func(t *testing.T) {
 		var faultInfo = constant.DeviceFault{
 			NPUName:   "Ascend910-0",
 			FaultCode: "0x1,0x2",
@@ -42,6 +42,38 @@ func TestSplitDeviceFault(t *testing.T) {
 				FaultHandling:        SubHealthFault,
 				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
 					"0x2": {FaultLevel: SubHealthFault, FaultTime: 1},
+				},
+			},
+		}
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("splitDeviceFault() = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestSplitDeviceFaultWithManuallySeparateFaultLevel(t *testing.T) {
+	t.Run("TestSplitDeviceFaultWithManuallySeparateFaultLevel", func(t *testing.T) {
+		var faultInfo = constant.DeviceFault{
+			NPUName:              "Ascend910-0",
+			FaultCode:            "",
+			FaultLevel:           ManuallySeparateNPU,
+			FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{},
+		}
+
+		got := splitDeviceFault(faultInfo, "node1")
+		want := []constant.DeviceFault{
+			{
+				NPUName:              "Ascend910-0",
+				FaultCode:            ManuallySeparateNPU,
+				FaultLevel:           ManuallySeparateNPU,
+				LargeModelFaultLevel: ManuallySeparateNPU,
+				FaultHandling:        ManuallySeparateNPU,
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+					ManuallySeparateNPU: {
+						FaultTime:  constant.UnknownFaultTime,
+						FaultLevel: ManuallySeparateNPU,
+					},
 				},
 			},
 		}
@@ -137,6 +169,41 @@ func TestMergeDifferentTypeDeviceFault(t *testing.T) {
 		})
 		if !reflect.DeepEqual(got, split) {
 			t.Errorf("mergeDeviceFault() got = %v, want %v", util.ObjToString(got), util.ObjToString(split))
+		}
+	})
+}
+
+// TestMergeManuallySeparateNpuTypeDeviceFault should not be merged, when fault type isn't same
+func TestMergeManuallySeparateNpuTypeDeviceFault(t *testing.T) {
+	t.Run("TestMergeManuallySeparateNpuTypeDeviceFault", func(t *testing.T) {
+		split := []constant.DeviceFault{
+			{
+				FaultType:            CardNetworkUnhealthy,
+				NPUName:              "Ascend910-0",
+				FaultCode:            "ManuallySeparateNPU",
+				FaultLevel:           ManuallySeparateNPU,
+				LargeModelFaultLevel: ManuallySeparateNPU,
+				FaultHandling:        ManuallySeparateNPU,
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{},
+			},
+		}
+		got, err := mergeDeviceFault(split)
+		if err != nil {
+			t.Errorf("mergeDeviceFault() error = %v", err)
+		}
+		want := []constant.DeviceFault{
+			{
+				FaultType:            CardNetworkUnhealthy,
+				NPUName:              "Ascend910-0",
+				FaultCode:            "",
+				FaultLevel:           ManuallySeparateNPU,
+				LargeModelFaultLevel: ManuallySeparateNPU,
+				FaultHandling:        ManuallySeparateNPU,
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{},
+			},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("TestMergeManuallySeparateNpuTypeDeviceFault() got = %v, want %v", util.ObjToString(got), util.ObjToString(want))
 		}
 	})
 }

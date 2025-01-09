@@ -76,6 +76,7 @@ const (
 	JobReportCompleteTimeout    = 30 * 1000
 	FaultCenterProcessPeriod    = 3 * 1000
 	MaxFaultCenterSubscriber    = 10
+	UnknownFaultTime            = -1
 )
 
 // fault center
