@@ -23,7 +23,6 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +30,6 @@ import (
 
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/common-utils/utils"
-
 	"huawei.com/npu-exporter/v6/collector/container/isula"
 	"huawei.com/npu-exporter/v6/collector/container/v1"
 )
@@ -200,8 +198,8 @@ func (dp *DevicesParser) parseDevicesInContainerd(ctx context.Context, c *Common
 	}
 
 	envs := spec.Process.Env
-	sort.Strings(envs)
-	for _, e := range envs {
+	for i := len(envs) - 1; i >= 0; i-- {
+		e := envs[i]
 		if strings.Contains(e, ascendDeviceInfo) {
 			deviceInfo, err = dp.getDevicesWithAscendRuntime(e, c)
 			return err
@@ -393,9 +391,10 @@ func (dp *DevicesParser) parseDeviceInIsula(ctx context.Context, c *CommonContai
 	}
 
 	envs := containerInfo.Config.Env
-	for _, env := range envs {
-		if strings.Contains(env, ascendDeviceInfo) {
-			deviceInfo, err = dp.getDevicesWithAscendRuntime(env, c)
+	for i := len(envs) - 1; i >= 0; i-- {
+		e := envs[i]
+		if strings.Contains(e, ascendDeviceInfo) {
+			deviceInfo, err = dp.getDevicesWithAscendRuntime(e, c)
 			return err
 		}
 	}
