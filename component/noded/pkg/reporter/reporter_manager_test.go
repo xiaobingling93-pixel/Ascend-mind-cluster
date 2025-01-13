@@ -77,7 +77,7 @@ func testReportMgrExecute() {
 		go func() {
 			reportManager.Execute(testFaultDevInfo)
 		}()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(waitGoroutineFinishedTime)
 		convey.So(reportManager.faultManager.GetFaultDevList(), convey.ShouldResemble, testFaultDevList)
 		convey.So(reportManager.faultManager.GetNodeStatus(), convey.ShouldResemble, common.PreSeparate)
 	})
@@ -88,7 +88,7 @@ func testReportMgrExecute() {
 		go func() {
 			reportManager.Execute(testFaultDevInfo)
 		}()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(waitGoroutineFinishedTime)
 		convey.So(reportManager.faultManager.GetFaultDevList(), convey.ShouldResemble, testFaultDevList)
 		convey.So(reportManager.faultManager.GetNodeStatus(), convey.ShouldResemble, common.PreSeparate)
 	})
@@ -99,7 +99,7 @@ func testReportMgrExecute() {
 		go func() {
 			reportManager.Execute(testFaultDevInfo)
 		}()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(waitGoroutineFinishedTime)
 		convey.So(reportManager.faultManager.GetFaultDevList(), convey.ShouldResemble, testFaultDevList)
 		convey.So(reportManager.faultManager.GetNodeStatus(), convey.ShouldResemble, common.PreSeparate)
 	})

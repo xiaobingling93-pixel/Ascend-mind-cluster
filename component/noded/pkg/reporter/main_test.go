@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/client-go/kubernetes/fake"
@@ -30,9 +31,10 @@ import (
 )
 
 const (
-	testDeviceType = "CPU"
-	faultCode1     = "00000001"
-	faultCode2     = "00000002"
+	testDeviceType            = "CPU"
+	faultCode1                = "00000001"
+	faultCode2                = "00000002"
+	waitGoroutineFinishedTime = 100 * time.Millisecond
 )
 
 var (

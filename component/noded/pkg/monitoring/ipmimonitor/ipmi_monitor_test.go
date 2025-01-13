@@ -56,13 +56,14 @@ func initLog() error {
 }
 
 const (
-	testDeviceType = "CPU"
-	faultCode1     = "00000001"
-	faultCode2     = "00000002"
+	testDeviceType            = "CPU"
+	faultCode1                = "00000001"
+	faultCode2                = "00000002"
+	waitGoroutineFinishedTime = 100 * time.Millisecond
 )
 
 var (
-	ipmiEventMonitor *IpmiEventMonitor
+	ipmiEventMonitor = &IpmiEventMonitor{}
 	testErr          = errors.New("test error")
 	testFaultEvents  = []*common.FaultEvent{
 		{
@@ -125,7 +126,7 @@ func testIpmiMonitorMonitoring() {
 	go func() {
 		ipmiEventMonitor.Monitoring()
 	}()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(waitGoroutineFinishedTime)
 	convey.So(ipmiEventMonitor.faultManager.GetFaultDevList(), convey.ShouldResemble, GetFaultDevList(testFaultEvents))
 }
 

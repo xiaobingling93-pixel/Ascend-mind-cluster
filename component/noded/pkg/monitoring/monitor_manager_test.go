@@ -58,7 +58,7 @@ func testMonitorMgrInit() {
 	go func() {
 		err = monitorManager.Init()
 	}()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(waitGoroutineFinishedTime)
 	monitorManager.Stop()
 	convey.So(err, convey.ShouldBeNil)
 }
@@ -74,7 +74,7 @@ func testMonitorMgrRun() {
 		haveStopped = true
 	}()
 	cancel()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(waitGoroutineFinishedTime)
 	convey.So(haveStopped, convey.ShouldBeTrue)
 }
 

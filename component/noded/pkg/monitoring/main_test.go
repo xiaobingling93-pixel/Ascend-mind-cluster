@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/u-root/u-root/pkg/ipmi"
@@ -32,13 +33,14 @@ import (
 )
 
 const (
-	testDeviceType = "CPU"
-	faultCode1     = "00000001"
-	faultCode2     = "00000002"
+	testDeviceType            = "CPU"
+	faultCode1                = "00000001"
+	faultCode2                = "00000002"
+	waitGoroutineFinishedTime = 100 * time.Millisecond
 )
 
 var (
-	testK8sClient   *kubeclient.ClientK8s
+	testK8sClient   = &kubeclient.ClientK8s{}
 	currentAlarmReq = []byte{0x30, 0x94, 0xDB, 0x07, 0x00, 0x40, 0x00, 0x00, 0x00, 0x0E, 0xFF}
 )
 
