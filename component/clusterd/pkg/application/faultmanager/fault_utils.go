@@ -53,15 +53,6 @@ func getNodeAndDeviceFromJobIdAndRankId(
 	return "", "", fmt.Errorf("not find node and device from jobId %v and rankid %v", jobId, rankId)
 }
 
-func getNodesNameFromDeviceInfo(deviceInfos map[string]*constant.DeviceInfo) []string {
-	nodesName := make([]string, 0)
-	for cmName, _ := range deviceInfos {
-		nodeName := cmNameToNodeName(cmName)
-		nodesName = append(nodesName, nodeName)
-	}
-	return nodesName
-}
-
 func cmNameToNodeName(cmName string) string {
 	if !strings.HasPrefix(cmName, constant.DeviceInfoPrefix) {
 		hwlog.RunLog.Errorf("CmName %s has not prefix %s", cmName, constant.DeviceInfoPrefix)
@@ -155,12 +146,23 @@ func splitDeviceFault(faultInfo constant.DeviceFault, nodeName string) []constan
 	faultInfo.FaultCode = strings.Replace(faultInfo.FaultCode, " ", "", -1)
 	codes := strings.Split(faultInfo.FaultCode, ",")
 	for _, code := range codes {
-		faultTimeAndLevel, found := faultInfo.FaultTimeAndLevelMap[code]
+		var faultTimeAndLevel constant.FaultTimeAndLevel
+		var found bool
+		if code == "" && faultInfo.FaultLevel == ManuallySeparateNPU {
+			code = ManuallySeparateNPU
+			faultTimeAndLevel = constant.FaultTimeAndLevel{
+				FaultTime:  constant.UnknownFaultTime,
+				FaultLevel: ManuallySeparateNPU,
+			}
+			found = true
+		} else {
+			faultTimeAndLevel, found = faultInfo.FaultTimeAndLevelMap[code]
+		}
 		var faultLevel string
 		if !found {
-			hwlog.RunLog.Warnf("cannot find fault level of code %s in device %s of node %s. map is %s.",
-				code, util.ObjToString(faultTimeAndLevel), faultInfo.NPUName, nodeName)
-			faultLevel = NormalNPU
+			hwlog.RunLog.Warnf("cannot find faultTimeAndLevel of code %s in faultInfo %s of node %s.",
+				code, util.ObjToString(faultInfo), nodeName)
+			faultLevel = faultInfo.FaultLevel
 		} else {
 			faultLevel = faultTimeAndLevel.FaultLevel
 		}
@@ -193,9 +195,11 @@ func mergeDeviceFault(notGroupDeviceFaults []constant.DeviceFault) ([]constant.D
 				return []constant.DeviceFault{}, fmt.Errorf("deviceFaults cannot merge, "+
 					"they belongs to multiple devices: %s, %s", deviceName, fault.NPUName)
 			}
-			faultCodeList = append(faultCodeList, fault.FaultCode)
 			fautLevels = append(fautLevels, fault.FaultLevel)
-			newTimeAndLevelMap[fault.FaultCode] = fault.FaultTimeAndLevelMap[fault.FaultCode]
+			if fault.FaultCode != ManuallySeparateNPU {
+				faultCodeList = append(faultCodeList, fault.FaultCode)
+				newTimeAndLevelMap[fault.FaultCode] = fault.FaultTimeAndLevelMap[fault.FaultCode]
+			}
 		}
 		faultLevel := getMostSeriousFaultLevel(fautLevels)
 		mergeFault := constant.DeviceFault{
