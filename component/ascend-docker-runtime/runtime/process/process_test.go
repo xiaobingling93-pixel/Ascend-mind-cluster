@@ -16,7 +16,10 @@ package process
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -25,8 +28,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/containerd/containerd/oci"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 
+	"ascend-common/common-utils/hwlog"
 	"ascend-docker-runtime/mindxcheckutils"
 	"ascend-docker-runtime/runtime/dcmi"
 )
@@ -49,7 +54,18 @@ const (
 
 var (
 	deviceList = []int{1}
+	testError  = errors.New("test")
 )
+
+func init() {
+	ctx, _ := context.WithCancel(context.Background())
+	logConfig := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	if err := hwlog.InitRunLogger(&logConfig, ctx); err != nil {
+		fmt.Printf("hwlog init failed, error is %v", err)
+	}
+}
 
 // TestArgsIsCreate tests the function DoProcess
 func TestArgsIsCreate(t *testing.T) {
@@ -200,6 +216,135 @@ func TestModifySpecFileCase3(t *testing.T) {
 	if err := modifySpecFile(file); err != nil {
 		t.Log("run modifySpecFile failed")
 	}
+}
+
+type mockFileInfo struct {
+	os.FileInfo
+}
+
+func (m mockFileInfo) Mode() os.FileMode {
+	return os.ModePerm
+}
+
+func (m mockFileInfo) IsDir() bool {
+	return false
+}
+
+// TestModifySpecFilePatch1 tests the function modifySpecFile patch1
+func TestModifySpecFilePatch1(t *testing.T) {
+	convey.Convey("test modifySpecFile patch1", t, func() {
+		convey.Convey("01-open file error, should return error", func() {
+			patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+				ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+				ApplyFuncReturn(os.OpenFile, &os.File{}, testError)
+			defer patches.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		convey.Convey("02-read file error, should return error", func() {
+			patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+				ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+				ApplyFuncReturn(os.OpenFile, &os.File{}, nil).
+				ApplyFuncReturn(ioutil.ReadAll, []byte{}, testError)
+			defer patches.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		convey.Convey("03-json truncate error, should return error", func() {
+			patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+				ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+				ApplyFuncReturn(os.OpenFile, &os.File{}, nil).
+				ApplyFuncReturn(ioutil.ReadAll, []byte{}, nil).
+				ApplyMethodReturn(&os.File{}, "Truncate", testError)
+			defer patches.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		convey.Convey("04-json seek error, should return error", func() {
+			patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+				ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+				ApplyFuncReturn(os.OpenFile, &os.File{}, nil).
+				ApplyFuncReturn(ioutil.ReadAll, []byte{}, nil).
+				ApplyMethodReturn(&os.File{}, "Truncate", nil).
+				ApplyMethodReturn(&os.File{}, "Seek", int64(0), testError)
+			defer patches.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+	})
+}
+
+// TestModifySpecFilePatch2 tests the function modifySpecFile patch2
+func TestModifySpecFilePatch2(t *testing.T) {
+	convey.Convey("test modifySpecFile patch2", t, func() {
+		patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+			ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+			ApplyFuncReturn(os.OpenFile, &os.File{}, nil).
+			ApplyFuncReturn(ioutil.ReadAll, []byte{}, nil).
+			ApplyMethodReturn(&os.File{}, "Truncate", nil).
+			ApplyMethodReturn(&os.File{}, "Seek", int64(0), nil).
+			ApplyFuncReturn(json.Unmarshal, nil)
+		defer patches.Reset()
+		convey.Convey("05-check visible device error, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(checkVisibleDevice, []int{}, testError)
+			defer patch.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		convey.Convey("06-fail to inject hook, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(addHook, testError).
+				ApplyFuncReturn(checkVisibleDevice, []int{0}, nil)
+			defer patch.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches.ApplyFuncReturn(addHook, nil)
+		convey.Convey("07-fail to add device, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(addDevice, testError).
+				ApplyFuncReturn(checkVisibleDevice, []int{0}, nil)
+			defer patch.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches.ApplyFuncReturn(checkVisibleDevice, []int{}, nil).
+			ApplyFunc(addAscendDockerEnv, func(spec *specs.Spec) {})
+		convey.Convey("08-marshal error, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(json.Marshal, []byte{}, testError)
+			defer patch.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches.ApplyFuncReturn(json.Marshal, []byte{}, nil)
+		convey.Convey("09-write error, should return error", func() {
+			patch := gomonkey.ApplyMethodReturn(&os.File{}, "WriteAt", 0, testError)
+			defer patch.Reset()
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeError)
+		})
+	})
+}
+
+// TestModifySpecFilePatch3 tests the function modifySpecFile patch3
+func TestModifySpecFilePatch3(t *testing.T) {
+	convey.Convey("test modifySpecFile patch3", t, func() {
+		patches := gomonkey.ApplyFuncReturn(os.Stat, mockFileInfo{}, nil).
+			ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil).
+			ApplyFuncReturn(os.OpenFile, &os.File{}, nil).
+			ApplyFuncReturn(ioutil.ReadAll, []byte{}, nil).
+			ApplyMethodReturn(&os.File{}, "Truncate", nil).
+			ApplyMethodReturn(&os.File{}, "Seek", int64(0), nil).
+			ApplyFuncReturn(json.Unmarshal, nil).
+			ApplyFuncReturn(addHook, nil).
+			ApplyFuncReturn(checkVisibleDevice, []int{}, nil).
+			ApplyFunc(addAscendDockerEnv, func(spec *specs.Spec) {}).
+			ApplyFuncReturn(json.Marshal, []byte{}, nil).
+			ApplyMethodReturn(&os.File{}, "WriteAt", 0, nil)
+		defer patches.Reset()
+		convey.Convey("10-success, should return nil", func() {
+			err := modifySpecFile("")
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
 }
 
 func TestAddHookCase1(t *testing.T) {

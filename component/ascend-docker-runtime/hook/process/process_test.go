@@ -16,12 +16,15 @@
 package process
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -29,7 +32,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prashantv/gostub"
+	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
+
+	"ascend-docker-runtime/mindxcheckutils"
 )
 
 const (
@@ -38,6 +44,10 @@ const (
 	ascendVisibleDeviceTestStr             = "ASCEND_VISIBLE_DEVICES=0-3,5,7"
 	configFile                             = "config.json"
 	strRepeatTimes                         = 129
+)
+
+var (
+	testError = errors.New("test")
 )
 
 // TestDoPrestartHookCase1 test function DoPrestartHook
@@ -239,6 +249,10 @@ type fileInfoMock struct {
 	os.FileInfo
 }
 
+func (f fileInfoMock) Mode() os.FileMode {
+	return os.ModePerm
+}
+
 // TestReadConfigsOfDir tests the function readConfigsOfDir
 func TestReadConfigsOfDir(t *testing.T) {
 	patch := gomonkey.ApplyFunc(os.Stat, func(name string) (os.FileInfo, error) {
@@ -419,4 +433,57 @@ func TestParseMounts(t *testing.T) {
 			assert.Equalf(t, tt.want, parseMounts(tt.mounts), "parseMounts(%v)", tt.mounts)
 		})
 	}
+}
+
+// TestReadMountConfig tests the function readMountConfig
+func TestReadMountConfig(t *testing.T) {
+	convey.Convey("test readMountConfig", t, func() {
+		convey.Convey("01-get abs path failed, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(filepath.Abs, "", testError)
+			defer patch.Reset()
+			_, _, err := readMountConfig("", "")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches := gomonkey.ApplyFuncReturn(filepath.Abs, "", nil)
+		defer patches.Reset()
+		convey.Convey("02-stat error, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(os.Stat, fileInfoMock{}, testError)
+			defer patch.Reset()
+			_, _, err := readMountConfig("", "")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches.ApplyFuncReturn(os.Stat, fileInfoMock{}, nil).
+			ApplyFuncReturn(mindxcheckutils.RealFileChecker, "", nil)
+		convey.Convey("03-file info is not regular, should return error", func() {
+			var fm os.FileMode
+			patch := gomonkey.ApplyMethodReturn(fm, "IsRegular", false)
+			defer patch.Reset()
+			_, _, err := readMountConfig("", "")
+			convey.So(err, convey.ShouldBeError)
+		})
+		var fm os.FileMode
+		patches.ApplyMethodReturn(fm, "IsRegular", true)
+		convey.Convey("04-open file error, should return error", func() {
+			patch := gomonkey.ApplyFuncReturn(os.Open, &os.File{}, testError)
+			defer patch.Reset()
+			_, _, err := readMountConfig("", "")
+			convey.So(err, convey.ShouldBeError)
+		})
+		patches.ApplyFuncReturn(os.Open, &os.File{}, nil)
+		convey.Convey("05-success, should return nil", func() {
+			scanNum := 0
+			patch := gomonkey.ApplyMethod(&bufio.Scanner{}, "Scan",
+				func(scanner *bufio.Scanner) bool {
+					scanNum++
+					if scanNum > 1 {
+						return false
+					} else {
+						return true
+					}
+				})
+			defer patch.Reset()
+			_, _, err := readMountConfig("", "")
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
 }
