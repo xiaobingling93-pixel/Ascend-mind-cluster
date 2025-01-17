@@ -106,6 +106,7 @@ type JobInfo struct {
 	PreServerList     []ServerHccl
 	SharedTorIp       string
 	MasterAddr        string
+	ResourceType      string
 }
 
 // RankTable rank table info

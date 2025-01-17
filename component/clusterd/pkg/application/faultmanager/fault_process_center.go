@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
 )
@@ -40,6 +41,7 @@ func NewFaultProcessCenter() *FaultProcessCenter {
 	GlobalFaultProcessCenter.faultJobProcessor = &faultProcessorImpl{
 		jobRankFaultInfoProcessor: processor,
 	}
+	collector.InitReportInfoCollector()
 	return GlobalFaultProcessCenter
 }
 

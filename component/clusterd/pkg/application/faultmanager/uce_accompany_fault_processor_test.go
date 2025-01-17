@@ -4,16 +4,16 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/application/faultmanager/collector"
-	"clusterd/pkg/domain/faultdomain"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 
+	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
 )
 
 // ======= Test uceAccompanyFaultProcessor

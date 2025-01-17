@@ -67,6 +67,7 @@ func addJobFunc(ctx context.Context) {
 }
 
 func addResourceFunc() {
+	collector.InitCmCollectBuffer()
 	kube.AddCmSwitchFunc(constant.Resource, collector.SwitchInfoCollector)
 	kube.AddCmNodeFunc(constant.Resource, collector.NodeCollector)
 	kube.AddCmDeviceFunc(constant.Resource, collector.DeviceInfoCollector)

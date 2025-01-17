@@ -4,9 +4,9 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/application/faultmanager/collector"
 	"sync"
 
+	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 )
 

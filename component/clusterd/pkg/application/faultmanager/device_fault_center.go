@@ -40,7 +40,7 @@ func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
 	return deviceCenter
 }
 
-func (deviceCenter *DeviceFaultProcessCenter) GetUceFaultProcessor() (*uce.UceFaultProcessor, error) {
+func (deviceCenter *DeviceFaultProcessCenter) getUceFaultProcessor() (*uce.UceFaultProcessor, error) {
 	for _, processor := range deviceCenter.processorList {
 		if processor, ok := processor.(*uce.UceFaultProcessor); ok {
 			return processor, nil

@@ -52,6 +52,7 @@ func (cmCollector *ConfigmapCollectBuffer[T]) Push(info T, isAdd bool) bool {
 	}
 	lastItem, found := cmCollector.lastItem[info.GetCmName()]
 	if !found || !informerItemEqual(lastItem, newItem) {
+		lastItem = newItem
 		*queue = append(*queue, newItem)
 		return true
 	}

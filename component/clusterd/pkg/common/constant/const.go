@@ -165,7 +165,8 @@ const (
 
 // cluster support server
 const (
-	Ascend910Server  = "Ascend910"
-	Ascend310PServer = "Ascend310P"
-	Ascend310Server  = "Ascend310"
+	Ascend910Server     = "Ascend910"
+	Ascend310PServer    = "Ascend310P"
+	Ascend310Server     = "Ascend310"
+	UnknownResourceType = "unknown"
 )

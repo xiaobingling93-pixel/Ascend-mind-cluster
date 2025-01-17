@@ -4,8 +4,9 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/common/constant"
 	"testing"
+
+	"clusterd/pkg/common/constant"
 )
 
 func TestGetJobFaultRankProcessor(t *testing.T) {

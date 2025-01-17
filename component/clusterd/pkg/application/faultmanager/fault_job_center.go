@@ -4,12 +4,12 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/domain/faultdomain"
 	"time"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
 	"clusterd/pkg/domain/job"
 )
 

@@ -4,8 +4,6 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/application/faultmanager/collector"
-	"clusterd/pkg/common/constant"
 	"fmt"
 	"os"
 	"reflect"
@@ -14,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/collector"
+	"clusterd/pkg/common/constant"
 )
 
 func TestMain(m *testing.M) {

@@ -4,7 +4,6 @@
 package switchinfo
 
 import (
-	"clusterd/pkg/domain/faultdomain"
 	"encoding/json"
 	"strconv"
 	"testing"
@@ -101,10 +100,10 @@ func TestBusinessDataIsNotEqual(t *testing.T) {
 			},
 		}
 		newSwitch := oldSwitch
-		notSame := faultdomain.SwitchInfoBusinessDataIsNotEqual(&oldSwitch, &newSwitch)
+		notSame := constant.SwitchInfoBusinessDataIsNotEqual(&oldSwitch, &newSwitch)
 		convey.So(notSame, convey.ShouldBeFalse)
 		oldSwitch.NodeStatus = "Healthy"
-		notSame = faultdomain.SwitchInfoBusinessDataIsNotEqual(&oldSwitch, &newSwitch)
+		notSame = constant.SwitchInfoBusinessDataIsNotEqual(&oldSwitch, &newSwitch)
 		convey.So(notSame, convey.ShouldBeTrue)
 	})
 }

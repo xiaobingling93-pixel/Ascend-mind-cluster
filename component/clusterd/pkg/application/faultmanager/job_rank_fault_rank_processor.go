@@ -4,13 +4,13 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/domain/faultdomain"
 	"strings"
 	"sync"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
 )
 
 func newJobRankFaultInfoProcessor(deviceCenter *DeviceFaultProcessCenter) *jobRankFaultInfoProcessor {
@@ -108,7 +108,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 }
 
 func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, deviceName string) bool {
-	uceProcessor, err := processor.deviceCenter.GetUceFaultProcessor()
+	uceProcessor, err := processor.deviceCenter.getUceFaultProcessor()
 	if err != nil {
 		hwlog.RunLog.Errorf("getUceFaultProcessor exception: %v", err)
 		return false
@@ -124,7 +124,7 @@ func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, devi
 }
 
 func (processor *jobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, deviceName string) bool {
-	uceProcessor, err := processor.deviceCenter.GetUceFaultProcessor()
+	uceProcessor, err := processor.deviceCenter.getUceFaultProcessor()
 	if err != nil {
 		hwlog.RunLog.Errorf("getUceFaultProcessor exception: %v", err)
 		return false

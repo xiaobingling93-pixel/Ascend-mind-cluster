@@ -4,7 +4,6 @@
 package node
 
 import (
-	"clusterd/pkg/domain/faultdomain"
 	"context"
 	"fmt"
 	"strconv"
@@ -116,25 +115,25 @@ func TestGetSafeData(t *testing.T) {
 func TestBusinessDataIsNotEqual(t *testing.T) {
 	convey.Convey("Test BusinessDataIsNotEqual", t, func() {
 		convey.Convey("both oldNodeInfo and newNodeInfo are nil", func() {
-			result := faultdomain.NodeInfoBusinessDataIsNotEqual(nil, nil)
+			result := constant.NodeInfoBusinessDataIsNotEqual(nil, nil)
 			convey.So(result, convey.ShouldEqual, false)
 		})
 		convey.Convey("oldNodeInfo is nil,newNodeInfo is not nil", func() {
 			newData := getTestNodeInfo("", nil)
-			result := faultdomain.NodeInfoBusinessDataIsNotEqual(nil, newData)
+			result := constant.NodeInfoBusinessDataIsNotEqual(nil, newData)
 
 			convey.So(result, convey.ShouldEqual, true)
 		})
 		convey.Convey("oldNodeInfo and newNodeInfo are not equal", func() {
 			newData := getTestNodeInfo("unhealthy", nil)
 			oldData := getTestNodeInfo("healthy", nil)
-			result := faultdomain.NodeInfoBusinessDataIsNotEqual(newData, oldData)
+			result := constant.NodeInfoBusinessDataIsNotEqual(newData, oldData)
 			convey.So(result, convey.ShouldEqual, true)
 		})
 		convey.Convey("oldNodeInfo and newNodeInfo are equal", func() {
 			newData := getTestNodeInfo("unhealthy", nil)
 			oldData := getTestNodeInfo("unhealthy", nil)
-			result := faultdomain.NodeInfoBusinessDataIsNotEqual(newData, oldData)
+			result := constant.NodeInfoBusinessDataIsNotEqual(newData, oldData)
 			convey.So(result, convey.ShouldEqual, false)
 		})
 	})

@@ -4,14 +4,14 @@
 package faultmanager
 
 import (
-	"clusterd/pkg/application/faultmanager/collector"
-	"clusterd/pkg/domain/faultdomain"
 	"fmt"
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
 )
 
 func newUceAccompanyFaultProcessor(deviceCenter *DeviceFaultProcessCenter) *uceAccompanyFaultProcessor {

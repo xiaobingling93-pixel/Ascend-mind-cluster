@@ -4,16 +4,16 @@
 package faultmanager
 
 import (
-	"ascend-common/common-utils/utils"
-	"clusterd/pkg/domain/faultdomain"
 	"encoding/json"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/utils"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
 	"clusterd/pkg/interface/kube"
 )
 
