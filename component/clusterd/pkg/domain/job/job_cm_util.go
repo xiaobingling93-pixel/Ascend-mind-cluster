@@ -4,6 +4,7 @@
 package job
 
 import (
+	"clusterd/pkg/common/constant"
 	"fmt"
 	"strconv"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/common/constant"
 	"clusterd/pkg/interface/kube"
 )
 

@@ -4,6 +4,7 @@
 package faultmanager
 
 import (
+	"clusterd/pkg/domain/faultdomain"
 	"strings"
 	"sync"
 
@@ -12,7 +13,7 @@ import (
 	"clusterd/pkg/common/util"
 )
 
-func newJobRankFaultInfoProcessor(deviceCenter *deviceFaultProcessCenter) *jobRankFaultInfoProcessor {
+func newJobRankFaultInfoProcessor(deviceCenter *DeviceFaultProcessCenter) *jobRankFaultInfoProcessor {
 	return &jobRankFaultInfoProcessor{
 		jobFaultInfoMap: make(map[string]JobFaultInfo),
 		deviceCenter:    deviceCenter,
@@ -58,9 +59,9 @@ func (processor *jobRankFaultInfoProcessor) setJobFaultRankInfos(faultInfos map[
 	processor.jobFaultInfoMap = faultInfos
 }
 
-func (processor *jobRankFaultInfoProcessor) process() {}
+func (processor *jobRankFaultInfoProcessor) Process(info any) any { return nil }
 
-func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]AdvanceDeviceFaultCm,
+func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]constant.AdvanceDeviceFaultCm,
 	nodeName string, serverList map[string]constant.ServerHccl, jobId string) []FaultRank {
 	advanceDeviceInfo := nodeDeviceInfoMap[nodeName]
 	devicesOfJobOnNode, ok := serverList[nodeName]
@@ -98,7 +99,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 			faultRankList = append(faultRankList, FaultRank{
 				RankId:      deviceInfo.RankID,
 				FaultCode:   constant.UceFaultCode,
-				FaultLevel:  RestartBusiness,
+				FaultLevel:  constant.RestartBusiness,
 				DoStepRetry: processor.canDoStepRetry(jobId, nodeName, deviceName),
 			})
 		}
@@ -107,33 +108,33 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 }
 
 func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, deviceName string) bool {
-	uceProcessor, err := processor.deviceCenter.getUceFaultProcessor()
+	uceProcessor, err := processor.deviceCenter.GetUceFaultProcessor()
 	if err != nil {
 		hwlog.RunLog.Errorf("getUceFaultProcessor exception: %v", err)
 		return false
 	}
-	uceDevice, found := uceProcessor.getUceDeviceFromJob(jobId, nodeName, deviceName)
+	uceDevice, found := uceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
 	if !found {
 		hwlog.RunLog.Debugf("job %s's uce fault is not on node %s device %s", jobId, nodeName, deviceName)
 		return false
 	}
-	doStepRetry := canDoStepRetry(&uceDevice)
+	doStepRetry := faultdomain.CanDoStepRetry(&uceDevice)
 	hwlog.RunLog.Debugf("uceDevice %s stepretry %v", util.ObjToString(uceDevice), doStepRetry)
 	return doStepRetry
 }
 
 func (processor *jobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, deviceName string) bool {
-	uceProcessor, err := processor.deviceCenter.getUceFaultProcessor()
+	uceProcessor, err := processor.deviceCenter.GetUceFaultProcessor()
 	if err != nil {
 		hwlog.RunLog.Errorf("getUceFaultProcessor exception: %v", err)
 		return false
 	}
-	uceDevice, found := uceProcessor.getUceDeviceFromJob(jobId, nodeName, deviceName)
+	uceDevice, found := uceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
 	// business plane didn't find uce fault
 	if !found {
 		hwlog.RunLog.Debugf("business plane didn't find uce fault")
 		return false
 	}
 	// business plane found uce fault
-	return validBusinessRecoverTime(uceDevice.RecoverTime)
+	return faultdomain.ValidBusinessRecoverTime(uceDevice.RecoverTime)
 }

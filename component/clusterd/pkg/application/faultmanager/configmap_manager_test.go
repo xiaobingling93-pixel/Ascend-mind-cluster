@@ -4,11 +4,10 @@
 package faultmanager
 
 import (
+	"clusterd/pkg/common/constant"
 	"reflect"
 	"sync"
 	"testing"
-
-	"clusterd/pkg/common/constant"
 )
 
 func TestFaultCenterCmManagerSetAndGetConfigmap(t *testing.T) {

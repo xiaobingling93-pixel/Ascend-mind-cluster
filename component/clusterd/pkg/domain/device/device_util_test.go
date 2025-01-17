@@ -4,6 +4,7 @@
 package device
 
 import (
+	"clusterd/pkg/domain/faultdomain"
 	"context"
 	"fmt"
 	"strconv"
@@ -125,29 +126,29 @@ func TestGetSafeData(t *testing.T) {
 func TestBusinessDataIsNotEqual(t *testing.T) {
 	convey.Convey("TestBusinessDataIsEqual", t, func() {
 		convey.Convey("data is nil", func() {
-			result := BusinessDataIsNotEqual(nil, nil)
+			result := faultdomain.DeviceInfoBusinessDataIsNotEqual(nil, nil)
 			convey.So(result, convey.ShouldEqual, false)
 		})
 		convey.Convey("oldDevInfo is nil and devInfo is not nil", func() {
-			result := BusinessDataIsNotEqual(nil, &constant.DeviceInfo{})
+			result := faultdomain.DeviceInfoBusinessDataIsNotEqual(nil, &constant.DeviceInfo{})
 			convey.So(result, convey.ShouldEqual, true)
 		})
 		convey.Convey("business data is not equal", func() {
 			newData := getTestDeviceInfo(map[string]string{testDeviceKey1: testDeviceValue1})
 			oldData := &constant.DeviceInfo{}
-			result := BusinessDataIsNotEqual(oldData, newData)
+			result := faultdomain.DeviceInfoBusinessDataIsNotEqual(oldData, newData)
 			convey.So(result, convey.ShouldEqual, true)
 		})
 		convey.Convey("business data is equal, other data is not equal", func() {
 			newData := getTestDeviceInfo(map[string]string{testDeviceKey1: testDeviceValue1})
 			oldData := getTestDeviceInfo(map[string]string{testDeviceKey2: testDeviceValue2})
-			result := BusinessDataIsNotEqual(oldData, newData)
+			result := faultdomain.DeviceInfoBusinessDataIsNotEqual(oldData, newData)
 			convey.So(result, convey.ShouldEqual, true)
 		})
 		convey.Convey("business data is equal, other data is equal", func() {
 			newData := getTestDeviceInfo(map[string]string{testDeviceKey1: testDeviceValue1})
 			oldData := getTestDeviceInfo(map[string]string{testDeviceKey1: testDeviceValue1})
-			result := BusinessDataIsNotEqual(oldData, newData)
+			result := faultdomain.DeviceInfoBusinessDataIsNotEqual(oldData, newData)
 			convey.So(result, convey.ShouldEqual, false)
 		})
 	})

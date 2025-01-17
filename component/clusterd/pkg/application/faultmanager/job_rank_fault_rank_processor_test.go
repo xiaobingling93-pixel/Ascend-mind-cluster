@@ -4,6 +4,7 @@
 package faultmanager
 
 import (
+	"clusterd/pkg/common/constant"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -12,10 +13,10 @@ import (
 func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 	t.Run("TestJobRankFaultInfoProcessorCanDoStepRetry", func(t *testing.T) {
 		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		uceProcessor, _ := GlobalFaultProcessCenter.deviceCenter.getUceFaultProcessor()
-		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "getUceDeviceFromJob",
-			func(jobId, nodeName, deviceName string) (uceDeviceInfo, bool) {
-				return uceDeviceInfo{
+		uceProcessor, _ := GlobalFaultProcessCenter.DeviceCenter.GetUceFaultProcessor()
+		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
+			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
+				return constant.UceDeviceInfo{
 					DeviceName:   "test",
 					FaultTime:    0,
 					RecoverTime:  0,
@@ -33,10 +34,10 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 func TestUceInBusinessPlane(t *testing.T) {
 	t.Run("TestUceInBusinessPlane", func(t *testing.T) {
 		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		uceProcessor, _ := GlobalFaultProcessCenter.deviceCenter.getUceFaultProcessor()
-		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "getUceDeviceFromJob",
-			func(jobId, nodeName, deviceName string) (uceDeviceInfo, bool) {
-				return uceDeviceInfo{
+		uceProcessor, _ := GlobalFaultProcessCenter.DeviceCenter.GetUceFaultProcessor()
+		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
+			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
+				return constant.UceDeviceInfo{
 					DeviceName:   "test",
 					FaultTime:    0,
 					RecoverTime:  0,

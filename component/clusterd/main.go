@@ -4,6 +4,7 @@
 package main
 
 import (
+	"clusterd/pkg/application/faultmanager/collector"
 	"context"
 	"flag"
 	"fmt"
@@ -66,9 +67,9 @@ func addJobFunc(ctx context.Context) {
 }
 
 func addResourceFunc() {
-	kube.AddCmSwitchFunc(constant.Resource, faultmanager.SwitchInfoCollector)
-	kube.AddCmNodeFunc(constant.Resource, faultmanager.NodeCollector)
-	kube.AddCmDeviceFunc(constant.Resource, faultmanager.DeviceInfoCollector)
+	kube.AddCmSwitchFunc(constant.Resource, collector.SwitchInfoCollector)
+	kube.AddCmNodeFunc(constant.Resource, collector.NodeCollector)
+	kube.AddCmDeviceFunc(constant.Resource, collector.DeviceInfoCollector)
 }
 
 func main() {
@@ -100,7 +101,7 @@ func main() {
 		hwlog.RunLog.Errorf("cluster info server start failed, err: %#v", err)
 	}
 	// election and running process
-	faultmanager.NewFaultProcessCenter(ctx)
+	faultmanager.NewFaultProcessCenter().Work(ctx)
 	startInformer(ctx)
 	signalCatch(cancel)
 }

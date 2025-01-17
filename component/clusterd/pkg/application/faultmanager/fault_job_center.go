@@ -4,6 +4,7 @@
 package faultmanager
 
 import (
+	"clusterd/pkg/domain/faultdomain"
 	"time"
 
 	"ascend-common/common-utils/hwlog"
@@ -12,11 +13,11 @@ import (
 	"clusterd/pkg/domain/job"
 )
 
-func newFaultJobProcessCenter() *faultJobProcessCenter {
+func NewFaultJobProcessCenter() *faultJobProcessCenter {
 	return &faultJobProcessCenter{}
 }
 
-func (fJobCenter *faultJobProcessCenter) process() {
+func (fJobCenter *faultJobProcessCenter) Process() {
 	currentTime := time.Now().UnixMilli()
 	if fJobCenter.isProcessLimited(currentTime) {
 		return
@@ -24,12 +25,12 @@ func (fJobCenter *faultJobProcessCenter) process() {
 	fJobCenter.lastProcessTime = currentTime
 
 	fJobCenter.jobServerInfoMap = job.GetJobServerInfoMap()
-	fJobCenter.nodeInfoCm = GlobalFaultProcessCenter.nodeCenter.baseFaultCenter.getProcessedCm()
-	fJobCenter.switchInfoCm = GlobalFaultProcessCenter.switchCenter.baseFaultCenter.getProcessedCm()
-	fJobCenter.deviceInfoCm = GlobalFaultProcessCenter.deviceCenter.baseFaultCenter.getProcessedCm()
+	fJobCenter.nodeInfoCm = GlobalFaultProcessCenter.NodeCenter.baseFaultCenter.getProcessedCm()
+	fJobCenter.switchInfoCm = GlobalFaultProcessCenter.SwitchCenter.baseFaultCenter.getProcessedCm()
+	fJobCenter.deviceInfoCm = GlobalFaultProcessCenter.DeviceCenter.baseFaultCenter.getProcessedCm()
 	fJobCenter.InitFaultJobs()
 	for _, fJob := range fJobCenter.FaultJobs {
-		fJob.process()
+		fJob.Process()
 	}
 
 }
@@ -39,7 +40,7 @@ func (fJobCenter *faultJobProcessCenter) isProcessLimited(currentTime int64) boo
 }
 
 func (fJobCenter *faultJobProcessCenter) InitFaultJobs() {
-	deviceCmForNodeMap := getAdvanceDeviceCmForNodeMap(fJobCenter.deviceInfoCm)
+	deviceCmForNodeMap := faultdomain.GetAdvanceDeviceCmForNodeMap(fJobCenter.deviceInfoCm)
 	faultJobs := make(map[string]*FaultJob)
 	for jobId, serverLists := range fJobCenter.jobServerInfoMap.InfoMap {
 		if len(serverLists) == 0 {
