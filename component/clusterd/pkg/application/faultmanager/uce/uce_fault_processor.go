@@ -15,6 +15,8 @@ import (
 	"clusterd/pkg/domain/job"
 )
 
+var UceProcessor *UceFaultProcessor
+
 /*
 The UceFaultProcessor process uce fault reporting information.
 If the device fault is UCE fault, then determine whether the job running on the device can tolerate UCE faults.
@@ -33,10 +35,11 @@ type UceFaultProcessor struct {
 }
 
 func NewUceFaultProcessor() *UceFaultProcessor {
-	return &UceFaultProcessor{
+	UceProcessor = &UceFaultProcessor{
 		JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
 		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
 	}
+	return UceProcessor
 }
 
 func (processor *UceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string, nodeName string) constant.UceNodeInfo {

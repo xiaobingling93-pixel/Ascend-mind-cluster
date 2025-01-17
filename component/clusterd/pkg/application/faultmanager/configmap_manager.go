@@ -45,11 +45,12 @@ func (manager *faultCenterCmManager[T]) updateOriginalCm(newInfo T, isAdd bool) 
 	manager.originalCm.updateCmInfo(newInfo, isAdd)
 }
 
-func (manager *faultCenterCmManager[T]) updateBatchOriginalCm() {
+func (manager *faultCenterCmManager[T]) updateBatchOriginalCm() int {
 	informerCms := manager.cmBuffer.Pop()
 	for _, cm := range informerCms {
 		manager.updateOriginalCm(cm.Data, cm.IsAdd)
 	}
+	return len(informerCms)
 }
 
 func (cm *configMap[T]) deepCopy() configMap[T] {

@@ -18,7 +18,6 @@ type baseFaultCenter[T constant.ConfigMapInterface] struct {
 	subscribeChannelList []chan int
 	mutex                sync.Mutex
 	processPeriod        int64
-	JobServerInfoMap     constant.JobServerInfoMap
 	cmManager            *faultCenterCmManager[T]
 	centerType           int
 }

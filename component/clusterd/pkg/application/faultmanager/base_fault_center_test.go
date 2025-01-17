@@ -35,9 +35,5 @@ func TestBaseFaultCenterProcess(t *testing.T) {
 		if baseCenter.getProcessedCm() == nil {
 			t.Errorf("TestBaseFaultCenterProcess failed")
 		}
-		sign := <-notifyChan
-		if sign != constant.DeviceProcessType {
-			t.Errorf("TestBaseFaultCenterProcess failed")
-		}
 	})
 }

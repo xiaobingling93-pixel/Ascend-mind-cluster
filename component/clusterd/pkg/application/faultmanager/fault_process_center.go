@@ -90,7 +90,7 @@ type ReportRecoverInfo struct {
 // CallbackForReportUceInfo callback function to report uce info
 func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []ReportRecoverInfo) error {
 	for _, info := range infos {
-		center.DeviceCenter.CallbackForReportUceInfo(info.JobId, info.Rank, info.RecoverTime)
+		collector.ReportInfoCollector.ReportUceInfo(info.JobId, info.Rank, info.RecoverTime)
 	}
 	center.NotifyFaultCenterProcess(constant.DeviceProcessType)
 	return nil

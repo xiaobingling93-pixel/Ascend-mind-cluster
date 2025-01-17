@@ -4,6 +4,7 @@
 package faultmanager
 
 import (
+	"clusterd/pkg/application/faultmanager/uce"
 	"testing"
 
 	"clusterd/pkg/common/constant"
@@ -13,7 +14,7 @@ import (
 func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 	t.Run("TestJobRankFaultInfoProcessorCanDoStepRetry", func(t *testing.T) {
 		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		uceProcessor, _ := GlobalFaultProcessCenter.DeviceCenter.getUceFaultProcessor()
+		uceProcessor := uce.NewUceFaultProcessor()
 		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
 				return constant.UceDeviceInfo{
@@ -34,7 +35,7 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 func TestUceInBusinessPlane(t *testing.T) {
 	t.Run("TestUceInBusinessPlane", func(t *testing.T) {
 		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		uceProcessor, _ := GlobalFaultProcessCenter.DeviceCenter.getUceFaultProcessor()
+		uceProcessor := uce.NewUceFaultProcessor()
 		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
 				return constant.UceDeviceInfo{

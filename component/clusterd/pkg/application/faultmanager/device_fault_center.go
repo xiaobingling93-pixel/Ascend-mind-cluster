@@ -6,14 +6,10 @@ package faultmanager
 import (
 	"fmt"
 	"sync"
-	"time"
 
-	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/application/faultmanager/uce"
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/common/util"
-	"clusterd/pkg/domain/job"
 )
 
 func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
@@ -40,15 +36,6 @@ func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
 	return deviceCenter
 }
 
-func (deviceCenter *DeviceFaultProcessCenter) getUceFaultProcessor() (*uce.UceFaultProcessor, error) {
-	for _, processor := range deviceCenter.processorList {
-		if processor, ok := processor.(*uce.UceFaultProcessor); ok {
-			return processor, nil
-		}
-	}
-	return nil, fmt.Errorf("can not find UceFaultProcessor in FaultProcessCenter")
-}
-
 func (deviceCenter *DeviceFaultProcessCenter) getUceAccompanyFaultProcessor() (*uceAccompanyFaultProcessor, error) {
 	for _, processor := range deviceCenter.processorList {
 		if processor, ok := processor.(*uceAccompanyFaultProcessor); ok {
@@ -65,17 +52,4 @@ func (deviceCenter *DeviceFaultProcessCenter) getJobFaultRankProcessor() (*jobRa
 		}
 	}
 	return nil, fmt.Errorf("can not find jobRankFaultInfoProcessor in FaultProcessCenter")
-}
-
-func (deviceCenter *DeviceFaultProcessCenter) CallbackForReportUceInfo(jobId, rankId string, recoverTime int64) error {
-	return collector.ReportInfoCollector.ReportUceInfo(jobId, rankId, recoverTime)
-}
-
-func (deviceCenter *DeviceFaultProcessCenter) Process() {
-	if deviceCenter.isProcessLimited(time.Now().UnixMilli()) {
-		return
-	}
-	deviceCenter.JobServerInfoMap = job.GetJobServerInfoMap()
-	hwlog.RunLog.Debugf("job server info map: %v", util.ObjToString(deviceCenter.JobServerInfoMap))
-	deviceCenter.baseFaultCenter.Process()
 }
