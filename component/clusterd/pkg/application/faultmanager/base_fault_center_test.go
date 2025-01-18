@@ -14,7 +14,7 @@ import (
 type fakeProcessor struct{}
 
 func (f *fakeProcessor) Process(info any) any {
-	return map[string]*constant.DeviceInfo{}
+	return info
 }
 
 func TestBaseFaultCenterProcess(t *testing.T) {
@@ -27,7 +27,6 @@ func TestBaseFaultCenterProcess(t *testing.T) {
 			cmBuffer:     collector.DeviceCmCollectBuffer,
 		}
 		baseCenter := newBaseFaultCenter(&manager, constant.DeviceProcessType)
-		baseCenter.updateOriginalCm()
 		baseCenter.addProcessors([]constant.FaultProcessor{&fakeProcessor{}})
 		notifyChan := make(chan int, 1)
 		baseCenter.register(notifyChan)
