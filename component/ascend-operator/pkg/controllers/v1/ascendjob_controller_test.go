@@ -30,6 +30,7 @@ import (
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	_ "ascend-operator/pkg/testtool"
+	"ascend-operator/pkg/utils"
 )
 
 func newCommonReconciler() *ASJobReconciler {
@@ -51,6 +52,10 @@ func newCommonReconciler() *ASJobReconciler {
 	return rc
 }
 
+const (
+	spBlock = "32"
+)
+
 func newCommonPodInfo() *podInfo {
 	return &podInfo{
 		rtype: mindxdlv1.ReplicaTypeWorker,
@@ -58,6 +63,9 @@ func newCommonPodInfo() *podInfo {
 		job: &mindxdlv1.AscendJob{
 			ObjectMeta: metav1.ObjectMeta{
 				UID: "123456",
+				Annotations: map[string]string{
+					utils.AnnoKeyOfSuperPod: spBlock,
+				},
 			},
 		},
 		spec: &commonv1.ReplicaSpec{
@@ -241,7 +249,8 @@ func newReplicas(i int) *int32 {
 	return &x
 }
 
-// TestIsVcjobOrDeploy This function is a test function for the isVcjobOrDeploy method of the AscendJobReconciler struct.
+// TestIsVcjobOrDeploy This function is a test function for the isVcjobOrDeploy
+// method of the AscendJobReconciler struct.
 func TestIsVcjobOrDeploy(t *testing.T) {
 	type args struct {
 		ctx context.Context

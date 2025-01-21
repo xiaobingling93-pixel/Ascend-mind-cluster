@@ -26,19 +26,15 @@ const (
 	FailedDeleteJobReason = "FailedDeleteJob"
 	// SuccessfulDeleteJobReason is added in an ascendjob when it is deleted successful.
 	SuccessfulDeleteJobReason = "SuccessfulDeleteJob"
-
+	// controllerName is the name of controller,used in log.
 	controllerName = "ascendjob-controller"
-
-	// volcanoTaskSpecKey task spec key used in pod annotation when EnableGangScheduling is true
+	// volcanoTaskSpecKey volcano.sh/task-spec key used in pod annotation when EnableGangScheduling is true
 	volcanoTaskSpecKey = "volcano.sh/task-spec"
-
-	// gang scheduler name.
+	// gangSchedulerName gang scheduler name.
 	gangSchedulerName = "volcano"
-
-	// exitedWithCodeReason is the normal reason when the pod is exited because of the exit code.
+	// exitedWithCodeReason is the reason of a job that exited with a non-zero code.
 	exitedWithCodeReason = "ExitedWithCode"
-	// podTemplateRestartPolicyReason is the warning reason when the restart
-	// policy is set in pod template.
+	// podTemplateRestartPolicyReason is the reason of a job that set podTemplate restartPolicy.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
 	// jobSchedulerNameReason is the warning reason when other scheduler name is set in job with gang-scheduling enabled
 	jobSchedulerNameReason = "SettedJobSchedulerName"
@@ -103,6 +99,9 @@ const (
 	mindxServiceName         = "clusterd-grpc-svc"                            // clusterd grpc service name
 	mindxServiceNamespace    = "mindx-dl"                                     // clusterd grpc service namespace
 	mindxDefaultServerDomain = "clusterd-grpc-svc.mindx-dl.svc.cluster.local" // clusterd grpc service domain
+
+	// hcclSuperPodLogicId is the logic id of the superpod, ascend container env name
+	hcclSuperPodLogicId = "HCCL_LOGIC_SUPERPOD_ID"
 )
 
 const (

@@ -12,6 +12,7 @@ import (
 
 	"ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable/common"
+	"ascend-operator/pkg/utils"
 )
 
 const (
@@ -36,22 +37,13 @@ type Server struct {
 	ServerID string `json:"server_id"`
 }
 
-const (
-	// AnnoKeyOfSuperPod annotation key of superpod
-	AnnoKeyOfSuperPod = "sp-block"
-)
-
 // New create ranktable generator
 func New(job *v1.AscendJob) *RankTable {
 	r := &RankTable{
 		SuperPodList: make([]*SuperPod, 0),
 	}
-	spBlockStr := job.Annotations[AnnoKeyOfSuperPod]
-	spBlock, err := strconv.Atoi(spBlockStr)
-	if err != nil {
-		spBlock = 0
-	}
-	r.spBlock = spBlock
+
+	r.spBlock = utils.GetSpBlock(job)
 	r.BaseGenerator = common.NewBaseGenerator(job, rankTableVersion, r)
 	return r
 }
@@ -60,9 +52,8 @@ func New(job *v1.AscendJob) *RankTable {
 func (r *RankTable) GatherServerList() {
 	r.BaseGenerator.GatherServerList()
 	r.SuperPodList = make([]*SuperPod, 0)
-	superPodNum := r.spBlock / len(r.ServerList[0].DeviceList)
 	for id, server := range r.ServerList {
-		vid := id / superPodNum
+		vid := utils.GetLogicSuperPodId(id, r.spBlock, len(r.ServerList[0].DeviceList))
 		if len(r.SuperPodList) == vid {
 			r.SuperPodList = append(r.SuperPodList, &SuperPod{
 				SuperPodID: strconv.Itoa(vid),

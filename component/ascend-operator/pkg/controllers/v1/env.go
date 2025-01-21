@@ -10,12 +10,14 @@ package v1
 
 import (
 	"strconv"
+	"strings"
 
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
+	"ascend-operator/pkg/utils"
 )
 
 const (
@@ -65,6 +67,7 @@ func (r *ASJobReconciler) setMindSporeEnv(pi *podInfo, podTemplate *corev1.PodTe
 			addEnvValue(podTemplate, hostNetwork, strconv.FormatBool(pi.spec.Template.Spec.HostNetwork), i)
 
 			addEnvValue(podTemplate, npuPod, strconv.FormatBool(checkNpuPod(pi)), i)
+			addHcclSuperPodIdEnv(pi, podTemplate, i)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
 		}
 	}
@@ -88,6 +91,7 @@ func (r *ASJobReconciler) setPytorchEnv(pi *podInfo, podTemplate *corev1.PodTemp
 			addEnvValue(podTemplate, taskIDEnvKey, string(pi.job.UID), i)
 			addEnvValue(podTemplate, mindxServerIPEnv, pi.clusterdSvcIp, i)
 			addEnvValue(podTemplate, hostNetwork, strconv.FormatBool(pi.spec.Template.Spec.HostNetwork), i)
+			addHcclSuperPodIdEnv(pi, podTemplate, i)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
 		}
 	}
@@ -129,7 +133,22 @@ func (r *ASJobReconciler) setTensorflowEnv(pi *podInfo, podTemplate *corev1.PodT
 					},
 				},
 			})
+			addHcclSuperPodIdEnv(pi, podTemplate, i)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
+		}
+	}
+}
+
+// addHcclSuperPodIdEnv add HCCL_LOGIC_SUPERPOD_ID env to build hccs network
+func addHcclSuperPodIdEnv(pi *podInfo, pod *corev1.PodTemplateSpec, index int) {
+	for name, res := range pod.Spec.Containers[index].Resources.Requests {
+		if strings.Contains(string(name), npuPrefix) {
+			chipsPerNode := int(res.Value())
+			superPodId := strconv.Itoa(utils.GetLogicSuperPodId(pi.rank, utils.GetSpBlock(pi.job), chipsPerNode))
+			hwlog.RunLog.Debugf("pod<%s> resource<%v=%v> pod-rank=%v sp-block=%v set %s=%v",
+				pod.Name, name, chipsPerNode, pi.rank, utils.GetSpBlock(pi.job), hcclSuperPodLogicId, superPodId)
+			addEnvValue(pod, hcclSuperPodLogicId, superPodId, index)
+			break
 		}
 	}
 }

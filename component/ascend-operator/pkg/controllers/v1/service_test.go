@@ -150,8 +150,9 @@ func TestGetMngSvcIpAndPortWithError(t *testing.T) {
 				})
 			defer patch.Reset()
 			ip, port, err := rc.getMngSvcIpAndPort(job, mindxdlv1.PytorchFrameworkName, "")
-			convey.So(err, convey.ShouldResemble, fmt.Errorf("job<%s/%s> chief service Ip<%s> or port<%s> is empty", job.Namespace, job.Name,
-				ip, port))
+			convey.So(err, convey.ShouldResemble,
+				fmt.Errorf("job<%s/%s> chief service Ip<%s> or port<%s> is empty",
+					job.Namespace, job.Name, ip, port))
 		})
 		convey.Convey("04-mindspore single npu task should return empty", func() {
 			job.Spec.ReplicaSpecs = map[commonv1.ReplicaType]*commonv1.ReplicaSpec{mindxdlv1.ReplicaTypeWorker: {}}

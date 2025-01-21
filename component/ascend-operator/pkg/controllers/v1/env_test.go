@@ -15,6 +15,7 @@ import (
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/smartystreets/goconvey/convey"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	_ "ascend-operator/pkg/testtool"
@@ -24,6 +25,9 @@ const (
 	fakeHostNetwork = "false"
 	fakeTaskID      = "123456"
 	msRoleIndex     = 8
+
+	ascend910    = "huawei.com/Ascend910"
+	chipsPerNode = "16"
 )
 
 // TestSetMindSporeEnv test setMindSporeEnv
@@ -50,13 +54,18 @@ func TestSetMindSporeEnv(t *testing.T) {
 			{Name: msRole, Value: msRoleMap[ei.rtype]},
 			{Name: hostNetwork, Value: fakeHostNetwork},
 			{Name: npuPod, Value: "false"},
-		}
+			{Name: hcclSuperPodLogicId, Value: "0"}}
 		convey.Convey("01-pod has no default container, will do nothing", func() {
 			rc.setMindSporeEnv(ei, podTemp)
 			convey.So(podTemp.Spec.Containers[0].Env, convey.ShouldBeNil)
 		})
 		podTemp.Spec.Containers[0] = corev1.Container{
 			Name: mindxdlv1.DefaultContainerName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					ascend910: resource.MustParse(chipsPerNode),
+				},
+			},
 		}
 		convey.Convey("01-rType is worker, scheduler host equal ei.ip", func() {
 			rc.setMindSporeEnv(ei, podTemp)
@@ -93,7 +102,7 @@ func TestSetPytorchEnv(t *testing.T) {
 			{Name: taskIDEnvKey, Value: fakeTaskID},
 			{Name: mindxServerIPEnv, Value: ""},
 			{Name: hostNetwork, Value: fakeHostNetwork},
-		}
+			{Name: hcclSuperPodLogicId, Value: "0"}}
 		convey.Convey("01-pod has no default container, will do nothing", func() {
 			rc.setPytorchEnv(ei, podTemp)
 			convey.So(podTemp.Spec.Containers[0].Env, convey.ShouldBeNil)
@@ -101,6 +110,11 @@ func TestSetPytorchEnv(t *testing.T) {
 		})
 		podTemp.Spec.Containers[0] = corev1.Container{
 			Name: mindxdlv1.DefaultContainerName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					ascend910: resource.MustParse(chipsPerNode),
+				},
+			},
 		}
 		convey.Convey("02-rType is worker, scheduler host equal ei.ip", func() {
 			rc.setPytorchEnv(ei, podTemp)
@@ -133,13 +147,19 @@ func TestSetTensorflowEnv(t *testing.T) {
 			{Name: tfChiefDevice, Value: "0"},
 			{Name: hostNetwork, Value: fakeHostNetwork},
 			{Name: tfWorkerIP, ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{
-				FieldPath: statusPodIPDownwardAPI}}}}
+				FieldPath: statusPodIPDownwardAPI}}},
+			{Name: hcclSuperPodLogicId, Value: "0"}}
 		convey.Convey("01-pod has no default container, will do nothing", func() {
 			rc.setTensorflowEnv(ei, podTemp)
 			convey.So(podTemp.Spec.Containers[0].Env, convey.ShouldBeNil)
 		})
 		podTemp.Spec.Containers[0] = corev1.Container{
 			Name: mindxdlv1.DefaultContainerName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					ascend910: resource.MustParse(chipsPerNode),
+				},
+			},
 		}
 		convey.Convey("02-rType is worker, scheduler host equal ei.ip", func() {
 			rc.setTensorflowEnv(ei, podTemp)
