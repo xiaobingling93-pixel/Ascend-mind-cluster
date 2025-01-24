@@ -66,11 +66,11 @@ func TestRuleCheck(t *testing.T) {
 	convey.Convey("Test TestRuleCheck", t, func() {
 		sm := NewStateMachine(InitState, getFakeRules())
 		convey.Convey("rule match case", func() {
-			match, _ := sm.ruleMatching(InitState, "event1")
+			match := sm.RuleCheck(InitState, "event1")
 			convey.So(match, convey.ShouldBeTrue)
 		})
 		convey.Convey("rule not match case", func() {
-			match, _ := sm.ruleMatching(InitState, "event2")
+			match := sm.RuleCheck(InitState, "event2")
 			convey.So(match, convey.ShouldBeFalse)
 		})
 	})

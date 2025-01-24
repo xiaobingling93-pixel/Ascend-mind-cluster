@@ -17,6 +17,7 @@ import (
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/interface/grpc/pb"
 	"clusterd/pkg/interface/kube"
@@ -24,7 +25,9 @@ import (
 
 var deviceNumPerNode = 8
 var randomLen = 16
-var uuidLen = 49
+var uuidLen16 = 49
+var uuidLen32 = 81
+var errorRank = "errorRank"
 
 func init() {
 	hwLogConfig := hwlog.LogConfig{
@@ -75,6 +78,7 @@ func fakePodMap() map[string]v1.Pod {
 		Spec:   v1.PodSpec{},
 		Status: v1.PodStatus{},
 	}
+	podMap["2"] = v1.Pod{}
 	return podMap
 }
 
@@ -160,6 +164,17 @@ func TestFaultPodAllRescheduled(t *testing.T) {
 	convey.Convey("Test FaultPodAllRescheduled", t, func() {
 		info := fakeJobInfo()
 		podMap := fakePodMap()
+		convey.Convey("case pod name is empty", func() {
+			patch := gomonkey.ApplyFunc(pod.GetPodByRankIndex,
+				func(jobId, rankIndex string) v1.Pod {
+					emptyPod := v1.Pod{}
+					emptyPod.Name = ""
+					return emptyPod
+				})
+			defer patch.Reset()
+			completed := FaultPodAllRescheduled(info.JobId, fakeAllFaultRescheduledPodMap())
+			convey.So(completed, convey.ShouldBeFalse)
+		})
 		patch := gomonkey.ApplyFunc(pod.GetPodByRankIndex,
 			func(jobId, rankIndex string) v1.Pod {
 				if rankPod, ok := podMap[rankIndex]; ok {
@@ -189,6 +204,8 @@ func TestFaults2Ranks(t *testing.T) {
 		}
 		ranks := Faults2Ranks(faults)
 		convey.So(len(ranks), convey.ShouldEqual, len(faults))
+		ranks = Faults2Ranks(nil)
+		convey.So(len(ranks), convey.ShouldEqual, 0)
 	})
 }
 
@@ -200,14 +217,18 @@ func TestFaults2String(t *testing.T) {
 		}
 		str := Faults2String(faults)
 		convey.So(str, convey.ShouldEqual, "0:0,1:0")
+		str = Faults2String(nil)
+		convey.So(str, convey.ShouldEqual, "")
 	})
 }
 
 func TestGetFaultRankIdsInSameNode(t *testing.T) {
 	convey.Convey("Test GetFaultRankIdsInSameNode", t, func() {
-		faultRanks := []string{"0"}
+		faultRanks := []string{"0", "1"}
 		res := GetFaultRankIdsInSameNode(faultRanks, deviceNumPerNode)
 		convey.So(len(res), convey.ShouldEqual, deviceNumPerNode)
+		res = GetFaultRankIdsInSameNode(nil, deviceNumPerNode)
+		convey.So(len(res), convey.ShouldEqual, 0)
 	})
 }
 
@@ -230,11 +251,35 @@ func TestGetPodMap(t *testing.T) {
 				return deviceNumPerNode
 			})
 		defer patch1.Reset()
-		mp, err := GetPodMap(info.JobId, []string{"8"})
-		convey.So(err, convey.ShouldBeNil)
+		mp, err := GetPodMap(info.JobId, []string{"8", "9", "16"})
+		convey.So(err, convey.ShouldEqual, nil)
 		convey.So(len(mp), convey.ShouldEqual, 1)
 		convey.So(mp["1"], convey.ShouldEqual, "rank1PodUid")
+		convey.Convey("case device num is zero", caseDeviceNumZeroForGetPodMap)
+		convey.Convey("case rank str illegal", caseIllegalRankForGetPodMap)
 	})
+}
+
+func caseDeviceNumZeroForGetPodMap() {
+	info := fakeJobInfo()
+	patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+		func(jobId string) int {
+			return 0
+		})
+	defer patch.Reset()
+	_, err := GetPodMap(info.JobId, []string{"8"})
+	convey.ShouldNotBeNil(err)
+}
+
+func caseIllegalRankForGetPodMap() {
+	info := fakeJobInfo()
+	patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+		func(jobId string) int {
+			return deviceNumPerNode
+		})
+	defer patch.Reset()
+	_, err := GetPodMap(info.JobId, []string{errorRank})
+	convey.ShouldNotBeNil(err)
 }
 
 func TestGetRecoverBaseInfo(t *testing.T) {
@@ -280,6 +325,21 @@ func TestGetRecoverBaseInfo(t *testing.T) {
 			convey.So(config.ProcessRecoverEnable, convey.ShouldBeTrue)
 			convey.So(config.PlatFormMode, convey.ShouldBeFalse)
 		})
+		addTestCaseForLabelNotExist(info.PgName, info.Namespace)
+	})
+}
+
+func addTestCaseForLabelNotExist(name, namespace string) {
+	convey.Convey("case pod group don't have key ProcessRecoverEnableLabel", func() {
+		patch := gomonkey.ApplyFunc(kube.RetryGetPodGroup,
+			func(name, namespace string, retryTimes int) (*v1beta1.PodGroup, error) {
+				pg := fakePG()
+				pg.Annotations[constant.RecoverStrategies] = constant.ProcessRetryStrategyName
+				return pg, nil
+			})
+		defer patch.Reset()
+		config, _, _ := GetRecoverBaseInfo(name, namespace)
+		convey.So(config.ProcessRecoverEnable, convey.ShouldBeFalse)
 	})
 }
 
@@ -307,12 +367,12 @@ func TestIsUceFault(t *testing.T) {
 func TestLabelFaultPod(t *testing.T) {
 	convey.Convey("Test LabelFaultPod", t, func() {
 		info := fakeJobInfo()
-		patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
-			func(jobId string) int {
-				return deviceNumPerNode
-			})
-		defer patch.Reset()
 		convey.Convey("case label success", func() {
+			patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+				func(jobId string) int {
+					return deviceNumPerNode
+				})
+			defer patch.Reset()
 			patch1 := gomonkey.ApplyFuncReturn(labelPodFault, map[string]string{"1": "rank1PodUid"}, nil)
 			defer patch1.Reset()
 			mp, err := LabelFaultPod(info.JobId, []string{"8"}, nil)
@@ -320,6 +380,11 @@ func TestLabelFaultPod(t *testing.T) {
 			convey.So(len(mp), convey.ShouldEqual, 1)
 		})
 		convey.Convey("case label fail", func() {
+			patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+				func(jobId string) int {
+					return deviceNumPerNode
+				})
+			defer patch.Reset()
 			patch1 := gomonkey.ApplyFuncReturn(labelPodFault,
 				map[string]string{"1": "rank1PodUid"}, errors.New("fake error"))
 			defer patch1.Reset()
@@ -327,13 +392,80 @@ func TestLabelFaultPod(t *testing.T) {
 			convey.So(err, convey.ShouldNotBeNil)
 			convey.So(len(mp), convey.ShouldEqual, 1)
 		})
+		convey.Convey("case device num per node is zero", caseDeviceNumPerNodeZero)
+		convey.Convey("case rank string illegal", caseRankStrIllegal)
 	})
+}
+
+func TestLabelPodFault(t *testing.T) {
+	convey.Convey("Test labelPodFault", t, func() {
+		info := fakeJobInfo()
+		podMap := fakePodMap()
+		patch := gomonkey.ApplyFunc(pod.GetPodByRankIndex,
+			func(jobId, rankIndex string) v1.Pod {
+				if rankPod, ok := podMap[rankIndex]; ok {
+					return rankPod
+				}
+				emptyPod := v1.Pod{}
+				emptyPod.Name = ""
+				return emptyPod
+			})
+		defer patch.Reset()
+		convey.Convey("case patch pod success", func() {
+			patch1 := gomonkey.ApplyFunc(kube.PatchPodLabel,
+				func(podName string, podNamespace string, labels map[string]string) (*v1.Pod, error) {
+					return nil, nil
+				})
+			defer patch1.Reset()
+			_, err := labelPodFault(info.JobId, []string{"1", "2"}, map[string]string{"1": "rank1PodUid"})
+			convey.So(err, convey.ShouldEqual, nil)
+		})
+		convey.Convey("case patch pod fail", func() {
+			patch1 := gomonkey.ApplyFunc(kube.PatchPodLabel,
+				func(podName string, podNamespace string, labels map[string]string) (*v1.Pod, error) {
+					return nil, errors.New("fake patch error")
+				})
+			defer patch1.Reset()
+			_, err := labelPodFault(info.JobId, []string{"1", "2"}, map[string]string{"1": "rank1PodUid"})
+			convey.So(err, convey.ShouldEqual, nil)
+		})
+		convey.Convey("case labeled map is nil", func() {
+			patch1 := gomonkey.ApplyFuncReturn(kube.PatchPodLabel, nil, nil)
+			defer patch1.Reset()
+			_, err := labelPodFault(info.JobId, []string{"1", "2"}, nil)
+			convey.So(err, convey.ShouldEqual, nil)
+		})
+	})
+}
+
+func caseDeviceNumPerNodeZero() {
+	info := fakeJobInfo()
+	patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+		func(jobId string) int {
+			return 0
+		})
+	defer patch.Reset()
+	_, err := LabelFaultPod(info.JobId, []string{"8"}, nil)
+	convey.ShouldNotBeNil(err)
+}
+
+func caseRankStrIllegal() {
+	info := fakeJobInfo()
+	patch := gomonkey.ApplyFunc(pod.GetPodDeviceNumByJobId,
+		func(jobId string) int {
+			return deviceNumPerNode
+		})
+	defer patch.Reset()
+	_, err := LabelFaultPod(info.JobId, []string{errorRank}, nil)
+	convey.ShouldNotBeNil(err)
 }
 
 func TestNewEventId(t *testing.T) {
 	convey.Convey("Test NewEventId", t, func() {
 		uuid := NewEventId(randomLen)
-		convey.So(len(uuid), convey.ShouldEqual, uuidLen)
+		convey.So(len(uuid), convey.ShouldEqual, uuidLen16)
+		uuid = NewEventId(randomLen + randomLen + randomLen)
+		convey.So(len(uuid), convey.ShouldEqual, uuidLen32)
 	})
 }
 
@@ -350,10 +482,11 @@ func TestRemoveSliceDuplicateFaults(t *testing.T) {
 		convey.Convey("case not have same fault", func() {
 			faults := []*pb.FaultRank{
 				&pb.FaultRank{RankId: "0", FaultType: "1"},
+				&pb.FaultRank{RankId: "1", FaultType: "0"},
 				&pb.FaultRank{RankId: "1", FaultType: "1"},
 			}
 			newFaults := RemoveSliceDuplicateFaults(faults)
-			convey.So(len(newFaults), convey.ShouldEqual, len(faults))
+			convey.So(len(newFaults), convey.ShouldEqual, len(faults)-1)
 		})
 	})
 }
@@ -427,6 +560,8 @@ func TestString2Faults(t *testing.T) {
 			convey.So(len(faults), convey.ShouldEqual, 0)
 			faults = String2Faults(" ,1:1,, ")
 			convey.So(len(faults), convey.ShouldEqual, 1)
+			faults = String2Faults(" ,1:1,2:1:1, ")
+			convey.So(len(faults), convey.ShouldEqual, 1)
 		})
 		convey.Convey("case format str", func() {
 			faults := []*pb.FaultRank{
@@ -460,8 +595,30 @@ func fakeResetInfo() TaskResetInfo {
 	}
 }
 
-func fakeResetBody() string {
-	info := fakeResetInfo()
+func fakeRecoverResetInfo() TaskResetInfo {
+	return TaskResetInfo{
+		RankList: []*TaskDevInfo{
+			&TaskDevInfo{
+				RankId: 0,
+				DevFaultInfo: DevFaultInfo{
+					Policy: constant.HotResetPolicy,
+				},
+			},
+		},
+		UpdateTime:    0,
+		RetryTime:     0,
+		FaultFlushing: false,
+		GracefulExit:  0,
+	}
+}
+
+func fakeResetBody(withRecover bool) string {
+	var info TaskResetInfo
+	if withRecover {
+		info = fakeRecoverResetInfo()
+	} else {
+		info = fakeResetInfo()
+	}
 	bs, err := json.Marshal(info)
 	if err != nil {
 		return ""
@@ -473,7 +630,7 @@ func caseHaveRestKey() {
 	info := fakeJobInfo()
 	patch0 := gomonkey.ApplyFuncReturn(kube.GetConfigMap, &v1.ConfigMap{
 		Data: map[string]string{
-			constant.ResetInfoCMDataKey: fakeResetBody(),
+			constant.ResetInfoCMDataKey: fakeResetBody(false),
 		},
 	}, nil)
 	defer patch0.Reset()
@@ -502,6 +659,10 @@ func caseHaveRestKey() {
 	err = json.Unmarshal([]byte(cm.Data[constant.ResetInfoCMDataKey]), &newReset)
 	convey.So(err, convey.ShouldBeNil)
 	convey.So(newReset.FaultFlushing, convey.ShouldBeTrue)
+	patch2 := gomonkey.ApplyFuncReturn(json.Unmarshal, errors.New("fake unmarshal error"))
+	defer patch2.Reset()
+	cm, err = WriteResetInfoToCM(info.JobName, info.Namespace, []string{"8"}, constant.NotifyFaultFlushingOperation)
+	convey.ShouldNotBeNil(err)
 }
 
 func TestWriteResetInfoToCM(t *testing.T) {
@@ -522,5 +683,54 @@ func TestWriteResetInfoToCM(t *testing.T) {
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 		convey.Convey("case have reset key", caseHaveRestKey)
+		convey.Convey("case setNewTaskInfo return error", setNewTaskInfoError)
+		convey.Convey("case json marshal error", jsonMarshalError)
 	})
+}
+
+func setNewTaskInfoError() {
+	info := fakeJobInfo()
+	convey.Convey("case policy error", func() {
+		patch0 := gomonkey.ApplyFuncReturn(kube.GetConfigMap, &v1.ConfigMap{
+			Data: map[string]string{
+				constant.ResetInfoCMDataKey: fakeResetBody(true),
+			},
+		}, nil)
+		defer patch0.Reset()
+		patch1 := gomonkey.ApplyFunc(kube.UpdateConfigMap, func(newCm *v1.ConfigMap) (*v1.ConfigMap, error) {
+			return newCm, nil
+		})
+		defer patch1.Reset()
+		_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{""}, constant.ClearOperation)
+		convey.ShouldNotBeNil(err)
+	})
+	convey.Convey("case rank error", func() {
+		patch0 := gomonkey.ApplyFuncReturn(kube.GetConfigMap, &v1.ConfigMap{
+			Data: map[string]string{
+				constant.ResetInfoCMDataKey: fakeResetBody(false),
+			},
+		}, nil)
+		defer patch0.Reset()
+		patch1 := gomonkey.ApplyFunc(kube.UpdateConfigMap, func(newCm *v1.ConfigMap) (*v1.ConfigMap, error) {
+			return newCm, nil
+		})
+		defer patch1.Reset()
+		_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{errorRank}, constant.NotifyFaultListOperation)
+		convey.ShouldNotBeNil(err)
+	})
+}
+
+func jsonMarshalError() {
+	info := fakeJobInfo()
+	patch0 := gomonkey.ApplyFuncReturn(kube.GetConfigMap, &v1.ConfigMap{
+		Data: map[string]string{
+			constant.ResetInfoCMDataKey: fakeResetBody(false),
+		},
+	}, nil).ApplyFunc(kube.UpdateConfigMap, func(newCm *v1.ConfigMap) (*v1.ConfigMap, error) {
+		return newCm, nil
+	}).ApplyFuncReturn(util.MakeDataHash, "").
+		ApplyFuncReturn(json.Marshal, nil, errors.New("fake marshal error"))
+	defer patch0.Reset()
+	_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{""}, constant.ClearOperation)
+	convey.ShouldNotBeNil(err)
 }
