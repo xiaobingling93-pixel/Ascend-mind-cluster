@@ -16,7 +16,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
-	commonutil "github.com/kubeflow/common/pkg/util"
+	"github.com/kubeflow/common/pkg/util"
 	"github.com/smartystreets/goconvey/convey"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -275,7 +275,7 @@ func TestCheckPodStatus(t *testing.T) {
 		})
 		containerStatus.State.Terminated.ExitCode = 128
 		convey.Convey("04-update job condition failed should return err", func() {
-			patch := gomonkey.ApplyFunc(commonutil.UpdateJobConditions, func(_ *commonv1.JobStatus,
+			patch := gomonkey.ApplyFunc(util.UpdateJobConditions, func(_ *commonv1.JobStatus,
 				_ commonv1.JobConditionType, _, _ string) error {
 				return errors.New("update job condition failed")
 			})
@@ -284,7 +284,7 @@ func TestCheckPodStatus(t *testing.T) {
 			convey.So(err, convey.ShouldResemble, errors.New("update job condition failed"))
 		})
 		convey.Convey("04-update job condition success should return nil", func() {
-			patch := gomonkey.ApplyFunc(commonutil.UpdateJobConditions, func(_ *commonv1.JobStatus,
+			patch := gomonkey.ApplyFunc(util.UpdateJobConditions, func(_ *commonv1.JobStatus,
 				_ commonv1.JobConditionType, _, _ string) error {
 				return nil
 			})

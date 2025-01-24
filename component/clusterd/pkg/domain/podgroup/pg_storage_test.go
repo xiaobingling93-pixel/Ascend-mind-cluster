@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/smartystreets/goconvey/convey"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
@@ -44,12 +44,12 @@ func getDemoPodGroup(pgName, nameSpace, jobUid string) *v1beta1.PodGroup {
 	podGroupInfo.Name = pgName
 	podGroupInfo.Namespace = nameSpace
 	isControlle := true
-	owner := metav1.OwnerReference{
+	owner := v1.OwnerReference{
 		Name:       pgName,
 		Controller: &isControlle,
 		Kind:       vcJobKey,
 		UID:        types.UID(jobUid)}
-	podGroupInfo.SetOwnerReferences([]metav1.OwnerReference{owner})
+	podGroupInfo.SetOwnerReferences([]v1.OwnerReference{owner})
 	labelMap := map[string]string{frameWorkKey: ptFrameWork}
 	podGroupInfo.Labels = labelMap
 	podGroupInfo.Annotations = make(map[string]string)

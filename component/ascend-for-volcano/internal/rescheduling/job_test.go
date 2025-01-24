@@ -589,7 +589,13 @@ func initIsNormalTaskCanBeDeleteArgs() isNormalTaskCanBeDeleteArgs {
 			SuperPodMapFaultTaskNodes: map[api.JobID]map[string]string{},
 		},
 	}
-	return isNormalTaskCanBeDeleteArgs{fJob, dpi, schedulerJob, env}
+
+	return isNormalTaskCanBeDeleteArgs{
+		faultJob:      fJob,
+		deletePodInfo: dpi,
+		schedulerJob:  schedulerJob,
+		env:           env,
+	}
 }
 func TestIsNormalTaskCanBeDelete(t *testing.T) {
 	args := initIsNormalTaskCanBeDeleteArgs()

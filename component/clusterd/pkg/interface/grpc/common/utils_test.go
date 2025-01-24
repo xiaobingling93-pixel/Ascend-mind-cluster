@@ -230,7 +230,8 @@ func TestGetPodMap(t *testing.T) {
 				return deviceNumPerNode
 			})
 		defer patch1.Reset()
-		mp := GetPodMap(info.JobId, []string{"8"})
+		mp, err := GetPodMap(info.JobId, []string{"8"})
+		convey.So(err, convey.ShouldBeNil)
 		convey.So(len(mp), convey.ShouldEqual, 1)
 		convey.So(mp["1"], convey.ShouldEqual, "rank1PodUid")
 	})

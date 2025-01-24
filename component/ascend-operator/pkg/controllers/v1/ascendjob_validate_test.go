@@ -24,6 +24,8 @@ import (
 	_ "ascend-operator/pkg/testtool"
 )
 
+const fakeReplicas2 = 2
+
 func TestValidateJob(t *testing.T) {
 	convey.Convey("reconciler validate job", t, func() {
 		rc := newCommonReconciler()
@@ -244,7 +246,7 @@ func TestCheckReplicaSpecs02(t *testing.T) {
 		specs := map[commonv1.ReplicaType]*commonv1.ReplicaSpec{}
 		spec := newCommonSpec()
 		convey.Convey("04-leader with invalid replicas should return error", func() {
-			spec.Replicas = newReplicas(2)
+			spec.Replicas = newReplicas(fakeReplicas2)
 			specs[mindxdlv1.PytorchReplicaTypeMaster] = spec
 			err := checkReplicaSpecs(frame, specs)
 			convey.So(err, convey.ShouldResemble, &validateError{

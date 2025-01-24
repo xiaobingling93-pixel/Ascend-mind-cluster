@@ -295,12 +295,12 @@ func RemoveSliceDuplicateFaults(faults []*pb.FaultRank) []*pb.FaultRank {
 
 // LabelFaultPod label fault for software fault
 func LabelFaultPod(jobId string, rankList []string, labeledMap map[string]string) (map[string]string, error) {
-	var faultPodRankList []string
 	devicePerNode := pod.GetPodDeviceNumByJobId(jobId)
 	if devicePerNode == 0 {
 		hwlog.RunLog.Errorf("get device num per pod failed, jobId: %s", jobId)
 		return nil, fmt.Errorf("get device num per pod failed, jobId: %s", jobId)
 	}
+	var faultPodRankList []string
 	for _, rank := range rankList {
 		faultRank, err := strconv.Atoi(rank)
 		if err != nil {

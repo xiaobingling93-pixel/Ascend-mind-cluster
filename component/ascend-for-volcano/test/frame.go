@@ -35,6 +35,8 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/util"
 )
 
+const maxTaskNum = 10000
+
 // AddResource add resource into resourceList
 func AddResource(resourceList v1.ResourceList, name v1.ResourceName, need string) {
 	resourceList[name] = resource.MustParse(need)
@@ -110,6 +112,9 @@ func AddJobInfoIntoSsn(ssn *framework.Session, job *api.JobInfo) {
 
 // FakeJobInfoByName fake job info by job name
 func FakeJobInfoByName(jobName string, taskNum int) *api.JobInfo {
+	if taskNum < 0 || taskNum > maxTaskNum {
+		return nil
+	}
 	jobInfo := FakeNormalTestJob(jobName, taskNum)
 	var minRes = make(v1.ResourceList, taskNum)
 	for _, task := range jobInfo.Tasks {
