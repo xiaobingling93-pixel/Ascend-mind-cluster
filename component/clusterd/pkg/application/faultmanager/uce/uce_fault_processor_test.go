@@ -391,7 +391,7 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
-		content := constant.CenterProcessContent[*constant.DeviceInfo]{
+		content := constant.OneConfigmapContent[*constant.DeviceInfo]{
 			AllConfigmap: cmDeviceInfos,
 			UpdateConfigmap: []constant.InformerCmItem[*constant.DeviceInfo]{
 				{
@@ -416,7 +416,7 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 			mockUnixMilli.Reset()
 		}()
 
-		resultContent := processor.Process(content).(constant.CenterProcessContent[*constant.DeviceInfo])
+		resultContent := processor.Process(content).(constant.OneConfigmapContent[*constant.DeviceInfo])
 		result := faultdomain.GetAdvanceDeviceCmForNodeMap(resultContent.AllConfigmap)
 		want := faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)
 		if !reflect.DeepEqual(result, want) {

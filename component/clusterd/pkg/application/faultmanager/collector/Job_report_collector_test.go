@@ -1,6 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package collector contain information collect to process
+// Package collector collect information to process
 package collector
 
 import (
@@ -25,7 +25,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../testdata/clusterd.log"}
+	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../../testdata/clusterd.log"}
 	hwLogConfig.MaxBackups = 30
 	hwLogConfig.MaxAge = 7
 	hwLogConfig.LogLevel = 0

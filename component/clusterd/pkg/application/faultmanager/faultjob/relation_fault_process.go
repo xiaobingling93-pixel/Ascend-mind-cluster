@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package faultmanager contain fault process
-package faultmanager
+// Package faultjob contain fault job process
+package faultjob
 
 import (
 	"ascend-common/common-utils/hwlog"
@@ -9,11 +9,11 @@ import (
 	"clusterd/pkg/common/util"
 )
 
-func (fJob *FaultJob) handleJobFault(relationFault []*faultInfo,
-	triggerFault []faultInfo, strategyList []RelationFaultStrategy) (map[string]string, map[string][]DeviceStrategy) {
+func (fJob *FaultJob) handleJobFault(relationFault []*constant.FaultInfo,
+	triggerFault []constant.FaultInfo, strategyList []constant.RelationFaultStrategy) (map[string]string, map[string][]constant.DeviceStrategy) {
 
 	nodeLvList := make(map[string]string)
-	deviceLvList := make(map[string][]DeviceStrategy)
+	deviceLvList := make(map[string][]constant.DeviceStrategy)
 
 	if len(relationFault) <= 0 || len(triggerFault) <= 0 || len(strategyList) <= 0 {
 		return nodeLvList, deviceLvList
@@ -44,19 +44,19 @@ func (fJob *FaultJob) handleJobFault(relationFault []*faultInfo,
 	return nodeLvList, deviceLvList
 }
 
-func (fJob *FaultJob) getNPUUnderSwitch(faultDevices []*faultInfo) []DeviceStrategy {
-	return make([]DeviceStrategy, 0)
+func (fJob *FaultJob) getNPUUnderSwitch(faultDevices []*constant.FaultInfo) []constant.DeviceStrategy {
+	return make([]constant.DeviceStrategy, 0)
 }
 
-func (fJob *FaultJob) getAllNodeDeviceList(allUnhealthyDevices, allSubHealthDevices []*faultInfo,
-	nodeDeviceList map[string]string) (map[string]string, map[string][]DeviceStrategy) {
+func (fJob *FaultJob) getAllNodeDeviceList(allUnhealthyDevices, allSubHealthDevices []*constant.FaultInfo,
+	nodeDeviceList map[string]string) (map[string]string, map[string][]constant.DeviceStrategy) {
 	nodeLvList := make(map[string]string)
-	deviceLvList := make(map[string][]DeviceStrategy)
+	deviceLvList := make(map[string][]constant.DeviceStrategy)
 
 	// both isolation and sub-health are required, choose the highest level
 	// node level higher than device
 	for nodeName := range nodeDeviceList {
-		deviceList := make([]DeviceStrategy, 0)
+		deviceList := make([]constant.DeviceStrategy, 0)
 		nodeLevel := false
 		for _, device := range allSubHealthDevices {
 			if device.NodeName != nodeName {
@@ -72,7 +72,7 @@ func (fJob *FaultJob) getAllNodeDeviceList(allUnhealthyDevices, allSubHealthDevi
 				}
 			} else {
 				if fJob.getDeviceIdx(device, deviceList) < 0 {
-					deviceList = append(deviceList, DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SubHealthFaultStrategy})
+					deviceList = append(deviceList, constant.DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SubHealthFaultStrategy})
 				}
 			}
 		}
@@ -99,9 +99,9 @@ func (fJob *FaultJob) getAllNodeDeviceList(allUnhealthyDevices, allSubHealthDevi
 			} else {
 				idx := fJob.getDeviceIdx(device, deviceList)
 				if idx < 0 {
-					deviceList = append(deviceList, DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SeparateFaultStrategy})
+					deviceList = append(deviceList, constant.DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SeparateFaultStrategy})
 				} else {
-					deviceList[idx] = DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SeparateFaultStrategy}
+					deviceList[idx] = constant.DeviceStrategy{NPUName: device.NPUName, Strategy: constant.SeparateFaultStrategy}
 				}
 			}
 		}
@@ -112,7 +112,7 @@ func (fJob *FaultJob) getAllNodeDeviceList(allUnhealthyDevices, allSubHealthDevi
 	return nodeLvList, deviceLvList
 }
 
-func (fJob *FaultJob) getDeviceIdx(device *faultInfo, deviceList []DeviceStrategy) int {
+func (fJob *FaultJob) getDeviceIdx(device *constant.FaultInfo, deviceList []constant.DeviceStrategy) int {
 	for i, d := range deviceList {
 		if d.NPUName == device.NPUName {
 			return i
@@ -121,22 +121,22 @@ func (fJob *FaultJob) getDeviceIdx(device *faultInfo, deviceList []DeviceStrateg
 	return -1
 }
 
-func (fJob *FaultJob) transferFaultToMap(relationFault []*faultInfo,
-	triggerFault []faultInfo) (map[string][]*faultInfo, map[string]string, map[string]faultInfo) {
-	relationCodeDeviceMap := make(map[string][]*faultInfo)
+func (fJob *FaultJob) transferFaultToMap(relationFault []*constant.FaultInfo,
+	triggerFault []constant.FaultInfo) (map[string][]*constant.FaultInfo, map[string]string, map[string]constant.FaultInfo) {
+	relationCodeDeviceMap := make(map[string][]*constant.FaultInfo)
 	nodeList := make(map[string]string)
 	for _, device := range relationFault {
 		if _, ok := nodeList[device.NodeName]; !ok {
 			nodeList[device.NodeName] = device.NodeName
 		}
 		if _, ok := relationCodeDeviceMap[device.FaultCode]; !ok {
-			relationCodeDeviceMap[device.FaultCode] = make([]*faultInfo, 0)
+			relationCodeDeviceMap[device.FaultCode] = make([]*constant.FaultInfo, 0)
 		}
 
 		relationCodeDeviceMap[device.FaultCode] = append(relationCodeDeviceMap[device.FaultCode], device)
 	}
 
-	triggerCodeDeviceMap := make(map[string]faultInfo)
+	triggerCodeDeviceMap := make(map[string]constant.FaultInfo)
 	for _, trigger := range triggerFault {
 		triggerCodeDeviceMap[trigger.FaultCode] = trigger
 	}
@@ -144,9 +144,9 @@ func (fJob *FaultJob) transferFaultToMap(relationFault []*faultInfo,
 	return relationCodeDeviceMap, nodeList, triggerCodeDeviceMap
 }
 
-func (fJob *FaultJob) getCodeMatchedTables(relationCodeDeviceMap map[string][]*faultInfo,
-	triggerCodeDeviceMap map[string]faultInfo, strategyList []RelationFaultStrategy) []RelationFaultStrategy {
-	curFaultTables := make([]RelationFaultStrategy, 0)
+func (fJob *FaultJob) getCodeMatchedTables(relationCodeDeviceMap map[string][]*constant.FaultInfo,
+	triggerCodeDeviceMap map[string]constant.FaultInfo, strategyList []constant.RelationFaultStrategy) []constant.RelationFaultStrategy {
+	curFaultTables := make([]constant.RelationFaultStrategy, 0)
 
 	for _, trigger := range strategyList {
 		if _, ok := triggerCodeDeviceMap[trigger.TriggerFault]; !ok {
@@ -161,7 +161,7 @@ func (fJob *FaultJob) getCodeMatchedTables(relationCodeDeviceMap map[string][]*f
 	return curFaultTables
 }
 
-func (fJob *FaultJob) relationFaultsMatched(relationCodeDeviceMap map[string][]*faultInfo, trigger RelationFaultStrategy) bool {
+func (fJob *FaultJob) relationFaultsMatched(relationCodeDeviceMap map[string][]*constant.FaultInfo, trigger constant.RelationFaultStrategy) bool {
 	for _, fault := range trigger.RelationFaults {
 		if _, ok := relationCodeDeviceMap[fault]; !ok {
 			return false
@@ -170,10 +170,10 @@ func (fJob *FaultJob) relationFaultsMatched(relationCodeDeviceMap map[string][]*
 	return true
 }
 
-func (fJob *FaultJob) getFaultDevices(curFaultTables []RelationFaultStrategy,
-	relationCodeDeviceMap map[string][]*faultInfo) ([]*faultInfo, []*faultInfo) {
-	allUnhealthyDevices := make([]*faultInfo, 0)
-	allSubHealthDevices := make([]*faultInfo, 0)
+func (fJob *FaultJob) getFaultDevices(curFaultTables []constant.RelationFaultStrategy,
+	relationCodeDeviceMap map[string][]*constant.FaultInfo) ([]*constant.FaultInfo, []*constant.FaultInfo) {
+	allUnhealthyDevices := make([]*constant.FaultInfo, 0)
+	allSubHealthDevices := make([]*constant.FaultInfo, 0)
 
 	for _, configTable := range curFaultTables {
 		unhealthyDevices, subHealthDevices := fJob.getMatchedDevices(configTable, relationCodeDeviceMap)
@@ -184,10 +184,10 @@ func (fJob *FaultJob) getFaultDevices(curFaultTables []RelationFaultStrategy,
 	return allUnhealthyDevices, allSubHealthDevices
 }
 
-func (fJob *FaultJob) getMatchedDevices(configTable RelationFaultStrategy,
-	relationCodeDeviceMap map[string][]*faultInfo) ([]*faultInfo, []*faultInfo) {
-	unhealthyDevices := make([]*faultInfo, 0)
-	subHealthDevices := make([]*faultInfo, 0)
+func (fJob *FaultJob) getMatchedDevices(configTable constant.RelationFaultStrategy,
+	relationCodeDeviceMap map[string][]*constant.FaultInfo) ([]*constant.FaultInfo, []*constant.FaultInfo) {
+	unhealthyDevices := make([]*constant.FaultInfo, 0)
+	subHealthDevices := make([]*constant.FaultInfo, 0)
 	for _, relationFault := range configTable.RelationFaults {
 		for _, device := range relationCodeDeviceMap[relationFault] {
 			if configTable.FaultStrategy == constant.SubHealthFaultStrategy {
@@ -206,7 +206,7 @@ func (fJob *FaultJob) getMatchedDevices(configTable RelationFaultStrategy,
 func (fJob *FaultJob) processNetworkFault() {
 	nodeLvList, deviceLvList := fJob.handleJobFault(fJob.RelationFaults, fJob.TriggerFault, relationFaultStrategies)
 
-	fJob.FaultStrategy = FaultStrategy{
+	fJob.FaultStrategy = constant.FaultStrategy{
 		NodeLvList:   nodeLvList,
 		DeviceLvList: deviceLvList,
 	}

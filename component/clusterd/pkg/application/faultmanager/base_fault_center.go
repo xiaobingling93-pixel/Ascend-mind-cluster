@@ -38,11 +38,11 @@ func (baseCenter *baseFaultCenter[T]) Process() {
 	baseCenter.setProcessingCm(baseCenter.getOriginalCm())
 	for _, processor := range baseCenter.processorList {
 		processingCm := baseCenter.getProcessingCm()
-		info := constant.CenterProcessContent[T]{
+		info := constant.OneConfigmapContent[T]{
 			AllConfigmap:    processingCm,
 			UpdateConfigmap: updateOriginalCm,
 		}
-		processingCm = processor.Process(info).(constant.CenterProcessContent[T]).AllConfigmap
+		processingCm = processor.Process(info).(constant.OneConfigmapContent[T]).AllConfigmap
 		baseCenter.setProcessingCm(processingCm)
 	}
 	baseCenter.setProcessedCm(baseCenter.getProcessingCm())

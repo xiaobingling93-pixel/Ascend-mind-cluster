@@ -72,7 +72,7 @@ func (processor *UceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId str
 }
 
 func (processor *UceFaultProcessor) Process(info any) any {
-	processContent, ok := info.(constant.CenterProcessContent[*constant.DeviceInfo])
+	processContent, ok := info.(constant.OneConfigmapContent[*constant.DeviceInfo])
 	if !ok {
 		hwlog.RunLog.Errorf("%v cannot convert to DeviceInfo", info)
 		return info

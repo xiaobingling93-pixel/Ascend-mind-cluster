@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/faultjob"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/faultdomain"
 	"clusterd/pkg/domain/job"
 )
 
-func NewFaultJobProcessCenter() *faultJobProcessCenter {
-	return &faultJobProcessCenter{}
+func NewFaultJobProcessCenter() *FaultJobProcessCenter {
+	return &FaultJobProcessCenter{}
 }
 
-func (fJobCenter *faultJobProcessCenter) Process() {
+func (fJobCenter *FaultJobProcessCenter) Process() {
 	currentTime := time.Now().UnixMilli()
 	if fJobCenter.isProcessLimited(currentTime) {
 		return
@@ -35,13 +36,13 @@ func (fJobCenter *faultJobProcessCenter) Process() {
 
 }
 
-func (fJobCenter *faultJobProcessCenter) isProcessLimited(currentTime int64) bool {
-	return fJobCenter.lastProcessTime+faultJobProcessInterval > currentTime
+func (fJobCenter *FaultJobProcessCenter) isProcessLimited(currentTime int64) bool {
+	return fJobCenter.lastProcessTime+constant.FaultJobProcessInterval > currentTime
 }
 
-func (fJobCenter *faultJobProcessCenter) InitFaultJobs() {
+func (fJobCenter *FaultJobProcessCenter) InitFaultJobs() {
 	deviceCmForNodeMap := faultdomain.GetAdvanceDeviceCmForNodeMap(fJobCenter.deviceInfoCm)
-	faultJobs := make(map[string]*FaultJob)
+	faultJobs := make(map[string]*faultjob.FaultJob)
 	for jobId, serverLists := range fJobCenter.jobServerInfoMap.InfoMap {
 		if len(serverLists) == 0 {
 			hwlog.RunLog.Warnf("job %s serverList is empty", jobId)
@@ -49,15 +50,15 @@ func (fJobCenter *faultJobProcessCenter) InitFaultJobs() {
 		}
 		tmpFaultJob, ok := fJobCenter.FaultJobs[jobId]
 		if !ok {
-			tmpFaultJob = &FaultJob{}
+			tmpFaultJob = &faultjob.FaultJob{}
 		}
-		tmpFaultJob.initFaultJobAttr()
+		tmpFaultJob.InitFaultJobAttr()
 		for nodeName, serverList := range serverLists {
 			tmpFaultJob.IsA3Job = deviceCmForNodeMap[nodeName].SuperPodID >= 0
 			tmpFaultJob.PodNames[serverList.ServerName] = serverList.PodID
 			tmpFaultJob.NameSpace = serverList.PodNameSpace
-			tmpFaultJob.initFaultJobBySwitchFault(fJobCenter.switchInfoCm[constant.SwitchInfoPrefix+nodeName], serverList)
-			tmpFaultJob.initFaultJobByDeviceFault(deviceCmForNodeMap[nodeName], serverList)
+			tmpFaultJob.InitFaultJobBySwitchFault(fJobCenter.switchInfoCm[constant.SwitchInfoPrefix+nodeName], serverList)
+			tmpFaultJob.InitFaultJobByDeviceFault(deviceCmForNodeMap[nodeName], serverList)
 		}
 		faultJobs[jobId] = tmpFaultJob
 		hwlog.RunLog.Debugf("init fault job %v", util.ObjToString(faultJobs))

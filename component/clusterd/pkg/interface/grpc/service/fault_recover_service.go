@@ -48,7 +48,7 @@ func (s *FaultRecoverService) getController(jobId string) (*EventController, boo
 	return ctl, exist
 }
 
-func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo faultmanager.JobFaultInfo) {
+func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultInfo) {
 	controller, exist := s.getController(faultInfo.JobId)
 	if !exist || controller == nil {
 		hwlog.RunLog.Errorf("jobId=%s not exist", faultInfo.JobId)
@@ -72,7 +72,7 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo faultmanager.JobFa
 	controller.addEvent(common.FaultOccurEvent)
 }
 
-func (s *FaultRecoverService) dealWithJobFaultInfo(jobFaultInfoList []faultmanager.JobFaultInfo) {
+func (s *FaultRecoverService) dealWithJobFaultInfo(jobFaultInfoList []constant.JobFaultInfo) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(jobFaultInfoList))
 	for _, jobFaultInfo := range jobFaultInfoList {
@@ -91,7 +91,7 @@ func (s *FaultRecoverService) checkFault() {
 		return
 	}
 	allJobFaultInfo := faultmanager.GlobalFaultProcessCenter.QueryJobsFaultInfo(constant.NotHandleFault)
-	var registeredJobInfo []faultmanager.JobFaultInfo
+	var registeredJobInfo []constant.JobFaultInfo
 	for jobId, jobFaultInfo := range allJobFaultInfo {
 		if !s.registered(jobId) {
 			continue

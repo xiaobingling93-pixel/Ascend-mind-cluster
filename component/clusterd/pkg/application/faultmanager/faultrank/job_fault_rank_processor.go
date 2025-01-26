@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 // Package faultmanager contain fault process
-package faultmanager
+package faultrank
 
 import (
 	"strings"
@@ -14,18 +14,22 @@ import (
 	"clusterd/pkg/domain/faultdomain"
 )
 
-func newJobRankFaultInfoProcessor(deviceCenter *DeviceFaultProcessCenter) *jobRankFaultInfoProcessor {
-	return &jobRankFaultInfoProcessor{
-		jobFaultInfoMap: make(map[string]JobFaultInfo),
-		deviceCenter:    deviceCenter,
+type JobRankFaultInfoProcessor struct {
+	jobFaultInfoMap map[string]constant.JobFaultInfo
+	mutex           sync.RWMutex
+}
+
+func NewJobRankFaultInfoProcessor() *JobRankFaultInfoProcessor {
+	return &JobRankFaultInfoProcessor{
+		jobFaultInfoMap: make(map[string]constant.JobFaultInfo),
 		mutex:           sync.RWMutex{},
 	}
 }
 
-func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfos() map[string]JobFaultInfo {
+func (processor *JobRankFaultInfoProcessor) GetJobFaultRankInfos() map[string]constant.JobFaultInfo {
 	processor.mutex.RLock()
 	defer processor.mutex.RUnlock()
-	result := new(map[string]JobFaultInfo)
+	result := new(map[string]constant.JobFaultInfo)
 	err := util.DeepCopy(result, processor.jobFaultInfoMap)
 	if err != nil {
 		hwlog.RunLog.Errorf("get job fault rank failed, err: %v", err)
@@ -35,14 +39,14 @@ func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfos() map[string]Jo
 	return *result
 }
 
-func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfosFilterLevel(
-	faultLevel string) map[string]JobFaultInfo {
-	jobFaultRankInfos := processor.getJobFaultRankInfos()
+func (processor *JobRankFaultInfoProcessor) GetJobFaultRankInfosFilterLevel(
+	faultLevel string) map[string]constant.JobFaultInfo {
+	jobFaultRankInfos := processor.GetJobFaultRankInfos()
 	if jobFaultRankInfos == nil {
 		return nil
 	}
 	for jobId, jobFaultInfo := range jobFaultRankInfos {
-		faultList := make([]FaultRank, 0)
+		faultList := make([]constant.FaultRank, 0)
 		for _, fault := range jobFaultInfo.FaultList {
 			if fault.FaultLevel != faultLevel {
 				faultList = append(faultList, fault)
@@ -54,19 +58,19 @@ func (processor *jobRankFaultInfoProcessor) getJobFaultRankInfosFilterLevel(
 	return jobFaultRankInfos
 }
 
-func (processor *jobRankFaultInfoProcessor) setJobFaultRankInfos(faultInfos map[string]JobFaultInfo) {
+func (processor *JobRankFaultInfoProcessor) SetJobFaultRankInfos(faultInfos map[string]constant.JobFaultInfo) {
 	processor.mutex.Lock()
 	defer processor.mutex.Unlock()
 	processor.jobFaultInfoMap = faultInfos
 }
 
-func (processor *jobRankFaultInfoProcessor) Process(info any) any { return info }
+func (processor *JobRankFaultInfoProcessor) Process(info any) any { return info }
 
-func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMap map[string]constant.AdvanceDeviceFaultCm,
-	nodeName string, serverList map[string]constant.ServerHccl, jobId string) []FaultRank {
+func (processor *JobRankFaultInfoProcessor) FindFaultRankForJob(nodeDeviceInfoMap map[string]constant.AdvanceDeviceFaultCm,
+	nodeName string, serverList map[string]constant.ServerHccl, jobId string) []constant.FaultRank {
 	advanceDeviceInfo := nodeDeviceInfoMap[nodeName]
 	devicesOfJobOnNode, ok := serverList[nodeName]
-	faultRankList := make([]FaultRank, 0)
+	faultRankList := make([]constant.FaultRank, 0)
 	if !ok || len(devicesOfJobOnNode.DeviceList) == 0 {
 		return faultRankList
 	}
@@ -78,7 +82,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 		if found {
 			// scan management plane fault info. management plane may filter uce fault in uceProcessor
 			for _, fault := range faultList {
-				faultRank := FaultRank{
+				faultRank := constant.FaultRank{
 					RankId:      deviceInfo.RankID,
 					FaultCode:   fault.FaultCode,
 					FaultLevel:  fault.FaultLevel,
@@ -97,7 +101,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 		}
 		// business plane find uce fault
 		if processor.uceInBusinessPlane(jobId, nodeName, deviceName) {
-			faultRankList = append(faultRankList, FaultRank{
+			faultRankList = append(faultRankList, constant.FaultRank{
 				RankId:      deviceInfo.RankID,
 				FaultCode:   constant.UceFaultCode,
 				FaultLevel:  constant.RestartBusiness,
@@ -108,7 +112,7 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(nodeDeviceInfoMa
 	return faultRankList
 }
 
-func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, deviceName string) bool {
+func (processor *JobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, deviceName string) bool {
 	uceDevice, found := uce.UceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
 	if !found {
 		hwlog.RunLog.Debugf("job %s's uce fault is not on node %s device %s", jobId, nodeName, deviceName)
@@ -119,7 +123,7 @@ func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, devi
 	return doStepRetry
 }
 
-func (processor *jobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, deviceName string) bool {
+func (processor *JobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, deviceName string) bool {
 	uceDevice, found := uce.UceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
 	// business plane didn't find uce fault
 	if !found {

@@ -30,55 +30,8 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func readObjectFromUceAccompanyProcessorTestYaml() (
-	map[string]*constant.DeviceInfo, map[string]*constant.DeviceInfo, error) {
-
-	var testDataPath = "../../../testdata/resource/uce_accompany_processor_test.yaml"
-	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
-	var expectProcessedDeviceInfos = make(map[string]*constant.DeviceInfo)
-	var err error
-	var fileSize int64
-	var decoder *yaml.YAMLOrJSONDecoder
-	var open *os.File
-	maxFileSize := 10000
-
-	fileInfo, err := os.Stat(testDataPath)
-	if err != nil {
-		err = fmt.Errorf("testDataPath invalid")
-		goto RetureLabel
-	}
-	fileSize = fileInfo.Size()
-	if fileSize > int64(maxFileSize) {
-		err = fmt.Errorf("testData file size too big")
-		goto RetureLabel
-	}
-
-	open, err = os.Open(testDataPath)
-	if err != nil {
-		err = fmt.Errorf("open testData file failed")
-		goto RetureLabel
-	}
-
-	decoder = yaml.NewYAMLOrJSONDecoder(open, maxFileSize)
-
-	err = decoder.Decode(&cmDeviceInfos)
-	if err != nil {
-		err = fmt.Errorf("cmDeviceInfos decode failed")
-		goto RetureLabel
-	}
-
-	err = decoder.Decode(&expectProcessedDeviceInfos)
-	if err != nil {
-		err = fmt.Errorf("expectProcessedDeviceInfos decode failed")
-		goto RetureLabel
-	}
-
-RetureLabel:
-	return cmDeviceInfos, expectProcessedDeviceInfos, err
-}
-
 func readObjectFromJobFaultRankTestYaml() (
-	map[string]*constant.DeviceInfo, constant.JobServerInfoMap, map[string]JobFaultInfo, error) {
+	map[string]*constant.DeviceInfo, constant.JobServerInfoMap, map[string]constant.JobFaultInfo, error) {
 
 	var testDataPath = "../../../testdata/resource/job_fault_rank_test.yaml"
 	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
@@ -87,7 +40,7 @@ func readObjectFromJobFaultRankTestYaml() (
 	var decoder *yaml.YAMLOrJSONDecoder
 	var jobDevices = make(map[string]map[string]constant.ServerHccl)
 	var jobServerInfoMap = constant.JobServerInfoMap{}
-	var expectFaultRanks = make(map[string]JobFaultInfo)
+	var expectFaultRanks = make(map[string]constant.JobFaultInfo)
 	var open *os.File
 	maxFileSize := 10000
 
@@ -114,9 +67,9 @@ func readObjectFromJobFaultRankTestYaml() (
 }
 
 func extractContentForJob(decoder *yaml.YAMLOrJSONDecoder, cmDeviceInfos map[string]*constant.DeviceInfo,
-	jobServerInfoMap constant.JobServerInfoMap, expectFaultRanks map[string]JobFaultInfo,
+	jobServerInfoMap constant.JobServerInfoMap, expectFaultRanks map[string]constant.JobFaultInfo,
 	jobDevices map[string]map[string]constant.ServerHccl) (map[string]*constant.DeviceInfo,
-	constant.JobServerInfoMap, map[string]JobFaultInfo, error) {
+	constant.JobServerInfoMap, map[string]constant.JobFaultInfo, error) {
 	err := decoder.Decode(&cmDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("cmDeviceInfos decode failed")
@@ -156,7 +109,7 @@ func isSlicesEqual[T comparable](s1, s2 []T) bool {
 	return true
 }
 
-func isFaultRankMapEqual(faultRankMap1, faultRankMap2 map[string]JobFaultInfo) bool {
+func isFaultRankMapEqual(faultRankMap1, faultRankMap2 map[string]constant.JobFaultInfo) bool {
 	if len(faultRankMap1) != len(faultRankMap2) {
 		return false
 	}

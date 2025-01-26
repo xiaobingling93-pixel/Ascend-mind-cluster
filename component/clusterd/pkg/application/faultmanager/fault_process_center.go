@@ -9,6 +9,7 @@ import (
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager/collector"
+	"clusterd/pkg/application/faultmanager/faultrank"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
 )
@@ -18,7 +19,12 @@ func (center *FaultProcessCenter) Process() {
 	center.DeviceCenter.Process()
 	center.NodeCenter.Process()
 	center.SwitchCenter.Process()
-	center.faultJobProcessor.Process()
+	allConfigmapContent := constant.AllConfigmapContent{
+		DeviceCm: center.DeviceCenter.getProcessedCm(),
+		SwitchCm: center.SwitchCenter.getProcessedCm(),
+		NodeCm:   center.NodeCenter.getProcessedCm(),
+	}
+	center.faultJobProcessor.Process(allConfigmapContent)
 	center.FaultJobCenter.Process()
 }
 
@@ -29,18 +35,10 @@ func NewFaultProcessCenter() *FaultProcessCenter {
 		NodeCenter:        NewNodeFaultProcessCenter(),
 		SwitchCenter:      NewSwitchFaultProcessCenter(),
 		FaultJobCenter:    NewFaultJobProcessCenter(),
+		faultJobProcessor: faultrank.NewFaultProcessor(),
 		NotifyProcessChan: make(chan int, 1000),
 	}
 
-	processor, err := GlobalFaultProcessCenter.DeviceCenter.getJobFaultRankProcessor()
-	if err != nil {
-		hwlog.RunLog.Errorf("get device fault rank processor failed, err: %v", err)
-		return nil
-	}
-
-	GlobalFaultProcessCenter.faultJobProcessor = &faultProcessorImpl{
-		jobRankFaultInfoProcessor: processor,
-	}
 	return GlobalFaultProcessCenter
 }
 
@@ -77,7 +75,7 @@ func (center *FaultProcessCenter) Work(ctx context.Context) {
 	}()
 }
 
-func (center *FaultProcessCenter) getJobFaultRankProcessor() (*jobRankFaultInfoProcessor, error) {
+func (center *FaultProcessCenter) getJobFaultRankProcessor() (*faultrank.JobRankFaultInfoProcessor, error) {
 	return center.DeviceCenter.getJobFaultRankProcessor()
 }
 
@@ -116,13 +114,13 @@ func (center *FaultProcessCenter) Register(ch chan int, whichToRegister int) {
 }
 
 // QueryJobsFaultInfo query jobs fault rank info, and filter fault below `faultLevel`
-func (center *FaultProcessCenter) QueryJobsFaultInfo(faultLevel string) map[string]JobFaultInfo {
+func (center *FaultProcessCenter) QueryJobsFaultInfo(faultLevel string) map[string]constant.JobFaultInfo {
 	processor, err := center.getJobFaultRankProcessor()
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil
 	}
-	return processor.getJobFaultRankInfosFilterLevel(faultLevel)
+	return processor.GetJobFaultRankInfosFilterLevel(faultLevel)
 }
 
 // QueryDeviceInfoToReport query device info to report

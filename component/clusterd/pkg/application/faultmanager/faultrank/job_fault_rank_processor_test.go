@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package faultmanager contain fault process
-package faultmanager
+// Package fault_rank contain job fault rank process
+package faultrank
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 
 func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 	t.Run("TestJobRankFaultInfoProcessorCanDoStepRetry", func(t *testing.T) {
-		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
+		jobFaultRankProcessor := NewJobRankFaultInfoProcessor()
 		uceProcessor := uce.NewUceFaultProcessor()
 		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
@@ -34,7 +34,7 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 
 func TestUceInBusinessPlane(t *testing.T) {
 	t.Run("TestUceInBusinessPlane", func(t *testing.T) {
-		jobFaultRankProcessor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
+		jobFaultRankProcessor := NewJobRankFaultInfoProcessor()
 		uceProcessor := uce.NewUceFaultProcessor()
 		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {

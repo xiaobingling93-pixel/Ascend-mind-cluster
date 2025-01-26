@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package faultmanager contain fault process
-package faultmanager
+// Package faultjob contain fault job process
+package faultjob
 
 import (
 	"encoding/json"
@@ -17,18 +17,34 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
-var relationFaultStrategies = make([]RelationFaultStrategy, 0)
-var faultDurationStrategies = make([]FaultDuration, 0)
+var relationFaultStrategies = make([]constant.RelationFaultStrategy, 0)
+var faultDurationStrategies = make([]constant.FaultDuration, 0)
 var relationFaultTypeMap = make(sets.String)
 var triggerFaultMap = make(sets.String)
 var faultCodeTimeOutMap = make(map[string]int64)
 
+// FaultJob contain some fault info about a fault job
+type FaultJob struct {
+	IsA3Job             bool
+	NameSpace           string
+	PodNames            map[string]string
+	RelationFaults      []*constant.FaultInfo
+	TriggerFault        []constant.FaultInfo
+	processedFaultInfo  []constant.FaultInfo
+	FaultStrategy       constant.FaultStrategy
+	SeparateNodes       sets.String
+	AllFaultCode        sets.String
+	ProcessingFaultCode sets.String
+	PodStrategiesMaps   map[string]string
+	FindNPUUnderSwitch  bool
+}
+
 func init() {
-	if fileBytes := LoadConfigFromFile(faultCustomizationPath); fileBytes != nil {
+	if fileBytes := LoadConfigFromFile(constant.FaultCustomizationPath); fileBytes != nil {
 		initRelationFaultStrategies(fileBytes)
 		initRelationFaultCodesMap()
 	}
-	if fileBytes := LoadConfigFromFile(faultDuration); fileBytes != nil {
+	if fileBytes := LoadConfigFromFile(constant.FaultDurationPath); fileBytes != nil {
 		initFaultDuration(fileBytes)
 		initFaultCodeTimeOutMap()
 	}
@@ -54,7 +70,7 @@ func initRelationFaultStrategies(fileBytes []byte) {
 }
 
 func initFaultDuration(fileBytes []byte) {
-	var tmpFaultDurationStrategies []FaultDuration
+	var tmpFaultDurationStrategies []constant.FaultDuration
 	if err := json.Unmarshal(fileBytes, &tmpFaultDurationStrategies); err != nil {
 		hwlog.RunLog.Errorf("unmarshal fault code byte failed: %v", err)
 		return
@@ -71,7 +87,7 @@ func initFaultDuration(fileBytes []byte) {
 	}
 }
 
-func validateFaultDurationConfig(faultConfig FaultDuration) bool {
+func validateFaultDurationConfig(faultConfig constant.FaultDuration) bool {
 	if faultConfig.FaultCode == "" {
 		hwlog.RunLog.Error("fault code is empty")
 		return false
@@ -108,8 +124,8 @@ func LoadConfigFromFile(filePath string) []byte {
 	return fileBytes
 }
 
-func (fJob *FaultJob) initFaultJobAttr() {
-	fJob.FaultStrategy = FaultStrategy{}
+func (fJob *FaultJob) InitFaultJobAttr() {
+	fJob.FaultStrategy = constant.FaultStrategy{}
 	fJob.TriggerFault = nil
 	fJob.AllFaultCode = make(sets.String)
 	fJob.SeparateNodes = make(sets.String)
@@ -131,7 +147,7 @@ func (fJob *FaultJob) Process() {
 }
 
 func (fJob *FaultJob) preStartProcess() {
-	var networkFaultInfo []*faultInfo
+	var networkFaultInfo []*constant.FaultInfo
 	for _, fault := range fJob.RelationFaults {
 		if fJob.AllFaultCode.Has(fault.FaultUid) {
 			networkFaultInfo = append(networkFaultInfo, fault)
@@ -187,8 +203,8 @@ func (fJob *FaultJob) processFaultStrategies() {
 		if fJob.PodStrategiesMaps[podName] == constant.SeparateFaultStrategy {
 			podStrategiesMaps[podName] = constant.SeparateFaultStrategy
 		}
-		if err := kube.RetryPatchPodLabels(podName, fJob.NameSpace, patchPodTimes,
-			map[string]string{taskFaultKey: strategy}); err != nil {
+		if err := kube.RetryPatchPodLabels(podName, fJob.NameSpace, constant.PatchPodTimes,
+			map[string]string{constant.TaskFaultKey: strategy}); err != nil {
 			hwlog.RunLog.Errorf("patch pod label failed: %v", err)
 		}
 	}
@@ -196,14 +212,14 @@ func (fJob *FaultJob) processFaultStrategies() {
 }
 
 func (fJob *FaultJob) clearProcessedAndTimeOutFault() {
-	var networkFaultInfo []*faultInfo
+	var networkFaultInfo []*constant.FaultInfo
 	preStopTime := time.Now().UnixMilli()
 	for _, fault := range fJob.RelationFaults {
 		if fault.ExecutedStrategy == constant.SeparateFaultStrategy {
 			fJob.ProcessingFaultCode.Delete(fault.FaultUid)
 			continue
 		}
-		if preStopTime-fault.FaultTime >= fault.DealMaxTime*kilo {
+		if preStopTime-fault.FaultTime >= fault.DealMaxTime*constant.Kilo {
 			hwlog.RunLog.Infof("fault code %s is time out, process as default strategy", fault.FaultUid)
 			fJob.addFaultStrategyForTimeOutCode(fault)
 			continue
@@ -213,16 +229,16 @@ func (fJob *FaultJob) clearProcessedAndTimeOutFault() {
 	fJob.RelationFaults = networkFaultInfo
 }
 
-func (fJob *FaultJob) addFaultStrategyForTimeOutCode(fault *faultInfo) {
+func (fJob *FaultJob) addFaultStrategyForTimeOutCode(fault *constant.FaultInfo) {
 	if fault.ExecutedStrategy != "" {
 		return
 	}
-	if fault.FaultType == switchFaultType {
+	if fault.FaultType == constant.SwitchFaultType {
 		fJob.FaultStrategy.NodeLvList[fault.NodeName] = constant.SubHealthFaultStrategy
 	}
 }
 
-func (fJob *FaultJob) initFaultJobByDeviceFault(nodeFaultInfo constant.AdvanceDeviceFaultCm, serverList constant.ServerHccl) {
+func (fJob *FaultJob) InitFaultJobByDeviceFault(nodeFaultInfo constant.AdvanceDeviceFaultCm, serverList constant.ServerHccl) {
 	if fJob.SeparateNodes.Has(serverList.ServerName) {
 		return
 	}
@@ -241,9 +257,9 @@ func (fJob *FaultJob) initFaultInfoByDeviceFault(faultList []constant.DeviceFaul
 	for _, fault := range faultList {
 		for faultCode, faultTimeAndLevel := range fault.FaultTimeAndLevelMap {
 			if isAssociateFault(faultCode) && !isCardUnhealthy {
-				tmpFaultInfo := faultInfo{
+				tmpFaultInfo := constant.FaultInfo{
 					NodeName:    nodeName,
-					FaultType:   deviceFaultType,
+					FaultType:   constant.DeviceFaultType,
 					NPUName:     fault.NPUName,
 					FaultCode:   faultCode,
 					FaultLevel:  faultTimeAndLevel.FaultLevel,
@@ -258,7 +274,7 @@ func (fJob *FaultJob) initFaultInfoByDeviceFault(faultList []constant.DeviceFaul
 	}
 }
 
-func (fJob *FaultJob) addFaultInfoByCodeType(faultInfo *faultInfo) {
+func (fJob *FaultJob) addFaultInfoByCodeType(faultInfo *constant.FaultInfo) {
 	if relationFaultTypeMap.Has(faultInfo.FaultCode) {
 		if fJob.ProcessingFaultCode.Has(faultInfo.FaultUid) {
 			hwlog.RunLog.Debugf("addFaultInfoByCodeType failed by code %s "+
@@ -281,30 +297,30 @@ func isAssociateFault(faultCode string) bool {
 	return relationFaultTypeMap.Has(faultCode) || triggerFaultMap.Has(faultCode)
 }
 
-func (fJob *FaultJob) initFaultJobBySwitchFault(switchInfo *constant.SwitchInfo, serverList constant.ServerHccl) {
+func (fJob *FaultJob) InitFaultJobBySwitchFault(switchInfo *constant.SwitchInfo, serverList constant.ServerHccl) {
 	if switchInfo == nil {
 		return
 	}
-	if switchInfo.NodeStatus == nodeUnhealthy {
+	if switchInfo.NodeStatus == constant.NodeUnhealthy {
 		fJob.SeparateNodes.Insert(serverList.ServerName)
 		return
 	}
 	for _, fCode := range switchInfo.FaultCode {
-		var tmpSwitchFaultInfo simpleSwitchFaultInfo
+		var tmpSwitchFaultInfo constant.SimpleSwitchFaultInfo
 		if err := json.Unmarshal([]byte(fCode), &tmpSwitchFaultInfo); err != nil {
 			hwlog.RunLog.Errorf("unmarshal switch faultinfo failed:%v", err)
 			continue
 		}
 		if isAssociateFault(tmpSwitchFaultInfo.AssembledFaultCode) {
-			tmpFaultInfo := faultInfo{
+			tmpFaultInfo := constant.FaultInfo{
 				NodeName:    serverList.ServerName,
-				NPUName:     allCardId,
-				FaultType:   switchFaultType,
+				NPUName:     constant.AllCardId,
+				FaultType:   constant.SwitchFaultType,
 				FaultCode:   tmpSwitchFaultInfo.AssembledFaultCode,
 				FaultTime:   time.Now().UnixMilli(),
 				DealMaxTime: getFaultCodeDelMaxTime(tmpSwitchFaultInfo.AssembledFaultCode),
 				FaultLevel:  switchInfo.FaultLevel,
-				FaultUid:    serverList.ServerName + "-" + allCardId + "-" + tmpSwitchFaultInfo.AssembledFaultCode,
+				FaultUid:    serverList.ServerName + "-" + constant.AllCardId + "-" + tmpSwitchFaultInfo.AssembledFaultCode,
 			}
 			fJob.AllFaultCode.Insert(tmpFaultInfo.FaultUid)
 			fJob.addFaultInfoByCodeType(&tmpFaultInfo)

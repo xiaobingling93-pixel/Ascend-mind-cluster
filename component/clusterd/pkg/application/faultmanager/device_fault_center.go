@@ -8,7 +8,9 @@ import (
 	"sync"
 
 	"clusterd/pkg/application/faultmanager/collector"
+	"clusterd/pkg/application/faultmanager/faultrank"
 	"clusterd/pkg/application/faultmanager/uce"
+	"clusterd/pkg/application/faultmanager/uce_accompany"
 	"clusterd/pkg/common/constant"
 )
 
@@ -24,9 +26,9 @@ func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
 		baseFaultCenter: newBaseFaultCenter(&manager, constant.DeviceProcessType),
 	}
 
-	var processorForUceAccompanyFault = newUceAccompanyFaultProcessor(deviceCenter)
+	var processorForUceAccompanyFault = uce_accompany.NewUceAccompanyFaultProcessor()
 	var processorForUceFault = uce.NewUceFaultProcessor()
-	var processForJobFaultRank = newJobRankFaultInfoProcessor(deviceCenter)
+	var processForJobFaultRank = faultrank.NewJobRankFaultInfoProcessor()
 
 	deviceCenter.addProcessors([]constant.FaultProcessor{
 		processorForUceAccompanyFault, // this processor filter the uce accompany faults, before processorForUceFault
@@ -36,20 +38,20 @@ func NewDeviceFaultProcessCenter() *DeviceFaultProcessCenter {
 	return deviceCenter
 }
 
-func (deviceCenter *DeviceFaultProcessCenter) getUceAccompanyFaultProcessor() (*uceAccompanyFaultProcessor, error) {
+func (deviceCenter *DeviceFaultProcessCenter) getUceAccompanyFaultProcessor() (*uce_accompany.UceAccompanyFaultProcessor, error) {
 	for _, processor := range deviceCenter.processorList {
-		if processor, ok := processor.(*uceAccompanyFaultProcessor); ok {
+		if processor, ok := processor.(*uce_accompany.UceAccompanyFaultProcessor); ok {
 			return processor, nil
 		}
 	}
-	return nil, fmt.Errorf("can not find uceAccompanyFaultProcessor in FaultProcessCenter")
+	return nil, fmt.Errorf("can not find UceAccompanyFaultProcessor in FaultProcessCenter")
 }
 
-func (deviceCenter *DeviceFaultProcessCenter) getJobFaultRankProcessor() (*jobRankFaultInfoProcessor, error) {
+func (deviceCenter *DeviceFaultProcessCenter) getJobFaultRankProcessor() (*faultrank.JobRankFaultInfoProcessor, error) {
 	for _, processor := range deviceCenter.processorList {
-		if processor, ok := processor.(*jobRankFaultInfoProcessor); ok {
+		if processor, ok := processor.(*faultrank.JobRankFaultInfoProcessor); ok {
 			return processor, nil
 		}
 	}
-	return nil, fmt.Errorf("can not find jobRankFaultInfoProcessor in FaultProcessCenter")
+	return nil, fmt.Errorf("can not find JobRankFaultInfoProcessor in FaultProcessCenter")
 }

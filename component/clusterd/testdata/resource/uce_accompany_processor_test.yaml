@@ -1,4 +1,4 @@
-# set current time = 95000000000
+# set current time = 95000
 # node1 Ascend910-0 has three fault, 80CB8009 and 80C98009 are uce accompany fault, filter
 # node1 Ascend910-1 has two fault, 80CB8009 isn't uce accompany fault, cannot filter.
 # but 80C98009 cannot decide, filter. and 80C98009 in que to decide next time.

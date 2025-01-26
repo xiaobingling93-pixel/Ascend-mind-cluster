@@ -170,3 +170,20 @@ const (
 	Ascend310Server     = "Ascend310"
 	UnknownResourceType = "unknown"
 )
+
+const (
+	InvalidSuperPodIndex    = -2
+	PatchPodTimes           = 3
+	FaultJobProcessInterval = 5 * 1000
+	AllCardId               = "FF"
+	SwitchFaultType         = "switchFault"
+	DeviceFaultType         = "deviceFault"
+	NodeFaultType           = "nodeFault"
+	NodeUnhealthy           = "UnHealthy"
+	TriggerFaultType        = "TriggerFault"
+	RelationFaultType       = "RelationFaultCodes"
+	TaskFaultKey            = "fault-type"
+	Kilo                    = 1000
+	FaultCustomizationPath  = "/home/hwMindX/relationFaultCustomization.json"
+	FaultDurationPath       = "/home/hwMindX/faultDuration.json"
+)

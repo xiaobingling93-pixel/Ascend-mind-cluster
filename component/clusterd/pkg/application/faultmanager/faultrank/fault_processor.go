@@ -1,34 +1,47 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 // Package faultmanager contain fault process
-package faultmanager
+package faultrank
 
 import (
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/kube"
 )
 
-type faultProcessorImpl struct {
-	*jobRankFaultInfoProcessor
+var FaultProcessor *FaultProcessorImpl
+
+type FaultProcessorImpl struct {
+	*JobRankFaultInfoProcessor
 }
 
-func (fpi *faultProcessorImpl) Process() {
-	deviceInfos := GlobalFaultProcessCenter.DeviceCenter.getProcessingCm()
-	hwlog.RunLog.Debugf("deviceInfos: %#v", deviceInfos)
+func NewFaultProcessor() *FaultProcessorImpl {
+	FaultProcessor := &FaultProcessorImpl{JobRankFaultInfoProcessor: NewJobRankFaultInfoProcessor()}
+	return FaultProcessor
+}
+
+func (fpi *FaultProcessorImpl) Process(info any) any {
+	allConfigmap, ok := info.(constant.AllConfigmapContent)
+	if !ok {
+		hwlog.RunLog.Errorf("%v cannot convert to AllConfigmapContent", info)
+		return info
+	}
+	deviceInfos := allConfigmap.DeviceCm
 	deviceCmForNodeMap := faultdomain.GetAdvanceDeviceCmForNodeMap(deviceInfos)
-	nodeInfos := GlobalFaultProcessCenter.NodeCenter.getProcessingCm()
+	hwlog.RunLog.Debugf("deviceInfos: %#v", deviceInfos)
+	nodeInfos := allConfigmap.NodeCm
 	hwlog.RunLog.Debugf("nodeInfos: %#v", nodeInfos)
-	switchInfos := GlobalFaultProcessCenter.SwitchCenter.getProcessingCm()
+	switchInfos := allConfigmap.SwitchCm
 	hwlog.RunLog.Debugf("switchInfos: %#v", switchInfos)
 
-	jobFaultInfos := make(map[string]JobFaultInfo)
-	jobServerInfoMap := GlobalFaultProcessCenter.jobServerInfoMap
+	jobFaultInfos := make(map[string]constant.JobFaultInfo)
+	jobServerInfoMap := job.GetJobServerInfoMap()
 	for jobId, serverList := range jobServerInfoMap.InfoMap {
-		jobFaultInfo := JobFaultInfo{
+		jobFaultInfo := constant.JobFaultInfo{
 			JobId:     jobId,
-			FaultList: make([]FaultRank, 0),
+			FaultList: make([]constant.FaultRank, 0),
 		}
 		hwlog.RunLog.Debugf("serverList: %d", len(serverList))
 		for nodeName, server := range serverList {
@@ -51,7 +64,7 @@ func (fpi *faultProcessorImpl) Process() {
 				jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, serverHcclToFaultRank(server)...)
 				continue
 			}
-			faultRankList := fpi.findFaultRankForJob(deviceCmForNodeMap, nodeName, serverList, jobId)
+			faultRankList := fpi.FindFaultRankForJob(deviceCmForNodeMap, nodeName, serverList, jobId)
 			jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, faultRankList...)
 
 		}
@@ -60,13 +73,14 @@ func (fpi *faultProcessorImpl) Process() {
 		}
 		jobFaultInfos[jobId] = jobFaultInfo
 	}
-	fpi.jobRankFaultInfoProcessor.setJobFaultRankInfos(jobFaultInfos)
+	fpi.JobRankFaultInfoProcessor.SetJobFaultRankInfos(jobFaultInfos)
+	return info
 }
 
-func serverHcclToFaultRank(server constant.ServerHccl) []FaultRank {
-	faultRanks := make([]FaultRank, 0, len(server.DeviceList))
+func serverHcclToFaultRank(server constant.ServerHccl) []constant.FaultRank {
+	faultRanks := make([]constant.FaultRank, 0, len(server.DeviceList))
 	for _, device := range server.DeviceList {
-		faultRanks = append(faultRanks, FaultRank{
+		faultRanks = append(faultRanks, constant.FaultRank{
 			RankId:      device.RankID,
 			FaultCode:   "",
 			FaultLevel:  constant.SeparateNPU,

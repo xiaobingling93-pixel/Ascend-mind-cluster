@@ -193,9 +193,15 @@ type InformerCmItem[T ConfigMapInterface] struct {
 	Data  T
 }
 
-type CenterProcessContent[T ConfigMapInterface] struct {
+type OneConfigmapContent[T ConfigMapInterface] struct {
 	AllConfigmap    map[string]T
 	UpdateConfigmap []InformerCmItem[T]
+}
+
+type AllConfigmapContent struct {
+	DeviceCm map[string]*DeviceInfo
+	SwitchCm map[string]*SwitchInfo
+	NodeCm   map[string]*NodeInfo
 }
 
 // ConfigMapInterface configmap interface
@@ -306,4 +312,69 @@ func NodeInfoBusinessDataIsNotEqual(oldNodeInfo *NodeInfo, newNodeInfo *NodeInfo
 	}
 	hwlog.RunLog.Debug("oldNodeInfo is equal to newNodeInfo")
 	return false
+}
+
+// FaultRank defines the structure for storing fault rank information.
+// It includes the rank ID and fault code.
+type FaultRank struct {
+	RankId      string
+	FaultCode   string
+	FaultLevel  string
+	DoStepRetry bool
+}
+
+// JobFaultInfo job fault rank info
+type JobFaultInfo struct {
+	JobId     string
+	FaultList []FaultRank
+}
+
+// FaultStrategy fault strategies
+type FaultStrategy struct {
+	NodeLvList   map[string]string
+	DeviceLvList map[string][]DeviceStrategy
+}
+
+// DeviceStrategy device fault strategy
+type DeviceStrategy struct {
+	Strategy string
+	NPUName  string
+}
+
+type FaultInfo struct {
+	FaultUid         string
+	FaultType        string
+	NodeName         string
+	NPUName          string
+	FaultCode        string
+	FaultLevel       string
+	FaultTime        int64
+	ExecutedStrategy string
+	DealMaxTime      int64
+}
+
+// FaultDuration fault duration config
+type FaultDuration struct {
+	FaultCode       string
+	FaultType       string
+	TimeOutInterval int64
+}
+
+// RelationFaultStrategy relation fault strategy
+type RelationFaultStrategy struct {
+	TriggerFault   string
+	RelationFaults []string
+	FaultStrategy  string
+}
+
+type SimpleSwitchFaultInfo struct {
+	EventType          uint
+	AssembledFaultCode string
+	PeerPortDevice     uint
+	PeerPortId         uint
+	SwitchChipId       uint
+	SwitchPortId       uint
+	Severity           uint
+	Assertion          uint
+	AlarmRaisedTime    int64
 }

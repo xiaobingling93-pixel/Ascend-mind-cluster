@@ -1,6 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-// Package faultmanager contain fault process
+// Package collector collect information to process
 package collector
 
 import (

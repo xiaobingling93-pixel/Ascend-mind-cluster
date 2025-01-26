@@ -41,7 +41,7 @@ func TestRegister(t *testing.T) {
 func TestQueryJobsFaultInfo(t *testing.T) {
 	t.Run("TestQueryJobsFaultInfo", func(t *testing.T) {
 		processor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		processor.setJobFaultRankInfos(map[string]JobFaultInfo{"test": {}})
+		processor.SetJobFaultRankInfos(map[string]constant.JobFaultInfo{"test": {}})
 		jobsFaultInfo := GlobalFaultProcessCenter.QueryJobsFaultInfo(constant.NotHandleFault)
 		if len(jobsFaultInfo) != 1 {
 			t.Error("TestQueryJobsFaultInfo fail")
