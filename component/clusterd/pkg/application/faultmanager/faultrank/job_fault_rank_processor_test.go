@@ -13,9 +13,7 @@ import (
 
 func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 	t.Run("TestJobRankFaultInfoProcessorCanDoStepRetry", func(t *testing.T) {
-		jobFaultRankProcessor := NewJobRankFaultInfoProcessor()
-		uceProcessor := uce.NewUceFaultProcessor()
-		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
+		patches := gomonkey.ApplyPrivateMethod(uce.UceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
 				return constant.UceDeviceInfo{
 					DeviceName:   "test",
@@ -25,7 +23,7 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 				}, true
 			})
 		defer patches.Reset()
-		retry := jobFaultRankProcessor.canDoStepRetry("jobId", "nodeName", "deviceName")
+		retry := JobFaultRankProcessor.canDoStepRetry("jobId", "nodeName", "deviceName")
 		if !retry {
 			t.Error("TestJobRankFaultInfoProcessorCanDoStepRetry")
 		}
@@ -34,9 +32,7 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 
 func TestUceInBusinessPlane(t *testing.T) {
 	t.Run("TestUceInBusinessPlane", func(t *testing.T) {
-		jobFaultRankProcessor := NewJobRankFaultInfoProcessor()
-		uceProcessor := uce.NewUceFaultProcessor()
-		patches := gomonkey.ApplyPrivateMethod(uceProcessor, "GetUceDeviceFromJob",
+		patches := gomonkey.ApplyPrivateMethod(uce.UceProcessor, "GetUceDeviceFromJob",
 			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
 				return constant.UceDeviceInfo{
 					DeviceName:   "test",
@@ -46,7 +42,7 @@ func TestUceInBusinessPlane(t *testing.T) {
 				}, true
 			})
 		defer patches.Reset()
-		isUceInBusinessPlane := jobFaultRankProcessor.uceInBusinessPlane("jobId", "nodeName", "deviceName")
+		isUceInBusinessPlane := JobFaultRankProcessor.uceInBusinessPlane("jobId", "nodeName", "deviceName")
 		if isUceInBusinessPlane {
 			t.Error("TestUceInBusinessPlane")
 		}

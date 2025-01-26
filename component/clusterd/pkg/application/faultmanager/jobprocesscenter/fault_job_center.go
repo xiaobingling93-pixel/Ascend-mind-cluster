@@ -1,12 +1,13 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 // Package faultmanager contain fault process
-package faultmanager
+package jobprocesscenter
 
 import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/cmprocesscenter"
 	"clusterd/pkg/application/faultmanager/faultjob"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -14,8 +15,19 @@ import (
 	"clusterd/pkg/domain/job"
 )
 
-func NewFaultJobProcessCenter() *FaultJobProcessCenter {
-	return &FaultJobProcessCenter{}
+var FaultJobCenter *FaultJobProcessCenter
+
+type FaultJobProcessCenter struct {
+	jobServerInfoMap constant.JobServerInfoMap
+	lastProcessTime  int64
+	deviceInfoCm     map[string]*constant.DeviceInfo
+	switchInfoCm     map[string]*constant.SwitchInfo
+	nodeInfoCm       map[string]*constant.NodeInfo
+	FaultJobs        map[string]*faultjob.FaultJob
+}
+
+func init() {
+	FaultJobCenter = &FaultJobProcessCenter{}
 }
 
 func (fJobCenter *FaultJobProcessCenter) Process() {
@@ -26,9 +38,9 @@ func (fJobCenter *FaultJobProcessCenter) Process() {
 	fJobCenter.lastProcessTime = currentTime
 
 	fJobCenter.jobServerInfoMap = job.GetJobServerInfoMap()
-	fJobCenter.nodeInfoCm = GlobalFaultProcessCenter.NodeCenter.baseFaultCenter.getProcessedCm()
-	fJobCenter.switchInfoCm = GlobalFaultProcessCenter.SwitchCenter.baseFaultCenter.getProcessedCm()
-	fJobCenter.deviceInfoCm = GlobalFaultProcessCenter.DeviceCenter.baseFaultCenter.getProcessedCm()
+	fJobCenter.nodeInfoCm = cmprocesscenter.NodeCenter.GetProcessedCm()
+	fJobCenter.switchInfoCm = cmprocesscenter.SwitchCenter.GetProcessedCm()
+	fJobCenter.deviceInfoCm = cmprocesscenter.DeviceCenter.GetProcessedCm()
 	fJobCenter.InitFaultJobs()
 	for _, fJob := range fJobCenter.FaultJobs {
 		fJob.Process()

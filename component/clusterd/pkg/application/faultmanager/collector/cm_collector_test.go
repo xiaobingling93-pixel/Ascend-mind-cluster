@@ -4,6 +4,7 @@
 package collector
 
 import (
+	"sync"
 	"testing"
 
 	"clusterd/pkg/common/constant"
@@ -15,8 +16,14 @@ const (
 	UpdateTime = 0
 )
 
+func resetDeviceCmCollector() {
+	DeviceCmCollectBuffer = &ConfigmapCollectBuffer[*constant.DeviceInfo]{
+		mutex:    sync.Mutex{},
+		buffer:   make(map[string]*[]constant.InformerCmItem[*constant.DeviceInfo]),
+		lastItem: make(map[string]constant.InformerCmItem[*constant.DeviceInfo]),
+	}
+}
 func TestCmInfoCollector(t *testing.T) {
-	InitCmCollectBuffer()
 	t.Run("TestDeviceInfoCollector", func(t *testing.T) {
 		deviceInfo := &constant.DeviceInfo{
 			CmName: CmName,
@@ -59,7 +66,7 @@ func TestCmInfoCollector(t *testing.T) {
 }
 
 func TestUpdateInfoSuccess(t *testing.T) {
-	InitCmCollectBuffer()
+	resetDeviceCmCollector()
 	t.Run("push info with update success", func(t *testing.T) {
 		deviceInfo := &constant.DeviceInfo{
 			CmName: CmName,
@@ -76,7 +83,7 @@ func TestUpdateInfoSuccess(t *testing.T) {
 }
 
 func TestPopInfoCorrect(t *testing.T) {
-	InitCmCollectBuffer()
+	resetDeviceCmCollector()
 	t.Run("push info and pop info correctly", func(t *testing.T) {
 		deviceInfo := &constant.DeviceInfo{
 			CmName: CmName,

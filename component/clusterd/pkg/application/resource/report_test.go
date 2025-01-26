@@ -17,7 +17,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/device"
 	"clusterd/pkg/domain/node"
@@ -87,7 +86,6 @@ func TestReport(t *testing.T) {
 			return nil, nil
 		})
 		ctx, cancel := context.WithCancel(context.Background())
-		faultmanager.NewFaultProcessCenter()
 		updateChan = make(chan int, 5)
 		updateChan <- constant.AllProcessType
 		updateChan <- constant.DeviceProcessType

@@ -50,7 +50,6 @@ func getDemoJobServerMap() constant.JobServerInfoMap {
 
 func TestFaultProcessorImplProcess(t *testing.T) {
 	t.Run("test node fail, job fault rank list should correct", func(t *testing.T) {
-		processor := NewFaultProcessor()
 		jobServerMap := getDemoJobServerMap()
 		mockKube := gomonkey.ApplyFunc(kube.GetNode, func(name string) *v1.Node {
 			return nil
@@ -62,9 +61,8 @@ func TestFaultProcessorImplProcess(t *testing.T) {
 			mockKube.Reset()
 			mockJob.Reset()
 		}()
-		processor.Process(constant.AllConfigmapContent{})
-		rankProcessor := processor.JobRankFaultInfoProcessor
-		faultRankInfos := rankProcessor.GetJobFaultRankInfos()
+		FaultProcessor.Process(constant.AllConfigmapContent{})
+		faultRankInfos := JobFaultRankProcessor.GetJobFaultRankInfos()
 		if len(faultRankInfos[JobId].FaultList) != len(jobServerMap.InfoMap[JobId][NodeName].DeviceList) {
 			t.Error("TestFaultProcessorImplProcess fail")
 		}

@@ -14,12 +14,10 @@ import (
 var FaultProcessor *FaultProcessorImpl
 
 type FaultProcessorImpl struct {
-	*JobRankFaultInfoProcessor
 }
 
-func NewFaultProcessor() *FaultProcessorImpl {
-	FaultProcessor := &FaultProcessorImpl{JobRankFaultInfoProcessor: NewJobRankFaultInfoProcessor()}
-	return FaultProcessor
+func init() {
+	FaultProcessor = &FaultProcessorImpl{}
 }
 
 func (fpi *FaultProcessorImpl) Process(info any) any {
@@ -64,7 +62,7 @@ func (fpi *FaultProcessorImpl) Process(info any) any {
 				jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, serverHcclToFaultRank(server)...)
 				continue
 			}
-			faultRankList := fpi.FindFaultRankForJob(deviceCmForNodeMap, nodeName, serverList, jobId)
+			faultRankList := JobFaultRankProcessor.FindFaultRankForJob(deviceCmForNodeMap, nodeName, serverList, jobId)
 			jobFaultInfo.FaultList = append(jobFaultInfo.FaultList, faultRankList...)
 
 		}
@@ -73,8 +71,8 @@ func (fpi *FaultProcessorImpl) Process(info any) any {
 		}
 		jobFaultInfos[jobId] = jobFaultInfo
 	}
-	fpi.JobRankFaultInfoProcessor.SetJobFaultRankInfos(jobFaultInfos)
-	return info
+	JobFaultRankProcessor.SetJobFaultRankInfos(jobFaultInfos)
+	return nil
 }
 
 func serverHcclToFaultRank(server constant.ServerHccl) []constant.FaultRank {

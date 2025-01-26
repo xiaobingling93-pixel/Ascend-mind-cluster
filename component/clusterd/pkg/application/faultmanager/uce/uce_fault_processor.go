@@ -34,12 +34,11 @@ type UceFaultProcessor struct {
 	nodeDeviceCmMap  map[string]constant.AdvanceDeviceFaultCm
 }
 
-func NewUceFaultProcessor() *UceFaultProcessor {
+func init() {
 	UceProcessor = &UceFaultProcessor{
 		JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
 		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
 	}
-	return UceProcessor
 }
 
 func (processor *UceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string, nodeName string) constant.UceNodeInfo {

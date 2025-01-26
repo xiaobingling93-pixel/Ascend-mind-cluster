@@ -8,38 +8,38 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/cmprocesscenter"
 	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/application/faultmanager/faultrank"
+	"clusterd/pkg/application/faultmanager/jobprocesscenter"
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/domain/job"
 )
 
-func (center *FaultProcessCenter) Process() {
-	center.jobServerInfoMap = job.GetJobServerInfoMap()
-	center.DeviceCenter.Process()
-	center.NodeCenter.Process()
-	center.SwitchCenter.Process()
-	allConfigmapContent := constant.AllConfigmapContent{
-		DeviceCm: center.DeviceCenter.getProcessedCm(),
-		SwitchCm: center.SwitchCenter.getProcessedCm(),
-		NodeCm:   center.NodeCenter.getProcessedCm(),
-	}
-	center.faultJobProcessor.Process(allConfigmapContent)
-	center.FaultJobCenter.Process()
+// GlobalFaultProcessCenter is a global instance of FaultProcessCenter used for processing faults.
+var GlobalFaultProcessCenter *FaultProcessCenter
+
+// FaultProcessCenter processes the faults and coordinates the fault handling among different components.
+type FaultProcessCenter struct {
+	NotifyProcessChan chan int
 }
 
-// NewFaultProcessCenter create deviceCenter,nodeCenter,switchCenter and work goroutine
-func NewFaultProcessCenter() *FaultProcessCenter {
+func (center *FaultProcessCenter) Process() {
+	cmprocesscenter.DeviceCenter.Process()
+	cmprocesscenter.NodeCenter.Process()
+	cmprocesscenter.SwitchCenter.Process()
+	allConfigmapContent := constant.AllConfigmapContent{
+		DeviceCm: cmprocesscenter.DeviceCenter.GetProcessedCm(),
+		SwitchCm: cmprocesscenter.SwitchCenter.GetProcessedCm(),
+		NodeCm:   cmprocesscenter.NodeCenter.GetProcessedCm(),
+	}
+	faultrank.FaultProcessor.Process(allConfigmapContent)
+	jobprocesscenter.FaultJobCenter.Process()
+}
+
+func init() {
 	GlobalFaultProcessCenter = &FaultProcessCenter{
-		DeviceCenter:      NewDeviceFaultProcessCenter(),
-		NodeCenter:        NewNodeFaultProcessCenter(),
-		SwitchCenter:      NewSwitchFaultProcessCenter(),
-		FaultJobCenter:    NewFaultJobProcessCenter(),
-		faultJobProcessor: faultrank.NewFaultProcessor(),
 		NotifyProcessChan: make(chan int, 1000),
 	}
-
-	return GlobalFaultProcessCenter
 }
 
 func (center *FaultProcessCenter) NotifyFaultCenterProcess(whichToProcess int) {
@@ -60,11 +60,11 @@ func (center *FaultProcessCenter) Work(ctx context.Context) {
 				case constant.AllProcessType:
 					center.Process()
 				case constant.DeviceProcessType:
-					center.DeviceCenter.Process()
+					cmprocesscenter.DeviceCenter.Process()
 				case constant.NodeProcessType:
-					center.NodeCenter.Process()
+					cmprocesscenter.NodeCenter.Process()
 				case constant.SwitchProcessType:
-					center.SwitchCenter.Process()
+					cmprocesscenter.SwitchCenter.Process()
 				default:
 					hwlog.RunLog.Errorf("wrong number %d to process", whichToProcess)
 				}
@@ -75,19 +75,8 @@ func (center *FaultProcessCenter) Work(ctx context.Context) {
 	}()
 }
 
-func (center *FaultProcessCenter) getJobFaultRankProcessor() (*faultrank.JobRankFaultInfoProcessor, error) {
-	return center.DeviceCenter.getJobFaultRankProcessor()
-}
-
-// ReportRecoverInfo cluster grpc should call back for report uce fault
-type ReportRecoverInfo struct {
-	JobId       string
-	Rank        string
-	RecoverTime int64
-}
-
 // CallbackForReportUceInfo callback function to report uce info
-func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []ReportRecoverInfo) error {
+func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []constant.ReportRecoverInfo) error {
 	for _, info := range infos {
 		collector.ReportInfoCollector.ReportUceInfo(info.JobId, info.Rank, info.RecoverTime)
 	}
@@ -99,15 +88,15 @@ func (center *FaultProcessCenter) CallbackForReportUceInfo(infos []ReportRecover
 func (center *FaultProcessCenter) Register(ch chan int, whichToRegister int) {
 	switch whichToRegister {
 	case constant.SwitchProcessType:
-		center.SwitchCenter.register(ch)
+		cmprocesscenter.SwitchCenter.Register(ch)
 	case constant.NodeProcessType:
-		center.NodeCenter.register(ch)
+		cmprocesscenter.NodeCenter.Register(ch)
 	case constant.DeviceProcessType:
-		center.DeviceCenter.register(ch)
+		cmprocesscenter.DeviceCenter.Register(ch)
 	case constant.AllProcessType:
-		center.SwitchCenter.register(ch)
-		center.NodeCenter.register(ch)
-		center.DeviceCenter.register(ch)
+		cmprocesscenter.SwitchCenter.Register(ch)
+		cmprocesscenter.NodeCenter.Register(ch)
+		cmprocesscenter.DeviceCenter.Register(ch)
 	default:
 		hwlog.RunLog.Errorf("Wrong number %d, cannot decide which to register", whichToRegister)
 	}
@@ -115,25 +104,20 @@ func (center *FaultProcessCenter) Register(ch chan int, whichToRegister int) {
 
 // QueryJobsFaultInfo query jobs fault rank info, and filter fault below `faultLevel`
 func (center *FaultProcessCenter) QueryJobsFaultInfo(faultLevel string) map[string]constant.JobFaultInfo {
-	processor, err := center.getJobFaultRankProcessor()
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		return nil
-	}
-	return processor.GetJobFaultRankInfosFilterLevel(faultLevel)
+	return faultrank.JobFaultRankProcessor.GetJobFaultRankInfosFilterLevel(faultLevel)
 }
 
 // QueryDeviceInfoToReport query device info to report
 func (center *FaultProcessCenter) QueryDeviceInfoToReport() map[string]*constant.DeviceInfo {
-	return center.DeviceCenter.getProcessedCm()
+	return cmprocesscenter.DeviceCenter.GetProcessedCm()
 }
 
 // QuerySwitchInfoToReport query switch info to report
 func (center *FaultProcessCenter) QuerySwitchInfoToReport() map[string]*constant.SwitchInfo {
-	return center.SwitchCenter.getProcessedCm()
+	return cmprocesscenter.SwitchCenter.GetProcessedCm()
 }
 
 // QueryNodeInfoToReport query node info to report
 func (center *FaultProcessCenter) QueryNodeInfoToReport() map[string]*constant.NodeInfo {
-	return center.NodeCenter.getProcessedCm()
+	return cmprocesscenter.NodeCenter.GetProcessedCm()
 }

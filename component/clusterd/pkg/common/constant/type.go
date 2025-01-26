@@ -378,3 +378,10 @@ type SimpleSwitchFaultInfo struct {
 	Assertion          uint
 	AlarmRaisedTime    int64
 }
+
+// ReportRecoverInfo cluster grpc should call back for report uce fault
+type ReportRecoverInfo struct {
+	JobId       string
+	Rank        string
+	RecoverTime int64
+}

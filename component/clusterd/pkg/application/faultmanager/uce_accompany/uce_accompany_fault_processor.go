@@ -14,6 +14,8 @@ import (
 	"clusterd/pkg/domain/faultdomain"
 )
 
+var UceAccompanyProcessor *UceAccompanyFaultProcessor
+
 // UceAccompanyFaultProcessor:
 // aic aiv fault can be 1) accompanied by uce fault, also can 2) curr alone.
 // if 1) aic aiv fault should be filtered. Once find aic fault, check if there is an uce fault 5s ago
@@ -28,8 +30,8 @@ type UceAccompanyFaultProcessor struct {
 	deviceCmForNodeMap map[string]constant.AdvanceDeviceFaultCm
 }
 
-func NewUceAccompanyFaultProcessor() *UceAccompanyFaultProcessor {
-	return &UceAccompanyFaultProcessor{
+func init() {
+	UceAccompanyProcessor = &UceAccompanyFaultProcessor{
 		DiagnosisAccompanyTimeout: constant.DiagnosisAccompanyTimeout,
 		uceAccompanyFaultQue:      make(map[string]map[string][]constant.DeviceFault),
 		uceFaultTime:              make(map[string]map[string]int64),

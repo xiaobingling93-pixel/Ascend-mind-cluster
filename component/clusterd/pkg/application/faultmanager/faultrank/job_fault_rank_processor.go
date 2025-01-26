@@ -14,13 +14,15 @@ import (
 	"clusterd/pkg/domain/faultdomain"
 )
 
+var JobFaultRankProcessor *JobRankFaultInfoProcessor
+
 type JobRankFaultInfoProcessor struct {
 	jobFaultInfoMap map[string]constant.JobFaultInfo
 	mutex           sync.RWMutex
 }
 
-func NewJobRankFaultInfoProcessor() *JobRankFaultInfoProcessor {
-	return &JobRankFaultInfoProcessor{
+func init() {
+	JobFaultRankProcessor = &JobRankFaultInfoProcessor{
 		jobFaultInfoMap: make(map[string]constant.JobFaultInfo),
 		mutex:           sync.RWMutex{},
 	}

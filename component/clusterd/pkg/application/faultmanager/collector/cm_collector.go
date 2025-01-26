@@ -20,7 +20,7 @@ type ConfigmapCollectBuffer[T constant.ConfigMapInterface] struct {
 	lastItem map[string]constant.InformerCmItem[T]
 }
 
-func InitCmCollectBuffer() {
+func init() {
 	DeviceCmCollectBuffer = &ConfigmapCollectBuffer[*constant.DeviceInfo]{
 		mutex:    sync.Mutex{},
 		buffer:   make(map[string]*[]constant.InformerCmItem[*constant.DeviceInfo]),

@@ -4,24 +4,30 @@
 package faultmanager
 
 import (
+	"fmt"
 	"testing"
 
+	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager/faultrank"
 	"clusterd/pkg/common/constant"
 )
 
-func TestGetJobFaultRankProcessor(t *testing.T) {
-	t.Run("TestGetJobFaultRankProcessor", func(t *testing.T) {
-		_, err := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		if err != nil {
-			t.Error("TestGetJobFaultRankProcessor fail")
-		}
-	})
+func TestMain(m *testing.M) {
+	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../testdata/clusterd.log"}
+	hwLogConfig.MaxBackups = 30
+	hwLogConfig.MaxAge = 7
+	hwLogConfig.LogLevel = 0
+	if err := hwlog.InitRunLogger(hwLogConfig, nil); err != nil {
+		fmt.Printf("hwlog init failed, error is %v\n", err)
+		return
+	}
+	m.Run()
 }
 
 func TestCallbackForReportUceInfo(t *testing.T) {
 	t.Run("TestCallbackForReportUceInfo", func(t *testing.T) {
-		infos := make([]ReportRecoverInfo, 0)
-		infos = append(infos, ReportRecoverInfo{})
+		infos := make([]constant.ReportRecoverInfo, 0)
+		infos = append(infos, constant.ReportRecoverInfo{})
 		err := GlobalFaultProcessCenter.CallbackForReportUceInfo(infos)
 		if err != nil {
 			t.Error("TestCallbackForReportUceInfo fail")
@@ -40,8 +46,7 @@ func TestRegister(t *testing.T) {
 
 func TestQueryJobsFaultInfo(t *testing.T) {
 	t.Run("TestQueryJobsFaultInfo", func(t *testing.T) {
-		processor, _ := GlobalFaultProcessCenter.getJobFaultRankProcessor()
-		processor.SetJobFaultRankInfos(map[string]constant.JobFaultInfo{"test": {}})
+		faultrank.JobFaultRankProcessor.SetJobFaultRankInfos(map[string]constant.JobFaultInfo{"test": {}})
 		jobsFaultInfo := GlobalFaultProcessCenter.QueryJobsFaultInfo(constant.NotHandleFault)
 		if len(jobsFaultInfo) != 1 {
 			t.Error("TestQueryJobsFaultInfo fail")

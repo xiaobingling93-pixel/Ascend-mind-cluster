@@ -33,7 +33,6 @@ func TestMain(m *testing.M) {
 		fmt.Printf("hwlog init failed, error is %v\n", err)
 		return
 	}
-	InitReportInfoCollector()
 	m.Run()
 }
 

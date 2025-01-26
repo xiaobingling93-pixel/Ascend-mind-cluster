@@ -22,12 +22,11 @@ type JobReportInfoCollector struct {
 	RwMutex sync.RWMutex
 }
 
-func InitReportInfoCollector() *JobReportInfoCollector {
+func init() {
 	ReportInfoCollector = &JobReportInfoCollector{
 		InfoMap: make(map[string]map[string]map[string]constant.ReportInfo),
 		RwMutex: sync.RWMutex{},
 	}
-	return ReportInfoCollector
 }
 
 func (reportInfos *JobReportInfoCollector) GetInfo(jobId, nodeName, deviceName string) constant.ReportInfo {

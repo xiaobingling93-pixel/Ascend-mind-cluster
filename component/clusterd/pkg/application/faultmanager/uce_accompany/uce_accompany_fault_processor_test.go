@@ -34,33 +34,31 @@ func TestMain(m *testing.M) {
 
 // ======= Test UceAccompanyFaultProcessor
 func TestUceAccompanyFaultProcessorProcess(t *testing.T) {
-	processor := NewUceAccompanyFaultProcessor()
 	t.Run("TestUceAccompanyFaultProcessorProcess", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, testFileErr := readObjectFromUceAccompanyProcessorTestYaml()
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
-		processor.deviceCmForNodeMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
-		processor.uceAccompanyFaultInQue()
+		UceAccompanyProcessor.deviceCmForNodeMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
+		UceAccompanyProcessor.uceAccompanyFaultInQue()
 		currentTime := 95 * time.Second.Milliseconds()
-		processor.filterFaultInfos(currentTime)
-		faultdomain.AdvanceDeviceCmForNodeMapToString(processor.deviceCmForNodeMap, cmDeviceInfos)
+		UceAccompanyProcessor.filterFaultInfos(currentTime)
+		faultdomain.AdvanceDeviceCmForNodeMapToString(UceAccompanyProcessor.deviceCmForNodeMap, cmDeviceInfos)
 		if !reflect.DeepEqual(faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos),
 			faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)) {
 			t.Errorf("result = %v, want %v",
 				util.ObjToString(cmDeviceInfos), util.ObjToString(expectProcessedDeviceInfos))
 		}
 
-		if len(processor.uceAccompanyFaultQue["node1"]["Ascend910-1"]) != 1 &&
-			processor.uceAccompanyFaultQue["node1"]["Ascend910-1"][0].FaultCode == "80C98009" {
-			t.Error("processor.uceAccompanyFaultQue() is wrong")
+		if len(UceAccompanyProcessor.uceAccompanyFaultQue["node1"]["Ascend910-1"]) != 1 &&
+			UceAccompanyProcessor.uceAccompanyFaultQue["node1"]["Ascend910-1"][0].FaultCode == "80C98009" {
+			t.Error("uceAccompanyFaultQue() is wrong")
 		}
 	})
 }
 
 // ======= Test TestUceAccompanyFaultProcessorProcessE2E
 func TestUceAccompanyFaultProcessorProcessE2E(t *testing.T) {
-	processor := NewUceAccompanyFaultProcessor()
 	t.Run("TestUceAccompanyFaultProcessorProcessE2E", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, testFileErr := readObjectFromUceAccompanyProcessorTestYaml()
 		if testFileErr != nil {
@@ -81,7 +79,7 @@ func TestUceAccompanyFaultProcessorProcessE2E(t *testing.T) {
 			mockNow.Reset()
 			mockUnixMilli.Reset()
 		}()
-		resultContent := processor.Process(content).(constant.OneConfigmapContent[*constant.DeviceInfo])
+		resultContent := UceAccompanyProcessor.Process(content).(constant.OneConfigmapContent[*constant.DeviceInfo])
 
 		if !reflect.DeepEqual(faultdomain.GetAdvanceDeviceCmForNodeMap(resultContent.AllConfigmap),
 			faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)) {
@@ -89,21 +87,20 @@ func TestUceAccompanyFaultProcessorProcessE2E(t *testing.T) {
 				util.ObjToString(cmDeviceInfos), util.ObjToString(expectProcessedDeviceInfos))
 		}
 
-		if len(processor.uceAccompanyFaultQue["node1"]["Ascend910-1"]) != 1 &&
-			processor.uceAccompanyFaultQue["node1"]["Ascend910-1"][0].FaultCode == "80C98009" {
-			t.Error("processor.uceAccompanyFaultQue() is wrong")
+		if len(UceAccompanyProcessor.uceAccompanyFaultQue["node1"]["Ascend910-1"]) != 1 &&
+			UceAccompanyProcessor.uceAccompanyFaultQue["node1"]["Ascend910-1"][0].FaultCode == "80C98009" {
+			t.Error("uceAccompanyFaultQue() is wrong")
 		}
 	})
 }
 
 // TestUceAccompanyFaultProcessorProcess when aic/aiv in queue is exceed DiagnosisTime, then should add in fault map
 func TestUceAccompanyFaultProcessorProcessForAddFault(t *testing.T) {
-	processor := NewUceAccompanyFaultProcessor()
 	t.Run("TestUceAccompanyFaultProcessorProcessForAddFault", func(t *testing.T) {
 		currentTime := 95 * time.Second.Milliseconds()
 		nodeName := "node1"
 		deviceName := "Ascend910A-0"
-		processor.uceAccompanyFaultQue = map[string]map[string][]constant.DeviceFault{
+		UceAccompanyProcessor.uceAccompanyFaultQue = map[string]map[string][]constant.DeviceFault{
 			nodeName: {
 				deviceName: []constant.DeviceFault{
 					{
@@ -119,13 +116,13 @@ func TestUceAccompanyFaultProcessorProcessForAddFault(t *testing.T) {
 				},
 			},
 		}
-		processor.deviceCmForNodeMap = make(map[string]constant.AdvanceDeviceFaultCm)
-		processor.filterFaultInfos(currentTime)
-		if len(processor.deviceCmForNodeMap[nodeName].FaultDeviceList[deviceName]) != 1 {
+		UceAccompanyProcessor.deviceCmForNodeMap = make(map[string]constant.AdvanceDeviceFaultCm)
+		UceAccompanyProcessor.filterFaultInfos(currentTime)
+		if len(UceAccompanyProcessor.deviceCmForNodeMap[nodeName].FaultDeviceList[deviceName]) != 1 {
 			t.Error("TestUceAccompanyFaultProcessorProcessForAddFault fail")
 			return
 		}
-		fault := processor.deviceCmForNodeMap[nodeName].FaultDeviceList[deviceName][0]
+		fault := UceAccompanyProcessor.deviceCmForNodeMap[nodeName].FaultDeviceList[deviceName][0]
 		if fault.FaultCode != constant.AicFaultCode {
 			t.Error("TestUceAccompanyFaultProcessorProcessForAddFault fail")
 			return
@@ -135,7 +132,6 @@ func TestUceAccompanyFaultProcessorProcessForAddFault(t *testing.T) {
 
 func TestUceAccompanyFaultProcessorIsBusinessUceFault(t *testing.T) {
 	t.Run("TestUceAccompanyFaultProcessorIsBusinessUceFault", func(t *testing.T) {
-		processor := NewUceAccompanyFaultProcessor()
 		reportTime := int64(1000)
 		patches := gomonkey.ApplyPrivateMethod(collector.ReportInfoCollector, "GetInfoWithoutJobId",
 			func(nodeName, deviceName string) constant.ReportInfo {
@@ -145,7 +141,7 @@ func TestUceAccompanyFaultProcessorIsBusinessUceFault(t *testing.T) {
 			})
 
 		defer patches.Reset()
-		flag, info := processor.isBusinessUceFault("nodeName", "deviceName")
+		flag, info := UceAccompanyProcessor.isBusinessUceFault("nodeName", "deviceName")
 
 		if !flag || info.RecoverTime != reportTime {
 			t.Error("TestUceAccompanyFaultProcessorIsBusinessUceFault failed.")

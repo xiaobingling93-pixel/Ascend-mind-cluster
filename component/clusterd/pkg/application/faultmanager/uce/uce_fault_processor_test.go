@@ -32,7 +32,7 @@ func max(x, y int64) int64 {
 }
 
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../testdata/clusterd.log"}
+	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../../testdata/clusterd.log"}
 	hwLogConfig.MaxBackups = 30
 	hwLogConfig.MaxAge = 7
 	hwLogConfig.LogLevel = 0
@@ -47,7 +47,6 @@ func TestMain(m *testing.M) {
 // Test current time not exceed (UceFaultTime + JobReportRecoverTimeout), should filter uce fault
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation1(t *testing.T) {
 	want := true
-	processor := NewUceFaultProcessor()
 	for i := 0; i < 10; i++ {
 		t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation1-"+string(rune(i)), func(t *testing.T) {
 			var currentTime int64
@@ -64,7 +63,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation1(t *testing.T) {
 				RecoverTime:  constant.JobNotRecover,
 				CompleteTime: constant.JobNotRecoverComplete,
 			}
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v. uceDevice = %v, currentTime = %v",
 					got, want, uceDevice, currentTime)
 			}
@@ -76,7 +75,6 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation1(t *testing.T) {
 // but don't receive job recover info, should not filter uce fault
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation2(t *testing.T) {
 	want := false
-	processor := NewUceFaultProcessor()
 	// don't receive job recover info
 	t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation2-1", func(t *testing.T) {
 		currentTime := UceFaultTime + constant.JobReportRecoverTimeout + 1 // exceed 1ns
@@ -86,7 +84,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation2(t *testing.T) {
 			RecoverTime:  constant.JobNotRecover,
 			CompleteTime: constant.JobNotRecoverComplete,
 		}
-		if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+		if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 			t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 		}
 	})
@@ -100,7 +98,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation2(t *testing.T) {
 			RecoverTime:  UceFaultTime + constant.JobReportRecoverTimeout + 1, // exceed 1ns
 			CompleteTime: constant.JobNotRecoverComplete,
 		}
-		if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+		if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 			t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 		}
 	})
@@ -110,7 +108,6 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation2(t *testing.T) {
 // but not exceed (RecoverTime + JobReportCompleteTimeout)
 // and receive job recover info, should filter uce fault
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation3(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	want := true
 	for i := 0; i < 10; i++ {
 		t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation3-"+string(rune(i)), func(t *testing.T) {
@@ -128,7 +125,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation3(t *testing.T) {
 			} else {
 				currentTime = rand.Int63nRange(uceDevice.RecoverTime, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
 			}
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -138,8 +135,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation3(t *testing.T) {
 // Test current time exceed (UceFaultTime + JobReportRecoverTimeout),
 // and exceed (RecoverTime + JobReportCompleteTimeout)
 // and receive job recover info, but don't receive job recover complete info, should not filter uce fault
-func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation4(t *testing.T) {
-	processor := NewUceFaultProcessor()
+func TestUceFaultUceProcessorCanFilterUceDeviceFaultInfoSituation4(t *testing.T) {
 	want := false
 	// don't receive recover complete info
 	for i := 0; i < 10; i++ {
@@ -151,7 +147,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation4(t *testing.T) {
 				CompleteTime: constant.JobNotRecoverComplete,
 			}
 			currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -167,7 +163,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation4(t *testing.T) {
 				CompleteTime: constant.JobReportRecoverTimeout + 1, // exceed 1s
 			}
 			currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -178,7 +174,6 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation4(t *testing.T) {
 // and exceed (RecoverTime + JobReportCompleteTimeout)
 // and receive job recover info, and receive job recover complete info, should filter uce fault
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation5(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	want := true
 	for i := 0; i < 10; i++ {
 		t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation5-"+string(rune(i)), func(t *testing.T) {
@@ -196,7 +191,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation5(t *testing.T) {
 				uceDevice.CompleteTime = rand.Int63nRange(uceDevice.RecoverTime, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
 			}
 			currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -207,7 +202,6 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation5(t *testing.T) {
 // and exceed (RecoverTime + JobReportCompleteTimeout)
 // and receive job recover info, but receive invalid job recover complete info, should not filter uce fault
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation6(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	want := false
 	// CompleteTime smaller than FaultTime
 	t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation6-1", func(t *testing.T) {
@@ -219,7 +213,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation6(t *testing.T) {
 		}
 
 		currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-		if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+		if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 			t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 		}
 	})
@@ -235,7 +229,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation6(t *testing.T) {
 		uceDevice.CompleteTime = uceDevice.RecoverTime - 1
 
 		currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-		if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+		if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 			t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 		}
 	})
@@ -245,10 +239,9 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation6(t *testing.T) {
 // and exceed (RecoverTime + JobReportCompleteTimeout)
 // and receive job recover info, and receive job recover complete info, and complete time valid, should filter
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation7(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	want := true
 	for i := 0; i < 10; i++ {
-		t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation7-"+string(rune(i)), func(t *testing.T) {
+		t.Run("TestUceFaultUceProcessorCanFilterUceDeviceFaultInfoSituation7-"+string(rune(i)), func(t *testing.T) {
 			uceDevice := constant.UceDeviceInfo{
 				DeviceName:  "test-device",
 				FaultTime:   UceFaultTime,
@@ -262,7 +255,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation7(t *testing.T) {
 				uceDevice.CompleteTime = rand.Int63nRange(uceDevice.FaultTime, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
 			}
 			currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -274,7 +267,6 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation7(t *testing.T) {
 // and receive job recover info, and receive job recover complete info, and complete time valid,
 // but complete time - recover time exceeds  JobReportCompleteTimeout, should not filter
 func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation8(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	want := false
 	for i := 0; i < 10; i++ {
 		t.Run("TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation8-"+string(rune(i)), func(t *testing.T) {
@@ -289,7 +281,7 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation8(t *testing.T) {
 				uceDevice.CompleteTime = uceDevice.RecoverTime + constant.JobReportCompleteTimeout
 			}
 			currentTime := max(UceFaultTime+constant.JobReportRecoverTimeout+1, uceDevice.RecoverTime+constant.JobReportCompleteTimeout+1)
-			if got := processor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
+			if got := UceProcessor.canFilterUceDeviceFaultInfo(uceDevice, currentTime); got != want {
 				t.Errorf("canFilterUceDeviceFaultInfo() = %v, want %v", got, want)
 			}
 		})
@@ -298,15 +290,14 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation8(t *testing.T) {
 
 // =============Test scenario===========
 func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	t.Run("TestUceFaultProcessorGetUceDeviceOfNodes", func(t *testing.T) {
 		cmDeviceInfos, _, uceNodesInfos, _, _, testFileErr := readObjectFromUceProcessorTestYaml()
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
 
-		processor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
-		deviceOfNodes := processor.getUceDeviceOfNodes()
+		UceProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
+		deviceOfNodes := UceProcessor.getUceDeviceOfNodes()
 		if !reflect.DeepEqual(deviceOfNodes, uceNodesInfos) {
 			t.Errorf("getUceDeviceOfNodes() = %v, want %v",
 				util.ObjToString(deviceOfNodes), util.ObjToString(uceNodesInfos))
@@ -315,39 +306,37 @@ func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 }
 
 func TestUceFaultProcessorGetUceDevicesForUceTolerateJobs(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	t.Run("TestUceFaultProcessorGetUceDevicesForUceTolerateJobs", func(t *testing.T) {
 		cmDeviceInfos, _, _, jobServerInfoMap, expectUceJobsInfo, testFileErr := readObjectFromUceProcessorTestYaml()
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
 
-		processor.jobServerInfoMap = jobServerInfoMap
-		processor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
-		processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
-		processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
-		if !reflect.DeepEqual(processor.uceDevicesOfUceJob, expectUceJobsInfo) {
+		UceProcessor.jobServerInfoMap = jobServerInfoMap
+		UceProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
+		UceProcessor.uceDeviceOfNode = UceProcessor.getUceDeviceOfNodes()
+		UceProcessor.uceDevicesOfUceJob = UceProcessor.getUceDevicesForUceTolerateJobs()
+		if !reflect.DeepEqual(UceProcessor.uceDevicesOfUceJob, expectUceJobsInfo) {
 			t.Errorf("getUceDevicesForUceTolerateJobs() = %v, want %v",
-				util.ObjToString(processor.uceDevicesOfUceJob), util.ObjToString(expectUceJobsInfo))
+				util.ObjToString(UceProcessor.uceDevicesOfUceJob), util.ObjToString(expectUceJobsInfo))
 		}
 	})
 }
 
 func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	t.Run("TestUceFaultProcessorProcessUceFaultInfo", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, _, jobServerInfoMap, _, testFileErr := readObjectFromUceProcessorTestYaml()
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
 
-		processor.jobServerInfoMap = jobServerInfoMap
-		processor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
-		processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
-		processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
+		UceProcessor.jobServerInfoMap = jobServerInfoMap
+		UceProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
+		UceProcessor.uceDeviceOfNode = UceProcessor.getUceDeviceOfNodes()
+		UceProcessor.uceDevicesOfUceJob = UceProcessor.getUceDevicesForUceTolerateJobs()
 		currentTime := 109 * time.Second.Milliseconds()
-		processor.processUceFaultInfo(currentTime)
-		faultdomain.AdvanceDeviceCmForNodeMapToString(processor.nodeDeviceCmMap, cmDeviceInfos)
+		UceProcessor.processUceFaultInfo(currentTime)
+		faultdomain.AdvanceDeviceCmForNodeMapToString(UceProcessor.nodeDeviceCmMap, cmDeviceInfos)
 		result := faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
 		want := faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)
 		if !reflect.DeepEqual(result, want) {
@@ -358,7 +347,6 @@ func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
 }
 
 func TestUceFaultProcessorScenario1(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	t.Run("TestUceFaultProcessorScenario1", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, jobServerInfoMap, reportInfos, testFileErr :=
 			readObjectFromUceScenarioTestYaml()
@@ -367,13 +355,13 @@ func TestUceFaultProcessorScenario1(t *testing.T) {
 		}
 		collector.ReportInfoCollector = reportInfos
 
-		processor.jobServerInfoMap = jobServerInfoMap
-		processor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
-		processor.uceDeviceOfNode = processor.getUceDeviceOfNodes()
-		processor.uceDevicesOfUceJob = processor.getUceDevicesForUceTolerateJobs()
+		UceProcessor.jobServerInfoMap = jobServerInfoMap
+		UceProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
+		UceProcessor.uceDeviceOfNode = UceProcessor.getUceDeviceOfNodes()
+		UceProcessor.uceDevicesOfUceJob = UceProcessor.getUceDevicesForUceTolerateJobs()
 		currentTime := 100 * time.Second.Milliseconds()
-		processor.processUceFaultInfo(currentTime)
-		faultdomain.AdvanceDeviceCmForNodeMapToString(processor.nodeDeviceCmMap, cmDeviceInfos)
+		UceProcessor.processUceFaultInfo(currentTime)
+		faultdomain.AdvanceDeviceCmForNodeMapToString(UceProcessor.nodeDeviceCmMap, cmDeviceInfos)
 		result := faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
 		want := faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)
 		if !reflect.DeepEqual(result, want) {
@@ -384,7 +372,6 @@ func TestUceFaultProcessorScenario1(t *testing.T) {
 }
 
 func TestUceFaultProcessorScenario2(t *testing.T) {
-	processor := NewUceFaultProcessor()
 	t.Run("TestUceFaultProcessorScenario2", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, jobServerInfoMap, reportInfos, testFileErr :=
 			readObjectFromUceScenarioTestYaml()
@@ -416,7 +403,7 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 			mockUnixMilli.Reset()
 		}()
 
-		resultContent := processor.Process(content).(constant.OneConfigmapContent[*constant.DeviceInfo])
+		resultContent := UceProcessor.Process(content).(constant.OneConfigmapContent[*constant.DeviceInfo])
 		result := faultdomain.GetAdvanceDeviceCmForNodeMap(resultContent.AllConfigmap)
 		want := faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)
 		if !reflect.DeepEqual(result, want) {

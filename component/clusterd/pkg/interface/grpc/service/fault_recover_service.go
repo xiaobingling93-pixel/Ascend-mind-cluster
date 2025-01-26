@@ -339,9 +339,9 @@ func (s *FaultRecoverService) ReportRecoverStatus(ctx context.Context,
 
 func giveSoftFault2FaultCenter(jobId string, faults []*pb.FaultRank) {
 	t := time.Now().UnixMilli()
-	var infos []faultmanager.ReportRecoverInfo
+	var infos []constant.ReportRecoverInfo
 	for _, fault := range faults {
-		infos = append(infos, faultmanager.ReportRecoverInfo{
+		infos = append(infos, constant.ReportRecoverInfo{
 			JobId:       jobId,
 			Rank:        fault.RankId,
 			RecoverTime: t,
