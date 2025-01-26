@@ -90,7 +90,7 @@ func (s *FaultRecoverService) checkFault() {
 		hwlog.RunLog.Warnf("global center is nil, try it after %d second", globalFaultBeaconSecond)
 		return
 	}
-	allJobFaultInfo := faultmanager.GlobalFaultProcessCenter.QueryJobsFaultInfo(constant.NotHandleFault)
+	allJobFaultInfo := faultmanager.QueryJobsFaultInfo(constant.NotHandleFault)
 	var registeredJobInfo []constant.JobFaultInfo
 	for jobId, jobFaultInfo := range allJobFaultInfo {
 		if !s.registered(jobId) {
@@ -347,7 +347,7 @@ func giveSoftFault2FaultCenter(jobId string, faults []*pb.FaultRank) {
 			RecoverTime: t,
 		})
 	}
-	faultmanager.GlobalFaultProcessCenter.CallbackForReportUceInfo(infos)
+	faultmanager.CallbackForReportUceInfo(infos)
 }
 
 // ReportProcessFault report soft fault ranks to ClusterD

@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package uce contain uce process method
 package uce
@@ -8,21 +8,21 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/faultdomain/collector"
 	"clusterd/pkg/domain/job"
 )
 
-var UceProcessor *UceFaultProcessor
+var UceProcessor *uceFaultProcessor
 
 /*
-The UceFaultProcessor process uce fault reporting information.
+The uceFaultProcessor process uce fault reporting information.
 If the device fault is UCE fault, then determine whether the job running on the device can tolerate UCE faults.
 If they can tolerate it, the reporting of the UCE fault should be delayed by 10 seconds.
 */
-type UceFaultProcessor struct {
+type uceFaultProcessor struct {
 	JobReportRecoverTimeout  int64
 	JobReportCompleteTimeout int64
 
@@ -35,13 +35,13 @@ type UceFaultProcessor struct {
 }
 
 func init() {
-	UceProcessor = &UceFaultProcessor{
+	UceProcessor = &uceFaultProcessor{
 		JobReportRecoverTimeout:  constant.JobReportRecoverTimeout,
 		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
 	}
 }
 
-func (processor *UceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string, nodeName string) constant.UceNodeInfo {
+func (processor *uceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId string, nodeName string) constant.UceNodeInfo {
 	managerPlaneUceNode := processor.uceDeviceOfNode[nodeName]
 	devicesOfJobOnNode := processor.jobServerInfoMap.InfoMap[jobId][nodeName]
 	jobUceNodeInfo := constant.UceNodeInfo{
@@ -70,13 +70,10 @@ func (processor *UceFaultProcessor) initUceDeviceFromNodeAndReportInfo(jobId str
 	return jobUceNodeInfo
 }
 
-func (processor *UceFaultProcessor) Process(info any) any {
+func (processor *uceFaultProcessor) Process(info any) any {
 	processContent, ok := info.(constant.OneConfigmapContent[*constant.DeviceInfo])
 	if !ok {
 		hwlog.RunLog.Errorf("%v cannot convert to DeviceInfo", info)
-		return info
-	}
-	if len(processContent.UpdateConfigmap) == 0 {
 		return info
 	}
 	deviceInfos := processContent.AllConfigmap
@@ -93,7 +90,7 @@ func (processor *UceFaultProcessor) Process(info any) any {
 	hwlog.RunLog.Debugf("current uceDevicesOfUceJob %s", util.ObjToString(processor.uceDevicesOfUceJob))
 
 	currentTime := time.Now().UnixMilli()
-	hwlog.RunLog.Infof("currentTime %d", currentTime)
+	hwlog.RunLog.Debugf("currentTime %d", currentTime)
 
 	processor.processUceFaultInfo(currentTime)
 	faultdomain.AdvanceDeviceCmForNodeMapToString(processor.nodeDeviceCmMap, deviceInfos)
@@ -103,14 +100,14 @@ func (processor *UceFaultProcessor) Process(info any) any {
 	return processContent
 }
 
-func (processor *UceFaultProcessor) processUceFaultInfo(currentTime int64) {
+func (processor *uceFaultProcessor) processUceFaultInfo(currentTime int64) {
 	for nodeName, advanceDeviceInfo := range processor.nodeDeviceCmMap {
 		advanceDeviceInfo = processor.processEachNodeUceFaultInfo(nodeName, advanceDeviceInfo, currentTime)
 		processor.nodeDeviceCmMap[nodeName] = advanceDeviceInfo
 	}
 }
 
-func (processor *UceFaultProcessor) processEachNodeUceFaultInfo(
+func (processor *uceFaultProcessor) processEachNodeUceFaultInfo(
 	nodeName string, deviceInfo constant.AdvanceDeviceFaultCm, currentTime int64) constant.AdvanceDeviceFaultCm {
 	for _, uceJob := range processor.uceDevicesOfUceJob {
 		for deviceName, uceDevice := range uceJob.UceNode[nodeName].DeviceInfo {
@@ -131,7 +128,7 @@ func (processor *UceFaultProcessor) processEachNodeUceFaultInfo(
 	return deviceInfo
 }
 
-func (processor *UceFaultProcessor) filterUceDeviceFaultInfo(
+func (processor *uceFaultProcessor) filterUceDeviceFaultInfo(
 	deviceName string, deviceFaultMap map[string][]constant.DeviceFault) map[string][]constant.DeviceFault {
 	for _, fault := range deviceFaultMap[deviceName] {
 		// filter device's uce fault
@@ -142,7 +139,7 @@ func (processor *UceFaultProcessor) filterUceDeviceFaultInfo(
 	return deviceFaultMap
 }
 
-func (processor *UceFaultProcessor) canFilterUceDeviceFaultInfo(uceDevice constant.UceDeviceInfo, currentTime int64) bool {
+func (processor *uceFaultProcessor) canFilterUceDeviceFaultInfo(uceDevice constant.UceDeviceInfo, currentTime int64) bool {
 	if processor.currentTimeIsNotExceedReportRecoverTimeout(uceDevice, currentTime) {
 		return true
 	}
@@ -157,22 +154,22 @@ func (processor *UceFaultProcessor) canFilterUceDeviceFaultInfo(uceDevice consta
 	return false
 }
 
-func (processor *UceFaultProcessor) currentTimeIsNotExceedReportRecoverTimeout(
+func (processor *uceFaultProcessor) currentTimeIsNotExceedReportRecoverTimeout(
 	uceDevice constant.UceDeviceInfo, currentTime int64) bool {
 	return uceDevice.FaultTime >= currentTime-processor.JobReportRecoverTimeout
 }
 
-func (processor *UceFaultProcessor) RecoverTimeIsNotExceedRecoverTimeout(
+func (processor *uceFaultProcessor) RecoverTimeIsNotExceedRecoverTimeout(
 	uceDevice constant.UceDeviceInfo) bool {
 	return uceDevice.FaultTime >= uceDevice.RecoverTime-processor.JobReportRecoverTimeout
 }
 
-func (processor *UceFaultProcessor) currentTimeIsNotExceedRecoverCompleteTimeout(
+func (processor *uceFaultProcessor) currentTimeIsNotExceedRecoverCompleteTimeout(
 	uceDevice constant.UceDeviceInfo, currentTime int64) bool {
 	return processor.JobReportCompleteTimeout+uceDevice.RecoverTime >= currentTime
 }
 
-func (processor *UceFaultProcessor) reportCompleteTimeIsNotExceedCompleteTimeout(
+func (processor *uceFaultProcessor) reportCompleteTimeIsNotExceedCompleteTimeout(
 	uceDevice constant.UceDeviceInfo) bool {
 	// invalid complete time
 	if uceDevice.CompleteTime < uceDevice.FaultTime || uceDevice.CompleteTime < uceDevice.RecoverTime {
@@ -181,7 +178,7 @@ func (processor *UceFaultProcessor) reportCompleteTimeIsNotExceedCompleteTimeout
 	return processor.JobReportCompleteTimeout+uceDevice.RecoverTime >= uceDevice.CompleteTime
 }
 
-func (processor *UceFaultProcessor) getUceDeviceOfNodes() map[string]constant.UceNodeInfo {
+func (processor *uceFaultProcessor) getUceDeviceOfNodes() map[string]constant.UceNodeInfo {
 	uceNodes := make(map[string]constant.UceNodeInfo)
 	for nodeName, deviceInfo := range processor.nodeDeviceCmMap {
 		uceFaultDevicesOnNode := processor.getUceFaultDevices(nodeName, deviceInfo)
@@ -194,7 +191,7 @@ func (processor *UceFaultProcessor) getUceDeviceOfNodes() map[string]constant.Uc
 	return uceNodes
 }
 
-func (processor *UceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string]constant.UceJobInfo {
+func (processor *uceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string]constant.UceJobInfo {
 	nodeNameList := make([]string, 0)
 	for key, _ := range processor.nodeDeviceCmMap {
 		nodeNameList = append(nodeNameList, key)
@@ -224,7 +221,7 @@ func (processor *UceFaultProcessor) getUceDevicesForUceTolerateJobs() map[string
 	return uceJobs
 }
 
-func (processor *UceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo constant.AdvanceDeviceFaultCm) constant.UceNodeInfo {
+func (processor *uceFaultProcessor) getUceFaultDevices(nodeName string, deviceInfo constant.AdvanceDeviceFaultCm) constant.UceNodeInfo {
 	nodeInfo := constant.UceNodeInfo{
 		NodeName:   nodeName,
 		DeviceInfo: make(map[string]constant.UceDeviceInfo),
@@ -248,7 +245,7 @@ func (processor *UceFaultProcessor) getUceFaultDevices(nodeName string, deviceIn
 	return nodeInfo
 }
 
-func (processor *UceFaultProcessor) GetUceDeviceFromJob(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
+func (processor *uceFaultProcessor) GetUceDeviceFromJob(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
 	jobInfo, found := processor.uceDevicesOfUceJob[jobId]
 	if !found {
 		hwlog.RunLog.Debugf("job %s has no uce fault", jobId)

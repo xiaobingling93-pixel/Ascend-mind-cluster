@@ -1,0 +1,23 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
+// Package cmprocess contain cm processor
+package cmprocess
+
+import (
+	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/faultdomain/cmmanager"
+)
+
+// SwitchCenter process switch cm info
+var SwitchCenter *switchFaultProcessCenter
+
+func init() {
+	manager := cmmanager.SwitchCenterCmManager
+	SwitchCenter = &switchFaultProcessCenter{
+		baseFaultCenter: newBaseFaultCenter(manager, constant.SwitchProcessType),
+	}
+}
+
+type switchFaultProcessCenter struct {
+	baseFaultCenter[*constant.SwitchInfo]
+}

@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package uce contain uce process
 package uce
@@ -15,10 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/faultdomain/collector"
 	"clusterd/pkg/domain/job"
 )
 
@@ -32,14 +32,7 @@ func max(x, y int64) int64 {
 }
 
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../../testdata/clusterd.log"}
-	hwLogConfig.MaxBackups = 30
-	hwLogConfig.MaxAge = 7
-	hwLogConfig.LogLevel = 0
-	if err := hwlog.InitRunLogger(hwLogConfig, nil); err != nil {
-		fmt.Printf("hwlog init failed, error is %v\n", err)
-		return
-	}
+	hwlog.InitRunLogger(&hwlog.LogConfig{OnlyToStdout: true}, nil)
 	m.Run()
 }
 
@@ -417,7 +410,7 @@ func readObjectFromUceProcessorTestYaml() (
 	map[string]*constant.DeviceInfo, map[string]*constant.DeviceInfo,
 	map[string]constant.UceNodeInfo, constant.JobServerInfoMap, map[string]constant.UceJobInfo, error) {
 
-	var testDataPath = "../../../../testdata/resource/uce_fault_processor_test.yaml"
+	var testDataPath = "../../../../../testdata/resource/uce_fault_processor_test.yaml"
 	var maxFileSize = 10000
 	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var expectProcessedDeviceInfos = make(map[string]*constant.DeviceInfo)
@@ -434,61 +427,69 @@ func readObjectFromUceProcessorTestYaml() (
 	fileInfo, err := os.Stat(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("testDataPath invalid")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 	fileSize = fileInfo.Size()
 	if fileSize > int64(maxFileSize) {
 		err = fmt.Errorf("testData file size too big")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 
 	open, err = os.Open(testDataPath)
 	if err != nil {
 		err = fmt.Errorf("open testData file failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 
 	decoder = yaml.NewYAMLOrJSONDecoder(open, maxFileSize)
 
+	return extractContentForUceTest(err, decoder, cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos,
+		jobServerInfo, expectUceJobsInfo, jobDevices, jobIsUce)
+}
+
+func extractContentForUceTest(err error, decoder *yaml.YAMLOrJSONDecoder, cmDeviceInfos map[string]*constant.DeviceInfo,
+	expectProcessedDeviceInfos map[string]*constant.DeviceInfo, uceNodesInfos map[string]constant.UceNodeInfo,
+	jobServerInfo constant.JobServerInfoMap, expectUceJobsInfo map[string]constant.UceJobInfo,
+	jobDevices map[string]map[string]constant.ServerHccl, jobIsUce map[string]bool) (map[string]*constant.DeviceInfo,
+	map[string]*constant.DeviceInfo, map[string]constant.UceNodeInfo, constant.JobServerInfoMap,
+	map[string]constant.UceJobInfo, error) {
 	err = decoder.Decode(&cmDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("cmDeviceInfos decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 
 	err = decoder.Decode(&expectProcessedDeviceInfos)
 	if err != nil {
 		err = fmt.Errorf("expectProcessedDeviceInfos decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 
 	err = decoder.Decode(&uceNodesInfos)
 	if err != nil {
 		err = fmt.Errorf("uceNodesInfos decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 
 	err = decoder.Decode(&jobDevices)
 	if err != nil {
 		err = fmt.Errorf("jobs decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 	jobServerInfo.InfoMap = jobDevices
 
 	err = decoder.Decode(&jobIsUce)
 	if err != nil {
 		err = fmt.Errorf("jobIsUce decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
 	jobServerInfo.UceTolerate = jobIsUce
 
 	err = decoder.Decode(&expectUceJobsInfo)
 	if err != nil {
 		err = fmt.Errorf("expectUceJobsInfo decode failed")
-		goto ReturnLabel
+		return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 	}
-
-ReturnLabel:
 	return cmDeviceInfos, expectProcessedDeviceInfos, uceNodesInfos, jobServerInfo, expectUceJobsInfo, err
 }
 
@@ -496,7 +497,7 @@ func readObjectFromUceScenarioTestYaml() (
 	map[string]*constant.DeviceInfo, map[string]*constant.DeviceInfo,
 	constant.JobServerInfoMap, *collector.JobReportInfoCollector, error) {
 
-	var testDataPath = "../../../../testdata/resource/uce_scenario_test.yaml"
+	var testDataPath = "../../../../../testdata/resource/uce_scenario_test.yaml"
 	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var expectDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var err error

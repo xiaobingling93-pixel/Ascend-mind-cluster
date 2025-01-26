@@ -1,26 +1,18 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package faultmanager contain fault process
 package faultmanager
 
 import (
-	"fmt"
 	"testing"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/faultrank"
+	"clusterd/pkg/application/faultmanager/jobprocess/faultrank"
 	"clusterd/pkg/common/constant"
 )
 
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../testdata/clusterd.log"}
-	hwLogConfig.MaxBackups = 30
-	hwLogConfig.MaxAge = 7
-	hwLogConfig.LogLevel = 0
-	if err := hwlog.InitRunLogger(hwLogConfig, nil); err != nil {
-		fmt.Printf("hwlog init failed, error is %v\n", err)
-		return
-	}
+	hwlog.InitRunLogger(&hwlog.LogConfig{OnlyToStdout: true}, nil)
 	m.Run()
 }
 
@@ -28,10 +20,7 @@ func TestCallbackForReportUceInfo(t *testing.T) {
 	t.Run("TestCallbackForReportUceInfo", func(t *testing.T) {
 		infos := make([]constant.ReportRecoverInfo, 0)
 		infos = append(infos, constant.ReportRecoverInfo{})
-		err := GlobalFaultProcessCenter.CallbackForReportUceInfo(infos)
-		if err != nil {
-			t.Error("TestCallbackForReportUceInfo fail")
-		}
+		CallbackForReportUceInfo(infos)
 	})
 }
 
@@ -47,7 +36,7 @@ func TestRegister(t *testing.T) {
 func TestQueryJobsFaultInfo(t *testing.T) {
 	t.Run("TestQueryJobsFaultInfo", func(t *testing.T) {
 		faultrank.JobFaultRankProcessor.SetJobFaultRankInfos(map[string]constant.JobFaultInfo{"test": {}})
-		jobsFaultInfo := GlobalFaultProcessCenter.QueryJobsFaultInfo(constant.NotHandleFault)
+		jobsFaultInfo := QueryJobsFaultInfo(constant.NotHandleFault)
 		if len(jobsFaultInfo) != 1 {
 			t.Error("TestQueryJobsFaultInfo fail")
 		}

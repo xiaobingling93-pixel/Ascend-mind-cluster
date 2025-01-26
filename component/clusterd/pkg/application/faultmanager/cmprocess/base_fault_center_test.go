@@ -1,13 +1,13 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-// Package faultmanager contain fault process
-package cmprocesscenter
+// Package cmprocess contain cm processor
+package cmprocess
 
 import (
-	"clusterd/pkg/application/faultmanager/cmmanager"
 	"testing"
 
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/faultdomain/cmmanager"
 )
 
 type fakeProcessor struct{}

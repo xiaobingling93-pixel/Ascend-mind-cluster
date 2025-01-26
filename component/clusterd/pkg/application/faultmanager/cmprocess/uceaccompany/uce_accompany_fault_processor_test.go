@@ -1,7 +1,7 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-// Package uce_accompany contain aiv/aic fault process
-package uce_accompany
+// Package uceaccompany contain aiv/aic fault process
+package uceaccompany
 
 import (
 	"fmt"
@@ -14,25 +14,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/faultdomain/collector"
 )
 
+// CurrentTime current time of test case
+var CurrentTime int64
+
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../../testdata/clusterd.log"}
-	hwLogConfig.MaxBackups = 30
-	hwLogConfig.MaxAge = 7
-	hwLogConfig.LogLevel = 0
-	if err := hwlog.InitRunLogger(hwLogConfig, nil); err != nil {
-		fmt.Printf("hwlog init failed, error is %v\n", err)
-		return
-	}
+	hwlog.InitRunLogger(&hwlog.LogConfig{OnlyToStdout: true}, nil)
+	CurrentTime = 95 * time.Second.Milliseconds()
 	m.Run()
 }
 
-// ======= Test UceAccompanyFaultProcessor
+// ======= Test uceAccompanyFaultProcessor
 func TestUceAccompanyFaultProcessorProcess(t *testing.T) {
 	t.Run("TestUceAccompanyFaultProcessorProcess", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, testFileErr := readObjectFromUceAccompanyProcessorTestYaml()
@@ -41,8 +38,7 @@ func TestUceAccompanyFaultProcessorProcess(t *testing.T) {
 		}
 		UceAccompanyProcessor.deviceCmForNodeMap = faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos)
 		UceAccompanyProcessor.uceAccompanyFaultInQue()
-		currentTime := 95 * time.Second.Milliseconds()
-		UceAccompanyProcessor.filterFaultInfos(currentTime)
+		UceAccompanyProcessor.filterFaultInfos(CurrentTime)
 		faultdomain.AdvanceDeviceCmForNodeMapToString(UceAccompanyProcessor.deviceCmForNodeMap, cmDeviceInfos)
 		if !reflect.DeepEqual(faultdomain.GetAdvanceDeviceCmForNodeMap(cmDeviceInfos),
 			faultdomain.GetAdvanceDeviceCmForNodeMap(expectProcessedDeviceInfos)) {
@@ -70,7 +66,7 @@ func TestUceAccompanyFaultProcessorProcessE2E(t *testing.T) {
 		}
 		mockTime := time.Time{}
 		mockUnixMilli := gomonkey.ApplyPrivateMethod(mockTime, "UnixMilli", func() int64 {
-			return 95 * time.Second.Milliseconds()
+			return CurrentTime
 		})
 		mockNow := gomonkey.ApplyFunc(time.Now, func() time.Time {
 			return mockTime
@@ -97,7 +93,6 @@ func TestUceAccompanyFaultProcessorProcessE2E(t *testing.T) {
 // TestUceAccompanyFaultProcessorProcess when aic/aiv in queue is exceed DiagnosisTime, then should add in fault map
 func TestUceAccompanyFaultProcessorProcessForAddFault(t *testing.T) {
 	t.Run("TestUceAccompanyFaultProcessorProcessForAddFault", func(t *testing.T) {
-		currentTime := 95 * time.Second.Milliseconds()
 		nodeName := "node1"
 		deviceName := "Ascend910A-0"
 		UceAccompanyProcessor.uceAccompanyFaultQue = map[string]map[string][]constant.DeviceFault{
@@ -117,7 +112,7 @@ func TestUceAccompanyFaultProcessorProcessForAddFault(t *testing.T) {
 			},
 		}
 		UceAccompanyProcessor.deviceCmForNodeMap = make(map[string]constant.AdvanceDeviceFaultCm)
-		UceAccompanyProcessor.filterFaultInfos(currentTime)
+		UceAccompanyProcessor.filterFaultInfos(CurrentTime)
 		if len(UceAccompanyProcessor.deviceCmForNodeMap[nodeName].FaultDeviceList[deviceName]) != 1 {
 			t.Error("TestUceAccompanyFaultProcessorProcessForAddFault fail")
 			return
@@ -152,7 +147,7 @@ func TestUceAccompanyFaultProcessorIsBusinessUceFault(t *testing.T) {
 func readObjectFromUceAccompanyProcessorTestYaml() (
 	map[string]*constant.DeviceInfo, map[string]*constant.DeviceInfo, error) {
 
-	var testDataPath = "../../../../testdata/resource/uce_accompany_processor_test.yaml"
+	var testDataPath = "../../../../../testdata/resource/uce_accompany_processor_test.yaml"
 	var cmDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var expectProcessedDeviceInfos = make(map[string]*constant.DeviceInfo)
 	var err error

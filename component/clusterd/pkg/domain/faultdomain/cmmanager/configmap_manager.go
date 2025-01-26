@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package faultmanager contain fault process
 package cmmanager
@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain/collector"
 )
 
 type ConfigMap[T constant.ConfigMapInterface] struct {
@@ -53,8 +53,8 @@ func init() {
 }
 
 func (manager *FaultCenterCmManager[T]) GetOriginalCm() ConfigMap[T] {
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
 	return manager.originalCm.deepCopy()
 }
 
@@ -65,20 +65,24 @@ func (manager *FaultCenterCmManager[T]) SetProcessingCm(cm ConfigMap[T]) {
 }
 
 func (manager *FaultCenterCmManager[T]) GetProcessingCm() ConfigMap[T] {
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
 	return manager.processingCm.deepCopy()
 }
 
-func (manager *FaultCenterCmManager[T]) SetProcessedCm(cm ConfigMap[T]) {
+func (manager *FaultCenterCmManager[T]) SetProcessedCm(cm ConfigMap[T]) bool {
 	manager.mutex.Lock()
 	defer manager.mutex.Unlock()
+	if manager.processedCm.equal(cm) {
+		return false
+	}
 	manager.processedCm = cm.deepCopy()
+	return true
 }
 
 func (manager *FaultCenterCmManager[T]) GetProcessedCm() ConfigMap[T] {
-	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
 	return manager.processedCm.deepCopy()
 }
 
@@ -118,7 +122,23 @@ func (cm *ConfigMap[T]) updateCmInfo(newInfo T, isAdd bool) {
 		}
 		cm.Data[newInfo.GetCmName()] = newInfo
 		hwlog.RunLog.Debugf("add DeviceInfo: %s", util.ObjToString(newInfo))
-	} else {
-		delete(cm.Data, newInfo.GetCmName())
+		return
 	}
+	delete(cm.Data, newInfo.GetCmName())
+}
+
+func (cm *ConfigMap[T]) equal(other ConfigMap[T]) bool {
+	if len(cm.Data) != len(other.Data) {
+		return false
+	}
+	for cmName, info := range cm.Data {
+		otherInfo, found := other.Data[cmName]
+		if !found {
+			return false
+		}
+		if !info.IsSame(otherInfo) {
+			return false
+		}
+	}
+	return true
 }

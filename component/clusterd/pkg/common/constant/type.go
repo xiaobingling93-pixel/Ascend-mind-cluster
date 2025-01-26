@@ -147,6 +147,7 @@ type JobServerInfoMap struct {
 	ResourceType map[string]string
 }
 
+// UceDeviceInfo uce device info
 type UceDeviceInfo struct {
 	// DeviceName has prefix Ascend910
 	DeviceName   string
@@ -155,23 +156,27 @@ type UceDeviceInfo struct {
 	CompleteTime int64
 }
 
+// UceNodeInfo uce node info
 type UceNodeInfo struct {
 	NodeName string
 	// DeviceName->DeviceInfo
 	DeviceInfo map[string]UceDeviceInfo
 }
 
+// UceJobInfo uce job info
 type UceJobInfo struct {
 	// UceNode node->nodeInfo
 	UceNode map[string]UceNodeInfo
 	JobId   string
 }
 
+// ReportInfo train process report uce info
 type ReportInfo struct {
 	RecoverTime  int64
 	CompleteTime int64
 }
 
+// FaultProcessor a interface of fault process
 type FaultProcessor interface {
 	Process(info any) any
 }
@@ -188,16 +193,19 @@ type AdvanceDeviceFaultCm struct {
 	UpdateTime       int64
 }
 
+// InformerCmItem informer configmap item of queue or buffer
 type InformerCmItem[T ConfigMapInterface] struct {
 	IsAdd bool
 	Data  T
 }
 
+// OneConfigmapContent contains one kind of configmap content
 type OneConfigmapContent[T ConfigMapInterface] struct {
 	AllConfigmap    map[string]T
 	UpdateConfigmap []InformerCmItem[T]
 }
 
+// AllConfigmapContent contains all kind of configmap content
 type AllConfigmapContent struct {
 	DeviceCm map[string]*DeviceInfo
 	SwitchCm map[string]*SwitchInfo
@@ -292,6 +300,7 @@ func SwitchInfoBusinessDataIsNotEqual(oldSwitch, newSwitch *SwitchInfo) bool {
 		len(newSwitch.FaultCode) != len(oldSwitch.FaultCode) {
 		return true
 	}
+	hwlog.RunLog.Debug("oldSwitch is equal to newSwitch")
 	return false
 }
 
@@ -341,6 +350,7 @@ type DeviceStrategy struct {
 	NPUName  string
 }
 
+// FaultInfo fault info of relation fault process
 type FaultInfo struct {
 	FaultUid         string
 	FaultType        string
@@ -367,6 +377,7 @@ type RelationFaultStrategy struct {
 	FaultStrategy  string
 }
 
+// SimpleSwitchFaultInfo simple switch fault info
 type SimpleSwitchFaultInfo struct {
 	EventType          uint
 	AssembledFaultCode string

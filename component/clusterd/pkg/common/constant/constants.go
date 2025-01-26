@@ -53,6 +53,12 @@ const (
 	MaxSupportNodeNum = 5000
 	// MaxSupportJobNum max support job num
 	MaxSupportJobNum = 10000
+	// MaxCmQueueLen max cm queue len support
+	MaxCmQueueLen = 5
+	// DefaultLogLevel default log level
+	DefaultLogLevel = 0
+	// MaxNotifyChanLen max support notify chan
+	MaxNotifyChanLen = 1000
 )
 
 // fault code const
@@ -94,4 +100,6 @@ const (
 	SubHealthFaultStrategy = "SubHealth"
 	// SwitchFault switch fault strategy
 	SwitchFault = "switchFault"
+	// UnHealthy
+	UnHealthy = "UnHealthy"
 )

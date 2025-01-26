@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package collector collect information to process
 package collector
@@ -45,6 +45,9 @@ func (cmCollector *ConfigmapCollectBuffer[T]) Push(info T, isAdd bool) bool {
 	if !found {
 		queue = &[]constant.InformerCmItem[T]{}
 		cmCollector.buffer[info.GetCmName()] = queue
+	}
+	if len(*queue) > constant.MaxCmQueueLen {
+		hwlog.RunLog.Warnf("queue of %s is exceeded %d", info.GetCmName(), constant.MaxCmQueueLen)
 	}
 	newItem := constant.InformerCmItem[T]{
 		IsAdd: isAdd,

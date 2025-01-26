@@ -1,26 +1,26 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-// Package uce_accompany contain aiv/aic fault process
-package uce_accompany
+// Package uceaccompany contain aiv/aic fault process
+package uceaccompany
 
 import (
 	"fmt"
 	"time"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/collector"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/faultdomain/collector"
 )
 
-var UceAccompanyProcessor *UceAccompanyFaultProcessor
+var UceAccompanyProcessor *uceAccompanyFaultProcessor
 
-// UceAccompanyFaultProcessor:
+// uceAccompanyFaultProcessor:
 // aic aiv fault can be 1) accompanied by uce fault, also can 2) curr alone.
 // if 1) aic aiv fault should be filtered. Once find aic fault, check if there is an uce fault 5s ago
 // if 2) aic aiv fault should not be retained.
-type UceAccompanyFaultProcessor struct {
+type uceAccompanyFaultProcessor struct {
 	// maintain 5s ago device info
 	DiagnosisAccompanyTimeout int64
 	// nodeName -> deviceName -> faultQue
@@ -31,20 +31,20 @@ type UceAccompanyFaultProcessor struct {
 }
 
 func init() {
-	UceAccompanyProcessor = &UceAccompanyFaultProcessor{
+	UceAccompanyProcessor = &uceAccompanyFaultProcessor{
 		DiagnosisAccompanyTimeout: constant.DiagnosisAccompanyTimeout,
 		uceAccompanyFaultQue:      make(map[string]map[string][]constant.DeviceFault),
 		uceFaultTime:              make(map[string]map[string]int64),
 	}
 }
 
-func (processor *UceAccompanyFaultProcessor) uceAccompanyFaultInQue() {
+func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQue() {
 	for nodeName, deviceInfo := range processor.deviceCmForNodeMap {
 		processor.uceAccompanyFaultInQueForNode(nodeName, deviceInfo)
 	}
 }
 
-func (processor *UceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
+func (processor *uceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
 	nodeName string, deviceInfo constant.AdvanceDeviceFaultCm) {
 	if _, ok := processor.uceAccompanyFaultQue[nodeName]; !ok {
 		processor.uceAccompanyFaultQue[nodeName] = make(map[string][]constant.DeviceFault)
@@ -73,7 +73,7 @@ func (processor *UceAccompanyFaultProcessor) uceAccompanyFaultInQueForNode(
 	}
 }
 
-func (processor *UceAccompanyFaultProcessor) isBusinessUceFault(nodeName, deviceName string) (bool, constant.ReportInfo) {
+func (processor *uceAccompanyFaultProcessor) isBusinessUceFault(nodeName, deviceName string) (bool, constant.ReportInfo) {
 	info := collector.ReportInfoCollector.GetInfoWithoutJobId(nodeName, deviceName)
 	if info.RecoverTime != constant.JobNotRecover {
 		return true, info
@@ -81,7 +81,7 @@ func (processor *UceAccompanyFaultProcessor) isBusinessUceFault(nodeName, device
 	return false, constant.ReportInfo{}
 }
 
-func (processor *UceAccompanyFaultProcessor) inQue(nodeName, deviceName string, fault constant.DeviceFault) {
+func (processor *uceAccompanyFaultProcessor) inQue(nodeName, deviceName string, fault constant.DeviceFault) {
 	if _, ok := processor.uceAccompanyFaultQue[nodeName][deviceName]; !ok {
 		processor.uceAccompanyFaultQue[nodeName][deviceName] = make([]constant.DeviceFault, 0)
 	}
@@ -99,7 +99,7 @@ func (processor *UceAccompanyFaultProcessor) inQue(nodeName, deviceName string, 
 	}
 }
 
-func (processor *UceAccompanyFaultProcessor) filterFaultInfos(currentTime int64) {
+func (processor *uceAccompanyFaultProcessor) filterFaultInfos(currentTime int64) {
 	for nodeName, nodeFaults := range processor.uceAccompanyFaultQue {
 		faultMap := processor.deviceCmForNodeMap[nodeName]
 		for deviceName, deviceFaultQue := range nodeFaults {
@@ -112,7 +112,7 @@ func (processor *UceAccompanyFaultProcessor) filterFaultInfos(currentTime int64)
 	}
 }
 
-func (processor *UceAccompanyFaultProcessor) filterFaultDevice(
+func (processor *uceAccompanyFaultProcessor) filterFaultDevice(
 	faultMap map[string][]constant.DeviceFault, currentTime int64, nodeName, deviceName string,
 	deviceFaultQue []constant.DeviceFault) ([]constant.DeviceFault, map[string][]constant.DeviceFault) {
 	newDeviceFaultQue := make([]constant.DeviceFault, 0)
@@ -145,30 +145,27 @@ func (processor *UceAccompanyFaultProcessor) filterFaultDevice(
 	return newDeviceFaultQue, faultMap
 }
 
-func (processor *UceAccompanyFaultProcessor) getDeviceUceFaultTime(nodeName, deviceName string) int64 {
+func (processor *uceAccompanyFaultProcessor) getDeviceUceFaultTime(nodeName, deviceName string) int64 {
 	if faultTime, ok := processor.uceFaultTime[nodeName][deviceName]; ok {
 		return faultTime
 	}
 	return constant.DeviceNotFault
 }
 
-func (processor *UceAccompanyFaultProcessor) isAccompaniedFaultByUce(
+func (processor *uceAccompanyFaultProcessor) isAccompaniedFaultByUce(
 	uceFaultTime, uceAccompanyFaultTime int64) bool {
 	return util.Abs(uceFaultTime-uceAccompanyFaultTime) <= processor.DiagnosisAccompanyTimeout
 }
 
-func (processor *UceAccompanyFaultProcessor) isCurrentExceedDiagnosisTimeout(
+func (processor *uceAccompanyFaultProcessor) isCurrentExceedDiagnosisTimeout(
 	currentTime, uceAccompanyFaultTime int64) bool {
 	return uceAccompanyFaultTime < currentTime-processor.DiagnosisAccompanyTimeout
 }
 
-func (processor *UceAccompanyFaultProcessor) Process(info any) any {
+func (processor *uceAccompanyFaultProcessor) Process(info any) any {
 	processContent, ok := info.(constant.OneConfigmapContent[*constant.DeviceInfo])
 	if !ok {
 		hwlog.RunLog.Errorf("%v cannot convert to DeviceInfo", info)
-		return info
-	}
-	if len(processContent.UpdateConfigmap) == 0 && len(processor.uceAccompanyFaultQue) == 0 {
 		return info
 	}
 	deviceInfos := processContent.AllConfigmap
@@ -183,7 +180,7 @@ func (processor *UceAccompanyFaultProcessor) Process(info any) any {
 	processor.filterFaultInfos(currentTime)
 	faultdomain.AdvanceDeviceCmForNodeMapToString(processor.deviceCmForNodeMap, deviceInfos)
 
-	hwlog.RunLog.Debugf("UceAccompanyFaultProcessor result: %s", util.ObjToString(deviceInfos))
+	hwlog.RunLog.Debugf("uceAccompanyFaultProcessor result: %s", util.ObjToString(deviceInfos))
 	processContent.AllConfigmap = deviceInfos
 	return processContent
 }

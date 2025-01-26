@@ -1,7 +1,7 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-// Package faultmanager contain fault process
-package cmprocesscenter
+// Package cmprocess contain cm processor
+package cmprocess
 
 import (
 	"fmt"
@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/cmmanager"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/faultdomain/cmmanager"
 )
 
-type BaseFaultCenter[T constant.ConfigMapInterface] struct {
+type baseFaultCenter[T constant.ConfigMapInterface] struct {
 	processorList        []constant.FaultProcessor
 	lastProcessTime      int64
 	subscribeChannelList []chan int
@@ -23,8 +23,8 @@ type BaseFaultCenter[T constant.ConfigMapInterface] struct {
 	centerType           int
 }
 
-func newBaseFaultCenter[T constant.ConfigMapInterface](cmManager *cmmanager.FaultCenterCmManager[T], centerType int) BaseFaultCenter[T] {
-	return BaseFaultCenter[T]{
+func newBaseFaultCenter[T constant.ConfigMapInterface](cmManager *cmmanager.FaultCenterCmManager[T], centerType int) baseFaultCenter[T] {
+	return baseFaultCenter[T]{
 		processorList:        make([]constant.FaultProcessor, 0),
 		lastProcessTime:      0,
 		subscribeChannelList: make([]chan int, 0),
@@ -35,11 +35,11 @@ func newBaseFaultCenter[T constant.ConfigMapInterface](cmManager *cmmanager.Faul
 	}
 }
 
-func (baseCenter *BaseFaultCenter[T]) isProcessLimited(currentTime int64) bool {
+func (baseCenter *baseFaultCenter[T]) isProcessLimited(currentTime int64) bool {
 	return baseCenter.lastProcessTime+baseCenter.processPeriod > currentTime
 }
 
-func (baseCenter *BaseFaultCenter[T]) Process() {
+func (baseCenter *baseFaultCenter[T]) Process() {
 	currentTime := time.Now().UnixMilli()
 	if baseCenter.isProcessLimited(currentTime) {
 		return
@@ -56,11 +56,12 @@ func (baseCenter *BaseFaultCenter[T]) Process() {
 		processingCm = processor.Process(info).(constant.OneConfigmapContent[T]).AllConfigmap
 		baseCenter.setProcessingCm(processingCm)
 	}
-	baseCenter.setProcessedCm(baseCenter.getProcessingCm())
-	baseCenter.notifySubscriber()
+	if baseCenter.setProcessedCm(baseCenter.getProcessingCm()) {
+		baseCenter.notifySubscriber()
+	}
 }
 
-func (baseCenter *BaseFaultCenter[T]) notifySubscriber() {
+func (baseCenter *baseFaultCenter[T]) notifySubscriber() {
 	for _, ch := range baseCenter.subscribeChannelList {
 		if ch != nil {
 			select {
@@ -72,11 +73,12 @@ func (baseCenter *BaseFaultCenter[T]) notifySubscriber() {
 	}
 }
 
-func (baseCenter *BaseFaultCenter[T]) addProcessors(processors []constant.FaultProcessor) {
+func (baseCenter *baseFaultCenter[T]) addProcessors(processors []constant.FaultProcessor) {
 	baseCenter.processorList = append(baseCenter.processorList, processors...)
 }
 
-func (baseCenter *BaseFaultCenter[T]) Register(ch chan int) error {
+// Register notify chan
+func (baseCenter *baseFaultCenter[T]) Register(ch chan int) error {
 	baseCenter.mutex.Lock()
 	defer baseCenter.mutex.Unlock()
 	if baseCenter.subscribeChannelList == nil {
@@ -90,26 +92,26 @@ func (baseCenter *BaseFaultCenter[T]) Register(ch chan int) error {
 	return nil
 }
 
-func (baseCenter *BaseFaultCenter[T]) getOriginalCm() map[string]T {
+func (baseCenter *baseFaultCenter[T]) getOriginalCm() map[string]T {
 	return baseCenter.cmManager.GetOriginalCm().Data
 }
 
-func (baseCenter *BaseFaultCenter[T]) setProcessingCm(cm map[string]T) {
+func (baseCenter *baseFaultCenter[T]) setProcessingCm(cm map[string]T) {
 	baseCenter.cmManager.SetProcessingCm(cmmanager.ConfigMap[T]{Data: cm})
 }
 
-func (baseCenter *BaseFaultCenter[T]) getProcessingCm() map[string]T {
+func (baseCenter *baseFaultCenter[T]) getProcessingCm() map[string]T {
 	return baseCenter.cmManager.GetProcessingCm().Data
 }
 
-func (baseCenter *BaseFaultCenter[T]) setProcessedCm(cm map[string]T) {
-	baseCenter.cmManager.SetProcessedCm(cmmanager.ConfigMap[T]{Data: cm})
+func (baseCenter *baseFaultCenter[T]) setProcessedCm(cm map[string]T) bool {
+	return baseCenter.cmManager.SetProcessedCm(cmmanager.ConfigMap[T]{Data: cm})
 }
 
-func (baseCenter *BaseFaultCenter[T]) GetProcessedCm() map[string]T {
+func (baseCenter *baseFaultCenter[T]) GetProcessedCm() map[string]T {
 	return baseCenter.cmManager.GetProcessedCm().Data
 }
 
-func (baseCenter *BaseFaultCenter[T]) updateOriginalCm() []constant.InformerCmItem[T] {
+func (baseCenter *baseFaultCenter[T]) updateOriginalCm() []constant.InformerCmItem[T] {
 	return baseCenter.cmManager.UpdateBatchOriginalCm()
 }

@@ -6,17 +6,17 @@
 package podgroup
 
 import (
-	"clusterd/pkg/common/constant"
 	"context"
-	corev1 "k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/smartystreets/goconvey/convey"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/common/constant"
 )
 
 func init() {

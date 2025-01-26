@@ -160,7 +160,8 @@ const (
 	CardUnhealthy = "CardUnhealthy"
 	// CardNetworkUnhealthy  fault is caused by card network unhealthy
 	CardNetworkUnhealthy = "CardNetworkUnhealthy"
-	SubHealthFault       = "SubHealthFault"
+	// SubHealthFault  sub healthy fault
+	SubHealthFault = "SubHealthFault"
 )
 
 // cluster support server

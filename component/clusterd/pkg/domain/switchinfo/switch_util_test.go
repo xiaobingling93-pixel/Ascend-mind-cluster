@@ -13,12 +13,21 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 )
 
 const (
 	moreLength = 2
 )
+
+func TestMain(m *testing.M) {
+	hwLogConfig := &hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	hwlog.InitRunLogger(hwLogConfig, nil)
+	m.Run()
+}
 
 // TestParseSwitchInfoCM test
 func TestParseSwitchInfoCM(t *testing.T) {

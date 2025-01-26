@@ -64,18 +64,18 @@ func Report(ctx context.Context) {
 			})
 			switch whichToReport {
 			case constant.DeviceProcessType:
-				deviceArr := device.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
+				deviceArr := device.GetSafeData(faultmanager.QueryDeviceInfoToReport())
 				updateDeviceInfoCm(deviceArr)
 			case constant.NodeProcessType:
-				nodeArr := node.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryNodeInfoToReport())
+				nodeArr := node.GetSafeData(faultmanager.QueryNodeInfoToReport())
 				updateNodeInfoCm(nodeArr)
 			case constant.SwitchProcessType:
-				switchArr := switchinfo.GetSafeData(faultmanager.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
+				switchArr := switchinfo.GetSafeData(faultmanager.QuerySwitchInfoToReport())
 				updateSwitchInfoCm(switchArr)
 			case constant.AllProcessType:
-				deviceArr := device.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryDeviceInfoToReport())
-				nodeArr := node.GetSafeData(faultmanager.GlobalFaultProcessCenter.QueryNodeInfoToReport())
-				switchArr := switchinfo.GetSafeData(faultmanager.GlobalFaultProcessCenter.QuerySwitchInfoToReport())
+				deviceArr := device.GetSafeData(faultmanager.QueryDeviceInfoToReport())
+				nodeArr := node.GetSafeData(faultmanager.QueryNodeInfoToReport())
+				switchArr := switchinfo.GetSafeData(faultmanager.QuerySwitchInfoToReport())
 				updateAllCm(deviceArr, nodeArr, switchArr)
 			default:
 				hwlog.RunLog.Errorf("unhandled type %d", whichToReport)

@@ -1,7 +1,7 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-// Package faultjob contain fault job process
-package faultjob
+// Package relationfault contain relation fault process
+package relationfault
 
 import (
 	"testing"

@@ -1,4 +1,4 @@
-# set current time = 100
+# set current time = 100000ms
 # job1: Test current time not exceed (UceFaultTime + JobReportRecoverTimeout), should filter uce fault
 # job2: Test current time exceed (UceFaultTime + JobReportRecoverTimeout),
 #   but don't receive job recover info, should not filter uce fault

@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 // Package collector collect information to process
 package collector
@@ -25,14 +25,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	hwLogConfig := &hwlog.LogConfig{LogFileName: "../../../../testdata/clusterd.log"}
-	hwLogConfig.MaxBackups = 30
-	hwLogConfig.MaxAge = 7
-	hwLogConfig.LogLevel = 0
-	if err := hwlog.InitRunLogger(hwLogConfig, nil); err != nil {
-		fmt.Printf("hwlog init failed, error is %v\n", err)
-		return
-	}
+	hwlog.InitRunLogger(&hwlog.LogConfig{OnlyToStdout: true}, nil)
 	m.Run()
 }
 
