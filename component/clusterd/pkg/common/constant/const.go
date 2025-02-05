@@ -13,6 +13,8 @@ const (
 	GlobalFaultSignalType = "globalFault"
 	// ChangeStrategySignalType change strategy signal type
 	ChangeStrategySignalType = "changeStrategy"
+	// SaveAndExitSignalType save and exit signal type
+	SaveAndExitSignalType = "saveAndExit"
 	// KeepAliveSignalType keep alive signal type
 	KeepAliveSignalType = "keep-alive"
 )
@@ -29,6 +31,19 @@ const (
 	ProcessDumpStrategyName = "dump"
 	// ProcessExitStrategyName strategy name of directly exit
 	ProcessExitStrategyName = "exit"
+)
+
+const (
+	// SubHealthyStrategy config in pod group label for subHealthy fault strategy
+	SubHealthyStrategy = "subHealthyStrategy"
+	// SubHealthyGraceExit strategy name of grace exit
+	SubHealthyGraceExit = "graceExit"
+	// HealthyState state of Healthy
+	HealthyState = "Healthy"
+	// UnHealthyState state of unHealthy
+	UnHealthyState = "UnHealthy"
+	// SubHealthyState state of subHealthy
+	SubHealthyState = "SubHealthy"
 )
 
 const (
@@ -180,7 +195,6 @@ const (
 	SwitchFaultType         = "switchFault"
 	DeviceFaultType         = "deviceFault"
 	NodeFaultType           = "nodeFault"
-	NodeUnhealthy           = "UnHealthy"
 	TriggerFaultType        = "TriggerFault"
 	RelationFaultType       = "RelationFaultCodes"
 	TaskFaultKey            = "fault-type"

@@ -14,10 +14,17 @@ func (ctl *EventController) getPreRules() []common.TransRule {
 			Dst: common.NotifyStopTrainState, Handler: ctl.handleNotifyStopTrain},
 		{Src: common.NotifyWaitFaultFlushingState, Event: common.WaitPlatStrategyTimeoutEvent,
 			Dst: common.FaultRetryState, Handler: ctl.handleFaultRetry},
+		{Src: common.NotifyWaitFaultFlushingState, Event: common.DumpForFaultEvent,
+			Dst: common.NotifyDumpState, Handler: ctl.handleNotifyDump},
 
 		{Src: common.NotifyStopTrainState, Event: common.NotifySuccessEvent,
 			Dst: common.WaitReportStopCompleteState, Handler: ctl.handleWaitReportStopComplete},
 		{Src: common.NotifyStopTrainState, Event: common.NotifyFailEvent,
+			Dst: common.FaultClearState, Handler: ctl.handleFaultClear},
+
+		{Src: common.NotifyDumpState, Event: common.NotifySuccessEvent,
+			Dst: common.WaitReportDumpStatusState, Handler: ctl.handleDecideDumpStrategy},
+		{Src: common.NotifyDumpState, Event: common.NotifyFailEvent,
 			Dst: common.FaultClearState, Handler: ctl.handleFaultClear},
 
 		{Src: common.WaitReportStopCompleteState, Event: common.ReceiveReportEvent,

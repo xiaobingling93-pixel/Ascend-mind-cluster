@@ -26,7 +26,15 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
-var faultSplitLength = 2
+var (
+	faultSplitLength           = 2
+	recoverStrategyPriorityMap = map[string]int{
+		constant.ProcessRetryStrategyName:   1,
+		constant.ProcessRecoverStrategyName: 2,
+		constant.ProcessDumpStrategyName:    3,
+		constant.ProcessExitStrategyName:    4,
+	}
+)
 
 // Faults2String return string of faults
 func Faults2String(faults []*pb.FaultRank) string {
@@ -78,8 +86,8 @@ func String2Faults(faultStr string) []*pb.FaultRank {
 
 // StrategySupported check strategy supported
 func StrategySupported(strategy string) bool {
-	return strategy == constant.ProcessRetryStrategyName || strategy == constant.ProcessRecoverStrategyName ||
-		strategy == constant.ProcessDumpStrategyName || strategy == constant.ProcessExitStrategyName
+	_, ok := recoverStrategyPriorityMap[strategy]
+	return ok
 }
 
 // GetRecoverBaseInfo get recover config
@@ -98,12 +106,20 @@ func GetRecoverBaseInfo(name, namespace string) (RecoverConfig, RespCode, error)
 		}
 	}
 	config.MindXConfigStrategies = append(config.MindXConfigStrategies, constant.ProcessExitStrategyName)
+	config.MindXConfigStrategies = util.RemoveSliceDuplicateElement(config.MindXConfigStrategies)
+	SortRecoverStrategies(config.MindXConfigStrategies)
 	value, ok := pg.Labels[constant.ProcessRecoverEnableLabel]
 	if !ok {
 		hwlog.RunLog.Warn("can not find process rescheduling label")
 		config.ProcessRecoverEnable = false
 	}
 	config.ProcessRecoverEnable = value == constant.ProcessRecoverEnable
+	strategy, ok := pg.Labels[constant.SubHealthyStrategy]
+	if !ok {
+		hwlog.RunLog.Debugf("can not find subHealthyStrategy label")
+		config.GraceExit = false
+	}
+	config.GraceExit = strategy == constant.SubHealthyGraceExit
 	return config, OK, nil
 }
 
@@ -397,4 +413,19 @@ func IsUceFault(faults []*pb.FaultRank) bool {
 		}
 	}
 	return true
+}
+
+// SortRecoverStrategies sort process recover strategy
+func SortRecoverStrategies(strSlice []string) {
+	sort.Slice(strSlice, func(i, j int) bool {
+		firstPri, ok := recoverStrategyPriorityMap[strSlice[i]]
+		if !ok {
+			return false
+		}
+		secondPri, ok := recoverStrategyPriorityMap[strSlice[j]]
+		if !ok {
+			return true
+		}
+		return firstPri < secondPri
+	})
 }

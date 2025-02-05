@@ -70,6 +70,18 @@ func (processor *relationFaultProcessor) InitFaultJobs() {
 	processor.faultJobs = faultJobs
 }
 
+// GetPodStrategiesMapsByJobId get PodStrategiesMaps by job id
+func (processor *relationFaultProcessor) GetPodStrategiesMapsByJobId(jobId string) map[string]string {
+	if processor.faultJobs == nil {
+		return nil
+	}
+	falutJob, ok := processor.faultJobs[jobId]
+	if !ok || falutJob == nil {
+		return nil
+	}
+	return falutJob.PodStrategiesMaps
+}
+
 var relationFaultStrategies = make([]constant.RelationFaultStrategy, 0)
 var faultDurationStrategies = make([]constant.FaultDuration, 0)
 var relationFaultTypeMap = make(sets.String)
@@ -355,7 +367,7 @@ func (fJob *FaultJob) InitFaultJobBySwitchFault(switchInfo *constant.SwitchInfo,
 	if switchInfo == nil {
 		return
 	}
-	if switchInfo.NodeStatus == constant.NodeUnhealthy {
+	if switchInfo.NodeStatus == constant.UnHealthyState {
 		fJob.SeparateNodes.Insert(serverList.ServerName)
 		return
 	}

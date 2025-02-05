@@ -28,6 +28,7 @@ var (
 	reportTimeoutMinutes  = 15
 	faultFlushSeconds     = 10
 	eventChanLength       = 10
+	saveAndExitActions    = []string{"save_and_exit"}
 	stopTrainActions      = []string{"stop_train"}
 	globalFaultActions    = []string{"on_global_rank"}
 	changeStrategyActions = []string{"change_strategy"}
@@ -48,6 +49,7 @@ type EventController struct {
 	signalChan                chan *pb.ProcessManageSignal
 	cacheNormalFault          []*pb.FaultRank
 	cacheUceFault             []*pb.FaultRank
+	healthState               string
 	controllerContext         context.Context
 	ctxCancelFunc             context.CancelFunc
 	serviceContext            context.Context
@@ -79,6 +81,7 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		scheduleResultChan:        make(chan bool, 1),
 		cacheNormalFault:          []*pb.FaultRank{},
 		cacheUceFault:             []*pb.FaultRank{},
+		healthState:               constant.HealthyState,
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
@@ -161,6 +164,7 @@ func (ctl *EventController) reset() {
 	ctl.scheduleResultChan = make(chan bool, 1)
 	ctl.cacheUceFault = ctl.cacheUceFault[:0]
 	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
+	ctl.healthState = constant.HealthyState
 	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
 	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
 	ctl.platStrategy = ""
@@ -281,6 +285,46 @@ func (ctl *EventController) supportDumpStrategy() bool {
 	if ctl.platStrategy == constant.ProcessDumpStrategyName {
 		return true
 	}
+	return false
+}
+
+func (ctl *EventController) onlySupportDumpStrategy() bool {
+	if !ctl.jobInfo.ProcessRecoverEnable {
+		hwlog.RunLog.Infof("jobId=%s ProcessRecoverEnable=%v, should not dump",
+			ctl.jobInfo.JobId, ctl.jobInfo.ProcessRecoverEnable)
+		return false
+	}
+	// MindXConfigStrategies have been sorted by priority defined by recoverStrategyPriorityMap
+	mindXConfiged := len(ctl.jobInfo.MindXConfigStrategies) > 0 &&
+		ctl.jobInfo.MindXConfigStrategies[0] == constant.ProcessDumpStrategyName
+	if !mindXConfiged {
+		hwlog.RunLog.Infof("jobId=%s strategy=%v not only support dump",
+			ctl.jobInfo.JobId, ctl.jobInfo.MindXConfigStrategies)
+		return false
+	}
+	if !ctl.jobInfo.PlatFormMode {
+		return mindXConfiged
+	}
+	if ctl.platStrategy == constant.ProcessDumpStrategyName {
+		return true
+	}
+	hwlog.RunLog.Infof("jobId=%s plat strategy=%v not only support dump",
+		ctl.jobInfo.JobId, ctl.platStrategy)
+	return false
+}
+
+func (ctl *EventController) shouldDumpWhenOccurFault() bool {
+	if !ctl.onlySupportDumpStrategy() {
+		hwlog.RunLog.Infof("jobId=%s config not only support dump strategy, should not dump",
+			ctl.jobInfo.JobId)
+		return false
+	}
+	if ctl.healthState == constant.UnHealthyState ||
+		(ctl.healthState == constant.SubHealthyState && ctl.jobInfo.GraceExit) {
+		return true
+	}
+	hwlog.RunLog.Infof("jobId=%s healthState=%v graceExit=%v, should not dump",
+		ctl.jobInfo.JobId, ctl.healthState, ctl.jobInfo.GraceExit)
 	return false
 }
 
@@ -467,6 +511,17 @@ func (ctl *EventController) handleNotifyWaitFaultFlushing() (string, common.Resp
 		}
 		ctl.platStrategy = strategy
 	}
+	if ctl.shouldDumpWhenOccurFault() {
+		if ctl.jobInfo.PlatFormMode && !util.IsSliceContain(ctl.platStrategy, ctl.jobInfo.MindXConfigStrategies) {
+			hwlog.RunLog.Infof("jobId=%s plat strategy=%s not in strategies=%v",
+				ctl.jobInfo.JobId, ctl.platStrategy, ctl.jobInfo.MindXConfigStrategies)
+			return "", common.ServerInnerError, errors.New("plat strategy not in strategies")
+		}
+		hwlog.RunLog.Infof("should dump, job id: %s, plat strategy: %s",
+			ctl.jobInfo.JobId, ctl.platStrategy)
+		ctl.agentReportStrategies = append(ctl.agentReportStrategies, constant.ProcessDumpStrategyName)
+		return common.DumpForFaultEvent, common.OK, nil
+	}
 	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil,
 		constant.NotifyFaultFlushingOperation)
 	if err != nil {
@@ -496,6 +551,31 @@ func (ctl *EventController) handleNotifyStopTrain() (string, common.RespCode, er
 		Actions:        stopTrainActions,
 		ChangeStrategy: "",
 	}
+	return ctl.signalEnqueue(signal)
+}
+
+func (ctl *EventController) handleNotifyDump() (string, common.RespCode, error) {
+	signal := &pb.ProcessManageSignal{
+		Uuid:           ctl.uuid,
+		JobId:          ctl.jobInfo.JobId,
+		SignalType:     constant.SaveAndExitSignalType,
+		Actions:        saveAndExitActions,
+		ChangeStrategy: "",
+	}
+	_, allFaultRanks, err := ctl.updateCacheFaultAndPod()
+	if err != nil {
+		hwlog.RunLog.Errorf("update cache info fail, jobId=%s err=%v", ctl.jobInfo.JobId, err)
+		return "", common.ServerInnerError, err
+	}
+	cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
+		allFaultRanks, constant.NotifyFaultListOperation)
+	if err != nil {
+		err = fmt.Errorf("notify agent faultList error, jobId=%s, err=%v", ctl.jobInfo.JobId, err)
+		hwlog.RunLog.Error(err)
+		return "", common.OperateConfigMapError, err
+	}
+	hwlog.RunLog.Infof("write configmap faultList success, jobId=%s, cm data: %s", ctl.jobInfo.JobId,
+		cm.Data[constant.ResetInfoCMDataKey])
 	return ctl.signalEnqueue(signal)
 }
 
@@ -675,17 +755,11 @@ func (ctl *EventController) notifyFaultForNormalFaultCase(uceFaults, normalFault
 		ctl.setCacheFault(nil, allFaults)
 		normalFaults = allFaults
 	}
-	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
-	ctl.setCacheFault(nil, allFaults)
-
-	var err error
-	faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
+	allFaults, allFaultRanks, err := ctl.updateCacheFaultAndPod()
 	if err != nil {
-		hwlog.RunLog.Errorf("jobId=%s, get pod map err:%v", ctl.jobInfo.JobId, err)
+		hwlog.RunLog.Errorf("update cache info fail, jobId=%s err=%v", ctl.jobInfo.JobId, err)
 		return "", common.ServerInnerError, err
 	}
-	ctl.mergeFaultPod(faultPod)
-	hwlog.RunLog.Infof("jobId=%s, fault pod = %v", ctl.jobInfo.JobId, ctl.GetFaultPod())
 	cm, err := common.WriteResetInfoToCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 		allFaultRanks, constant.NotifyFaultListOperation)
 	if err != nil {
@@ -702,6 +776,20 @@ func (ctl *EventController) notifyFaultForNormalFaultCase(uceFaults, normalFault
 	}
 	signal.FaultRanks = append(signal.FaultRanks, allFaults...)
 	return ctl.signalEnqueue(signal)
+}
+
+func (ctl *EventController) updateCacheFaultAndPod() ([]*pb.FaultRank, []string, error) {
+	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
+	ctl.setCacheFault(nil, allFaults)
+	var err error
+	faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
+	if err != nil {
+		hwlog.RunLog.Errorf("jobId=%s, get pod map err:%v", ctl.jobInfo.JobId, err)
+		return allFaults, allFaultRanks, err
+	}
+	ctl.mergeFaultPod(faultPod)
+	hwlog.RunLog.Infof("jobId=%s, fault pod = %v", ctl.jobInfo.JobId, ctl.GetFaultPod())
+	return allFaults, allFaultRanks, nil
 }
 
 func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, error) {
@@ -924,16 +1012,11 @@ func (ctl *EventController) handleKillPod() (string, common.RespCode, error) {
 		return "", common.JobNotExist, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
 	}
 	ctl.takeUceFault2NormalFault()
-	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
-	ctl.setCacheFault(nil, allFaults)
-	var err error
-	faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
+	_, allFaultRanks, err := ctl.updateCacheFaultAndPod()
 	if err != nil {
-		hwlog.RunLog.Errorf("jobId=%s, get pod map err:%v", ctl.jobInfo.JobId, err)
+		hwlog.RunLog.Errorf("update cache info fail, jobId=%s err=%v", ctl.jobInfo.JobId, err)
 		return "", common.ServerInnerError, err
 	}
-	ctl.mergeFaultPod(faultPod)
-	hwlog.RunLog.Infof("jobId=%s, fault pod = %v", ctl.jobInfo.JobId, ctl.faultPod)
 	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 		allFaultRanks, constant.NotifyFaultListOperation)
 	if err != nil {
@@ -1145,7 +1228,7 @@ func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCo
 			}
 		case req := <-resultCh:
 			hwlog.RunLog.Infof("cur state is %s, strategy=%s, code=%d", ctl.state.GetState(), req.Strategy, req.Status.Code)
-			ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
+			ctl.appendRecoverResult(req)
 			return common.ReceiveReportEvent, common.OK, nil
 		case <-ctx.Done():
 			hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
@@ -1171,7 +1254,7 @@ func (ctl *EventController) handleDecideDumpStrategy() (string, common.RespCode,
 			return "", common.OK, nil
 		}
 		hwlog.RunLog.Infof("cur state is %s, strategy=%s, code=%d", ctl.state.GetState(), req.Strategy, req.Status.Code)
-		ctl.latestRecoverResult = append(ctl.latestRecoverResult, req)
+		ctl.appendRecoverResult(req)
 		return common.ReceiveReportEvent, common.OK, nil
 	case <-ctx.Done():
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)

@@ -64,4 +64,7 @@ const (
 
 	// KillPodForUnrecoverableRetryState KillPodForUnrecoverableRetryError kill pod for unrecoverable retry error
 	KillPodForUnrecoverableRetryState = "KillPodForUnrecoverableRetryState"
+
+	// NotifyDumpState notify dump
+	NotifyDumpState = "NotifyDumpState"
 )

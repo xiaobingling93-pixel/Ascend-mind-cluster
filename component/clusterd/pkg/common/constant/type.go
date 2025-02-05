@@ -334,8 +334,9 @@ type FaultRank struct {
 
 // JobFaultInfo job fault rank info
 type JobFaultInfo struct {
-	JobId     string
-	FaultList []FaultRank
+	JobId        string
+	FaultList    []FaultRank
+	HealthyState string
 }
 
 // FaultStrategy fault strategies

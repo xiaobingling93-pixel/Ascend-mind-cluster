@@ -33,6 +33,9 @@ const (
 	// FaultFlushFinishedEvent fault flush finish event
 	FaultFlushFinishedEvent = "flushFinished"
 
+	// DumpForFaultEvent dump for fault
+	DumpForFaultEvent = "dumpForFault"
+
 	// ScheduleTimeoutEvent schedule timeout
 	ScheduleTimeoutEvent = "scheduleTimeout"
 	// ScheduleSuccessEvent schedule success

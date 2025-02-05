@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/smartystreets/goconvey/convey"
 	v1 "k8s.io/api/core/v1"
 
 	"ascend-common/common-utils/hwlog"
@@ -110,5 +111,45 @@ func TestUceInBusinessPlane(t *testing.T) {
 		if isUceInBusinessPlane {
 			t.Error("TestUceInBusinessPlane")
 		}
+	})
+}
+
+func TestGetHealthState(t *testing.T) {
+	convey.Convey("getHealthState", t, func() {
+		convey.Convey("01-FaultLevel has SeparateNPU, should return UnHealthyState", func() {
+			faultLilst := []constant.FaultRank{
+				{FaultLevel: constant.SeparateNPU},
+				{FaultLevel: constant.SubHealthFault}}
+			convey.So(getHealthState(faultLilst, []string{}, nil),
+				convey.ShouldEqual, constant.UnHealthyState)
+		})
+		convey.Convey("02-nodeStatusList has unHealthy status, should return UnHealthyState",
+			func() {
+				nodeStatusList := []string{constant.UnHealthyState, constant.SubHealthyState}
+				status := getHealthState(nil, nodeStatusList, nil)
+				convey.So(status == constant.UnHealthyState, convey.ShouldBeTrue)
+			})
+		convey.Convey("03-PodStrategiesMaps has Separate strategy, should return UnHealthyState",
+			func() {
+				PodStrategiesMaps := map[string]string{
+					"pod1": constant.SeparateFaultStrategy,
+					"pod2": constant.SubHealthFaultStrategy,
+				}
+				status := getHealthState(nil, nil, PodStrategiesMaps)
+				convey.So(status == constant.UnHealthyState, convey.ShouldBeTrue)
+			})
+		convey.Convey("04-SubHealthy status, should return SubHealthyState", func() {
+			PodStrategiesMaps := map[string]string{
+				"pod2": constant.SubHealthFaultStrategy,
+			}
+			nodeStatusList := []string{constant.SubHealthyState}
+			faultLilst := []constant.FaultRank{{FaultLevel: constant.SubHealthFault}}
+			status := getHealthState(faultLilst, nodeStatusList, PodStrategiesMaps)
+			convey.So(status == constant.SubHealthyState, convey.ShouldBeTrue)
+		})
+		convey.Convey("05-Healthy status, should return HealthyState", func() {
+			status := getHealthState(nil, nil, nil)
+			convey.So(status == constant.HealthyState, convey.ShouldBeTrue)
+		})
 	})
 }

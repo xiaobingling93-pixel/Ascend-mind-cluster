@@ -309,6 +309,7 @@ func TestGetRecoverBaseInfo(t *testing.T) {
 			convey.So(err, convey.ShouldBeNil)
 			convey.So(code, convey.ShouldEqual, OK)
 			convey.So(config.ProcessRecoverEnable, convey.ShouldBeFalse)
+			convey.So(config.GraceExit, convey.ShouldBeFalse)
 			convey.So(config.PlatFormMode, convey.ShouldBeFalse)
 		})
 		convey.Convey("case get pod group success, and process-recover-enable on", func() {
@@ -316,6 +317,7 @@ func TestGetRecoverBaseInfo(t *testing.T) {
 				func(name, namespace string, retryTimes int) (*v1beta1.PodGroup, error) {
 					pg := fakePG()
 					pg.Labels[constant.ProcessRecoverEnableLabel] = constant.ProcessRecoverEnable
+					pg.Labels[constant.SubHealthyStrategy] = constant.SubHealthyGraceExit
 					return pg, nil
 				})
 			defer patch.Reset()
@@ -323,6 +325,7 @@ func TestGetRecoverBaseInfo(t *testing.T) {
 			convey.So(err, convey.ShouldBeNil)
 			convey.So(code, convey.ShouldEqual, OK)
 			convey.So(config.ProcessRecoverEnable, convey.ShouldBeTrue)
+			convey.So(config.GraceExit, convey.ShouldBeTrue)
 			convey.So(config.PlatFormMode, convey.ShouldBeFalse)
 		})
 		addTestCaseForLabelNotExist(info.PgName, info.Namespace)
@@ -733,4 +736,24 @@ func jsonMarshalError() {
 	defer patch0.Reset()
 	_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{""}, constant.ClearOperation)
 	convey.ShouldNotBeNil(err)
+}
+
+func TestSortRecoverStrategies(t *testing.T) {
+	convey.Convey("Test SortRecoverStrategies", t, func() {
+		convey.Convey("01-reverse strategy slice", func() {
+			strategies := []string{constant.ProcessExitStrategyName, constant.ProcessDumpStrategyName,
+				constant.ProcessRecoverStrategyName, constant.ProcessRetryStrategyName}
+			SortRecoverStrategies(strategies)
+			targets := []string{constant.ProcessRetryStrategyName, constant.ProcessRecoverStrategyName,
+				constant.ProcessDumpStrategyName, constant.ProcessExitStrategyName}
+			convey.So(strategies, convey.ShouldResemble, targets)
+		})
+		convey.Convey("02-sort slice when exist unknown strategy", func() {
+			unknownStrategy := "unknownStrategy"
+			strategies := []string{constant.ProcessExitStrategyName, constant.ProcessDumpStrategyName, unknownStrategy}
+			SortRecoverStrategies(strategies)
+			targets := []string{constant.ProcessDumpStrategyName, constant.ProcessExitStrategyName, unknownStrategy}
+			convey.So(strategies, convey.ShouldResemble, targets)
+		})
+	})
 }

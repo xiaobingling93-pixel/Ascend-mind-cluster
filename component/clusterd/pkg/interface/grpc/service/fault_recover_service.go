@@ -55,6 +55,11 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 		return
 	}
 	hwlog.RunLog.Infof("get fault info from fault center=%v", faultInfo)
+	if faultInfo.HealthyState == constant.SubHealthyState &&
+		(!controller.jobInfo.GraceExit || !controller.onlySupportDumpStrategy()) {
+		hwlog.RunLog.Infof("jobId=%s skip handle subHealthy faults", faultInfo.JobId)
+		return
+	}
 	var grpcFormatFaults []*pb.FaultRank
 	for _, info := range faultInfo.FaultList {
 		fault := &pb.FaultRank{
@@ -69,6 +74,8 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 	hwlog.RunLog.Infof("jobId=%s, fault center fault info change format to grpcFormat, faults=%s",
 		controller.jobInfo.JobId, common.Faults2String(grpcFormatFaults))
 	controller.saveCacheFault(grpcFormatFaults)
+	controller.healthState = faultInfo.HealthyState
+
 	controller.addEvent(common.FaultOccurEvent)
 }
 

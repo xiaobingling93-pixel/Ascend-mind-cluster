@@ -6,6 +6,8 @@ package relationfault
 import (
 	"testing"
 
+	"github.com/smartystreets/goconvey/convey"
+
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
@@ -264,4 +266,30 @@ func TestRightNodeDeviceSubHealthAndSeparate(t *testing.T) {
 		}
 
 	})
+}
+
+func TestGetPodStrategiesMapsByJobId(t *testing.T) {
+	convey.Convey("Test getPodStrategiesMapsByJobId", t, func() {
+		fJobCenter := &relationFaultProcessor{
+			faultJobs: map[string]*FaultJob{
+				"job1": {PodStrategiesMaps: map[string]string{
+					"pod1": constant.SeparateFaultStrategy,
+				}},
+			}}
+		convey.Convey("01-job id not in map keys, should return nil", func() {
+			mockJobId := "job2"
+			resultMap := fJobCenter.GetPodStrategiesMapsByJobId(mockJobId)
+			convey.So(resultMap, convey.ShouldBeNil)
+		})
+		convey.Convey("02-job id in map keys, should return map", func() {
+			mockJobId := "job1"
+			resultMap := fJobCenter.GetPodStrategiesMapsByJobId(mockJobId)
+			convey.So(resultMap, convey.ShouldNotBeNil)
+			mockPod := "pod1"
+			convey.So(resultMap[mockPod] == constant.SeparateFaultStrategy, convey.ShouldBeTrue)
+			mockPod = "pod2"
+			convey.So(resultMap[mockPod] == "", convey.ShouldBeTrue)
+		})
+	})
+
 }
