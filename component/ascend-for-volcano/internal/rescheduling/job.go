@@ -169,18 +169,24 @@ func (fJob *FaultJob) deleteJobWithLabels(ssn *framework.Session, reschedule *Re
 
 func (fJob *FaultJob) deleteJobWithSubHealthyLabels(ssn *framework.Session, reschedule *ReScheduler,
 	schedulerJob *plugin.SchedulerJob, env plugin.ScheduleEnv) error {
+	klog.V(util.LogWarningLev).Infof("delete job %s subHealthyStrategy %s", fJob.JobName,
+		fJob.SubHealthyStrategy)
 	if fJob.SubHealthyStrategy == util.SubHealthyForceExit {
 		return fJob.ForceDeleteJob(ssn, schedulerJob, env)
 	}
-	updateResetConfigMapWithGraceExit(env.FrameAttr.KubeClient, plugin.ResetInfoCMNamePrefix+
-		schedulerJob.ReferenceName, schedulerJob.NameSpace, plugin.GraceExitValue)
+	if !fJob.IsProcessReschedulingJob(schedulerJob) {
+		klog.V(util.LogWarningLev).Infof("reset configmap be updated with graceExit, job:%s", fJob.JobName)
+		updateResetConfigMapWithGraceExit(env.FrameAttr.KubeClient, plugin.ResetInfoCMNamePrefix+
+			schedulerJob.ReferenceName, schedulerJob.NameSpace, plugin.GraceExitValue)
+	}
 	return fJob.GraceDeleteJob(ssn, schedulerJob, env)
 }
 
 // deleteJobWithLabels delete job with labels
 func (fJob *FaultJob) deleteJobWithFaultLabels(ssn *framework.Session, reschedule *ReScheduler,
 	schedulerJob *plugin.SchedulerJob, env plugin.ScheduleEnv) error {
-
+	klog.V(util.LogWarningLev).Infof("delete job %s ReScheduleKey %s", fJob.JobName,
+		fJob.ReScheduleKey)
 	if fJob.ReScheduleKey == JobForceRescheduleLabelValue {
 		return fJob.ForceDeleteJob(ssn, schedulerJob, env)
 	}
