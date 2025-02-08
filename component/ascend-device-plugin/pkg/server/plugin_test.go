@@ -26,6 +26,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"Ascend-device-plugin/pkg/common"
@@ -74,7 +75,7 @@ func init() {
 
 // TestListAndWatch for test the interface ListAndWatch
 func TestListAndWatch(t *testing.T) {
-	ps := NewPluginServer(common.Ascend910, nil, nil, nil)
+	ps := NewPluginServer(common.Ascend910, nil, nil, device.NewHwAscend910Manager())
 	convey.Convey("test ListAndWatch", t, func() {
 		mockSend := gomonkey.ApplyFunc(sendToKubelet, func(stream v1beta1.DevicePlugin_ListAndWatchServer,
 			resp *v1beta1.ListAndWatchResponse) error {
@@ -85,6 +86,14 @@ func TestListAndWatch(t *testing.T) {
 			convey.So(ret, convey.ShouldBeFalse)
 		})
 		convey.Convey("Notify true", func() {
+			mockGetUsedChips := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)),
+				"GetUsedChips", func(_ *device.AscendTools) sets.String {
+					return sets.String{}
+				}).ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+				"GetPodsUsedNpu", func(_ *kubeclient.ClientK8s) sets.String {
+					return sets.String{}
+				})
+			defer mockGetUsedChips.Reset()
 			go ps.ListAndWatch(&v1beta1.Empty{}, nil)
 			time.Sleep(time.Second)
 			ret := ps.Notify(devices)
@@ -158,8 +167,16 @@ func TestGenerateAllDeviceMap(t *testing.T) {
 
 // TestResponseToKubelet for test the responseToKubelet
 func TestResponseToKubelet(t *testing.T) {
-	ps := NewPluginServer(common.Ascend910, devices, nil, nil)
+	ps := NewPluginServer(common.Ascend910, devices, nil, device.NewHwAscend910Manager())
 	convey.Convey("use volcano", t, func() {
+		mockGetUsedChips := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)),
+			"GetUsedChips", func(_ *device.AscendTools) sets.String {
+				return sets.String{}
+			}).ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
+			"GetPodsUsedNpu", func(_ *kubeclient.ClientK8s) sets.String {
+				return sets.String{}
+			})
+		defer mockGetUsedChips.Reset()
 		common.ParamOption.UseVolcanoType = true
 		ps.deepCopyDevice(devices)
 		ps.klt2RealDevMap = map[string]string{

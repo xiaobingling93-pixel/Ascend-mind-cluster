@@ -169,6 +169,25 @@ func TestIsDeviceStatusChange(t *testing.T) {
 	})
 }
 
+// TestUpdateDeviceUsedStatus for test UpdateDeviceUsedStatus
+func TestUpdateDeviceUsedStatus(t *testing.T) {
+	convey.Convey("test UpdateDeviceUsedStatus", t, func() {
+		tool := mockAscendTools()
+		convey.Convey("01-used chip is empty, not update chip status", func() {
+			groupDevices := map[string][]*common.NpuDevice{common.Ascend910: {{DeviceName: ascend910LogicID1}}}
+			tool.UpdateDeviceUsedStatus(groupDevices)
+			convey.So(groupDevices[common.Ascend910][0].Status == common.NPUUsedChipStatus, convey.ShouldBeFalse)
+		})
+		convey.Convey("02-used chip is not empty, update chip status, "+
+			"groupDevices[common.Ascend910][0] should be used", func() {
+			groupDevices := map[string][]*common.NpuDevice{common.Ascend910: {{DeviceName: ascend910LogicID1,
+				NotPodUsedChips: sets.String{ascend910LogicID1: struct{}{}}}}}
+			tool.UpdateDeviceUsedStatus(groupDevices)
+			convey.So(groupDevices[common.Ascend910][0].Status == common.NPUUsedChipStatus, convey.ShouldBeTrue)
+		})
+	})
+}
+
 // TestSetAICoreHealthyIfVNpu for test setAICoreHealthyIfVNpu
 func TestSetAICoreHealthyIfVNpu(t *testing.T) {
 	convey.Convey("test setAICoreHealthyIfVNpu", t, func() {
@@ -1061,7 +1080,7 @@ func TestGetUseChips(t *testing.T) {
 		tool := mockAscendTools()
 		convey.Convey("when presetVDevice is false, used chips should be empty", func() {
 			common.ParamOption.PresetVDevice = false
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 0)
 		})
 		common.ParamOption.PresetVDevice = true
@@ -1069,13 +1088,13 @@ func TestGetUseChips(t *testing.T) {
 			err := fmt.Errorf("failed to get device list")
 			mockDeviceList := mockGetDeviceList(0, nil, err)
 			defer mockDeviceList.Reset()
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 0)
 		})
 		convey.Convey("when device list is empty, used chips should be empty", func() {
 			mockDeviceList := mockGetDeviceList(0, []int32{}, nil)
 			defer mockDeviceList.Reset()
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 0)
 		})
 		mockDeviceList := mockGetDeviceList(1, []int32{0}, nil)
@@ -1084,19 +1103,19 @@ func TestGetUseChips(t *testing.T) {
 			err := fmt.Errorf("failed to get device process info")
 			mockDevProcessInfo := mockGetDevProcessInfo(nil, err)
 			defer mockDevProcessInfo.Reset()
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 0)
 		})
 		convey.Convey("when device process num is 0, used chips should be empty", func() {
 			mockDevProcessInfo := mockGetDevProcessInfo(&npuCommon.DevProcessInfo{ProcNum: 0}, nil)
 			defer mockDevProcessInfo.Reset()
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 0)
 		})
 		convey.Convey("when device process num is not 0, used chips should not be empty", func() {
 			mockDevProcessInfo := mockGetDevProcessInfo(&npuCommon.DevProcessInfo{ProcNum: 1}, nil)
 			defer mockDevProcessInfo.Reset()
-			res := tool.getUsedChips()
+			res := tool.GetUsedChips()
 			convey.So(len(res), convey.ShouldEqual, 1)
 		})
 	})

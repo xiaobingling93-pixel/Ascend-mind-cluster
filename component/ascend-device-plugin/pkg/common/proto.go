@@ -113,6 +113,8 @@ type NpuDevice struct {
 	CardID                 int32
 	SuperDeviceID          uint32
 	Status                 string
+	PodUsedChips           sets.String
+	NotPodUsedChips        sets.String
 }
 
 // DavinCiDev davinci device

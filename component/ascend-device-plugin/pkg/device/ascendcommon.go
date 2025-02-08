@@ -112,6 +112,8 @@ type DevManager interface {
 	HandleLostChipFaultEvents(*common.NpuDevice, []int32)
 	HandleLostNetworkFaultEvents(*common.NpuDevice, []int32)
 	LogFaultModeChange(*common.NpuDevice, []int32, string)
+	GetUsedChips() sets.String
+	UpdateDeviceUsedStatus(groupDevice map[string][]*common.NpuDevice)
 }
 
 // SetDmgr set devmanager
@@ -383,7 +385,8 @@ func (tool *AscendTools) getRealUsedDevices() sets.String {
 	return usedDevice
 }
 
-func (tool *AscendTools) getUsedChips() sets.String {
+// GetUsedChips get chips which are being utilized by a process
+func (tool *AscendTools) GetUsedChips() sets.String {
 	if !common.ParamOption.PresetVDevice {
 		return sets.String{}
 	}
@@ -406,7 +409,12 @@ func (tool *AscendTools) getUsedChips() sets.String {
 		}
 		if chipInfo.ProcNum != 0 {
 			hwlog.RunLog.Debugf("the card logicID:[%d] is used, chipInfo: %#v", logicID, chipInfo)
-			chipName := fmt.Sprintf("%s-%d", common.ParamOption.RealCardType, logicID)
+			davinCidev, err := tool.getDavinCiDev(logicID)
+			if err != nil {
+				hwlog.RunLog.Errorf("get davinci dev by logicID:[%d] failed, err: %v", logicID, err)
+				continue
+			}
+			chipName := fmt.Sprintf("%s-%d", tool.name, davinCidev.PhyID)
 			usedChips = append(usedChips, chipName)
 		}
 	}
@@ -424,9 +432,7 @@ func (tool *AscendTools) getDevStatesDevSet(classifyDevs map[string][]*common.Np
 	}
 	for devType, classifyDev := range classifyDevs {
 		partDevStatusSet := tool.groupDevsByStatus(classifyDev, tool.name)
-		usedNpu := tool.client.GetPodsUsedNpu()
-		usedChips := tool.getUsedChips()
-		usedDevices := usedNpu.Union(usedChips)
+		usedDevices := tool.getUsedDevices(classifyDev)
 		totalFreeDevices[devType] = partDevStatusSet.HealthDevices.Difference(usedDevices)
 		if !common.ParamOption.PresetVDevice {
 			totalFreeDevices[devType] = totalFreeDevices[devType].Difference(allTypeUsedDevice)
@@ -436,13 +442,23 @@ func (tool *AscendTools) getDevStatesDevSet(classifyDevs map[string][]*common.Np
 		totalRCDevices = totalRCDevices.Union(partDevStatusSet.RecoveringDevices)
 		totalDeviceFaults = append(totalDeviceFaults, partDevStatusSet.DeviceFault...)
 	}
-	return common.DevStatusSet{
+	devStatusSet := common.DevStatusSet{
 		FreeHealthyDevice:  totalFreeDevices,
 		UnHealthyDevice:    totalUHDevices,
 		NetUnHealthyDevice: totalNetUHDevices,
 		RecoveringDevices:  totalRCDevices,
 		DeviceFault:        totalDeviceFaults,
 	}
+	hwlog.RunLog.Debugf("get device status devStatusSet=%#v", devStatusSet)
+	return devStatusSet
+}
+
+func (tool *AscendTools) getUsedDevices(subClassDevices []*common.NpuDevice) sets.String {
+	usedDevices := sets.NewString()
+	for _, device := range subClassDevices {
+		usedDevices = usedDevices.Union(device.PodUsedChips).Union(device.NotPodUsedChips)
+	}
+	return usedDevices
 }
 
 func (tool *AscendTools) groupDevsByStatus(subClassDevices []*common.NpuDevice, runMode string) common.DevStatusSet {
@@ -740,12 +756,30 @@ func (tool *AscendTools) GetChange(groupDevice, oldGroupDevice map[string][]*com
 	for devType, devices := range groupDevice {
 		isStateChange[devType] = false
 		for idx, device := range devices {
-			if device.Health != oldGroupDevice[devType][idx].Health {
+			hwlog.RunLog.Debugf("device LogicID=%d, status=%s, health=%s", device.LogicID, device.Status, device.Health)
+			hwlog.RunLog.Debugf("old device LogicID=%d status=%s, health=%s",
+				oldGroupDevice[devType][idx].LogicID, oldGroupDevice[devType][idx].Status, oldGroupDevice[devType][idx].Health)
+			if device.Status != oldGroupDevice[devType][idx].Status ||
+				device.Health != oldGroupDevice[devType][idx].Health {
 				isStateChange[devType] = true
 			}
 		}
 	}
 	return isStateChange
+}
+
+// UpdateDeviceUsedStatus update device used status
+func (tool *AscendTools) UpdateDeviceUsedStatus(groupDevice map[string][]*common.NpuDevice) {
+	for _, devices := range groupDevice {
+		for _, device := range devices {
+			hwlog.RunLog.Debugf("update not pod used chip status:%v", device.NotPodUsedChips)
+			if _, ok := device.NotPodUsedChips[device.DeviceName]; ok {
+				device.Status = common.NPUUsedChipStatus
+				continue
+			}
+			device.Status = ""
+		}
+	}
 }
 
 func setAICoreHealthyIfVNpu(groupDevice map[string][]*common.NpuDevice, aiCoreDevs []*common.NpuDevice) {

@@ -400,7 +400,7 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 			}
 			// complete the fault codes that cannot be reported by the event subscribe interface
 			hdm.mendSubscribeFaultEvents()
-
+			hdm.updateDeviceUsedInfo(hdm.groupDevice)
 			hdm.notifyToK8s(&initTime)
 			hdm.useVolcanoNotify()
 			hdm.chipHotReset()
@@ -431,12 +431,29 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 				LogicID:                npuDevice.LogicID,
 				PhyID:                  npuDevice.PhyID,
 				CardID:                 npuDevice.CardID,
+				Status:                 npuDevice.Status,
+				PodUsedChips:           npuDevice.PodUsedChips,
+				NotPodUsedChips:        npuDevice.NotPodUsedChips,
 			}
 			newNpuDevices = append(newNpuDevices, newNpuDevice)
 		}
 		newGroupDevice[deviceType] = newNpuDevices
 	}
 	return newGroupDevice
+}
+
+func (hdm *HwDevManager) updateDeviceUsedInfo(groupDevice map[string][]*common.NpuDevice) {
+	usedChips := hdm.manager.GetUsedChips()
+	podUsedChips := hdm.manager.GetKubeClient().GetPodsUsedNpu()
+	notPodUsedChips := usedChips.Difference(podUsedChips)
+	hwlog.RunLog.Debugf("update deviceUsedInfo usedChips: %v, podUsedChips: %v, notPodUsedChips: %v",
+		usedChips, podUsedChips, notPodUsedChips)
+	for devType, devices := range groupDevice {
+		for idx := range devices {
+			groupDevice[devType][idx].PodUsedChips = podUsedChips
+			groupDevice[devType][idx].NotPodUsedChips = notPodUsedChips
+		}
+	}
 }
 
 func (hdm *HwDevManager) pluginNotify(classifyDev []*common.NpuDevice, devType string) {
@@ -458,6 +475,7 @@ func (hdm *HwDevManager) pluginNotify(classifyDev []*common.NpuDevice, devType s
 func (hdm *HwDevManager) notifyToK8s(initTime *time.Time) {
 	hdm.isSupportGraceTolerance()
 	oldGroupDevice := deepCopyGroupDevice(hdm.groupDevice)
+	hdm.manager.UpdateDeviceUsedStatus(hdm.groupDevice)
 	hdm.manager.UpdateHealth(hdm.groupDevice, hdm.allInfo.AICoreDevs, hdm.RunMode)
 
 	// If hot reset is used, the health of the device being reset is set here to healthy

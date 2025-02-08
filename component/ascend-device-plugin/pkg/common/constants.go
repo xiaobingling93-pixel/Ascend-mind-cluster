@@ -816,6 +816,8 @@ const (
 const (
 	// NPUNormalStatus represents normal status
 	NPUNormalStatus = "normal"
+	// NPUUsedChipStatus represents used chip status
+	NPUUsedChipStatus = "used"
 	// NPUResettingStatus represents resetting status
 	NPUResettingStatus = "resetting"
 	// UpdateAnnotationRetryTimes update annotation retry times
