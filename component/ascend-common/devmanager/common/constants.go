@@ -214,6 +214,9 @@ const (
 
 // log limit domains for metrics
 const (
+	// DomainForLogicIdErr domain for faild to get cardId and deviceId by logicID
+	DomainForLogicIdErr = "logicID"
+
 	// DomainForHccs domain for hccs
 	DomainForHccs = "hccs"
 

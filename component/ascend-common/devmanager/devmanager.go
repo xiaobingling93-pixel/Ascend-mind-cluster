@@ -84,7 +84,15 @@ type DeviceInterface interface {
 var (
 	devManager     *DeviceManager = nil
 	devManagerOnce sync.Once
+	idCache        sync.Map
 )
+
+// npuIdMapping the mapping between the three IDs
+type npuIdMapping struct {
+	logicId  int32
+	cardId   int32
+	deviceId int32
+}
 
 // GetDeviceManager singleton to init global device manager and init dcmi interface
 func GetDeviceManager() (*DeviceManager, error) {
@@ -340,7 +348,7 @@ func (d *DeviceManager) GetDeviceList() (int32, []int32, error) {
 
 // GetDeviceHealth query npu device health status
 func (d *DeviceManager) GetDeviceHealth(logicID int32) (uint32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get health code by logicID(%d)", logicID)
@@ -356,7 +364,7 @@ func (d *DeviceManager) GetDeviceHealth(logicID int32) (uint32, error) {
 
 // GetDeviceNetWorkHealth query npu device network health status
 func (d *DeviceManager) GetDeviceNetWorkHealth(logicID int32) (uint32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get network health code by logicID(%d)", logicID)
@@ -372,7 +380,7 @@ func (d *DeviceManager) GetDeviceNetWorkHealth(logicID int32) (uint32, error) {
 
 // GetDeviceUtilizationRate get npu device utilization
 func (d *DeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType common.DeviceType) (uint32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get utilization by logicID(%d)", logicID)
@@ -387,7 +395,7 @@ func (d *DeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType commo
 
 // GetDeviceTemperature get npu device temperature
 func (d *DeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.RetError, fmt.Errorf("failed to get temperature by logicID(%d)", logicID)
@@ -403,7 +411,7 @@ func (d *DeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
 
 // GetDeviceVoltage get npu device voltage
 func (d *DeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get voltage by logicID(%d)", logicID)
@@ -419,7 +427,7 @@ func (d *DeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 
 // GetDevicePowerInfo get npu device power info
 func (d *DeviceManager) GetDevicePowerInfo(logicID int32) (float32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get power by logicID(%d)", logicID)
@@ -435,7 +443,7 @@ func (d *DeviceManager) GetDevicePowerInfo(logicID int32) (float32, error) {
 
 // GetDeviceFrequency get npu device work frequency
 func (d *DeviceManager) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (uint32, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.UnRetError, fmt.Errorf("failed to get frequency by logicID(%d)", logicID)
@@ -451,7 +459,7 @@ func (d *DeviceManager) GetDeviceFrequency(logicID int32, deviceType common.Devi
 
 // GetDeviceMemoryInfo get npu memory information
 func (d *DeviceManager) GetDeviceMemoryInfo(logicID int32) (*common.MemoryInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, fmt.Errorf("failed to get memory info by logicID(%d)", logicID)
@@ -474,7 +482,7 @@ func (d *DeviceManager) GetDeviceMemoryInfo(logicID int32) (*common.MemoryInfo, 
 
 // GetDeviceHbmInfo get npu HBM module memory and frequency information
 func (d *DeviceManager) GetDeviceHbmInfo(logicID int32) (*common.HbmInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, fmt.Errorf("failed to get hbm info by logicID(%d)", logicID)
@@ -490,7 +498,7 @@ func (d *DeviceManager) GetDeviceHbmInfo(logicID int32) (*common.HbmInfo, error)
 
 // GetDeviceErrorCode get npu device error code
 func (d *DeviceManager) GetDeviceErrorCode(logicID int32) (int32, int64, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.RetError, common.RetError, fmt.Errorf("failed to get device error code by logicID(%d)",
@@ -508,7 +516,7 @@ func (d *DeviceManager) GetDeviceErrorCode(logicID int32) (int32, int64, error) 
 
 // GetChipInfo get npu device error code
 func (d *DeviceManager) GetChipInfo(logicID int32) (*common.ChipInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, fmt.Errorf("failed to get chip info code by logicID(%d)", logicID)
@@ -551,7 +559,7 @@ func (d *DeviceManager) GetDeviceLogicID(cardID, deviceID int32) (int32, error) 
 
 // GetDeviceIPAddress get device ip address
 func (d *DeviceManager) GetDeviceIPAddress(logicID, ipType int32) (string, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get cardID and deviceID by logicID(%d), %w", logicID, err)
 	}
@@ -596,7 +604,7 @@ func (d *DeviceManager) GetMcuPowerInfo(cardID int32) (float32, error) {
 
 // GetCardIDDeviceID get cardID and deviceID by logicID
 func (d *DeviceManager) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
-	return d.DcMgr.DcGetCardIDDeviceID(logicID)
+	return d.getCardIdAndDeviceId(logicID)
 }
 
 // GetProductType get product type by cardID and deviceID
@@ -676,7 +684,7 @@ func (d *DeviceManager) GetDeviceBootStatus(logicID int32) (int, error) {
 
 // GetDeviceAllErrorCode get npu device all error code
 func (d *DeviceManager) GetDeviceAllErrorCode(logicID int32) (int32, []int64, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.RetError, nil, fmt.Errorf("failed to get cardID in get device error code by logicID(%d)",
@@ -698,7 +706,7 @@ func (d *DeviceManager) SubscribeDeviceFaultEvent(logicID int32) error {
 		deviceID = common.SubscribeAllDevice
 	} else {
 		var err error
-		cardID, deviceID, err = d.DcMgr.DcGetCardIDDeviceID(logicID)
+		cardID, deviceID, err = d.getCardIdAndDeviceId(logicID)
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			return fmt.Errorf("failed to get cardID in subscribe device error code by logicID(%d)", logicID)
@@ -722,7 +730,7 @@ func (d *DeviceManager) SetFaultEventCallFunc(businessFunc func(common.DevFaultI
 
 // GetDieID return die id by dcmi die type, vdie id or ndie id
 func (d *DeviceManager) GetDieID(logicID int32, dcmiDieType dcmi.DieType) (string, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return "", fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
@@ -733,7 +741,7 @@ func (d *DeviceManager) GetDieID(logicID int32, dcmiDieType dcmi.DieType) (strin
 
 // GetDevProcessInfo get process and process memory in device side
 func (d *DeviceManager) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
@@ -744,7 +752,7 @@ func (d *DeviceManager) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo
 
 // GetPCIeBusInfo pcie bus info
 func (d *DeviceManager) GetPCIeBusInfo(logicID int32) (string, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return "", fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
@@ -755,7 +763,7 @@ func (d *DeviceManager) GetPCIeBusInfo(logicID int32) (string, error) {
 
 // GetBoardInfo return board info of device
 func (d *DeviceManager) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.BoardInfo{}, fmt.Errorf("failed to get cardID in "+
@@ -767,7 +775,7 @@ func (d *DeviceManager) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
 
 // GetPCIEBandwidth get pcie bandwidth
 func (d *DeviceManager) GetPCIEBandwidth(logicID int32, profilingTime int) (common.PCIEBwStat, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.PCIEBwStat{}, fmt.Errorf("get cardID(deviceID) failed, error by logicID(%d)", logicID)
@@ -857,7 +865,7 @@ func (d *DeviceManager) GetValidChipInfo() (common.ChipInfo, error) {
 
 // GetDeviceEccInfo query device ECC info
 func (d *DeviceManager) GetDeviceEccInfo(logicID int32, dcmiDeviceType common.DcmiDeviceType) (*common.ECCInfo, error) {
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		hwlog.RunLog.Errorf("get cardID and deviceID by logicID(%d) failed, error: %v", logicID, err)
 		return nil, err
@@ -871,7 +879,7 @@ func (d *DeviceManager) GetSuperPodInfo(logicID int32) (common.CgoSuperPodInfo, 
 		return common.CgoSuperPodInfo{}, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
 
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		return common.CgoSuperPodInfo{}, fmt.Errorf("failed to get cardID and deviceID by logicID(%d) "+
 			"when get super pod info, error: %v", logicID, err)
@@ -890,7 +898,7 @@ func (d *DeviceManager) GetSioInfo(logicID int32) (*common.SioCrcErrStatisticInf
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return nil, fmt.Errorf("input invalid logicID when get sio info: %d", logicID)
 	}
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cardID and deviceID by logicID(%d) when get sio info , error: %v", logicID, err)
 	}
@@ -907,7 +915,7 @@ func (d *DeviceManager) GetHccsStatisticInfo(logicID int32) (*common.HccsStatist
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return buildFailedHccsInfo(), fmt.Errorf("input invalid logicID when get hccs statistic info: %d", logicID)
 	}
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		return buildFailedHccsInfo(), fmt.Errorf("failed to get cardID and deviceID by logicID(%d) "+
 			"when get hccs statistic info, error: %v", logicID, err)
@@ -927,7 +935,7 @@ func (d *DeviceManager) GetHccsBandwidthInfo(logicID int32) (*common.HccsBandwid
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return buildFailedHccsBWInfo(), fmt.Errorf("input invalid logicID when get hccs bandwidth info: %d", logicID)
 	}
-	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	cardID, deviceID, err := d.getCardIdAndDeviceId(logicID)
 	if err != nil {
 		return buildFailedHccsBWInfo(), fmt.Errorf("failed to get cardID and deviceID by logicID(%d) "+
 			"when get hccs bandwidth info, error: %v", logicID, err)
@@ -970,4 +978,37 @@ func buildFailedHccsBWInfo() *common.HccsBandwidthInfo {
 		errorResult.RxBandwidth[i] = common.FailedValue
 	}
 	return errorResult
+}
+
+func (d *DeviceManager) getCardIdAndDeviceId(logicID int32) (int32, int32, error) {
+
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, common.RetError, fmt.Errorf("input invalid logicID: %d", logicID)
+	}
+
+	result, ok := idCache.Load(logicID)
+	if !ok {
+		return d.doGetCardIDAndDeviceID(logicID)
+	}
+	idMapping, ok := result.(npuIdMapping)
+	if !ok {
+		idCache.Delete(logicID)
+		return d.doGetCardIDAndDeviceID(logicID)
+	}
+	hwlog.RunLog.Debugf("get cardId and deviceId by logicID(%d) from cache, cardId:%v, deviceId:%v",
+		logicID, idMapping.cardId, idMapping.deviceId)
+	return idMapping.cardId, idMapping.deviceId, nil
+}
+
+func (d *DeviceManager) doGetCardIDAndDeviceID(logicID int32) (int32, int32, error) {
+	cardId, deviceId, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.ErrorfWithLimit(common.DomainForLogicIdErr, logicID,
+			"failed to get cardId and deviceId by logicID(%d), error: %v", logicID, err)
+		return common.RetError, common.RetError, err
+	}
+	hwlog.RunLog.Debugf("get cardId and deviceId by logicID(%d) from dcmi, cardId:%v, deviceId:%v",
+		logicID, cardId, deviceId)
+	idCache.Store(logicID, npuIdMapping{logicId: logicID, cardId: cardId, deviceId: deviceId})
+	return cardId, deviceId, nil
 }
