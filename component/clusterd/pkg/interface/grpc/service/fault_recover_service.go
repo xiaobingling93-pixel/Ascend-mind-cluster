@@ -381,6 +381,8 @@ func (s *FaultRecoverService) ReportProcessFault(ctx context.Context,
 			err, request.JobId)
 	}
 	if !common.IsUceFault(request.FaultRanks) {
+		// when config only support dump strategy, in order to be able to dump directly, set healthState to UnHealthy
+		controller.healthState = constant.UnHealthyState
 		controller.addEvent(common.FaultOccurEvent)
 	} else {
 		if faultmanager.GlobalFaultProcessCenter != nil {
