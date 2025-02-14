@@ -22,15 +22,13 @@ package ascend310p
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/vnpu"
 )
 
 type ascend310P struct {
 	// base event handler
 	base.NPUHandler
-	reHandle *rescheduling.ReScheduler
-	vHandle  *vnpu.VirtualNPU
+	vHandle *vnpu.VirtualNPU
 	// 300I duo support scheduler kinds.
 	Kind map[string]base.AscendHandler
 	// specific job use.

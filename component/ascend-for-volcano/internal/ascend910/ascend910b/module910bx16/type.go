@@ -21,13 +21,10 @@ package module910bx16
 
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend910/ascend910b"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 )
 
 type module910bx16 struct {
 	ascend910b.Base910b
-	reHandle        *rescheduling.ReScheduler
-	netUnhealthyKey string
 }
 
 const (

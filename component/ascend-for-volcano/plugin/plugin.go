@@ -38,8 +38,6 @@ type ISchedulerPluginBase interface {
 	SetAnnoPreVal(string)
 	GetAnnoName() string
 	SetAnnoName(string)
-	GetDefaultJobSchedulerConfig() map[string]string
-	SetDefaultJobSchedulerConfig(map[string]string)
 }
 
 // ISchedulerPluginNeed The interface that the specific plug-in needs to implement.
@@ -114,22 +112,4 @@ func (sp *SchedulerPlugin) SetAnnoName(annoName string) {
 		return
 	}
 	sp.annoName = annoName
-}
-
-// GetDefaultJobSchedulerConfig get DefaultJobSchedulerConfig.
-func (sp SchedulerPlugin) GetDefaultJobSchedulerConfig() map[string]string {
-	return sp.defaultJobSchedulerConfig
-}
-
-// SetDefaultJobSchedulerConfig set DefaultJobSchedulerConfig.
-func (sp *SchedulerPlugin) SetDefaultJobSchedulerConfig(conf map[string]string) {
-	if sp == nil {
-		klog.V(util.LogInfoLev).Infof("SetDefaultJobSchedulerConfig failed: %s.", util.ArgumentError)
-		return
-	}
-
-	if len(sp.defaultJobSchedulerConfig) == 0 {
-		sp.defaultJobSchedulerConfig = make(map[string]string, util.MapInitNum)
-	}
-	sp.defaultJobSchedulerConfig = conf
 }

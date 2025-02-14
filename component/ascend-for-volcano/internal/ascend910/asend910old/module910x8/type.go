@@ -21,14 +21,12 @@ package module910x8
 
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 )
 
 type module910x8 struct {
 	base.NPUHandler
 	netUnhealthyKey string
 	affScoreList    [][]int
-	reHandle        *rescheduling.ReScheduler
 }
 
 const (

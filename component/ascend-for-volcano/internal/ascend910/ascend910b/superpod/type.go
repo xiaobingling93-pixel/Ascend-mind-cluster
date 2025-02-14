@@ -21,13 +21,11 @@ package superpod
 
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend910/ascend910b"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
 type module910SuperPod struct {
 	ascend910b.Base910b
-	reHandle        *rescheduling.ReScheduler
 	netUnhealthyKey string
 	spBlock         int
 	dieNum          int

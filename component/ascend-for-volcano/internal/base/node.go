@@ -30,7 +30,7 @@ import (
 )
 
 // GetUsableTopFromNode Get ascend node usable top.
-func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode) ([]int, error) {
+func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([]int, error) {
 	if tp == nil || len(node.Annotation) == 0 {
 		return nil, errors.New(util.ArgumentError)
 	}
@@ -45,7 +45,28 @@ func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode) ([]int, error) {
 		klog.V(util.LogWarningLev).Infof("%s GetUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
-	return nodeTop, nil
+	if !disFlag || !tp.IsNetworkFaultAttention {
+		return nodeTop, nil
+	}
+	netUnhealthyTop, err := tp.getNetUnhealthyNPU(node)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("getNetUnhealthyNPU err: %s", err)
+		return nil, err
+	}
+
+	res := util.RemoveCommonElement(nodeTop, netUnhealthyTop)
+	return res, nil
+}
+
+func (tp *NPUHandler) getNetUnhealthyNPU(node plugin.NPUNode) ([]int, error) {
+	networkUnhealthyTopStr, ok := node.Annotation[networkUnhealthyNPU]
+	if !ok {
+		err := fmt.Errorf("node<%s> don't have resource<%s>", node.Name, networkUnhealthyNPU)
+		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		return nil, err
+	}
+	netUnhealthyTop := util.ChangeTopToIntArray(networkUnhealthyTopStr, tp.GetAnnoPreVal())
+	return netUnhealthyTop, nil
 }
 
 // GetCardNumGroupsFromTop get the chip for each card from nodeTop

@@ -106,7 +106,7 @@ func buildValidNPUJobTestCase01() []validNPUJobTestCase {
 			WantErr: &api.ValidateResult{
 				Pass:    false,
 				Reason:  "task req npu num is invalid",
-				Message: "task<vcjob/job02-pod0> req npu num<65> is invalid",
+				Message: "job<vcjob/job02> req npu num<65> is invalid",
 			},
 		},
 		{
@@ -245,20 +245,6 @@ func TestCheckNodeNPUByTask(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestScoreBestNPUNodes
-func TestScoreBestNPUNodes(t *testing.T) {
-	npu1 := NPUHandler{}
-	task := &api.TaskInfo{}
-	var nodes []*api.NodeInfo
-	scoreMap := make(map[string]float64, util.MapInitNum)
-	wantErr := errors.New(util.ArgumentError)
-	t.Run("scoreBestNPU will return err", func(t *testing.T) {
-		if err := npu1.ScoreBestNPUNodes(task, nodes, scoreMap); !reflect.DeepEqual(err, wantErr) {
-			t.Errorf("ScoreBestNPUNodes() error = %v, wantErr %v", err, nil)
-		}
-	})
 }
 
 type useAnnotationTestCase struct {
@@ -439,6 +425,136 @@ func TestSetMaxNodeNPUNum(t *testing.T) {
 			npu.SetMaxNodeNPUNum(tt.Num)
 			if npu.MaxNodeNPUNum != tt.WantNum {
 				t.Errorf("SetMaxNodeNPUNum() num: %d, wanterr: %d", npu.MaxNodeNPUNum, tt.WantNum)
+			}
+		})
+	}
+}
+
+type scoreBestNPUNodesTestCase struct {
+	Task     *api.TaskInfo
+	Nodes    []*api.NodeInfo
+	ScoreMap map[string]float64
+	WantSMap map[string]float64
+	Name     string
+	WantErr  error
+	Attr     util.SchedulerJobAttr
+}
+
+func buildScoreBestNPUNodesTestCases01() []scoreBestNPUNodesTestCase {
+	const score = 400
+	return []scoreBestNPUNodesTestCase{
+		{
+			Name:     "01-ScoreBestNPUNodes return err when task is not this job npu task ",
+			Task:     test.FakeTaskWithResReq("pod1", util.NPU910CardName, 1),
+			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node2"}},
+			ScoreMap: map[string]float64{"node1": 0, "node2": 0},
+			WantSMap: map[string]float64{"node1": score, "node2": 0},
+			WantErr:  nil,
+		},
+		{
+			Name:     "02-ScoreBestNPUNodes scoreMap no refresh when node is not this job npu node",
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU910CardName, 1),
+			Nodes:    []*api.NodeInfo{{Name: "node6"}},
+			ScoreMap: map[string]float64{"node6": 0},
+			WantSMap: map[string]float64{"node6": 0},
+			WantErr:  nil,
+		},
+		{
+			Name:     "03-ScoreBestNPUNodes scoreMap no refresh when node netUnhealthyNPU not define",
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU910CardName, 1),
+			Nodes:    []*api.NodeInfo{{Name: "node7"}},
+			ScoreMap: map[string]float64{"node7": 0},
+			WantSMap: map[string]float64{"node7": 0},
+			WantErr:  nil,
+		},
+	}
+}
+
+func buildScoreBestNPUNodesTestCases02() []scoreBestNPUNodesTestCase {
+	const (
+		score = 400
+	)
+	return []scoreBestNPUNodesTestCase{
+		{
+			Name:     "04-ScoreBestNPUNodes scoreMap no refresh when node has no npu",
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU910CardName, 1),
+			Nodes:    []*api.NodeInfo{{Name: "node8"}},
+			ScoreMap: map[string]float64{"node8": 0},
+			WantSMap: map[string]float64{"node8": 0},
+			WantErr:  nil,
+		},
+		{
+			Name:     "05-ScoreBestNPUNodes return nil when node npu meet task req",
+			Task:     test.FakeTaskWithResReq("pod0", util.NPU910CardName, 1),
+			Nodes:    []*api.NodeInfo{{Name: "node1"}, {Name: "node3"}, {Name: "node4"}, {Name: "node5"}},
+			ScoreMap: map[string]float64{"node1": 0, "node3": 0, "node4": 0, "node5": 0},
+			WantSMap: map[string]float64{"node1": score, "node3": score, "node4": score, "node5": score},
+			WantErr:  nil,
+		},
+	}
+}
+
+func buildFakeScheduleEnv() plugin.ScheduleEnv {
+	const allocateNPUNum4 = 4
+	return plugin.ScheduleEnv{
+		Nodes: map[string]plugin.NPUNode{
+			"node1": {
+				CommonNode: plugin.CommonNode{
+					Annotation: map[string]string{util.NPU910CardName: "Ascend910-0", networkUnhealthyNPU: ""},
+					Allocate:   map[v1.ResourceName]float64{util.NPU910CardName: allocateNPUNum4 * util.NPUHexKilo},
+				},
+			},
+			"node2": {
+				CommonNode: plugin.CommonNode{
+					Annotation: map[string]string{util.NPU910CardName: "Ascend910-0,Ascend910-1"},
+				},
+			},
+			"node3": {
+				CommonNode: plugin.CommonNode{
+					Annotation: map[string]string{util.NPU910CardName: "Ascend910-0,Ascend910-1,Ascend910-2",
+						networkUnhealthyNPU: ""},
+					Allocate: map[v1.ResourceName]float64{util.NPU910CardName: allocateNPUNum4 * util.NPUHexKilo}},
+			},
+			"node4": {
+				CommonNode: plugin.CommonNode{
+					Annotation: map[string]string{util.NPU910CardName: "Ascend910-0,Ascend910-1",
+						networkUnhealthyNPU: ""},
+					Allocate: map[v1.ResourceName]float64{util.NPU910CardName: allocateNPUNum4 * util.NPUHexKilo}},
+			},
+			"node5": {CommonNode: plugin.CommonNode{
+				Annotation: map[string]string{util.NPU910CardName: "Ascend910-0,Ascend910-1,Ascend910-2," +
+					"Ascend910-3", networkUnhealthyNPU: ""},
+				Allocate: map[v1.ResourceName]float64{util.NPU910CardName: allocateNPUNum4 * util.NPUHexKilo}},
+			},
+			"node6": {CommonNode: plugin.CommonNode{Annotation: map[string]string{}}},
+			"node7": {CommonNode: plugin.CommonNode{Annotation: map[string]string{util.NPU910CardName: "Ascend910-0"}}},
+			"node8": {CommonNode: plugin.CommonNode{Annotation: map[string]string{util.NPU910CardName: "",
+				networkUnhealthyNPU: ""}}},
+			"node9": {CommonNode: plugin.CommonNode{Annotation: map[string]string{util.NPU910CardName: "",
+				networkUnhealthyNPU: ""}}},
+		},
+	}
+}
+
+// TestScoreBestNPUNodes
+func TestScoreBestNPUNodes(t *testing.T) {
+	npu := &NPUHandler{}
+	npu.SetAnnoName(util.NPU910CardName)
+	job := test.FakeNormalTestJob("job", 1)
+	test.SetFakeJobResRequest(job, util.NPU910CardName, "1")
+	attr := itest.FakeSchedulerJobAttrByJob(job)
+	npu.SetSchedulerAttr(attr)
+	env := buildFakeScheduleEnv()
+	env.Jobs = map[api.JobID]plugin.SchedulerJob{test.FakeJobName: {SchedulerJobAttr: attr}}
+	npu.SetSchedulerEnv(env)
+	testCases := buildScoreBestNPUNodesTestCases01()
+	testCases = append(testCases, buildScoreBestNPUNodesTestCases02()...)
+	for _, tt := range testCases {
+		t.Run(tt.Name, func(t *testing.T) {
+			err := npu.ScoreBestNPUNodes(tt.Task, tt.Nodes, tt.ScoreMap)
+			if !reflect.DeepEqual(err, tt.WantErr) || !reflect.DeepEqual(tt.ScoreMap, tt.WantSMap) {
+				t.Errorf("ScoreBestNPUNodes() scoreMap: %v, wantSMap: %v, error = %v, wantErr %v",
+					tt.ScoreMap, tt.WantSMap, err, tt.WantErr)
 			}
 		})
 	}

@@ -21,18 +21,14 @@ package module910bx8
 
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend910/ascend910b"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 )
 
 type module910bx8 struct {
 	ascend910b.Base910b
-	reHandle        *rescheduling.ReScheduler
-	netUnhealthyKey string
 }
 
 const (
 	// SchedulerName name of scheduler
-	SchedulerName       = "huawei.com/Ascend910module-910b-8"
-	nodeNPUNumber       = 8
-	networkUnhealthyNPU = "huawei.com/Ascend910-NetworkUnhealthy"
+	SchedulerName = "huawei.com/Ascend910module-910b-8"
+	nodeNPUNumber = 8
 )

@@ -41,9 +41,11 @@ func New(name string) base.AscendHandler {
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetDefaultJobSchedulerConfig(nil)
 	m.SetMaxNodeNPUNum(nodeNPUNumber)
 	m.netUnhealthyKey = networkUnhealthyNPU
+	m.SetNpuNumInvalidMap(map[int]struct{}{util.NPUIndex3: {}, util.NPUIndex5: {}, util.NPUIndex6: {},
+		util.NPUIndex7: {}})
+	m.SetIsNetworkFaultAttention(true)
 	m.affScoreList = [][]int{
 		{util.AffScore0, util.AffScore2, util.AffScore1, util.AffScore3},
 		{util.AffScore4, util.AffScore0, util.AffScore2, util.AffScore1},
@@ -53,42 +55,13 @@ func New(name string) base.AscendHandler {
 	return m
 }
 
-// ValidNPUJob check job req npu num and mode
-func (tp *module910x8) ValidNPUJob() *api.ValidateResult {
-	vResult := &api.ValidateResult{}
-	var vErr error = nil
-	defer func() {
-		if vErr != nil {
-			vResult.Pass = false
-			vResult.Reason = vErr.Error()
-			vResult.Message = vErr.Error()
-			return
-		}
-	}()
-
-	// 1. check parameter.
-	if tp == nil {
-		vErr = fmt.Errorf("nil plugin %s", SchedulerName)
-		klog.V(util.LogErrorLev).Infof("ValidNPUJob err: %s.", vErr)
-		return vResult
-	}
-
-	// 2.check job train mode:distribute and single.
-	if vErr = tp.checkJobTrainMode(); vErr != nil {
-		klog.V(util.LogErrorLev).Infof("checkJobTrainMode: %s.", vErr)
-		return vResult
-	}
-
-	return tp.reHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
-}
-
 // PreStartAction pre-processing actions for rescheduling
 func (tp *module910x8) PreStartAction(i interface{}, _ *framework.Session) error {
 	k, ok := i.(*rescheduling.ReScheduler)
 	if !ok {
 		return fmt.Errorf("preStartAction failed %s, interface is not ReScheduler", SchedulerName)
 	}
-	tp.reHandle = k
+	tp.NPUHandler.ReHandle = k
 	return nil
 }
 
@@ -113,7 +86,7 @@ func (tp *module910x8) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNod
 		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
-	nodeTop, err := tp.getUsableTopFromNode(node, tp.NPUTaskNum > 1)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
@@ -125,8 +98,8 @@ func (tp *module910x8) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNod
 			node.Annotation[tp.netUnhealthyKey])
 	}
 
-	if tp.reHandle != nil {
-		if reErr := tp.reHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
+	if tp.ReHandle != nil {
+		if reErr := tp.ReHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
 			return fmt.Errorf("rescheduling %s", reErr.Error())
 		}
 	}
@@ -155,7 +128,7 @@ func (tp *module910x8) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeIn
 				tp.GetPluginName(), node.Name)
 			continue
 		}
-		cardIds, err := tp.getUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
+		cardIds, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
 		if err != nil {
 			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
 			continue
@@ -175,7 +148,7 @@ func (tp *module910x8) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeIn
 		scoreMap[node.Name] = nodeWeight*float64(int(healthyNPUNum/util.NPUHexKilo)*npuNumPerHccs-bestScore) +
 			float64(sortScore)
 	}
-	reErr := tp.reHandle.ScoreBestNPUNodes(task, scoreMap)
+	reErr := tp.ReHandle.ScoreBestNPUNodes(task, scoreMap)
 	if reErr != nil {
 		klog.V(util.LogErrorLev).Infof(
 			"%s rescheduling ScoreBestNPUNodes failed :%s.", SchedulerName, reErr.Error())
@@ -203,7 +176,7 @@ func (tp *module910x8) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *p
 		tp.GetPluginName(), task.Name, selectedNPU)
 
 	tp.SetNPUTopologyToPodFn(task, selectedNPU, node)
-	newNode := tp.UpdateNodeInfo(node, selectedNPU)
+	newNode := tp.NPUHandler.UpdateNodeInfo(node, selectedNPU)
 	return newNode
 }
 
@@ -213,9 +186,9 @@ func (tp *module910x8) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode
 		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
-	nodeTop, err := tp.getUsableTopFromNode(node, tp.NPUTaskNum > 1)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogErrorLev).Infof("%s GetUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
 	if taskNPUNum == nodeNPUNumber {
@@ -246,9 +219,4 @@ func (tp *module910x8) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode
 	err = fmt.Errorf("node<%s> top<%v> can not meet task req<%d>", node.Name, len(nodeTop), taskNPUNum)
 	klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode err: %s", tp.GetPluginName(), err.Error())
 	return nil, err
-}
-
-// ReleaseAnnotation Release used resource.
-func (tp *module910x8) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
-	return &node
 }

@@ -22,63 +22,9 @@ package module910x8
 import (
 	"fmt"
 
-	"k8s.io/klog"
-
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
-
-func (tp *module910x8) getUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([]int, error) {
-	resTop := make([]int, 0)
-	topStr, ok := node.Annotation[tp.GetAnnoName()]
-	if !ok {
-		err := fmt.Errorf("node<%s> don't have npu<%s>", node.Name, tp.GetAnnoName())
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	nodeTop := util.ChangeTopToIntArray(topStr, tp.GetAnnoPreVal())
-	if len(nodeTop) > tp.MaxNodeNPUNum {
-		err := fmt.Errorf("node<%s> npu top<%v> is invalid", node.Name, nodeTop)
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	if len(nodeTop) != 0 {
-		resTop = append(resTop, nodeTop...)
-	}
-	if !disFlag {
-		return resTop, nil
-	}
-
-	networkUnhealthyTopStr, ok := node.Annotation[tp.netUnhealthyKey]
-	if !ok {
-		err := fmt.Errorf("node<%s> don't have resource<%s>", node.Name, tp.netUnhealthyKey)
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	networkUnhealthyTop := util.ChangeTopToIntArray(networkUnhealthyTopStr, tp.GetAnnoPreVal())
-	if len(nodeTop) > tp.MaxNodeNPUNum {
-		err := fmt.Errorf("node<%s> npu networkUnhealthy top<%v> is invalid", node.Name, networkUnhealthyTop)
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	if len(networkUnhealthyTop) == 0 {
-		return resTop, nil
-	}
-	newTop := make([]int, 0)
-	for _, rId := range resTop {
-		existFlag := false
-		for _, nId := range networkUnhealthyTop {
-			if rId == nId {
-				existFlag = true
-				break
-			}
-		}
-		if !existFlag {
-			newTop = append(newTop, rId)
-		}
-	}
-	return newTop, nil
-}
 
 func initSelectNodeInf(npuTop []int) selectNodeInf {
 	var sNodeInf selectNodeInf
@@ -156,33 +102,4 @@ func (tp *module910x8) getNodeBestScore(taskNPUNum int, npuTop []int) (int, erro
 		return bestScore, err
 	}
 	return bestScore, nil
-}
-
-// UpdateNodeInfo update node info
-func (tp *module910x8) UpdateNodeInfo(node plugin.NPUNode, usedTop []int) *plugin.NPUNode {
-	if tp == nil || len(node.Annotation) == 0 || len(usedTop) == 0 {
-		return nil
-	}
-	if len(usedTop) > tp.MaxNodeNPUNum {
-		klog.V(util.LogErrorLev).Infof("%s UpdateNodeInfo err: used npu num<%d> is invalid",
-			tp.GetPluginName(), len(usedTop))
-		return nil
-	}
-	klog.V(util.LogDebugLev).Infof("%s before UpdateNodeInfo node<%s> Annotation: %s",
-		tp.GetPluginName(), node.Name, util.SafePrint(node.Annotation))
-	healthyAnno, err := node.GetNewNPUNodeAnnotation(usedTop, tp.GetAnnoName(), tp.GetAnnoPreVal())
-	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s UpdateNodeInfo err: %s", tp.GetPluginName(), err.Error())
-		return nil
-	}
-	netUnhealthyAnno, err := node.GetNewNPUNodeAnnotation(usedTop, tp.netUnhealthyKey, tp.GetAnnoPreVal())
-	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s UpdateNodeInfo err: %s", tp.GetPluginName(), err.Error())
-		return nil
-	}
-	node.Annotation[tp.GetAnnoName()] = healthyAnno
-	node.Annotation[tp.netUnhealthyKey] = netUnhealthyAnno
-	klog.V(util.LogDebugLev).Infof("%s after UpdateNodeInfo node<%s> Annotation: %s",
-		tp.GetPluginName(), node.Name, util.SafePrint(node.Annotation))
-	return &node
 }

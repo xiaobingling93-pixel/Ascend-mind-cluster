@@ -50,93 +50,6 @@ func TestNew(t *testing.T) {
 	})
 }
 
-// validNPUJobTestCase validNPUJob test case
-type validNPUJobTestCase struct {
-	WantErr *api.ValidateResult
-	Name    string
-	Attr    util.SchedulerJobAttr
-}
-
-func buildValidNPUJobTestCase01() []validNPUJobTestCase {
-	job01 := test.FakeNormalTestJob("job01", 1)
-	test.SetFakeJobResRequest(job01, util.NPU910CardName, "1")
-	attr1 := itest.FakeSchedulerJobAttrByJob(job01)
-	job02 := test.FakeNormalTestJob("job02", 1)
-	test.SetFakeJobResRequest(job02, util.NPU910CardName, "3")
-	attr2 := itest.FakeSchedulerJobAttrByJob(job02)
-	job03 := test.FakeNormalTestJob("job03", 1)
-	test.SetFakeJobResRequest(job03, util.NPU910CardName, "2")
-	attr3 := itest.FakeSchedulerJobAttrByJob(job03)
-	errMsg2 := "huawei.com/Ascend910module checkSingleTrainMode vcjob/job02 req npu not in [1,2,4,8]"
-	return []validNPUJobTestCase{
-		{
-			Name:    "01-ValidNPUJob should return nil when job request 1 npu",
-			Attr:    attr1,
-			WantErr: nil,
-		},
-		{
-			Name: "02-ValidNPUJob should return error when tasks request is not 1-2-4-8",
-			Attr: attr2,
-			WantErr: &api.ValidateResult{
-				Pass:    false,
-				Reason:  errMsg2,
-				Message: errMsg2,
-			},
-		},
-		{
-			Name:    "03-ValidNPUJob should return nil when tasks request is valid",
-			Attr:    attr3,
-			WantErr: nil,
-		},
-	}
-}
-
-func buildValidNPUJobTestCase02() []validNPUJobTestCase {
-	job04 := test.FakeNormalTestJob("job04", util.NPUIndex2)
-	test.SetFakeJobResRequest(job04, util.NPU910CardName, "1")
-	attr4 := itest.FakeSchedulerJobAttrByJob(job04)
-	job05 := test.FakeNormalTestJob("job05", util.NPUIndex2)
-	test.SetFakeJobResRequest(job05, util.NPU910CardName, "8")
-	attr5 := itest.FakeSchedulerJobAttrByJob(job05)
-	task2 := util.NPUTask{ReqNPUNum: 1}
-	attr5.Tasks["vcjob-pod1"] = task2
-	job06 := test.FakeNormalTestJob("job06", util.NPUIndex2)
-	test.SetFakeJobResRequest(job06, util.NPU910CardName, "8")
-	attr6 := itest.FakeSchedulerJobAttrByJob(job06)
-	return []validNPUJobTestCase{
-		{
-			Name:    "04-ValidNPUJob should return error when task request no npu",
-			Attr:    attr4,
-			WantErr: nil,
-		},
-		{
-			Name:    "05-ValidNPUJob should return error when task request npu more than 4",
-			Attr:    attr5,
-			WantErr: nil,
-		},
-		{
-			Name:    "06-ValidNPUJob should return nil when tasks request is valid",
-			Attr:    attr6,
-			WantErr: nil,
-		},
-	}
-}
-
-// TestValidNPUJob
-func TestValidNPUJob(t *testing.T) {
-	npu := New(SchedulerName)
-	testCases := buildValidNPUJobTestCase01()
-	testCases = append(testCases, buildValidNPUJobTestCase02()...)
-	for _, tt := range testCases {
-		t.Run(tt.Name, func(t *testing.T) {
-			npu.SetSchedulerAttr(tt.Attr)
-			if err := npu.ValidNPUJob(); !reflect.DeepEqual(err, tt.WantErr) {
-				t.Errorf("ValidNPUJob() error = %v, wantErr %v", err, tt.WantErr)
-			}
-		})
-	}
-}
-
 // checkNodeNPUByTaskTestCase CheckNodeNPUByTask test case
 type checkNodeNPUByTaskTestCase struct {
 	Task    *api.TaskInfo
@@ -181,7 +94,7 @@ func buildCheckNodeNPUByTaskTestCases01() []checkNodeNPUByTaskTestCase {
 					Annotation: map[string]string{util.NPU310CardName: "Ascend310-0,Ascend310-1,Ascend310-2"},
 				},
 			},
-			WantErr: errors.New("node<node1> don't have npu<huawei.com/Ascend910>"),
+			WantErr: errors.New("getUsableTopFromNode node1 don't have huawei.com/Ascend910"),
 		},
 	}
 
@@ -445,7 +358,7 @@ func buildUseAnnotationTestCases01() []useAnnotationTestCase {
 			WantNode: &plugin.NPUNode{
 				CommonNode: plugin.CommonNode{
 					Annotation: map[string]string{util.NPU910CardName: "Ascend910-1,Ascend910-2,Ascend910-4,Ascend910-5",
-						networkUnhealthyNPU: ""},
+						networkUnhealthyNPU: "Ascend910-0"},
 				},
 			},
 		},

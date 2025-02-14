@@ -40,7 +40,6 @@ func New(npuName string) plugin.ISchedulerPlugin {
 	npuPlugin.SetPluginName(npuName)
 	npuPlugin.SetAnnoName(util.NPU310PCardName)
 	npuPlugin.SetAnnoPreVal(util.NPU310PCardNamePre)
-	npuPlugin.SetDefaultJobSchedulerConfig(nil)
 	npuPlugin.SetMaxNodeNPUNum(maxNodeNPUNum)
 	npuPlugin.InitVNPU()
 
@@ -121,7 +120,7 @@ func (tp *ascend310P) ValidNPUJob() *api.ValidateResult {
 		if validErr := tp.NPUHandler.ValidNPUJob(); validErr != nil {
 			return validErr
 		}
-		return tp.reHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
+		return tp.ReHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
 	case util.JobTypeStCut:
 		return tp.validStVNPUJob()
 	case util.JobTypeDyCut:
@@ -166,7 +165,7 @@ func (tp *ascend310P) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		return err
 	}
 
-	if reErr := tp.reHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
+	if reErr := tp.ReHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
 		return fmt.Errorf("rescheduling CheckNodeNPUByTask %s", reErr.Error())
 	}
 	return nil
@@ -221,7 +220,7 @@ func (tp *ascend310P) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		return err
 	}
 
-	if reErr := tp.reHandle.ScoreBestNPUNodes(task, scoreMap); reErr != nil {
+	if reErr := tp.ReHandle.ScoreBestNPUNodes(task, scoreMap); reErr != nil {
 		klog.V(util.LogErrorLev).Infof("%s rescheduling ScoreBestNPUNodes failed :%s.",
 			tp.GetPluginName(), reErr.Error())
 	}

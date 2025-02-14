@@ -38,7 +38,6 @@ func New(name string) base.AscendHandler {
 	chip.SetPluginName(name)
 	chip.SetAnnoName(util.NPU310PCardName)
 	chip.SetAnnoPreVal(util.NPU310PCardNamePre)
-	chip.SetDefaultJobSchedulerConfig(nil)
 	chip.SetMaxNodeNPUNum(maxNodeNPUNum)
 	chip.SetMaxCardNPUNum(maxCardNPUNum)
 	// reqNpuNum (odd) : nodeNpuNum, node include single chip
@@ -73,20 +72,6 @@ func (tp *chip310px2) ValidNPUJob() *api.ValidateResult {
 	klog.V(util.LogInfoLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
 	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob card-mode job<%s> has <%d> tasks.",
 		tp.GetPluginName(), tp.Name, len(tp.Tasks))
-	for _, task := range tp.Tasks {
-		taskNPU := task.ReqNPUNum
-		klog.V(util.LogDebugLev).Infof("%s check Card Mode %s require %d npu.",
-			tp.GetPluginName(), task.Name, taskNPU)
-		if taskNPU < 1 || taskNPU > tp.MaxNodeNPUNum {
-			err := fmt.Errorf("task <%s-%s> req npu <%d> is invalid", tp.Name, task.Name, taskNPU)
-			klog.V(util.LogErrorLev).Infof("%s ValidNPUJob err: %s", tp.GetPluginName(), err.Error())
-			return &api.ValidateResult{
-				Pass:    false,
-				Reason:  "job require npu num is invalid",
-				Message: err.Error(),
-			}
-		}
-	}
 	if tp.SchedulerJobAttr.Label[util.DistributedInferKey] == util.DistributedInferLabel &&
 		tp.NPUTaskNum > 1 {
 		err := fmt.Errorf("job <%s> task num <%d> is invalid", tp.Name, len(tp.Tasks))
@@ -97,7 +82,7 @@ func (tp *chip310px2) ValidNPUJob() *api.ValidateResult {
 			Message: err.Error(),
 		}
 	}
-	return nil
+	return tp.NPUHandler.ValidNPUJob()
 }
 
 // CheckNodeNPUByTask check nod npu meet task req
@@ -113,7 +98,7 @@ func (tp *chip310px2) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		return err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
@@ -194,7 +179,7 @@ func (tp *chip310px2) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		if !ok {
 			continue
 		}
-		nodeTop, err := tp.GetUsableTopFromNode(nNode)
+		nodeTop, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
 		if err != nil {
 			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes err: %s.", tp.GetPluginName(), err.Error())
 			continue
@@ -272,7 +257,7 @@ func (tp *chip310px2) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode)
 		klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode %s", tp.GetPluginName(), err.Error())
 		return nil, err

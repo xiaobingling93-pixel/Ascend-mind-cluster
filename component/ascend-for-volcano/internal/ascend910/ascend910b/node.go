@@ -48,30 +48,3 @@ func (ab *Base910b) UpdateNodeInfo(node plugin.NPUNode, usedTop []int) *plugin.N
 		ab.GetPluginName(), node.Name, util.SafePrint(node.Annotation))
 	return &node
 }
-
-// GetNodeHccsArray get node hccs array
-func (ab *Base910b) GetNodeHccsArray(nodeTop []int) ([]int, []int) {
-	var leftHccsArray []int
-	var rightHccsArray []int
-
-	idCutNum := ab.MaxNodeNPUNum / util.NPUIndex2
-	if ab.MaxNodeNPUNum < util.NPUIndex8 {
-		for _, v := range nodeTop {
-			if v < util.NPUIndex4 {
-				leftHccsArray = append(leftHccsArray, v)
-				continue
-			}
-			rightHccsArray = append(rightHccsArray, v)
-		}
-		return leftHccsArray, rightHccsArray
-	}
-	for _, v := range nodeTop {
-		if v < idCutNum {
-			leftHccsArray = append(leftHccsArray, v)
-			continue
-		}
-		rightHccsArray = append(rightHccsArray, v)
-	}
-
-	return leftHccsArray, rightHccsArray
-}

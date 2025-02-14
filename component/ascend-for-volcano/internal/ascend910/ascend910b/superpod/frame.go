@@ -41,9 +41,9 @@ func New(name string) *module910SuperPod {
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetDefaultJobSchedulerConfig(nil)
 	m.SetMaxNodeNPUNum(nodeNPUNumber)
 	m.SetAcceleratorValue(util.JobKind910BValue)
+	m.SetIsNetworkFaultAttention(true)
 	m.netUnhealthyKey = networkUnhealthyNPU
 	m.dieNum = dieNPUNumber
 
@@ -56,7 +56,7 @@ func (tp *module910SuperPod) PreStartAction(i interface{}, _ *framework.Session)
 	if !ok {
 		return fmt.Errorf("preStartAction failed %s, interface is not ReScheduler", SchedulerName)
 	}
-	tp.reHandle = k
+	tp.ReHandle = k
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (tp *module910SuperPod) ValidNPUJob() *api.ValidateResult {
 	if err := tp.checkRequireNPU(); err != nil {
 		return err
 	}
-	return tp.reHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
+	return tp.ReHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
 }
 
 func (tp *module910SuperPod) checkRequireNPU() *api.ValidateResult {
@@ -179,7 +179,7 @@ func (tp *module910SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.
 		return err
 	}
 
-	nodeTop, err := tp.getUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum/tp.spBlock > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
 		return err
@@ -190,8 +190,8 @@ func (tp *module910SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.
 		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
 
-	if tp.reHandle != nil {
-		if reErr := tp.reHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
+	if tp.ReHandle != nil {
+		if reErr := tp.ReHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
 			return fmt.Errorf("rescheduling CheckNodeNPUByTask %s", reErr.Error())
 		}
 	}
@@ -229,37 +229,6 @@ func (tp *module910SuperPod) judgeNodeAndTaskNPU(taskNPU int, nodeNPUTopology []
 	}
 
 	return nil
-}
-
-func (tp *module910SuperPod) getUsableTopFromNode(node plugin.NPUNode) ([]int, error) {
-	nodeTop, err := tp.GetUsableTopFromNode(node)
-	if err != nil {
-		klog.V(util.LogErrorLev).Infof("getUsableTopFromNode err: %s", err)
-		return nil, err
-	}
-	if len(nodeTop) > tp.MaxNodeNPUNum {
-		err := fmt.Errorf("node<%s> npu nodeTop top<%v> is invalid", node.Name, nodeTop)
-		klog.V(util.LogWarningLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	// if job req virtual super-pod is 1, do not care about network-unhealthy npu
-	if tp.NPUTaskNum/tp.spBlock == 1 {
-		return nodeTop, nil
-	}
-	networkUnhealthyTopStr, ok := node.Annotation[tp.netUnhealthyKey]
-	if !ok {
-		err := fmt.Errorf("node<%s> don't have resource<%s>", node.Name, tp.netUnhealthyKey)
-		klog.V(util.LogWarningLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	networkUnhealthyTop := util.ChangeTopToIntArray(networkUnhealthyTopStr, tp.GetAnnoPreVal())
-	if len(networkUnhealthyTop) > tp.MaxNodeNPUNum {
-		err := fmt.Errorf("node<%s> npu networkUnhealthy top<%v> is invalid", node.Name, networkUnhealthyTop)
-		klog.V(util.LogWarningLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
-		return nil, err
-	}
-	res := util.RemoveCommonElement(nodeTop, networkUnhealthyTop)
-	return res, nil
 }
 
 func (tp *module910SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo,
@@ -419,7 +388,7 @@ func (tp *module910SuperPod) selectNodesForFaultJob(task *api.TaskInfo,
 	sMap map[string]float64) (map[string][]plugin.SuperNode, error) {
 
 	selectNodes := make(map[string][]plugin.SuperNode)
-	reScheduler := tp.reHandle
+	reScheduler := tp.ReHandle
 	if reScheduler == nil {
 		return selectNodes, nil
 	}
@@ -920,7 +889,7 @@ func (tp *module910SuperPod) selectNPUFromNode(task *api.TaskInfo, node plugin.N
 		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
-	npuTop, err := tp.getUsableTopFromNode(node)
+	npuTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum/tp.spBlock > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
 		return nil, err

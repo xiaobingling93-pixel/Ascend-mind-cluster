@@ -37,7 +37,6 @@ func New(name string) base.AscendHandler {
 	chip.SetPluginName(name)
 	chip.SetAnnoName(util.NPU310CardName)
 	chip.SetAnnoPreVal(util.NPU310CardNamePre)
-	chip.SetDefaultJobSchedulerConfig(nil)
 	chip.SetMaxNodeNPUNum(maxNodeNPUNum)
 	chip.SetMaxCardNPUNum(maxCardNPUNum)
 	return chip
@@ -77,7 +76,7 @@ func (tp *chip310x4) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode) 
 		return nil, err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode %s", tp.GetPluginName(), err.Error())
 		return nil, err
@@ -110,9 +109,4 @@ func (tp *chip310x4) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode) 
 		task.Name, taskNPUNum)
 	klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode err: %s", tp.GetPluginName(), err.Error())
 	return nil, err
-}
-
-// ReleaseAnnotation Release used resource.
-func (tp *chip310x4) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
-	return &node
 }

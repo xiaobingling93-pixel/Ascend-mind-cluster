@@ -39,7 +39,6 @@ func New(name string) base.AscendHandler {
 	card.SetPluginName(name)
 	card.SetAnnoName(util.NPU310PCardName)
 	card.SetAnnoPreVal(util.NPU310PCardNamePre)
-	card.SetDefaultJobSchedulerConfig(nil)
 	card.affScoreList = [][]int{
 		{affScore0, affScore1},
 		{affScore2, affScore0},
@@ -55,21 +54,6 @@ func (tp *card310px2) ValidNPUJob() *api.ValidateResult {
 	klog.V(util.LogInfoLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
 	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob card-mode job<%s> has <%d> tasks.",
 		tp.GetPluginName(), tp.Name, len(tp.Tasks))
-
-	for _, task := range tp.Tasks {
-		taskNPU := task.ReqNPUNum
-		klog.V(util.LogDebugLev).Infof("%s check Card Mode %s require %d npu.",
-			tp.GetPluginName(), task.Name, taskNPU)
-		if taskNPU < 1 || taskNPU > tp.MaxCardNPUNum {
-			err := fmt.Errorf("task <%s-%s> req npu <%d> is invalid", tp.Name, task.Name, taskNPU)
-			klog.V(util.LogErrorLev).Infof("%s ValidNPUJob err: %s", tp.GetPluginName(), err.Error())
-			return &api.ValidateResult{
-				Pass:    false,
-				Reason:  "job require npu num is invalid",
-				Message: err.Error(),
-			}
-		}
-	}
 	if tp.SchedulerJobAttr.Label[util.DistributedInferKey] == util.DistributedInferLabel &&
 		tp.NPUTaskNum > 1 {
 		err := fmt.Errorf("job <%s> task num <%d> is invalid", tp.Name, len(tp.Tasks))
@@ -80,8 +64,7 @@ func (tp *card310px2) ValidNPUJob() *api.ValidateResult {
 			Message: err.Error(),
 		}
 	}
-
-	return nil
+	return tp.NPUHandler.ValidNPUJob()
 }
 
 // CheckNodeNPUByTask check nod npu meet task req
@@ -97,7 +80,7 @@ func (tp *card310px2) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		return err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
@@ -144,7 +127,7 @@ func (tp *card310px2) getScore(nodes []*api.NodeInfo, taskNPUNum int, scoreMap m
 		if !ok {
 			continue
 		}
-		nodeTop, err := tp.GetUsableTopFromNode(nNode)
+		nodeTop, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
 		if err != nil {
 			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes err: %s.", tp.GetPluginName(), err.Error())
 			continue
@@ -197,7 +180,7 @@ func (tp *card310px2) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode)
 		return nil, err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s selectNPUFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err

@@ -65,7 +65,6 @@ func NewCard310x4(schedulerName string) *card310x4 {
 	tp.SetPluginName(schedulerName)
 	tp.SetAnnoName(util.NPU310CardName)
 	tp.SetAnnoPreVal(util.NPU310CardNamePre)
-	tp.SetDefaultJobSchedulerConfig(nil)
 	tp.affScoreList = [][]int{
 		{affScore0, affScore2, affScore1, affScore3},
 		{affScore4, affScore0, affScore1, affScore2},
@@ -103,89 +102,6 @@ func buildNilTPTestCase(funcName string) nilTPTestCase {
 			Reason:  "invalid argument",
 			Message: "invalid argument"},
 		wantErr: errors.New("invalid argument"),
-	}
-}
-
-// validNPUJobTestCase validNPUJob test case
-type validNPUJobTestCase struct {
-	WantErr *api.ValidateResult
-	Name    string
-	Attr    util.SchedulerJobAttr
-}
-
-func buildValidNPUJobTestCases01() []validNPUJobTestCase {
-	testCases := make([]validNPUJobTestCase, 0)
-	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
-	testCases = append(testCases, validNPUJobTestCase{
-		Name:    "01-ValidNPUJob should return nil when job request no npu",
-		Attr:    attr,
-		WantErr: nil,
-	})
-	attr = initAttr(MockJobName, MockTaskNumOne, MockNeedFive)
-	testCases = append(testCases, validNPUJobTestCase{
-		Name: "02-ValidNPUJob should return error when tasks request npu more than 4",
-		Attr: attr,
-		WantErr: &api.ValidateResult{
-			Pass:    false,
-			Reason:  "job require npu num is invalid",
-			Message: "task <vcjob/testJob-pod0> req npu <5> is invalid",
-		},
-	})
-	attr = initAttr(MockJobName, MockTaskNumOne, MockNeedTwo)
-	testCases = append(testCases, validNPUJobTestCase{
-		Name:    "03-ValidNPUJob should return nil when tasks request is valid",
-		Attr:    attr,
-		WantErr: nil,
-	})
-	return testCases
-}
-
-func buildValidNPUJobTestCase02() []validNPUJobTestCase {
-	testCases := make([]validNPUJobTestCase, 0)
-	attr := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
-	attr.Tasks[test.FakeTaskName1] = util.NPUTask{ReqNPUNum: 1}
-	testCases = append(testCases, validNPUJobTestCase{
-		Name:    "04-ValidNPUJob should return nil when task request no npu",
-		Attr:    attr,
-		WantErr: nil,
-	})
-	attr = initAttr(MockJobName, MockTaskNumTwo, MockNeedFive)
-	attr.Tasks[test.FakeTaskName1] = util.NPUTask{ReqNPUNum: 1}
-	testCases = append(testCases, validNPUJobTestCase{
-		Name: "05-ValidNPUJob should return error when task request npu more than 4",
-		Attr: attr,
-		WantErr: &api.ValidateResult{
-			Pass:    false,
-			Reason:  "job require npu num is invalid",
-			Message: "task <vcjob/testJob-pod0> req npu <5> is invalid",
-		},
-	})
-	attr = initAttr(MockJobName, MockTaskNumTwo, MockNeedTwo)
-	testCases = append(testCases, validNPUJobTestCase{
-		Name:    "06-ValidNPUJob should return nil when tasks request is valid",
-		Attr:    attr,
-		WantErr: nil,
-	})
-	return testCases
-}
-
-func TestValidNPUJob(t *testing.T) {
-	testCase := buildNilTPTestCase("ValidNPUJob")
-	t.Run(testCase.name, func(t *testing.T) {
-		if res := testCase.tp.ValidNPUJob(); !reflect.DeepEqual(res, testCase.wantValidateResult) {
-			t.Errorf("ValidNPUJob() = %v, want %v", res, testCase.wantValidateResult)
-		}
-	})
-	npu := New(SchedulerName)
-	testCases := buildValidNPUJobTestCases01()
-	testCases = append(testCases, buildValidNPUJobTestCase02()...)
-	for _, tt := range testCases {
-		t.Run(tt.Name, func(t *testing.T) {
-			npu.SetSchedulerAttr(tt.Attr)
-			if err := npu.ValidNPUJob(); !reflect.DeepEqual(err, tt.WantErr) {
-				t.Errorf("ValidNPUJob() error = %v, wantErr %v", err, tt.WantErr)
-			}
-		})
 	}
 }
 

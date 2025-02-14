@@ -18,6 +18,6 @@ func (tp *ascend310P) preStartRescheduling(i interface{}) error {
 	if !ok {
 		return fmt.Errorf("preStartRescheduling failed %s, interface is not ReScheduler", PluginName)
 	}
-	tp.reHandle = k
+	tp.ReHandle = k
 	return nil
 }

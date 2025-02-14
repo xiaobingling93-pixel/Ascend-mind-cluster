@@ -37,7 +37,6 @@ type Base910b struct {
 	base.NPUHandler
 	VHandle          *vnpu.VirtualNPU
 	AffScoreList     [][]int
-	NpuNumInvalidMap map[int]struct{}
 	acceleratorValue string
 	arch             string
 }

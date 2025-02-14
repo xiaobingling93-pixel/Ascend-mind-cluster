@@ -31,7 +31,6 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend310/card310x4"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend310/chip310x4"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
@@ -46,7 +45,6 @@ func New(npuName string) plugin.ISchedulerPlugin {
 	npuPlugin.SetPluginName(npuName)
 	npuPlugin.SetAnnoName(util.NPU310CardName)
 	npuPlugin.SetAnnoPreVal(util.NPU310CardNamePre)
-	npuPlugin.SetDefaultJobSchedulerConfig(nil)
 
 	npuPlugin.Kind = map[string]base.AscendHandler{}
 	npuPlugin.Kind[chip310x4.SchedulerName] = chip310x4.New(chip310x4.SchedulerName)
@@ -82,30 +80,8 @@ func (tp *asend310) InitMyJobPlugin(attr util.SchedulerJobAttr, env plugin.Sched
 	return nil
 }
 
-// ValidNPUJob check job req npu num
-func (tp *asend310) ValidNPUJob() *api.ValidateResult {
-	if tp == nil {
-		err := errors.New(util.ArgumentError)
-		return &api.ValidateResult{
-			Pass:    false,
-			Reason:  err.Error(),
-			Message: err.Error(),
-		}
-	}
-	if tp.handle != nil {
-		tp.handle.ValidNPUJob()
-	}
-	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob handle is nil", tp.GetPluginName())
-	return nil
-}
-
 // PreStartAction pre-processing actions for rescheduling
 func (tp *asend310) PreStartAction(i interface{}, _ *framework.Session) error {
-	k, ok := i.(*rescheduling.ReScheduler)
-	if !ok {
-		return fmt.Errorf("preStartAction failed %s, interface is not ReScheduler", PluginName)
-	}
-	tp.reHandle = k
 	return nil
 }
 

@@ -66,7 +66,6 @@ func NewChip310x4(schedulerName string) *chip310x4 {
 	chip.SetPluginName(schedulerName)
 	chip.SetAnnoName(util.NPU310CardName)
 	chip.SetAnnoPreVal(util.NPU310CardNamePre)
-	chip.SetDefaultJobSchedulerConfig(nil)
 	chip.SetMaxNodeNPUNum(maxNodeNPUNum)
 	chip.SetMaxCardNPUNum(maxCardNPUNum)
 	return chip
@@ -100,47 +99,6 @@ func buildNilTPTestCase(funcName string) nilTPTestCase {
 			Pass:    false,
 			Reason:  "invalid argument",
 			Message: "invalid argument"},
-	}
-}
-
-func buildValidNPUJobTestCases() []validNPUJobTestCase {
-	attr1 := initAttr(MockJobName, MockTaskNumOne, MockNeedOne)
-	attr2 := initAttr(MockJobName, MockTaskNumOne, MockNeedSixtyFive)
-	attr3 := initAttr(MockJobName, MockTaskNumOne, MockNeedTwo)
-	return []validNPUJobTestCase{
-		{
-			name:    "01-ValidNPUJob should return nil when job request no npu",
-			attr:    attr1,
-			wantErr: nil,
-		},
-		{
-			name: "02-ValidNPUJob should return error when tasks request npu more than 64",
-			attr: attr2,
-			wantErr: &api.ValidateResult{
-				Pass:    false,
-				Reason:  "task req npu num is invalid",
-				Message: "task<vcjob/testJob-pod0> req npu num<65> is invalid",
-			},
-		},
-		{
-			name:    "03-ValidNPUJob should return nil when tasks request is valid",
-			attr:    attr3,
-			wantErr: nil,
-		},
-	}
-}
-
-// TestValidNPUJob
-func TestValidNPUJob(t *testing.T) {
-	npu := New(SchedulerName)
-	testCases := buildValidNPUJobTestCases()
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			npu.SetSchedulerAttr(tt.attr)
-			if err := npu.ValidNPUJob(); !reflect.DeepEqual(err, tt.wantErr) {
-				t.Errorf("ValidNPUJob() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
 	}
 }
 

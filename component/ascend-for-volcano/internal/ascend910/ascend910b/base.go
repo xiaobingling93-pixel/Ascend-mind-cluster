@@ -37,17 +37,6 @@ func (ab *Base910b) GetAcceleratorValue() string {
 	return ab.acceleratorValue
 }
 
-// SetNpuNumInvalidMap  Set the single job not allow number. eg:A+X 16P:9,10,11,12,13,14,15
-func (ab *Base910b) SetNpuNumInvalidMap(value map[int]struct{}) {
-	ab.NpuNumInvalidMap = value
-}
-
-// CheckJobAllowNum check the single job require is valid. eg:A+X 16P:1,2,4,8,16;A+K 1,2,4,8.
-func (ab *Base910b) CheckJobAllowNum(value int) bool {
-	_, ok := ab.NpuNumInvalidMap[value]
-	return !ok && value <= ab.MaxNodeNPUNum
-}
-
 func (ab *Base910b) initSelectNodeInf(npuTop []int) SelectNodeInf {
 	var sNodeInf SelectNodeInf
 	var leftHccsTop []int
@@ -101,7 +90,7 @@ func (ab *Base910b) Judge910BNodeAndTaskNPU(taskNPU int, nodeTop []int) error {
 		return dealReturnValue(sNodeInf.AllNPUNum == ab.MaxNodeNPUNum)
 	}
 
-	if ab.CheckJobAllowNum(taskNPU) {
+	if ab.IsVaildNpuNum(taskNPU) {
 		return dealReturnValue((sNodeInf.LeftNPUNum >= taskNPU) || (sNodeInf.RightNPUNum >= taskNPU) ||
 			(taskNPU > ab.MaxNodeNPUNum/util.NPUIndex2 && taskNPU <= sNodeInf.crossNPUNum))
 	}

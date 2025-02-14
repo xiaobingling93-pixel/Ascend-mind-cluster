@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/framework"
@@ -56,21 +57,14 @@ func (tp *NPUHandler) ValidNPUJob() *api.ValidateResult {
 		return &api.ValidateResult{Pass: false, Reason: err.Error(), Message: err.Error()}
 	}
 	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob job(%s).", tp.GetPluginName(), tp.Name)
-
-	for _, task := range tp.Tasks {
-		taskNPU := task.ReqNPUNum
-
-		klog.V(util.LogDebugLev).Infof("%s check task<%s> require npu<%d>.",
-			tp.GetPluginName(), task.Name, taskNPU)
-
-		if taskNPU < 1 || taskNPU > tp.MaxNodeNPUNum {
-			err := fmt.Errorf("task<%s-%s> req npu num<%d> is invalid", tp.Name, task.Name, taskNPU)
-			klog.V(util.LogErrorLev).Infof("%s ValidNPUJob err: %s", tp.GetPluginName(), err.Error())
-			return &api.ValidateResult{
-				Pass:    false,
-				Reason:  "task req npu num is invalid",
-				Message: err.Error(),
-			}
+	taskNPU := tp.ReqNPUNum / tp.NPUTaskNum
+	if taskNPU < 1 || taskNPU > tp.MaxNodeNPUNum || !tp.IsVaildNpuNum(taskNPU) {
+		err := fmt.Errorf("job<%s> req npu num<%d> is invalid", tp.Name, taskNPU)
+		klog.V(util.LogErrorLev).Infof("%s ValidNPUJob err: %s", tp.GetPluginName(), err.Error())
+		return &api.ValidateResult{
+			Pass:    false,
+			Reason:  "task req npu num is invalid",
+			Message: err.Error(),
 		}
 	}
 	return nil
@@ -91,7 +85,7 @@ func (tp *NPUHandler) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		return err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
@@ -102,6 +96,11 @@ func (tp *NPUHandler) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		return err
 	}
 
+	if tp.ReHandle != nil {
+		if reErr := tp.ReHandle.CheckNodeNPUByTask(task, node, tp.ReqNPUName); reErr != nil {
+			return fmt.Errorf("rescheduling %s", reErr)
+		}
+	}
 	return nil
 }
 
@@ -111,6 +110,32 @@ func (tp *NPUHandler) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes err: %s.", err.Error())
 		return err
+	}
+	for _, node := range nodes {
+		nNode, ok := tp.Nodes[node.Name]
+		if !ok {
+			continue
+		}
+		nodeTop, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
+		if err != nil {
+			klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
+			continue
+		}
+		if len(nodeTop) > tp.MaxNodeNPUNum {
+			continue
+		}
+		healthyNPUNum, ok := nNode.Allocate[v1.ResourceName(tp.GetAnnoName())]
+		if !ok {
+			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes node<%s> get allocate npu failed",
+				tp.GetPluginName(), node.Name)
+			continue
+		}
+		scoreMap[node.Name] = healthyNPUNum/nodeWeight - float64(len(nodeTop))
+	}
+	reErr := tp.ReHandle.ScoreBestNPUNodes(task, scoreMap)
+	if reErr != nil {
+		klog.V(util.LogErrorLev).Infof(
+			"rescheduling ScoreBestNPUNodes failed :%s.", reErr)
 	}
 	return nil
 }
@@ -185,6 +210,11 @@ func (tp *NPUHandler) GetReHandle() interface{} {
 	return tp.ReHandle
 }
 
+// SetIsNetworkFaultAttention set network fault attention
+func (tp *NPUHandler) SetIsNetworkFaultAttention(value bool) {
+	tp.IsNetworkFaultAttention = value
+}
+
 // SetSchedulerAttr set scheduler attribute for plugin
 func (tp *NPUHandler) SetSchedulerAttr(attr util.SchedulerJobAttr) {
 	if tp == nil {
@@ -193,6 +223,17 @@ func (tp *NPUHandler) SetSchedulerAttr(attr util.SchedulerJobAttr) {
 		return
 	}
 	tp.SchedulerJobAttr = attr
+}
+
+// SetNpuNumInvalidMap  Set the single job not allow number. eg: 16P:9,10,11,12,13,14,15
+func (tp *NPUHandler) SetNpuNumInvalidMap(value map[int]struct{}) {
+	tp.NpuNumInvalidMap = value
+}
+
+// IsVaildNpuNum check the single job require is valid. eg: 16P:1,2,4,8,16;8P 1,2,4,8.
+func (tp *NPUHandler) IsVaildNpuNum(value int) bool {
+	_, ok := tp.NpuNumInvalidMap[value]
+	return !ok && value <= tp.MaxNodeNPUNum
 }
 
 // SetSchedulerEnv set scheduler env for plugin
@@ -254,7 +295,7 @@ func (tp *NPUHandler) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode)
 		return nil, err
 	}
 
-	nodeTop, err := tp.GetUsableTopFromNode(node)
+	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
 		return nil, fmt.Errorf("selectNPUFromNode err: %s", err.Error())
 	}

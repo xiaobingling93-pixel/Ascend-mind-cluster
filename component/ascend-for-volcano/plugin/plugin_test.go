@@ -58,7 +58,6 @@ func New(npuName string) ISchedulerPlugin {
 	npuPlugin.SetPluginName(npuName)
 	npuPlugin.SetAnnoName(testCardName)
 	npuPlugin.SetAnnoPreVal(testCardNamePre)
-	npuPlugin.SetDefaultJobSchedulerConfig(nil)
 
 	return npuPlugin
 }

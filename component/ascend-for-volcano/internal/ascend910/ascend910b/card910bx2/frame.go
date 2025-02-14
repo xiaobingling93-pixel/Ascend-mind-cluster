@@ -20,17 +20,10 @@ Package card910bx2 is using for HuaWei Ascend 910B(Atlas 300T A2) card pin affin
 package card910bx2
 
 import (
-	"errors"
-	"fmt"
-
-	"k8s.io/klog"
 	"volcano.sh/volcano/pkg/scheduler/api"
-	"volcano.sh/volcano/pkg/scheduler/framework"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
 // New return npu plugin
@@ -39,52 +32,12 @@ func New(name string) base.AscendHandler {
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetDefaultJobSchedulerConfig(nil)
 	m.SetMaxNodeNPUNum(nodeNPUNumber)
 	m.SetAcceleratorValue(util.JobKind910BValue)
-	m.AffScoreList = [][]int{
-		{util.AffScore0, util.AffScore1},
-		{util.AffScore2, util.AffScore0},
-	}
 	return m
 }
 
 // ValidNPUJob check job req npu num and mode
 func (tp *card910bx2) ValidNPUJob() *api.ValidateResult {
 	return tp.Valid910bNPUJob()
-}
-
-// PreStartAction pre-processing actions for rescheduling
-func (tp *card910bx2) PreStartAction(i interface{}, _ *framework.Session) error {
-	k, ok := i.(*rescheduling.ReScheduler)
-	if !ok {
-		return fmt.Errorf("preStartAction failed %s, interface is not ReScheduler", SchedulerName)
-	}
-	tp.reHandle = k
-	return nil
-}
-
-// CheckNodeNPUByTask check nod npu meet task req
-func (tp *card910bx2) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode) error {
-	if tp == nil || task == nil || len(node.Annotation) == 0 {
-		err := errors.New(util.ArgumentError)
-		klog.V(util.LogErrorLev).Infof("CheckNodeNPUByTask err: %s", err)
-		return err
-	}
-	return nil
-}
-
-// ScoreBestNPUNodes core node by calculate task req npu num and node npu top
-func (tp *card910bx2) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo, sMap map[string]float64) error {
-	return tp.NPUHandler.ScoreBestNPUNodes(task, nodes, sMap)
-}
-
-// UseAnnotation select npu for task from node
-func (tp *card910bx2) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
-	return tp.NPUHandler.UseAnnotation(task, node)
-}
-
-// ReleaseAnnotation Release used resource.
-func (tp *card910bx2) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
-	return &node
 }

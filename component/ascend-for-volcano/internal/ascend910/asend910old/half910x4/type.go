@@ -21,20 +21,14 @@ package half910x4
 
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 )
 
 const (
 	// SchedulerName Ascend910half plugin name
-	SchedulerName       = "huawei.com/Ascend910half"
-	npuNumPerHccs       = 4
-	networkUnhealthyNPU = "huawei.com/Ascend910-NetworkUnhealthy"
-	nodeWeight          = 8.0
+	SchedulerName = "huawei.com/Ascend910half"
+	npuNumPerHccs = 4
 )
 
 type half910x4 struct {
 	base.NPUHandler
-	netUnhealthyKey string
-	affScoreList    [][]int
-	reHandle        *rescheduling.ReScheduler
 }

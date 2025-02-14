@@ -22,7 +22,6 @@ package ascend310
 import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/base"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 )
 
 const (
@@ -42,6 +41,5 @@ type asend310 struct {
 	// 310 support scheduler kinds.
 	Kind map[string]base.AscendHandler
 	// specific job use.
-	handle   base.AscendHandler
-	reHandle *rescheduling.ReScheduler
+	handle base.AscendHandler
 }

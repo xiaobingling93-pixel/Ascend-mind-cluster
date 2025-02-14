@@ -52,7 +52,6 @@ func New(npuName string) plugin.ISchedulerPlugin {
 	npuPlugin.SetPluginName(npuName)
 	npuPlugin.SetAnnoName(util.NPU910CardName)
 	npuPlugin.SetAnnoPreVal(util.NPU910CardNamePre)
-	npuPlugin.SetDefaultJobSchedulerConfig(nil)
 
 	npuPlugin.Kind = map[string]base.AscendHandler{}
 	npuPlugin.Kind[card910x2.SchedulerName] = card910x2.New(card910x2.SchedulerName)
@@ -184,32 +183,4 @@ func (tp *ascend910) PreStartAction(i interface{}, ssn *framework.Session) error
 		return err
 	}
 	return nil
-}
-
-// PreStopAction post-processing actions for re-scheduling
-func (tp *ascend910) PreStopAction(env *plugin.ScheduleEnv) error {
-	if tp == nil || tp.handle == nil {
-		return fmt.Errorf(util.ArgumentError)
-	}
-	if env == nil {
-		return fmt.Errorf("env is nil: %s", util.ArgumentError)
-	}
-	for name, handler := range tp.Kind {
-		klog.V(util.LogInfoLev).Infof("preStopAction for %s", name)
-		if err := handler.PreStopAction(env); err != nil {
-			if strings.Contains(err.Error(), util.ArgumentError) {
-				continue
-			}
-			klog.V(util.LogErrorLev).Infof("preStopAction %s error: %v", name, err)
-		}
-		if err := handler.InitMyJobPlugin(util.SchedulerJobAttr{}, plugin.ScheduleEnv{}); err != nil {
-			klog.V(util.LogErrorLev).Infof("PreStartAction init plugin failed, err: %s", err)
-		}
-	}
-	return nil
-}
-
-// ReleaseAnnotation Release used resource.
-func (tp *ascend910) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
-	return &node
 }
