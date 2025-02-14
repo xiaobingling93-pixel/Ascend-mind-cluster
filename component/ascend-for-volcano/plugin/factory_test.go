@@ -854,7 +854,6 @@ func newDefaultHandler() *ScheduleHandler {
 			JobDeleteFlag:    map[api.JobID]struct{}{},
 			JobSinglePodFlag: map[api.JobID]bool{},
 			Nodes:            map[string]NPUNode{},
-			DeleteJobInfos:   map[api.JobID]*api.JobInfo{},
 			DeviceInfos: &DeviceInfosWithMutex{
 				Mutex:   sync.Mutex{},
 				Devices: map[string]NodeDeviceInfoWithID{},

@@ -344,15 +344,6 @@ func (sHandle *ScheduleHandler) InitJobsPlugin() {
 	}
 }
 
-// InitDeleteJobInfos init empty deleted jobinfos.
-func (sHandle *ScheduleHandler) InitDeleteJobInfos() {
-	if sHandle == nil {
-		klog.V(util.LogErrorLev).Infof("InitDeleteJobInfos failed: %s.", util.ArgumentError)
-		return
-	}
-	sHandle.DeleteJobInfos = map[api.JobID]*api.JobInfo{}
-}
-
 // InitCache init ScheduleHandler's cache.
 func (sHandle *ScheduleHandler) InitCache() {
 	if sHandle == nil {
@@ -454,7 +445,6 @@ func (sHandle *ScheduleHandler) InitNPUSession(ssn *framework.Session) error {
 
 	sHandle.InitVolcanoFrameFromSsn(ssn)
 	sHandle.initCmInformer()
-	sHandle.InitDeleteJobInfos()
 	sHandle.InitNodesFromSsn(ssn)
 	sHandle.InitJobsFromSsn(ssn)
 
