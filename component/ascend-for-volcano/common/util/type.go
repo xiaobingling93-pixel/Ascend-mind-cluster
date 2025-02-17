@@ -298,6 +298,8 @@ const (
 	AffScore7
 	// AffScore8 value 8 for scored.
 	AffScore8
+	// AffScore15 value 15 for scored.
+	AffScore15
 )
 
 const (
