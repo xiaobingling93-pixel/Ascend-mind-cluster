@@ -46,7 +46,7 @@ func TestGetJobLabelFromVcJob(t *testing.T) {
 		{
 			name: "01-GetJobLabelFromVcJob get ok test",
 			args: args{job: tJob},
-			want: map[string]string{"haha": "who"},
+			want: map[string]string{"fault-scheduling": "force", "haha": "who"},
 		},
 		{
 			name: "02-GetJobLabelFromVcJob return nil when job is nil",

@@ -380,27 +380,6 @@ func (n NPUNode) CheckNPUResourceStable(vcJob SchedulerJob) error {
 	return nil
 }
 
-// CheckNPUResourceStableReScheduling check resource stabilize.
-func (n NPUNode) CheckNPUResourceStableReScheduling(vcJob util.SchedulerJobAttr) error {
-	k := vcJob.ReqNPUName
-	iNum, iOK := n.Idle[v1.ResourceName(k)]
-	nodeA, aOK := n.Annotation[k]
-	if iOK != true || aOK != true {
-		return fmt.Errorf("not has(or not same) %s", k)
-	}
-
-	sSlice := strings.Split(nodeA, ",")
-	length := len(sSlice)
-	if length == 1 && sSlice[0] == "" {
-		length = 0
-	}
-	iNumInt := int(iNum / util.NPUHexKilo)
-	if length != iNumInt && iNumInt >= 0 {
-		return fmt.Errorf("%s not stable:%d=>%d", k, length, iNumInt)
-	}
-	return nil
-}
-
 func (n *NPUNode) syncOldDeviceInfoFromCache() {
 	if n.Annotation == nil {
 		n.Annotation = make(map[string]string, util.MapInitNum)

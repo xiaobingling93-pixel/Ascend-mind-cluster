@@ -200,7 +200,7 @@ func buildCheckNodeNPUByTaskTestCases02() []checkNodeNPUByTaskTestCase {
 				test.FakeTaskName1: {VTask: &util.VTask{Type: util.JobTypeStCut}},
 			},
 				VJob: &util.VJob{Type: util.JobTypeStCut}}},
-			WantErr: errors.New("rescheduling CheckNodeNPUByTask invalid argument"),
+			WantErr: nil,
 		},
 		{
 			Name: "05-CheckNodeNPUByTask return err when ty.Type is util.JobTypeDyCut",

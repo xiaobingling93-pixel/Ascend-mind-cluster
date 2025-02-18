@@ -213,7 +213,7 @@ type SwitchInfosFromCmWithMutex struct {
 type ScheduleHandler struct {
 	NPUPlugins map[string]NPUBuilder
 	ScheduleEnv
-	BaseHandle ISchedulerPlugin
+	FaultHandle FaultHandler
 	sync.Once
 }
 
