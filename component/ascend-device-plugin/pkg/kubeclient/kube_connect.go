@@ -1,7 +1,6 @@
 package kubeclient
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,9 +9,10 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/common-utils/limiter"
@@ -27,6 +27,11 @@ const (
 	DefaultKubeletPort = "10250"
 	// MaxPortIntValue represents the max value of port
 	MaxPortIntValue = 65535
+)
+
+var (
+	kubeConfig     *rest.Config = nil
+	kubeConfigOnce sync.Once
 )
 
 func isValidPort(port string) error {
@@ -52,7 +57,7 @@ func getKltPodsURL() (string, error) {
 	hostIP := parseIP.String()
 	kubeletPort := os.Getenv(KubeletPortEnv)
 	if err := isValidPort(kubeletPort); err != nil {
-		hwlog.RunLog.Warnf("kubelet port:%s is not valid, use default port: %s",
+		hwlog.RunLog.Debugf("kubelet port:%s is not valid, use default port: %s",
 			kubeletPort, DefaultKubeletPort)
 		kubeletPort = DefaultKubeletPort
 	}
@@ -78,27 +83,28 @@ func createKltPodsReqWithToken() (*http.Request, error) {
 		hwlog.RunLog.Errorf("create http request failed: %v", err)
 		return nil, err
 	}
-	clientCfg, err := clientcmd.BuildConfigFromFlags("", "")
-	if err != nil {
-		hwlog.RunLog.Errorf("build client config err: %v", err)
-		return nil, err
+	kubeConfigOnce.Do(func() {
+		kubeConfig, err = rest.InClusterConfig()
+		if err != nil {
+			hwlog.RunLog.Errorf("build kubeConfig err: %v", err)
+		}
+		hwlog.RunLog.Infof("init kubeConfig success")
+	})
+	if kubeConfig == nil {
+		return nil, fmt.Errorf("kubeConfig is nil")
 	}
-	req.Header.Add("Authorization", "Bearer "+clientCfg.BearerToken)
+	req.Header.Add("Authorization", "Bearer "+kubeConfig.BearerToken)
 	return req, nil
 }
 
 // getPodsByKltPort returns pods information obtained through the kubelet port
-func getPodsByKltPort() (*v1.PodList, error) {
+func (ki *ClientK8s) getPodsByKltPort() (*v1.PodList, error) {
 	req, err := createKltPodsReqWithToken()
 	if err != nil {
 		hwlog.RunLog.Errorf("get kubelet http request failed: %v", err)
 		return nil, err
 	}
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: transport}
-	resp, err := client.Do(req)
+	resp, err := ki.KltClient.Do(req)
 	if err != nil {
 		hwlog.RunLog.Errorf("send kubelet http request failed: %v", err)
 		return nil, err

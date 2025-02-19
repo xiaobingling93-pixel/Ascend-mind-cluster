@@ -103,7 +103,7 @@ func (tool *AscendTools) getChipsUsedByContainerd() sets.String {
 			continue
 		}
 		if len(taskList.Tasks) == 0 {
-			hwlog.RunLog.Warnf("no tasks found in namespace %s", ns)
+			hwlog.RunLog.Debugf("no tasks found in namespace %s", ns)
 			continue
 		}
 		for _, taskInfo := range taskList.Tasks {
