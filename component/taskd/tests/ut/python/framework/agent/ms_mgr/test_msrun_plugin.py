@@ -24,6 +24,7 @@ from taskd.python.toolkit.constants import constants
 from taskd.python.framework.agent.ms_mgr.msrun_plugin import MSRunPlugin
 from taskd.python.toolkit.recover_module import shared_data
 
+
 class TestMSRunPlugin(unittest.TestCase):
     def setUp(self):
         self.plugin = MSRunPlugin()
@@ -84,7 +85,7 @@ class TestMSRunPlugin(unittest.TestCase):
         mock_set_kill_flag.assert_called_once_with(True)
 
     def test_handle_exist_unhealthy_process(self):
-        self.plugin.rank_status = self.plugin.RankStatusUNHEALTHY
+        self.plugin.rank_status = self.plugin.RANKSTATUSUNHEALTHY
         with self.assertRaises(SystemExit):
             self.plugin._handle_exist_unhealthy_process()
         self.plugin._MSRunPlugin__funcMap["KILL_WORKER"].assert_called_once_with([constants.KILL_ALL_WORKERS])
@@ -102,7 +103,7 @@ class TestMSRunPlugin(unittest.TestCase):
         self.assertEqual(self.plugin.rank_info, rank_status_dict)
         self.assertEqual(self.plugin.rank_pids, [1])
         self.assertEqual(self.plugin.node_global_rank_ids, [0])
-        self.assertEqual(self.plugin.rank_status, self.plugin.RankStatusHEALTHY)
+        self.assertEqual(self.plugin.rank_status, self.plugin.RANKkSTATUSHEALTHY)
 
 
 if __name__ == '__main__':
