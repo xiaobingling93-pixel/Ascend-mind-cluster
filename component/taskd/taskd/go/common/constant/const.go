@@ -12,30 +12,13 @@
    limitations under the License.
 */
 
-// Package main a main package for cgo api
-package main
+// Package constant a package for constant
+package constant
 
-import "C"
-import (
-	"context"
-	"fmt"
-
-	"taskd/common/constant"
-	"ascend-common/common-utils/hwlog"
+const (
+	DefaultLogFile       = "./taskd_log/taskd.log"
+	DefaultLogLevel      = 1
+	DefaultMaxBackups    = 30
+	DefaultMaxAge        = 7
+	DefaultMaxLineLength = 1023
 )
-
-func init() {
-	hwLogConfig := hwlog.LogConfig{
-		LogFileName:   constant.DefaultLogFile,
-		LogLevel:      constant.DefaultLogLevel,
-		MaxBackups:    constant.DefaultMaxBackups,
-		MaxAge:        constant.DefaultMaxAge,
-		MaxLineLength: constant.DefaultMaxLineLength,
-	}
-	if err := hwlog.InitRunLogger(&hwLogConfig, context.Background()); err != nil {
-		fmt.Printf("hwlog init failed, error is %v\n", err)
-	}
-}
-
-func main() {
-}
