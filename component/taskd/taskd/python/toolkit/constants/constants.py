@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+
+
+MIN_RANK_SIZE = 0
+MAX_RANK_SIZE = 4095
+MAX_CKPT_NUMS = 4096
+
+MIN_DEVICE_NUM = 1
+MAX_DEVICE_NUM = 4096
+MAX_SIZE = 1024 * 1024
+MIN_SIZE = 0
+
+
+LOG_PRIVILEGE = 0o640
+LOG_DIR_PRIVILEGE = 0o750
+LOG_BAK_PRIVILEGE = 0o400
+
+LOG_MAX_LINE_LENGTH = 1024
+LOG_SIMPLE_FORMAT = '[%(asctime)s][%(levelname)s][%(message)s]'
+LOG_FILE_PATH_ENV = "ELASTIC_LOG_PATH"
+
+# constants for fault_checker.run
+RESET_CONFIG_PATH = "/user/restore/reset/config/reset.json"
+RANK_TABLE_VERSION_PATH = "/user/serverid/devindex/config/version"
+ENABLE_RANKTABLE_ENV = "RANK_TABLE_FILE"
+RESTART_TYPE_PATH = "/user/restore/reset/config/restartType"
+MAX_INT16 = 32767
+MAX_FILE_SIZE = 1024 * 1024
+KEY_RANK_LIST = "RankList"
+KEY_RESTART_TYPE = "RestartType"
+KEY_STATUS = "Status"
+KEY_RETRY_TIME = "RetryTime"
+KEY_RANK_ID = "RankId"
+KEY_GRACE_EXIT = "GracefulExit"
+KEY_FAULT_FLUSH = "FaultFlushing"
+SLEEP_GAP = 5
+GRACE_TIME_OUT = 600
+VALUE_RECOVERED = "recovered"
+VALUE_UNRECOVERED = "unrecovered"
+VALUE_FAULT = "fault"
+VALUE_RESTART_HOTRESET_TYPE = "hotReset"
+VALUE_RESTART_RESCHEDULE_TYPE = "podReschedule"
+WAITING_INTERVAL = 5
+INIT_TIMEOUT = 60
+WAIT_TIMES = 2
+WATCHDOG_ENV = "HCCL_ASYNC_ERROR_HANDLING"
+WATCHDOG_ON = "1"
+WATCHDOG_OFF = "0"
+MAX_RESTART_INTERVAL = 60
+
+# constants for recover_manager
+MINDX_START_CONTROLLER_RANK = -1
+GRPC_SERVER_PORT = "8899"
+GRPC_REGISTER_RETRY_TIME_LIMIT = 3
+REPORT_FAULT_RANKS_CALLBACK = "report_fault_ranks"
+STOP_COMPLETE_CALLBACK = "report_stop_complete"
+REPORT_STRATEGIES_CALLBACK = "report_strategies"
+REPORT_RESULT_CALLBACK = "report_result"
+ELASTIC_GRPC_SECURE_CONNECT_PATH = "ELASTIC_GRPC_SECURE_CONNECT"
+ELASTIC_GRPC_SECURE_CERTIFICATES_PATH = "ELASTIC_GRPC_SECURE_CERTIFICATES_PATH"
+TORCH_AGENT_START = "TORCH_AGENT_START"
+HIGH_AVAILABILITY_SWITCH_CHECK_TIMEOUT = 600
+
+# key of mindspore monitor method result
+RANK_STATUS_KEY = "status"
+RANK_PID_KEY = "pid"
+GLOBAL_RANK_ID_KEY = "global_rank"
+
+# status code of training processes of monitor callback
+rank_status_ok = None
+# rank_status_sleep this code means the process is sleeping, during process recover it will be sleeping
+rank_status_sleep = 1
+# rank_status_not_start means the training processes are not started yet
+rank_status_not_start = 200
+# the process is disappeared
+rank_pid_not_exist = 300
+# training process exit with code 0, which means training finished
+rank_status_complete = 0
+
+# the result of calling method ok
+RES_OK = 0
+
+# while getting -1, mindspore  kill_worker callback will kill all local ranks
+KILL_ALL_WORKERS = -1
+KILL_INTERVAL = 10
+KILL_ALL_WORKER_CALLBACK_NAME = "KILL_WORKER"
+START_ALL_WORKER_CALLBACK_NAME = "START_ALL_WORKER"
+MONITOR_CALLBACK_NAME = "MONITOR"

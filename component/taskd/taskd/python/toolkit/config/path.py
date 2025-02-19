@@ -14,3 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import os
+
+WORK_DIR = os.path.dirname(os.path.dirname(__file__))
+CFG_DIR = os.path.join(WORK_DIR, "configuration")
+LOG_CFG_FILE = os.path.join(CFG_DIR, "logger.yaml")
+TORCH_EXTENSIONS_CACHE_DIR = os.path.expanduser("~/.cache/torch_extensions")
