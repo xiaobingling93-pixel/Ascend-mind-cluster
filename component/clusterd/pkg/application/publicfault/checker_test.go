@@ -11,9 +11,8 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 
 	"ascend-common/api"
-	"clusterd/pkg/domain/publicfault"
-
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/publicfault"
 	"clusterd/pkg/domain/statistics"
 )
 

@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"ascend-common/api"
-	"clusterd/pkg/domain/publicfault"
-
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/publicfault"
 	"clusterd/pkg/domain/statistics"
 )
 
