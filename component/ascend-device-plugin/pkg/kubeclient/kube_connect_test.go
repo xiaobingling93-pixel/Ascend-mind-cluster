@@ -13,7 +13,6 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -64,7 +63,7 @@ func TestCreateKltPodsReqWithToken(t *testing.T) {
 		convey.Convey("should return nil and error when load token file failed", func() {
 			patch := gomonkey.ApplyFuncReturn(getKltPodsURL, mockHostIP, nil).
 				ApplyFuncReturn(http.NewRequest, &http.Request{Header: http.Header{}}, nil).
-				ApplyFuncReturn(clientcmd.BuildConfigFromFlags, nil, fmt.Errorf("build config error"))
+				ApplyFuncReturn(rest.InClusterConfig, nil, fmt.Errorf("build config error"))
 			defer patch.Reset()
 			request, err := createKltPodsReqWithToken()
 			convey.So(request, convey.ShouldBeNil)
@@ -73,8 +72,9 @@ func TestCreateKltPodsReqWithToken(t *testing.T) {
 		convey.Convey("should return request and nil when create request with token success", func() {
 			patch := gomonkey.ApplyFuncReturn(getKltPodsURL, mockHostIP, nil).
 				ApplyFuncReturn(http.NewRequest, &http.Request{Header: http.Header{}}, nil).
-				ApplyFuncReturn(clientcmd.BuildConfigFromFlags, &rest.Config{BearerToken: ""}, nil)
+				ApplyFuncReturn(rest.InClusterConfig, &rest.Config{BearerToken: ""}, nil)
 			defer patch.Reset()
+			kubeConfig = &rest.Config{BearerToken: ""}
 			request, err := createKltPodsReqWithToken()
 			convey.So(request, convey.ShouldNotBeNil)
 			convey.So(err, convey.ShouldBeNil)
