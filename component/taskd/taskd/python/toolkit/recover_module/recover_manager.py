@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 import os
 import time
 import threading
@@ -96,18 +96,6 @@ class DLRecoverManager(RecoverManager):
         options = (('grpc.ssl_target_name_override', domain_name),)
         self.grpc_channel = grpc.secure_channel(self.server_addr, ssl_credentials, options)
         self.grpc_stub = service.RecoverStub(self.grpc_channel)
-
-    @staticmethod
-    def __support_action() -> List:
-        return ['save_and_exit', 'stop_train', 'on_global_rank', 'change_strategy']
-
-    @staticmethod
-    def __action_with_arg() -> List:
-        return ['stop_train', 'on_global_rank', 'change_strategy']
-
-    @staticmethod
-    def __check_action_supported(action: str) -> bool:
-        return action in DLRecoverManager.__support_action()
 
     def register(self, request: pb.ClientInfo) -> pb.Status:
         info = f"call Register, jobId={request.jobId}"
