@@ -40,12 +40,25 @@ var (
 var (
 	machineInfoNPUDesc = colcommon.BuildDescWithLabel("machine_npu_nums", "Amount of npu installed on the machine.", nil)
 
+	descUtil       = colcommon.BuildDesc("npu_chip_info_utilization", "the ai core utilization")
+	descOverUtil   = colcommon.BuildDesc("npu_chip_info_overall_utilization", "the overall utilization of npu")
+	descVectorUtil = colcommon.BuildDesc("npu_chip_info_vector_utilization", "the vector ai core utilization")
+	descTemp       = colcommon.BuildDesc("npu_chip_info_temperature", "the npu temperature")
+	descPower      = colcommon.BuildDesc("npu_chip_info_power", "the npu power")
+	descVoltage    = colcommon.BuildDesc("npu_chip_info_voltage", "the npu voltage")
+
+	descAICoreFreq = colcommon.BuildDesc("npu_chip_info_aicore_current_freq",
+		"the npu ai core current frequency, unit is 'MHz'")
+	descHealthStatus  = colcommon.BuildDesc("npu_chip_info_health_status", "the npu health status")
 	descDevProcessNum = colcommon.BuildDesc("npu_chip_info_process_info_num",
 		"the npu process num")
 
 	descDevProcessInfo = colcommon.BuildDescWithLabel("npu_chip_info_process_info",
 		"the npu process info, unit is 'MB'. if process run on host, container_id and container_name will be empty",
 		cardLabelForProcess)
+
+	// net status
+	descNetworkStatus = colcommon.BuildDesc("npu_chip_info_network_status", "the npu network health status")
 
 	// container, only report to prometheus
 	npuCtrUtilization = colcommon.BuildDesc("container_npu_utilization",
@@ -55,7 +68,8 @@ var (
 	npuCtrUsedMemory = colcommon.BuildDesc("container_npu_used_memory",
 		"the npu used memory in container, unit is 'MB'")
 
-	npuCtrInfo *prometheus.Desc = nil
+	npuCtrInfo  *prometheus.Desc = nil
+	descNpuName *prometheus.Desc = nil
 )
 
 func init() {
@@ -65,8 +79,14 @@ func init() {
 		colcommon.BuildDescSlice(&errorCodeDescs, "npu_chip_info_error_code_"+strconv.Itoa(i), "the npu error code")
 	}
 
+	cardLabelForContainer = append(colcommon.CardLabel, "containerID", "containerName")
+	cardLabelForContainer[0] = "npuID"
+	npuCtrInfo = colcommon.BuildDescWithLabel("npu_container_info", "the container name and deviceID relationship",
+		cardLabelForContainer)
+
 	copy(cardLabelForNpuName, colcommon.CardLabel)
 	cardLabelForNpuName[1] = "name"
+	descNpuName = colcommon.BuildDescWithLabel("npu_chip_info_name", "the Ascend npu name with value '1'", cardLabelForNpuName)
 }
 
 type chipCache struct {
@@ -102,6 +122,34 @@ type BaseInfoCollector struct {
 	colcommon.MetricsCollectorAdapter
 }
 
+// Describe collects the base info of the chip
+func (c *BaseInfoCollector) Describe(ch chan<- *prometheus.Desc) {
+	// base info
+	ch <- machineInfoNPUDesc
+	ch <- descUtil
+	ch <- descVectorUtil
+	ch <- descOverUtil
+	ch <- descTemp
+	ch <- descPower
+	ch <- descVoltage
+	ch <- descHealthStatus
+	ch <- descNpuName
+	ch <- descAICoreFreq
+	ch <- descDevProcessInfo
+	// status
+	ch <- descNetworkStatus
+	// container
+	ch <- npuCtrInfo
+	ch <- npuCtrUtilization
+	ch <- npuCtrTotalMemory
+	ch <- npuCtrUsedMemory
+
+	// error code
+	for _, desc := range errorCodeDescs {
+		ch <- desc
+	}
+}
+
 // CollectToCache collects the base info of the chip
 func (c *BaseInfoCollector) CollectToCache(n *colcommon.NpuCollector, chipList []colcommon.HuaWeiAIChip) {
 	for _, chip := range chipList {
@@ -109,16 +157,83 @@ func (c *BaseInfoCollector) CollectToCache(n *colcommon.NpuCollector, chipList [
 
 		dmgr := n.Dmgr
 
-		cache := &chipCache{
-			chip:         chip,
-			HealthStatus: getHealth(logicID, dmgr),
+		freq, err := dmgr.GetDeviceFrequency(logicID, common.AICoreCurrentFreq)
+		if err != nil {
+			freq = common.UnRetError
 		}
+		temp, err := dmgr.GetDeviceTemperature(logicID)
+		if err != nil {
+			temp = common.RetError
+		}
+		vol, err := dmgr.GetDeviceVoltage(logicID)
+		if err != nil {
+			vol = common.UnRetError
+		}
+
+		_, errCodes, err := dmgr.GetDeviceAllErrorCode(logicID)
+		if err != nil {
+			errCodes = make([]int64, 0)
+		}
+
+		cache := &chipCache{
+			chip:              chip,
+			AICoreCurrentFreq: freq,
+			Temperature:       int(temp),
+			Voltage:           vol,
+			HealthStatus:      getHealth(logicID, dmgr),
+			ErrorCodes:        errCodes,
+		}
+		collectPower(logicID, dmgr, cache)
+		collectUtil(logicID, dmgr, cache)
 		setNetHealthStatus(logicID, dmgr, cache)
+		setProcessInfo(logicID, dmgr, cache)
 
 		cache.timestamp = time.Now()
 		c.LocalCache.Store(chip.PhyId, *cache)
 	}
 	colcommon.UpdateCache[chipCache](n, colcommon.GetCacheKey(c), &c.LocalCache)
+}
+
+func collectPower(logicID int32, dmgr devmanager.DeviceInterface, chip *chipCache) {
+	if dmgr.GetDevType() == common.Ascend310P {
+		cardPower, err := dmgr.GetMcuPowerInfo(chip.chip.CardId)
+		handleErr(err, colcommon.DomainForMcuPower, chip.chip.CardId)
+		// Ascend310P use cardPower to replace chipPower
+		chip.Power = cardPower
+	} else {
+		power, err := dmgr.GetDevicePowerInfo(logicID)
+		handleErr(err, colcommon.DomainForChipPower, logicID)
+		chip.Power = power
+	}
+}
+
+// UpdatePrometheus updates the base info of the chip
+func (c *BaseInfoCollector) UpdatePrometheus(ch chan<- prometheus.Metric, n *colcommon.NpuCollector,
+	containerMap map[int32]container.DevicesInfo, chips []colcommon.HuaWeiAIChip) {
+
+	updateSingleChip := func(cache chipCache, cardLabel []string) {
+		containerInfo := geenContainerInfo(&cache.chip, containerMap)
+		timestamp := cache.timestamp
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.Power), cardLabel, descPower)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.Voltage), cardLabel, descVoltage)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.AICoreCurrentFreq), cardLabel, descAICoreFreq)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.Temperature), cardLabel, descTemp)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.Utilization), cardLabel, descUtil)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.OverallUtilization), cardLabel, descOverUtil)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.VectorUtilization), cardLabel, descVectorUtil)
+		doUpdateMetricWithValidateNum(ch, timestamp, 1, cardLabel, descNpuName)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(getHealthCode(cache.HealthStatus)), cardLabel, descHealthStatus)
+		doUpdateMetricWithValidateNum(ch, timestamp, float64(getHealthCode(cache.NetHealthStatus)),
+			cardLabel, descNetworkStatus)
+
+		updateContainerInfo(ch, containerInfo, timestamp, cardLabel, &cache)
+
+		updateProcessInfoForPrometheus(ch, &cache, containerInfo, timestamp, cardLabel)
+		updateErrorCodesInfo(ch, &cache, timestamp, cardLabel)
+	}
+	updateFrame[chipCache](colcommon.GetCacheKey(c), n, containerMap, chips, updateSingleChip)
+
+	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(len(chips)))
 }
 
 func updateContainerInfo(ch chan<- prometheus.Metric, containerInfo container.DevicesInfo, timestamp time.Time,
@@ -143,6 +258,36 @@ func updateErrorCodesInfo(ch chan<- prometheus.Metric, chip *chipCache, timestam
 	}
 }
 
+func updateProcessInfoForPrometheus(ch chan<- prometheus.Metric, chip *chipCache,
+	containerInfo container.DevicesInfo, timestamp time.Time, cardLabel []string) {
+	devProcessInfo := chip.DevProcessInfo
+	if devProcessInfo == nil {
+		return
+	}
+	doUpdateMetric(ch, timestamp, devProcessInfo.ProcNum, cardLabel, descDevProcessNum)
+
+	if devProcessInfo.ProcNum == 0 {
+		doUpdateMetric(ch, timestamp, 0, append(cardLabel, "", ""), descDevProcessInfo)
+		return
+	}
+
+	containerID := ""
+	containerName := ""
+	cNameArray := getContainerNameArray(containerInfo)
+	if len(cNameArray) == colcommon.ContainerNameLen {
+		containerID = containerInfo.ID
+		containerName = strings.Join(cNameArray, "_")
+	}
+	// containerName in process info is namespace_podName_containerName
+	cardLabel[len(cardLabel)-1] = containerName
+
+	for i := int32(0); i < devProcessInfo.ProcNum; i++ {
+		procInfo := devProcessInfo.DevProcArray[i]
+		doUpdateMetric(ch, timestamp, procInfo.MemUsage,
+			append(cardLabel, strconv.FormatInt(int64(procInfo.Pid), colcommon.Base), containerID), descDevProcessInfo)
+	}
+}
+
 // UpdateTelegraf updates the base info of the chip
 func (c *BaseInfoCollector) UpdateTelegraf(fieldsMap map[int]map[string]interface{}, n *colcommon.NpuCollector,
 	containerMap map[int32]container.DevicesInfo, chips []colcommon.HuaWeiAIChip) map[int]map[string]interface{} {
@@ -154,6 +299,18 @@ func (c *BaseInfoCollector) UpdateTelegraf(fieldsMap map[int]map[string]interfac
 		}
 		fieldMap := getFieldMap(fieldsMap, cache.chip.LogicID)
 
+		doUpdateTelegrafWithValidateNum(fieldMap, descTemp, float64(cache.Temperature), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descPower, float64(cache.Power), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descVoltage, float64(cache.Voltage), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descAICoreFreq, float64(cache.AICoreCurrentFreq), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descUtil, float64(cache.Utilization), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descVectorUtil, float64(cache.VectorUtilization), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descOverUtil, float64(cache.OverallUtilization), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descHealthStatus, float64(getHealthCode(cache.HealthStatus)), "")
+		doUpdateTelegrafWithValidateNum(fieldMap, descNetworkStatus, float64(getHealthCode(cache.NetHealthStatus)), "")
+		doUpdateTelegraf(fieldMap, descNpuName, chip.ChipInfo.Name, "")
+
+		updateProcessInfoForTelegraf(&cache, fieldMap)
 		updateErrorCode(&cache, fieldMap)
 	}
 
@@ -168,6 +325,33 @@ func updateErrorCode(chip *chipCache, fieldMap map[string]interface{}) {
 		}
 		doUpdateTelegrafWithValidateNum(fieldMap, errorCodeDescs[i], float64(chip.ErrorCodes[i]), extInfo)
 	}
+}
+
+func updateProcessInfoForTelegraf(chip *chipCache, fieldMap map[string]interface{}) {
+	devProcessInfo := chip.DevProcessInfo
+	doUpdateTelegraf(fieldMap, descDevProcessNum, devProcessInfo.ProcNum, "")
+	if devProcessInfo.ProcNum == 0 {
+		doUpdateTelegraf(fieldMap, descDevProcessInfo, 0, "")
+		return
+	}
+	for i := int32(0); i < devProcessInfo.ProcNum; i++ {
+		procInfo := devProcessInfo.DevProcArray[i]
+		doUpdateTelegraf(fieldMap, descDevProcessInfo, procInfo.MemUsage, "_"+strconv.Itoa(int(procInfo.Pid)))
+	}
+}
+
+func collectUtil(logicID int32, dmgr devmanager.DeviceInterface, chip *chipCache) {
+	util, err := dmgr.GetDeviceUtilizationRate(logicID, common.AICore)
+	handleErr(err, colcommon.DomainForAICoreUtilization, logicID)
+	chip.Utilization = int(util)
+
+	overAllUtil, err := dmgr.GetDeviceUtilizationRate(logicID, common.Overall)
+	handleErr(err, colcommon.DomainForOverallUtilization, logicID)
+	chip.OverallUtilization = int(overAllUtil)
+
+	vecUtil, err := dmgr.GetDeviceUtilizationRate(logicID, common.VectorCore)
+	handleErr(err, colcommon.DomainForVectorCoreUtilization, logicID)
+	chip.VectorUtilization = int(vecUtil)
 }
 
 func setNetHealthStatus(logicID int32, dmgr devmanager.DeviceInterface, chip *chipCache) {
@@ -202,4 +386,30 @@ func getHealth(logicID int32, dmgr devmanager.DeviceInterface) string {
 		return colcommon.UnHealthy
 	}
 	return colcommon.Healthy
+}
+
+func getHealthCode(health string) int {
+	if health == colcommon.Abnormal {
+		return common.RetError
+	}
+
+	if colcommon.Healthy == health {
+		return 1
+	}
+	return 0
+}
+
+func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *chipCache) {
+	productTypes := dmgr.GetProductTypeArray()
+	info, err := dmgr.GetDevProcessInfo(logicID)
+	if err != nil {
+		if len(productTypes) == 1 && productTypes[0] == common.Atlas200ISoc {
+			logger.Logger.Logf(logger.Debug, "process info is not supported on %s", common.Atlas200ISoc)
+			hwChip.DevProcessInfo = &common.DevProcessInfo{}
+			return
+		}
+		handleErr(err, colcommon.DomainForProcess, logicID)
+		info = &common.DevProcessInfo{}
+	}
+	hwChip.DevProcessInfo = info
 }

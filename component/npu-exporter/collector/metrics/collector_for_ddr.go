@@ -31,6 +31,10 @@ var (
 	descTotalMemory = colcommon.BuildDesc("npu_chip_info_total_memory", "the npu total memory")
 	descUsedMemory  = colcommon.BuildDesc("npu_chip_info_used_memory", "the npu used memory")
 
+	notSupportedDdrDevices = map[string]bool{
+		common.Ascend910B:  true,
+		common.Ascend910A3: true,
+	}
 )
 
 type ddrCache struct {
@@ -43,6 +47,14 @@ type ddrCache struct {
 // DdrCollector collect ddr info
 type DdrCollector struct {
 	colcommon.MetricsCollectorAdapter
+}
+
+// IsSupported check whether the metric is supported
+func (c *DdrCollector) IsSupported(n *colcommon.NpuCollector) bool {
+	isSupport := !notSupportedDdrDevices[n.Dmgr.GetDevType()]
+	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c),
+		"there is no DDR module. DDR information cannot be queried.")
+	return isSupport
 }
 
 // Describe description of the metric
@@ -67,6 +79,30 @@ func (c *DdrCollector) CollectToCache(n *colcommon.NpuCollector, chipList []colc
 	}
 	colcommon.UpdateCache[ddrCache](n, colcommon.GetCacheKey(c), &c.LocalCache)
 
+}
+
+// UpdatePrometheus update prometheus metrics
+func (c *DdrCollector) UpdatePrometheus(ch chan<- prometheus.Metric, n *colcommon.NpuCollector,
+	containerMap map[int32]container.DevicesInfo, chips []colcommon.HuaWeiAIChip) {
+
+	updateSingleChip := func(cache ddrCache, cardLabel []string) {
+		extInfo := cache.extInfo
+		if extInfo == nil {
+			return
+		}
+		memorySize := extInfo.MemorySize
+		memoryAvailable := extInfo.MemoryAvailable
+
+		doUpdateMetric(ch, cache.timestamp, memorySize, cardLabel, descTotalMemory)
+		doUpdateMetric(ch, cache.timestamp, memorySize-memoryAvailable, cardLabel, descUsedMemory)
+
+		if !c.Is910Series && len(getContainerNameArray(geenContainerInfo(&cache.chip, containerMap))) == colcommon.ContainerNameLen {
+			doUpdateMetric(ch, cache.timestamp, memorySize, cardLabel, npuCtrTotalMemory)
+			doUpdateMetric(ch, cache.timestamp, memorySize-memoryAvailable, cardLabel, npuCtrUsedMemory)
+		}
+	}
+
+	updateFrame[ddrCache](colcommon.GetCacheKey(c), n, containerMap, chips, updateSingleChip)
 }
 
 // UpdateTelegraf update telegraf metrics

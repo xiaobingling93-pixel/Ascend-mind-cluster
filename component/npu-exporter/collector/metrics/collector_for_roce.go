@@ -105,6 +105,35 @@ func (c *RoceCollector) IsSupported(n *colcommon.NpuCollector) bool {
 	return isSupport
 }
 
+// Describe description of the metric
+func (c *RoceCollector) Describe(ch chan<- *prometheus.Desc) {
+
+	// mac
+	ch <- descMacRxPauseNum
+	ch <- descMacTxPauseNum
+	ch <- descMacRxPfcPktNum
+	ch <- descMacTxPfcPktNum
+	ch <- descMacRxBadPktNum
+	ch <- descMacTxBadPktNum
+	ch <- descMacTxBadOctNum
+	ch <- descMacRxBadOctNum
+	ch <- descRxFCSNum
+
+	// roce
+	ch <- descRoceRxAllPktNum
+	ch <- descRoceTxAllPktNum
+	ch <- descRoceRxErrPktNum
+	ch <- descRoceTxErrPktNum
+	ch <- descRoceRxCnpPktNum
+	ch <- descRoceTxCnpPktNum
+	ch <- descRoceNewPktRtyNum
+	ch <- descRoceUnexpectedAcktNum
+	ch <- descRoceOutOfOrderNum
+	ch <- descRoceVerificationErrNum
+	ch <- descRoceQpStatusErrNum
+	ch <- descRxECNNum
+
+}
 
 // CollectToCache collect the metric to cache
 func (c *RoceCollector) CollectToCache(n *colcommon.NpuCollector, chipList []colcommon.HuaWeiAIChip) {
