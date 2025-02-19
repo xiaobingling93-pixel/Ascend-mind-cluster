@@ -54,7 +54,7 @@ func describeChain(ch chan<- *prometheus.Desc, chain []common.MetricsCollector) 
 
 // Collect update metrics of prometheus
 func (n *CollectorForPrometheus) Collect(ch chan<- prometheus.Metric) {
-	containerMap := make(map[int32]container.DevicesInfo)
+	containerMap := common.GetContainerNPUInfo(n.collector)
 	chips := common.GetChipListWithVNPU(n.collector)
 	collectChain(ch, n, containerMap, chips, common.ChainForSingleGoroutine)
 	collectChain(ch, n, containerMap, chips, common.ChainForMultiGoroutine)

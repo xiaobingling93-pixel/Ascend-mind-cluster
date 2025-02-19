@@ -67,7 +67,10 @@ type logfFunc func(ctx context.Context, format string, args ...interface{})
 // InitLogger initialize the log manager
 func InitLogger(platform string) error {
 
-	if platform == PrometheusPlatform {
+	if platform == TelegrafPlatform {
+		Logger = &telegrafLogger{}
+		HwLogConfig.LogFileName = defaultTelegrafLogPath
+	} else if platform == PrometheusPlatform {
 		Logger = &generalLogger{}
 	} else {
 		return errors.New("platform is not supported:" + platform)

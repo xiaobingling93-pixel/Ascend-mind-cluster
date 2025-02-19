@@ -16,10 +16,44 @@
 package common
 
 import (
+	"context"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 
+	"ascend-common/devmanager/common"
 	"huawei.com/npu-exporter/v6/collector/container"
+	"huawei.com/npu-exporter/v6/utils/logger"
 )
+
+var (
+	// CardLabel general card label
+	CardLabel = []string{npuID, modelName, npuUUID, npuPCIEInfo, namespace, podName, cntrName}
+
+	noNeedToPrintUpdateLog = map[string]bool{
+		"NetworkCollector": true,
+		"RoceCollector":    true,
+		"OpticalCollector": true,
+	}
+)
+
+// BuildDescSlice build desc slice
+func BuildDescSlice(slice *[]*prometheus.Desc, name string, help string) {
+	*slice = append(*slice, BuildDesc(name, help))
+}
+
+// BuildDesc build desc
+func BuildDesc(name string, help string) *prometheus.Desc {
+	return prometheus.NewDesc(name, help, CardLabel, nil)
+}
+
+// BuildDescWithLabel build desc with label
+func BuildDescWithLabel(name string, help string, label []string) *prometheus.Desc {
+	return prometheus.NewDesc(name, help, label, nil)
+}
 
 // MetricsCollector metrics collector
 type MetricsCollector interface {
@@ -45,4 +79,130 @@ type MetricsCollector interface {
 
 	// IsSupported Check whether the current hardware supports this metric
 	IsSupported(*NpuCollector) bool
+}
+
+// MetricsCollectorAdapter base collector for metrics collector
+type MetricsCollectorAdapter struct {
+	LocalCache   sync.Map
+	Is910Series  bool
+	ContainerMap map[int32]container.DevicesInfo
+	Chips        []HuaWeiAIChip
+}
+
+// Describe report metrics to prometheus
+func (c *MetricsCollectorAdapter) Describe(ch chan<- *prometheus.Desc) {
+}
+
+// CollectToCache collect data to cache
+func (c *MetricsCollectorAdapter) CollectToCache(n *NpuCollector, chipList []HuaWeiAIChip) {
+}
+
+// UpdatePrometheus update prometheus
+func (c *MetricsCollectorAdapter) UpdatePrometheus(ch chan<- prometheus.Metric, n *NpuCollector,
+	containerMap map[int32]container.DevicesInfo, chips []HuaWeiAIChip) {
+}
+
+// UpdateTelegraf update telegraf
+func (c *MetricsCollectorAdapter) UpdateTelegraf(fieldsMap map[int]map[string]interface{}, n *NpuCollector,
+	containerMap map[int32]container.DevicesInfo, chips []HuaWeiAIChip) map[int]map[string]interface{} {
+	return fieldsMap
+}
+
+// PreCollect pre handle before collect
+func (c *MetricsCollectorAdapter) PreCollect(n *NpuCollector, chipList []HuaWeiAIChip) {
+	if strings.Contains(n.Dmgr.GetDevType(), common.Ascend910) {
+		c.Is910Series = true
+	}
+}
+
+// PostCollect post handle after collect
+func (c *MetricsCollectorAdapter) PostCollect(*NpuCollector) {
+}
+
+// IsSupported Check whether the current hardware supports this metric
+func (c *MetricsCollectorAdapter) IsSupported(*NpuCollector) bool {
+	return true
+}
+
+// UpdateCache update cache
+func UpdateCache[T any](n *NpuCollector, cacheKey string, localCache *sync.Map) {
+	var cacheInfo map[int32]T
+	obj, err := n.cache.Get(cacheKey)
+	if err != nil {
+		logger.Logger.Logf(logger.Debug, "get info of %s failed: %v, use initial data", cacheKey, err)
+		cacheInfo = make(map[int32]T)
+	} else {
+		if oldCacheInfo, ok := obj.(map[int32]T); ok {
+			cacheInfo = oldCacheInfo
+		} else {
+			logger.Logger.Logf(logger.Debug, "cache format invalid, reset")
+			cacheInfo = make(map[int32]T)
+		}
+	}
+
+	localCache.Range(func(key, value interface{}) bool {
+		finalKey, okKey := key.(int32)
+		finalValue, okValue := value.(T)
+		if okKey && okValue {
+			cacheInfo[finalKey] = finalValue
+		}
+		return true
+	})
+
+	err = n.cache.Set(cacheKey, cacheInfo, n.cacheTime)
+	if noNeedToPrintUpdateLog[cacheKey] {
+		return
+	}
+	if err != nil {
+		logger.Logger.Log(logger.Error, err)
+	} else {
+		logger.Logger.Logf(logger.Info, UpdateCachePattern, cacheKey)
+	}
+}
+
+// GetInfoFromCache get info from cache
+func GetInfoFromCache[T any](n *NpuCollector, cacheKey string) map[int32]T {
+	res := make(map[int32]T)
+	obj, err := n.cache.Get(cacheKey)
+	if err != nil {
+		logger.Logger.Log(logger.Warn, "cache not found, please wait for rebuild")
+		return res
+	}
+
+	if data, ok := obj.(map[int32]T); ok {
+		return data
+	}
+	logger.Logger.Log(logger.Error, "cache type mismatch")
+	return res
+}
+
+// StartCollectGoroutine start a goroutine to collect metrics info , and add log to monitor elapsedTime
+func (c *MetricsCollectorAdapter) StartCollectGoroutine(n *NpuCollector, ctx context.Context, group *sync.WaitGroup,
+	chip HuaWeiAIChip, doCollect func(HuaWeiAIChip)) {
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				doCollect(chip)
+				time.Sleep(n.updateTime)
+			}
+		}
+	}()
+}
+
+// GetCacheKey Obtain the name of the struct pointer as the key of the cache
+func GetCacheKey(ptr interface{}) string {
+	v := reflect.ValueOf(ptr)
+	if v.Kind() != reflect.Ptr {
+		return ""
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return ""
+	}
+	return v.Type().Name()
 }
