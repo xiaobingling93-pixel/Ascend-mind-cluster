@@ -381,7 +381,7 @@ func TestGetFaultNodeToCm(t *testing.T) {
 		})
 }
 
-func TestWriteRemainTimesToCMString(t *testing.T) {
+func TestGetRemainTimesToCMString(t *testing.T) {
 	reCache := initDealReSchedulerCache()
 	reCache.JobRemainRetryTimes = make(map[api.JobID]*RemainRetryTimes)
 	reCache.JobRemainRetryTimes["testUid"] = &RemainRetryTimes{

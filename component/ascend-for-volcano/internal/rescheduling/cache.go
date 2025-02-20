@@ -130,7 +130,7 @@ func (reCache *DealReSchedulerCache) writeFaultNodesToCMString() (string, error)
 }
 
 func getFaultNodeToCm(realFaultNode map[string]*FaultNode) []FaultNodeInfoToCm {
-	faultNodeToCm := make([]FaultNodeInfoToCm, 0)
+	faultNodeToCm := make([]FaultNodeInfoToCm, 0, len(realFaultNode))
 	for _, fNode := range realFaultNode {
 		faultNodeToCm = append(faultNodeToCm, initFaultNodeToCmByFaultNode(fNode))
 	}
@@ -214,7 +214,7 @@ func (reCache *DealReSchedulerCache) WriteReSchedulerCacheToEnvCache(env *plugin
 	reCache.FaultJobs = getRealFaultJobForCache(reCache.getRealFaultJobs())
 	jobRemainRetryTimes, err := reCache.getRemainTimesToCMString()
 	if err != nil {
-		klog.V(util.LogDebugLev).Infof("WriteReSchedulerCacheToEnvCache: %s", util.SafePrint(err))
+		klog.V(util.LogDebugLev).Infof("getRemainTimesToCMString: %s", util.SafePrint(err))
 	}
 	// update the reschedule reason cache
 	if err := reCache.setRescheduleReasonToCache(env); err != nil {
