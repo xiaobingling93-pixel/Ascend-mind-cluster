@@ -16,9 +16,21 @@
 package constant
 
 const (
-	DefaultLogFile       = "./taskd_log/taskd.log"
-	DefaultLogLevel      = 1
-	DefaultMaxBackups    = 30
-	DefaultMaxAge        = 7
+	// LogFilePathEnv for log file path environment
+	LogFilePathEnv = "TASKD_LOG_PATH"
+	// LogFileName default log file name
+	LogFileName = "taskd.log"
+)
+
+const (
+	// DefaultLogFile default log file
+	DefaultLogFile = "./taskd_log/taskd.log"
+	// DefaultLogLevel default log level
+	DefaultLogLevel = 0
+	// DefaultMaxBackups max backup log file num
+	DefaultMaxBackups = 30
+	// DefaultMaxAge max age backup file exist
+	DefaultMaxAge = 7
+	// DefaultMaxLineLength max line length in log
 	DefaultMaxLineLength = 1023
 )

@@ -15,18 +15,27 @@
 // Package main a main package for cgo api
 package main
 
-import "C"
 import (
+	"C"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
-	"taskd/common/constant"
 	"ascend-common/common-utils/hwlog"
+	"taskd/common/constant"
 )
 
 func init() {
+	var logFile string
+	logFilePath := os.Getenv(constant.LogFilePathEnv)
+	if logFilePath == "" {
+		logFile = constant.DefaultLogFile
+	} else {
+		logFile = filepath.Join(logFile, constant.LogFileName)
+	}
 	hwLogConfig := hwlog.LogConfig{
-		LogFileName:   constant.DefaultLogFile,
+		LogFileName:   logFile,
 		LogLevel:      constant.DefaultLogLevel,
 		MaxBackups:    constant.DefaultMaxBackups,
 		MaxAge:        constant.DefaultMaxAge,

@@ -23,7 +23,7 @@ from logging.handlers import RotatingFileHandler
 from taskd.python.constants.constants import (LOG_DEFAULT_FILE_PATH,LOG_MAX_LINE_LENGTH,LOG_DATE_FORMAT,
                                               LOG_SIMPLE_FORMAT,LOG_DEFAULT_FILE,LOG_DEFAULT_FILE_NAME,
                                               LOG_DEFAULT_BACKUP_COUNT, LOG_DEFAULT_MAX_BYTES,LOG_BACKUP_FORMAT,
-                                              LOG_PRIVILEGE,LOG_DIR_PRIVILEGE,LOG_BAK_PRIVILEGE,
+                                              LOG_PRIVILEGE,LOG_DIR_PRIVILEGE,LOG_BAK_PRIVILEGE,LOG_BACKUP_PATTERN,
                                               TASKD_LOG_LEVEL,TASKD_LOG_STDOUT,TASKD_LOG_PATH)
 from taskd.python.utils.validator import FileValidator
 
@@ -61,6 +61,58 @@ class CustomRotatingHandler(RotatingFileHandler):
         base, ext = os.path.splitext(self.baseFilename)
         back_time = datetime.datetime.now().strftime(LOG_BACKUP_FORMAT)[:-3]
         return f"{base}-{back_time}{ext}"
+
+    def doRollover(self):
+        """
+        rewrite to do roll log file
+        """
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+
+        # create backup file name and rename the current log file
+        backup_file_name = self.rotation_filename(self.baseFilename)
+        if os.path.exists(backup_file_name):
+            os.remove(backup_file_name)
+        os.rename(self.baseFilename, backup_file_name)
+
+        # clear backup files that exceed the file limit
+        if self.backupCount > 0:
+            dir_name = os.path.dirname(self.baseFilename)
+            base_filename = os.path.basename(self.baseFilename)
+            base, ext = os.path.splitext(base_filename)
+
+            # match all backup files that match the format
+            pattern = re.compile(rf'^({re.escape(base)}-{LOG_BACKUP_PATTERN}{re.escape(ext)})$')
+            backups = []
+
+            for filename in os.listdir(dir_name):
+                match = pattern.match(filename)
+                if match:
+                    timestamp_str = match.group(1)
+                    # get timestamp str for sort file
+                    timestamp_str = timestamp_str[len(base)+1:-len(ext)]
+
+                    try:
+                        # resolve timestamps in file names
+                        ts = datetime.datetime.strptime(
+                            timestamp_str, LOG_BACKUP_FORMAT)
+                        backups.append((filename, ts))
+                    except ValueError:
+                        continue
+
+            # sort by time (old → new)
+            backups.sort(key=lambda x: x[1])
+
+            # delete old backups that exceed the reserved quantity
+            while len(backups) > self.backupCount:
+                oldest = backups.pop(0)
+                os.remove(os.path.join(dir_name, oldest[0]))
+
+        # create new log file
+        if not self.delay:
+            self.stream = self._open()
+
 
 class LogConfig:
     '''
