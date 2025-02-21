@@ -117,7 +117,7 @@ spec:
           - name: lingqu-log
             mountPath: /var/log/lingqu
           - name: containerd
-            mountPath: /run/containerd/containerd.sock
+            mountPath: /run/containerd
             readOnly: true
 
         env:
@@ -164,4 +164,4 @@ spec:
             type: DirectoryOrCreate
         - name: containerd
           hostPath:
-            path: /run/containerd/containerd.sock
+            path: /run/containerd # update the directory where the containerd.sock file is located When using older version of Docker
