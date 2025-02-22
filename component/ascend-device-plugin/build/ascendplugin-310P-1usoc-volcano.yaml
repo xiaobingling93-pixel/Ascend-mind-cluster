@@ -122,7 +122,7 @@ spec:
               mountPath: /etc/slog.conf
               readOnly: true
             - name: containerd
-              mountPath: /run/containerd/containerd.sock
+              mountPath: /run/containerd
               readOnly: true
           env:
             - name: NODE_NAME
@@ -172,4 +172,4 @@ spec:
             type: File
         - name: containerd
           hostPath:
-            path: /run/containerd/containerd.sock
+            path: /run/containerd # update the directory where the containerd.sock file is located When using older version of Docker

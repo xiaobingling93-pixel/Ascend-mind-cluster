@@ -4,7 +4,6 @@
 package publicfault
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -20,7 +19,7 @@ import (
 var pubFaultInitOnce sync.Once
 
 // PubFaultCollector collect public fault info to cache
-func PubFaultCollector(newPubFault *api.PubFaultInfo, ctx context.Context) error {
+func PubFaultCollector(newPubFault *api.PubFaultInfo) error {
 	pubFaultInitOnce.Do(func() {
 		if err := publicfault.LoadPubFaultCfgFromFile(constant.PubFaultCustomizationPath); err == nil {
 			hwlog.RunLog.Infof("load fault config from <%s> success", constant.PubFaultCustomizationName)
@@ -44,16 +43,19 @@ func PubFaultCollector(newPubFault *api.PubFaultInfo, ctx context.Context) error
 		UpdateLimiter()
 	})
 
-	if err := LimiterWaitByResource(newPubFault.Resource, ctx); err != nil {
-		hwlog.RunLog.Errorf("limiter wait by resource failed, error: %v", err)
-		return errors.New("limiter wait by resource failed")
+	if err := LimitByResource(newPubFault.Resource); err != nil {
+		hwlog.RunLog.Errorf("limiter work by resource failed, error: %v", err)
+		return errors.New("limiter work by resource failed")
 	}
 	if err := NewPubFaultInfoChecker(newPubFault).Check(); err != nil {
 		hwlog.RunLog.Errorf("check public fault info failed, error: %v", err)
 		return fmt.Errorf("check public fault info failed, error: %v", err)
 	}
-	hwlog.RunLog.Infof("receive public fault, id: %s, resource: %s", newPubFault.Id, newPubFault.Resource)
+	hwlog.RunLog.Infof("receive public fault, id: %s, resource: %s, timestamp: %d",
+		newPubFault.Id, newPubFault.Resource, newPubFault.TimeStamp)
 	for _, fault := range newPubFault.Faults {
+		hwlog.RunLog.Infof("faultId: %s, faultType: %s, faultCode: %s, faultTime: %d, assertion: %s",
+			fault.FaultId, fault.FaultType, fault.FaultCode, fault.FaultTime, fault.Assertion)
 		for _, influence := range fault.Influence {
 			newFault := convertPubFaultInfoToCache(fault, influence)
 			nodeName := getNodeName(influence)
