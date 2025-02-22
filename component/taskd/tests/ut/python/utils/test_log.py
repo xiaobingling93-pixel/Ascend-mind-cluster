@@ -25,10 +25,12 @@ from unittest.mock import patch
 from taskd.python.constants.constants import LOG_BACKUP_FORMAT, LOG_BACKUP_PATTERN
 from taskd.python.utils.log.logger import CustomRotatingHandler
 
+
 class TestLogger(unittest.TestCase):
     def test_logger_init(self):
         from taskd.python.utils.log import run_log
         assert run_log is not None
+
 
 class TestCustomRotationHandler(unittest.TestCase):
     def setUp(self):
@@ -75,7 +77,7 @@ class TestCustomRotationHandler(unittest.TestCase):
         with open(self.base_filename, 'w') as f:
             f.write("test log")
         handler.doRollover()
-        backups = [ f for f in os.listdir(self.test_dir) if f != "customlog.log" ]
+        backups = [f for f in os.listdir(self.test_dir) if f != "customlog.log"]
         self.assertEqual(len(backups), 1)
         self.assertRegex(backups[0], re.compile(LOG_BACKUP_PATTERN))
 
@@ -115,7 +117,7 @@ class TestCustomRotationHandler(unittest.TestCase):
         with open(self.base_filename, 'w') as f:
             f.write("test3 log")
         handler.doRollover()
-        backups = [ f for f in os.listdir(self.test_dir) if f != "customlog.log"]
+        backups = [f for f in os.listdir(self.test_dir) if f != "customlog.log"]
         self.assertEqual(len(backups), 2)
 
     def test_multiple_rollovers(self):
@@ -131,13 +133,13 @@ class TestCustomRotationHandler(unittest.TestCase):
         for fname in old_backups:
             with open(os.path.join(self.test_dir, fname), 'w') as f:
                 f.write("old log")
-        for i in range(4):
+        for _ in range(4):
             with open(self.base_filename, 'w') as f:
                 f.write("new log")
             handler.doRollover()
-        backups = [ f for f in os.listdir(self.test_dir) if f != "customlog.log"]
+        backups = [f for f in os.listdir(self.test_dir) if f != "customlog.log"]
         self.assertEqual(len(backups), 2)
-        self.assertNotIn( "customlog-2023-10-05T12-00-00.000.log", backups)
+        self.assertNotIn("customlog-2023-10-05T12-00-00.000.log", backups)
         self.assertNotIn("customlog-2023-10-05T12-10-00.000.log", backups)
         self.assertNotIn("customlog-2023-10-05T12-20-00.000.log", backups)
 
@@ -161,10 +163,9 @@ class TestCustomRotationHandler(unittest.TestCase):
         remaining = os.listdir(self.test_dir)
         for invalid in invalid_files:
             self.assertIn(invalid, remaining)
-        backups = [ f for f in os.listdir(self.test_dir) if re.match(rf'customlog-{LOG_BACKUP_PATTERN}.log', f)]
+        backups = [f for f in os.listdir(self.test_dir) if re.match(rf'customlog-{LOG_BACKUP_PATTERN}.log', f)]
         self.assertEqual(len(backups), 1)
 
 
 if __name__ == '__main__':
     unittest.main()
-

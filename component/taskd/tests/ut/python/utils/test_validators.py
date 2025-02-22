@@ -20,13 +20,15 @@ import unittest
 
 from taskd.python.utils.validator import *
 
-BIN_PATH="/usr/bin"
+BIN_PATH = "/usr/bin"
 DIRECTORY_BLACKLIST_PATH = "/abc/d/e"
+
 
 class TestValidators(unittest.TestCase):
     '''
     Test validator functions
     '''
+
     def setUp(self):
         super().setUp()
 
@@ -35,12 +37,12 @@ class TestValidators(unittest.TestCase):
 
     def test_validator_should_return_default_if_invalid(self):
         validation = Validator('aa')
-        validation.register_checker(lambda x: len(x)<5, 'length of string should be less than 5')
+        validation.register_checker(lambda x: len(x) < 5, 'length of string should be less than 5')
         self.assertTrue(validation.is_valid())
         validation = Validator('123456')
-        validation.register_checker(lambda x: len(x)<5, 'length of string should be less than 5')
+        validation.register_checker(lambda x: len(x) < 5, 'length of string should be less than 5')
         self.assertFalse(validation.is_valid())
-        self.assertEqual(validation.get_value("DEFAULT"),"DEFAULT")
+        self.assertEqual(validation.get_value("DEFAULT"), "DEFAULT")
 
     def test_string_validator_max_len_parameter(self):
         self.assertFalse(StringValidator('aa.1245', max_len=3).check_string_length().check().is_valid())
@@ -59,14 +61,14 @@ class TestValidators(unittest.TestCase):
         self.assertFalse(StringValidator('9' * 20).can_be_transformed2int().check().is_valid())
         self.assertFalse(StringValidator('1,2').can_be_transformed2int().check().is_valid())
         self.assertTrue(StringValidator('12').can_be_transformed2int().check().is_valid())
-        self.assertFalse(StringValidator('12').can_be_transformed2int(min_value=100,max_value=200).check().is_valid())
+        self.assertFalse(StringValidator('12').can_be_transformed2int(min_value=100, max_value=200).check().is_valid())
 
     def test_string_validator_contain_sensitive_words(self):
         self.assertFalse(StringValidator('passwordme').check_not_contain_black_element("pass")
                          .check_string_length().check().is_valid())
 
     def test_map_validator_should_contain_inclusive_keys(self):
-        map_validator = MapValidator({'a':True, 'b':{'c': '1234'}}, inclusive_keys=['a','b'])
+        map_validator = MapValidator({'a': True, 'b': {'c': '1234'}}, inclusive_keys=['a', 'b'])
         self.assertTrue(map_validator.is_valid())
 
     def test_directory_black_list(self):
@@ -79,21 +81,21 @@ class TestValidators(unittest.TestCase):
                         .check().is_valid())
         # if not exact compare, the /abc/d/e is chirldren path of /abc/d/, so it is invalid
         self.assertFalse(DirectoryValidator(DIRECTORY_BLACKLIST_PATH)
-                        .with_blacklist(['/abc/d/'], exact_compare=False).check().is_valid())
+                         .with_blacklist(['/abc/d/'], exact_compare=False).check().is_valid())
         self.assertTrue(DirectoryValidator('/usr/bin/bash').with_blacklist().check().is_valid())
         self.assertFalse(DirectoryValidator('/usr/bin/bash').with_blacklist(exact_compare=False).check().is_valid())
 
     def test_remove_prefix(self):
-        self.assertEqual(DirectoryValidator.remove_prefix(BIN_PATH,None)[1], BIN_PATH)
-        self.assertEqual(DirectoryValidator.remove_prefix(BIN_PATH,'')[1], BIN_PATH)
-        self.assertIsNone(DirectoryValidator.remove_prefix(None,'abc')[1])
-        self.assertEqual(DirectoryValidator.remove_prefix('/usr/bin/python',BIN_PATH)[1], '/python')
+        self.assertEqual(DirectoryValidator.remove_prefix(BIN_PATH, None)[1], BIN_PATH)
+        self.assertEqual(DirectoryValidator.remove_prefix(BIN_PATH, '')[1], BIN_PATH)
+        self.assertIsNone(DirectoryValidator.remove_prefix(None, 'abc')[1])
+        self.assertEqual(DirectoryValidator.remove_prefix('/usr/bin/python', BIN_PATH)[1], '/python')
 
     def test_directory_white_list(self):
-        self.assertTrue(DirectoryValidator.check_is_children_path('/abc/d',DIRECTORY_BLACKLIST_PATH))
-        self.assertTrue(DirectoryValidator.check_is_children_path('/abc/d','/abc/d'))
-        self.assertFalse(DirectoryValidator.check_is_children_path('/abc/d','/abc/de'))
-        self.assertTrue(DirectoryValidator.check_is_children_path('/usr/bin','/usr/bin/bash'))
+        self.assertTrue(DirectoryValidator.check_is_children_path('/abc/d', DIRECTORY_BLACKLIST_PATH))
+        self.assertTrue(DirectoryValidator.check_is_children_path('/abc/d', '/abc/d'))
+        self.assertFalse(DirectoryValidator.check_is_children_path('/abc/d', '/abc/de'))
+        self.assertTrue(DirectoryValidator.check_is_children_path('/usr/bin', '/usr/bin/bash'))
 
     def test_directory_soft_link(self):
         tmp = tempfile.NamedTemporaryFile(delete=True)
@@ -120,7 +122,7 @@ class TestValidators(unittest.TestCase):
                         check_is_not_none().check_dir_name().
                         path_should_exist(is_file=True, msg="can not find the fault ranks config file")
                         .should_not_contains_sensitive_words().with_blacklist().check())
-        self.assertTrue(DirectoryValidator(os.path.dirname(__file__),max_len=255)
+        self.assertTrue(DirectoryValidator(os.path.dirname(__file__), max_len=255)
                         .check_is_not_none().check_dir_name().check_dir_file_number()
                         .path_should_exist(is_file=False, msg="can not find the fault ranks config file")
                         .should_not_contains_sensitive_words().with_blacklist().check())
@@ -144,6 +146,7 @@ class TestValidators(unittest.TestCase):
 
     def test_class_check(self):
         self.assertTrue(ClassValidator(2, int).check_isinstance().is_valid())
+
 
 if __name__ == '__main__':
     unittest.main()
