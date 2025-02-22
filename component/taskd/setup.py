@@ -67,7 +67,8 @@ required_packages = get_required_packages()
 package_data = {
     '':
         ['fault_checker/**',
-         'python/**'
+         'python/**',
+         '*.yaml',
         ]
 }
 
