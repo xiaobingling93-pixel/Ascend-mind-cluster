@@ -28,7 +28,6 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"volcano.sh/volcano/pkg/scheduler/api"
-	"volcano.sh/volcano/pkg/scheduler/framework"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/ascend910/ascend910a3"
@@ -52,16 +51,6 @@ func New(name string) base.AscendHandler {
 	return m
 }
 
-// PreStartAction pre-processing actions for rescheduling
-func (tp *module910SuperPod) PreStartAction(i interface{}, _ *framework.Session) error {
-	k, ok := i.(*rescheduling.ReScheduler)
-	if !ok {
-		return fmt.Errorf("preStartAction failed %s, interface is not ReScheduler", SchedulerName)
-	}
-	tp.ReHandle = k
-	return nil
-}
-
 // ValidNPUJob check job req npu num and mode
 func (tp *module910SuperPod) ValidNPUJob() *api.ValidateResult {
 	res := tp.checkSpBlock()
@@ -77,10 +66,7 @@ func (tp *module910SuperPod) ValidNPUJob() *api.ValidateResult {
 		}
 	}
 
-	if err := tp.checkRequireNPU(); err != nil {
-		return err
-	}
-	return tp.ReHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
+	return tp.checkRequireNPU()
 }
 
 func (tp *module910SuperPod) checkRequireNPU() *api.ValidateResult {
@@ -346,8 +332,7 @@ func (tp *module910SuperPod) selectNodesForFaultJob(task *api.TaskInfo,
 	}
 
 	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes %s: reScheduler is not nil", tp.GetPluginName(), task.Name)
-	fJob := reScheduler.GetFaultJobOfGivenTaskInfoFromCache(task)
-
+	fJob := reScheduler.FaultJobs[task.Job]
 	if fJob == nil || !fJob.IsFaultJob {
 		return selectNodes, nil
 	}

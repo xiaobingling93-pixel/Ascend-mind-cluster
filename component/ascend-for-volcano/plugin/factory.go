@@ -267,7 +267,7 @@ func (sHandle *ScheduleHandler) InitVolcanoFrameFromSsn(ssn *framework.Session) 
 		return
 	}
 
-	configs := initConfsFromSsn(ssn.Configurations)
+	configs := InitConfsFromSsn(ssn.Configurations)
 	superPodSize, err := util.GetSizeOfSuperPod(configs)
 	if err != nil {
 		klog.V(util.LogWarningLev).Infof("GetSizeOfSuperPod failed: %s, set default super-pod-size: %d", err,
@@ -307,7 +307,8 @@ func (sHandle *ScheduleHandler) InitVolcanoFrameFromSsn(ssn *framework.Session) 
 	}
 }
 
-func initConfsFromSsn(confs []conf.Configuration) []config.Configuration {
+// InitConfsFromSsn init confs from session
+func InitConfsFromSsn(confs []conf.Configuration) []config.Configuration {
 	var out []byte
 	var err error
 	newConfs := make([]config.Configuration, len(confs))
@@ -366,7 +367,7 @@ func (sHandle *ScheduleHandler) PreStartPlugin(ssn *framework.Session) {
 		return
 	}
 	for _, job := range sHandle.Jobs {
-		if err := job.handler.PreStartAction(sHandle.BaseHandle.GetReHandle(), ssn); err != nil {
+		if err := job.handler.PreStartAction(sHandle.FaultHandle, ssn); err != nil {
 			if strings.Contains(err.Error(), util.ArgumentError) {
 				continue
 			}
@@ -413,8 +414,8 @@ func (sHandle *ScheduleHandler) BeforeCloseHandler() {
 			job.updateResetConfigMap(sHandle)
 		}
 	}
-	if sHandle.BaseHandle != nil {
-		if err := sHandle.BaseHandle.PreStopAction(&sHandle.ScheduleEnv); err != nil {
+	if sHandle.FaultHandle != nil {
+		if err := sHandle.FaultHandle.PreStopAction(&sHandle.ScheduleEnv); err != nil {
 			klog.V(util.LogErrorLev).Infof("PreStopPlugin  %s.", util.SafePrint(err))
 		}
 	}
@@ -452,7 +453,7 @@ func (sHandle *ScheduleHandler) InitNPUSession(ssn *framework.Session) error {
 	sHandle.InitJobsPlugin()
 	sHandle.InitCache()
 	sHandle.InitReschedulerFromSsn(ssn)
-	if sHandle.BaseHandle != nil {
+	if sHandle.FaultHandle != nil {
 		sHandle.PreStartPlugin(ssn)
 	}
 
@@ -630,15 +631,10 @@ func (vf *VolcanoFrame) CheckUseCIMByConfig() bool {
 
 // InitReschedulerFromSsn initialize re-scheduler
 func (sHandle *ScheduleHandler) InitReschedulerFromSsn(ssn *framework.Session) {
-	var i interface{}
-	if sHandle.BaseHandle == nil {
+	if sHandle.FaultHandle == nil {
 		return
 	}
-	if err := sHandle.BaseHandle.InitMyJobPlugin(util.SchedulerJobAttr{}, sHandle.ScheduleEnv); err != nil {
-		klog.V(util.LogWarningLev).Infof("InitBasePlugin failed by %s", err)
-		return
-	}
-	if preErr := sHandle.BaseHandle.PreStartAction(i, ssn); preErr != nil {
+	if preErr := sHandle.FaultHandle.PreStartAction(&sHandle.ScheduleEnv, ssn); preErr != nil {
 		klog.V(util.LogWarningLev).Infof("PreStartAction failed by %s", preErr)
 		return
 	}

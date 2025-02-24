@@ -27,7 +27,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
-var reSchedulerConfigmap *DealReSchedulerConfigmap
+var reSchedulerCache *DealReSchedulerCache
 
 const (
 	// RePropertyName name specifying re-scheduler cm
@@ -154,7 +154,6 @@ const (
 type ReScheduler struct {
 	*DealReSchedulerCache
 	GraceDeleteTime int64
-	Level           string
 	Jobs            map[api.JobID]plugin.SchedulerJob
 	Nodes           map[string]plugin.NPUNode
 	IsFirstSession  *bool
@@ -174,11 +173,8 @@ type FaultNodeInfoToCm struct {
 
 // DealReSchedulerCache object with method for re-scheduler cache
 type DealReSchedulerCache struct {
-	*DealReSchedulerConfigmap
-	FaultNodes                 []FaultNode
-	FaultNodeMaps              map[string]SimpleFNodeInfo `json:"-"`
-	FaultJobs                  []FaultJob
-	RealFaultJobs              []FaultJob `json:"-"`
+	FaultNodes                 map[string]*FaultNode
+	FaultJobs                  map[api.JobID]*FaultJob
 	AllocNodeRankOccurrenceMap map[api.JobID][]*AllocNodeRankOccurrence
 	JobRemainRetryTimes        map[api.JobID]*RemainRetryTimes
 	JobRecentRescheduleRecords map[api.JobID]*RescheduleReason
@@ -224,13 +220,6 @@ type RemainRetryTimes struct {
 	Times int
 }
 
-// DealReSchedulerConfigmap object with method for re-scheduler configmap
-type DealReSchedulerConfigmap struct {
-	CMName      string
-	CMNameSpace string
-	CMData      map[string]string
-}
-
 // AllocNodeRankOccurrence object recording node rankIndex and whether index re-allocated to new node
 type AllocNodeRankOccurrence struct {
 	NodeName  string
@@ -242,7 +231,6 @@ type AllocNodeRankOccurrence struct {
 type FaultCard struct {
 	IsFaultCard bool
 	NPUName     string
-	NodeName    string
 	FaultType   string
 }
 
@@ -258,7 +246,6 @@ type FaultNode struct {
 	IsFaultNode             bool
 	NodeDEnable             bool
 	NodeHealthState         string
-	AllCards                []string
 	FaultCards              []FaultCard
 	HasSwitchSubHealthFault bool
 	HasCardSubHealthFault   bool
@@ -295,11 +282,9 @@ type FaultTask struct {
 	TaskName           string
 	TaskNamespace      string
 	NodeName           string
-	JobName            string
 	NodeRankIndex      string
 	UseCardName        []string
 	PodCreateTime      int64
-	PodUID             types.UID
 	faultType          string
 }
 
@@ -315,9 +300,8 @@ type miniFaultTask struct {
 
 // miniFaultJob struct for print fJobs important infos to logs
 type miniFaultJob struct {
-	ReferenceName   string
-	FaultTasks      []miniFaultTask
-	FaultRetryTimes int
+	ReferenceName string
+	FaultTasks    []miniFaultTask
 }
 
 // FaultReasonList node Fault Device List
@@ -330,29 +314,24 @@ type FaultReasonList struct {
 
 // FaultJob job object for re-scheduling
 type FaultJob struct {
-	ReScheduleKey       string // values taken off/grace/force
-	SubHealthyStrategy  string
-	IsSubHealthFault    bool
-	PendingSessionNum   int
-	IsFaultJob          bool
-	IsInSession         bool
-	JobName             string
-	JobUID              api.JobID
-	JobNamespace        string
-	JobRankIds          []string // useCardIndex + 8*NodeRankIndex
-	NodeNames           []string
-	SuperPods           map[string][]plugin.SuperNode
-	NodeNameMaps        map[string]struct{}
-	FaultTasks          []FaultTask
-	UpdateTime          int64
-	JobRankIdCreateTime int64 // stop updating when job becomes a real fault one
-	FaultTypes          []string
-	DeleteExecutedFlag  bool
-	ElasticScheduling   string
-	ReferenceName       string
-	FaultRetryTimes     int
-	faultReason         string
-	UUID                types.UID
+	ReScheduleKey      string // values taken off/grace/force
+	SubHealthyStrategy string
+	IsSubHealthFault   bool
+	PendingSessionNum  int
+	IsFaultJob         bool
+	JobName            string
+	JobUID             api.JobID
+	JobNamespace       string
+	SuperPods          map[string][]plugin.SuperNode
+	FaultTasks         []FaultTask
+	UpdateTime         int64
+	FaultTypes         []string
+	DeleteExecutedFlag bool
+	ElasticScheduling  string
+	ReferenceName      string
+	FaultRetryTimes    int
+	faultReason        string
+	UUID               types.UID
 }
 
 type deletePodInfo struct {

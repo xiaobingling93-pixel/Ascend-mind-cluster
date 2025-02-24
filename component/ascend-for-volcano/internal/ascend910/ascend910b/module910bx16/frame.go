@@ -75,10 +75,7 @@ func (tp *module910bx16) ValidNPUJob() *api.ValidateResult {
 	if tp.VJob.Type == util.JobTypeDyCut {
 		return tp.ValidDyVNPUJob()
 	}
-	if err := tp.Valid910bNPUJob(); err != nil {
-		return err
-	}
-	return tp.ReHandle.ValidJobByReschedule(tp.SchedulerJobAttr)
+	return tp.Valid910bNPUJob()
 }
 
 // PreStartAction pre-processing actions for rescheduling
