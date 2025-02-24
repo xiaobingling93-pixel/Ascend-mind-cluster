@@ -253,7 +253,7 @@ func (c *influenceChecker) checkNodeNameOrSN() error {
 	}
 	_, ok := statistics.GetNodeNameBySN(c.influence.NodeSN)
 	if !ok {
-		return errors.New("invalid node name and node sn, both them does not exist")
+		return errors.New("invalid node name or node sn")
 	}
 	return nil
 }
