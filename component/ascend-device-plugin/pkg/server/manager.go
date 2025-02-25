@@ -418,8 +418,13 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 			}
 			// complete the fault codes that cannot be reported by the event subscribe interface
 			hdm.mendSubscribeFaultEvents()
+
 			hdm.updateDeviceUsedInfo(hdm.groupDevice)
 			hdm.notifyToK8s(&initTime)
+
+			// if node annotation has reset fail devices but all devices are healthy, clear node annotation
+			hdm.checkNodeResetInfo()
+
 			hdm.useVolcanoNotify()
 			hdm.chipHotReset()
 			common.DelOnceRecoverFault(hdm.groupDevice)
@@ -1236,4 +1241,52 @@ func (hdm *HwDevManager) mendSubscribeFaultEvents() {
 			hdm.manager.HandleLostNetworkFaultEvents(npuDevice, initLogicIDs)
 		}
 	}
+}
+
+func (hdm *HwDevManager) checkNodeResetInfo() {
+	client := hdm.manager.GetKubeClient()
+	if client == nil {
+		return
+	}
+	resetTool := device.ResetToolInstance(client)
+	resetInfo := resetTool.ReadResetInfo()
+	if len(resetInfo.ThirdPartyResetDevs) <= 0 && len(resetInfo.ManualResetDevs) <= 0 {
+		return
+	}
+	allInfo, err := hdm.manager.GetNPUs()
+	if err != nil {
+		hwlog.RunLog.Errorf("get all npu info failed, err: %v", err)
+		return
+	}
+	newResetInfo := device.ResetInfo{}
+	newThirdPartyResetDevs, tpChanged := checkDeviceStatus(resetInfo.ThirdPartyResetDevs, allInfo)
+	newManualResetDevs, manChanged := checkDeviceStatus(resetInfo.ManualResetDevs, allInfo)
+	if !tpChanged && !manChanged {
+		return
+	}
+	newResetInfo.ThirdPartyResetDevs = newThirdPartyResetDevs
+	newResetInfo.ManualResetDevs = newManualResetDevs
+	resetTool.WriteResetInfo(newResetInfo, device.WMOverwrite)
+}
+
+func checkDeviceStatus(failDevs []device.ResetFailDevice, allInfo common.NpuAllInfo) ([]device.ResetFailDevice, bool) {
+	isChange := false
+	var newDevs []device.ResetFailDevice
+	devMap := make(map[int32]common.NpuDevice)
+	for _, dev := range allInfo.AllDevs {
+		devMap[dev.PhyID] = dev
+	}
+	for _, failDev := range failDevs {
+		if _, exist := devMap[failDev.PhyID]; !exist {
+			newDevs = append(newDevs, failDev)
+			continue
+		}
+		dev := devMap[failDev.PhyID]
+		if dev.Health != v1beta1.Healthy {
+			newDevs = append(newDevs, failDev)
+			continue
+		}
+		isChange = true
+	}
+	return newDevs, isChange
 }

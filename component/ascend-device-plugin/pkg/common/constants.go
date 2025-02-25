@@ -99,6 +99,8 @@ const (
 	MetaDataAnnotation = "metadata.annotations"
 	// MetaData is meta data of pod
 	MetaData = "metadata"
+	// ResetInfoAnnotationKey is the key of reset fail information in node annotation
+	ResetInfoAnnotationKey = "ResetInfo"
 
 	// SlowNodeStepTimeEnvNum is the number of environment value for step time cm
 	SlowNodeStepTimeEnvNum = 2
