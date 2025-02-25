@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -396,14 +397,30 @@ func TestIsRingResetComplete(t *testing.T) {
 func TestProcessAllTask(t *testing.T) {
 	manager := createFake910Manager()
 	convey.Convey("exec ut function TestProcessAllTask", t, func() {
-		mockGetCM := mockGetCM()
-		defer mockGetCM.Reset()
+		convey.Convey("01-all task dev fault info list is empty, should return nil", func() {
+
+		})
+		patch := mockGetCM().
+			ApplyPrivateMethod(&HwAscend910Manager{}, "isolateSceneHandle",
+				func(*HwAscend910Manager, int32) bool { return false }).
+			ApplyPrivateMethod(&HwAscend910Manager{}, "preProcess",
+				func(*HwAscend910Manager, string, string) (*common.TaskResetInfo, error) {
+					return nil, nil
+				}).
+			ApplyPrivateMethod(&HwAscend910Manager{}, "runProcessTask",
+				func(*HwAscend910Manager, string, int, *common.TaskResetInfo, map[string][]*common.NpuDevice) error {
+					return nil
+				}).
+			ApplyGlobalVar(&isHotResetOn, false)
+		defer patch.Reset()
 		manager.hotResetManager = &HotResetTools{
 			allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{
 				"task1": getTaskInfo(),
+				"task2": getTaskInfo1(),
 			},
 			taskPod: map[string]v1.Pod{
 				"task1": getSinglePod("pod1", map[string]string{}),
+				"task2": getSinglePod("pod2", map[string]string{}),
 			},
 		}
 		err := manager.processAllTask(mockGroupDevice())
@@ -419,8 +436,11 @@ func TestFilterDevStatus(t *testing.T) {
 		convey.So(err, convey.ShouldNotBeNil)
 		mockGetCM := mockGetCM()
 		mockUpdateCM := mockUpdateCM()
+		patch := gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "isDevShouldBeIsolate",
+			func(*HwAscend910Manager, int32) bool { return false })
 		defer mockGetCM.Reset()
 		defer mockUpdateCM.Reset()
+		defer patch.Reset()
 		manager.hotResetManager = &HotResetTools{
 			resetDevNumOnce: common.Ascend910RingsNum,
 			resetDev: map[int32]struct{}{
@@ -432,7 +452,11 @@ func TestFilterDevStatus(t *testing.T) {
 				chipPhyID3: getSinglePod("pod1", map[string]string{}),
 			},
 		}
-		err = manager.filterDevStatus(mockGroupDevice())
+		devices := mockGroupDevice()
+		devices[common.Ascend910][chipPhyID1].Health = v1beta1.Unhealthy
+		devices[common.Ascend910][chipPhyID3].Health = v1beta1.Unhealthy
+		devices[common.Ascend910][chipPhyID5].Health = v1beta1.Unhealthy
+		err = manager.filterDevStatus(devices)
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
@@ -648,6 +672,26 @@ func getTaskInfo() []*common.TaskDevInfo {
 				LogicId: chipPhyID2,
 				Policy:  common.RestartError,
 			},
+		},
+	}
+}
+
+func getTaskInfo1() []*common.TaskDevInfo {
+	return []*common.TaskDevInfo{
+		{
+			DevFaultInfo: common.DevFaultInfo{
+				LogicId: chipPhyID0,
+				Policy:  common.RestartError},
+		},
+		{
+			DevFaultInfo: common.DevFaultInfo{
+				LogicId: chipPhyID1,
+				Policy:  common.ResetError},
+		},
+		{
+			DevFaultInfo: common.DevFaultInfo{
+				LogicId: chipPhyID2,
+				Policy:  common.RestartRequestError},
 		},
 	}
 }
@@ -973,6 +1017,721 @@ func mockGetServerUsageLabelCache() *gomonkey.Patches {
 			common.Infer, nil)
 }
 
+func mockUpdateResetCMStatus(ret error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "updateResetCMStatus",
+		func(*HwAscend910Manager, string, string, string, string, []*common.TaskDevInfo) error { return ret })
+}
+
+func mockWaitForAllFaultyDeviceProcessesToZero(ret error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "waitForAllFaultyDeviceProcessesToZero",
+		func(*HwAscend910Manager, string, []*common.TaskDevInfo) error { return ret })
+}
+
+func mockResetDeviceOnce(ret error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "resetDeviceOnce",
+		func(*HwAscend910Manager, []*common.TaskDevInfo, map[string][]*common.NpuDevice) error { return ret })
+}
+
+func mockUpgradeResetProcess(ret error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "upgradeResetProcess",
+		func(*HwAscend910Manager, string, []*common.TaskDevInfo) error { return ret })
+}
+
+func mockUpgradeRestartProcess(policy string, err error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "upgradeRestartProcess",
+		func(*HwAscend910Manager, string, []*common.TaskDevInfo, map[string][]*common.NpuDevice) (string, error) {
+			return policy, err
+		})
+}
+
+func mockRefreshDevFaultInfo(ret error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "refreshDevFaultInfo",
+		func(*HwAscend910Manager, []*common.TaskDevInfo, map[string][]*common.NpuDevice) error { return ret })
+}
+
+func mockCheckDevErrorCode(policy string, needUpgrade bool, err error) *gomonkey.Patches {
+	return gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "checkDevErrorCode",
+		func(*HwAscend910Manager, string, []*common.TaskDevInfo, map[string][]*common.NpuDevice) (string, bool, error) {
+			return policy, needUpgrade, err
+		})
+}
+
+// TestConvertPhysicIdToLogicId for test convertPhysicIdToLogicId
+func TestConvertPhysicIdToLogicId(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test convertPhysicIdToLogicId", t, func() {
+		convey.Convey("01-empty physic id list, should return error", func() {
+			logicIds, err := manager.convertPhysicIdToLogicId(nil)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(logicIds, convey.ShouldBeNil)
+		})
+		patch := gomonkey.ApplyMethod(&devmanager.DeviceManagerMock{}, "GetLogicIDFromPhysicID",
+			func(dm *devmanager.DeviceManagerMock, physicID int32) (int32, error) {
+				if physicID == chipPhyID0 {
+					return -1, errors.New("test error")
+				}
+				return physicID, nil
+			})
+		defer patch.Reset()
+		convey.Convey("02-get logic id from physic id failed, should return error", func() {
+			phyIds := []int32{chipPhyID0, chipPhyID1, chipPhyID2}
+			phyIds, err := manager.convertPhysicIdToLogicId(phyIds)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(phyIds, convey.ShouldBeNil)
+		})
+		convey.Convey("03-covert success, should return nil", func() {
+			phyIds := []int32{chipPhyID1, chipPhyID2}
+			phyIds, err := manager.convertPhysicIdToLogicId(phyIds)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(phyIds, convey.ShouldResemble, phyIds)
+		})
+	})
+}
+
+// TestConvertLogicIdToPhysicId for test convertLogicIdToPhysicId
+func TestConvertLogicIdToPhysicId(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test convertLogicIdToPhysicId", t, func() {
+		convey.Convey("01-empty logicId list, should return error", func() {
+			phyIds, err := manager.convertLogicIdToPhysicId(nil)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(phyIds, convey.ShouldBeNil)
+		})
+		patch := gomonkey.ApplyMethod(&devmanager.DeviceManagerMock{}, "GetPhysicIDFromLogicID",
+			func(dm *devmanager.DeviceManagerMock, logicID int32) (int32, error) {
+				if logicID == chipPhyID0 {
+					return -1, errors.New("test error")
+				}
+				return logicID, nil
+			})
+		defer patch.Reset()
+		convey.Convey("02-get phy id from logic id failed, should return error", func() {
+			logicIds := []int32{chipPhyID0, chipPhyID1, chipPhyID2}
+			phyIds, err := manager.convertLogicIdToPhysicId(logicIds)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(phyIds, convey.ShouldBeNil)
+		})
+		convey.Convey("03-covert success, should return nil", func() {
+			logicIds := []int32{chipPhyID1, chipPhyID2}
+			phyIds, err := manager.convertLogicIdToPhysicId(logicIds)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(phyIds, convey.ShouldResemble, logicIds)
+		})
+	})
+}
+
+// TestIsReSchedulingScene for test IsReSchedulingScene
+func TestIsReSchedulingScene(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test isReSchedulingScene", t, func() {
+		npuCount := 2
+		convey.Convey("01-get reset dev num once failed, should return false", func() {
+			manager.hotResetManager = &HotResetTools{}
+			ret := manager.isReSchedulingScene(npuCount)
+			convey.So(ret, convey.ShouldBeFalse)
+		})
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce: common.Ascend910RingsNum,
+		}
+		convey.Convey("02-device usage is not train, should return false", func() {
+			ret := manager.isReSchedulingScene(npuCount)
+			convey.So(ret, convey.ShouldBeFalse)
+		})
+		convey.Convey("03-is rescheduling scene, should return true", func() {
+			manager.AscendTools.deviceUsage = common.Train
+			ret := manager.isReSchedulingScene(npuCount)
+			convey.So(ret, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestIsTaskInReset for test isTaskInReset
+func TestIsTaskInReset(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test isTaskInReset", t, func() {
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce: common.Ascend910RingsNum,
+			taskPod:         map[string]v1.Pod{"task2": {}, "task3": {}},
+			resetTask:       map[string]struct{}{"task2": {}},
+		}
+		convey.Convey("01-get task pod failed, should return false and error", func() {
+			taskName := "task1"
+			inReset, err := manager.isTaskInReset(taskName)
+			convey.So(inReset, convey.ShouldBeFalse)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-cur node task in reset, should return true and nil", func() {
+			taskName := "task2"
+			inReset, err := manager.isTaskInReset(taskName)
+			convey.So(inReset, convey.ShouldBeTrue)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("03-get cm from cache failed, should return false and error", func() {
+			patch := mockGetCMFromCache(nil, errors.New("get cm from cache failed"))
+			defer patch.Reset()
+			taskName := "task3"
+			inReset, err := manager.isTaskInReset(taskName)
+			convey.So(inReset, convey.ShouldBeFalse)
+			convey.So(err.Error(), convey.ShouldEqual, "get cm from cache failed")
+		})
+		convey.Convey("04-need tolerance, should return false and nil", func() {
+			taskDevList := mockTaskDevInfoList()
+			taskDevList[0].Status = common.RecoveredStatus
+			patch := mockGetCMFromCache(taskDevList, nil)
+			defer patch.Reset()
+			taskName := "task3"
+			inReset, err := manager.isTaskInReset(taskName)
+			convey.So(inReset, convey.ShouldBeFalse)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("05-success, should return true and nil", func() {
+			taskDevList := mockTaskDevInfoList()
+			patch := mockGetCMFromCache(taskDevList, nil)
+			defer patch.Reset()
+			taskName := "task3"
+			inReset, err := manager.isTaskInReset(taskName)
+			convey.So(inReset, convey.ShouldBeTrue)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestPolicyLevelHandle for test policyLevelHandle
+func TestPolicyLevelHandle(t *testing.T) {
+	taskName := "mockTaskName"
+	convey.Convey("test policyLevelHandle", t, func() {
+		convey.Convey("01-policy level is 2,should return false", func() {
+			handle := policyLevelHandle("", taskName, common.RestartRequestErrorLevel)
+			convey.So(handle, convey.ShouldBeFalse)
+		})
+		convey.Convey("02-policy level is 5,should return false", func() {
+			mockVar := gomonkey.ApplyGlobalVar(&isHotResetOn, false)
+			defer mockVar.Reset()
+			handle := policyLevelHandle("", taskName, common.ResetErrorLevel)
+			convey.So(handle, convey.ShouldBeFalse)
+		})
+		convey.Convey("03-other policy level, should return true", func() {
+			handle := policyLevelHandle("", taskName, common.FreeResetErrorLevel)
+			convey.So(handle, convey.ShouldBeTrue)
+			handle = policyLevelHandle("", taskName, common.IsolateErrorLevel)
+			convey.So(handle, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestIsolateSceneHandle for test isolateSceneHandle
+func TestIsolateSceneHandle(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	convey.Convey("test isolateSceneHandle", t, func() {
+		convey.Convey("01-task is in reset, should return true", func() {
+			manager.hotResetManager = &HotResetTools{
+				taskPod:        map[string]v1.Pod{taskName: {}},
+				allTaskDevList: map[string][]int32{taskName: {}},
+				faultDev2PodMap: map[int32]v1.Pod{
+					1: getSinglePod("pod1", map[string]string{common.ResetTaskNameKey: taskName})},
+			}
+			mockFunc := mockGetCMFromCache(mockTaskDevInfoList(), nil)
+			mockFunc.ApplyPrivateMethod(&HwAscend910Manager{}, "tryWriteIsolationInfo",
+				func(*HwAscend910Manager, string) {})
+			defer mockFunc.Reset()
+			isolate := manager.isolateSceneHandle(taskName)
+			convey.So(isolate, convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestRunProcessTask for test runProcessTask
+func TestRunProcessTask(t *testing.T) {
+	taskName := "mockTaskName"
+	mockFunc := gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "restartRequestProcess",
+		func(*HwAscend910Manager, string, *common.TaskResetInfo, map[string][]*common.NpuDevice) { return }).
+		ApplyPrivateMethod(&HwAscend910Manager{}, "restartProcess",
+			func(*HwAscend910Manager, string, *common.TaskResetInfo, map[string][]*common.NpuDevice) { return }).
+		ApplyPrivateMethod(&HwAscend910Manager{}, "resetProcess",
+			func(*HwAscend910Manager, string, *common.TaskResetInfo, map[string][]*common.NpuDevice) { return })
+	defer mockFunc.Reset()
+	convey.Convey("test runProcessTask", t, func() {
+		convey.Convey("01-policy level is 2, call restartRequestProcess, should return nil", func() {
+			manager := createFake910Manager()
+			err := manager.runProcessTask(taskName, common.RestartRequestErrorLevel, nil, nil)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("02-policy level is 3, call restartProcess, should return nil", func() {
+			manager := createFake910Manager()
+			err := manager.runProcessTask(taskName, common.RestartErrorLevel, nil, nil)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("03-policy level is 5, call resetProcess, should return nil", func() {
+			manager := createFake910Manager()
+			err := manager.runProcessTask(taskName, common.ResetErrorLevel, nil, nil)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("04-policy level is 6, call resetProcess, should return nil", func() {
+			manager := createFake910Manager()
+			err := manager.runProcessTask(taskName, common.IsolateErrorLevel, nil, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+	})
+}
+
+// TestRestartRequestProcess for test restartRequestProcess
+func TestRestartRequestProcess(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	resetInfo := &common.TaskResetInfo{RankList: mockTaskDevInfoList()}
+	convey.Convey("test restartRequestProcess", t, func() {
+		mockFunc := mockUpdateResetCMStatus(errors.New("mock error")).
+			ApplyFuncReturn(time.Sleep).ApplyFunc(common.SetDeviceInit, func(int32) { return })
+		defer mockFunc.Reset()
+		convey.Convey("01-get task dev fault info list failed", func() {
+			manager.hotResetManager = &HotResetTools{}
+			manager.restartRequestProcess(taskName, resetInfo, nil)
+		})
+		convey.Convey("get task fault dev fault info list  success", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetDevNumOnce:     1,
+				allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{taskName: getTaskInfo1()},
+				resetDev:            map[int32]struct{}{},
+			}
+			convey.Convey("02-fault dev list is empty", func() {
+				mockFunc1 := mockCheckDevErrorCode("", false, nil)
+				defer mockFunc1.Reset()
+				manager.restartRequestProcess(taskName, resetInfo, nil)
+			})
+			convey.Convey("03-fault dev list do not upgrade", func() {
+				mockFunc1 := mockCheckDevErrorCode("", false, errors.New("mock error"))
+				defer mockFunc1.Reset()
+				manager.restartRequestProcess(taskName, resetInfo, nil)
+			})
+			convey.Convey("04-upgrade restart request process failed ", func() {
+				mockFunc1 := mockCheckDevErrorCode("", true, errors.New("mock error"))
+				defer mockFunc1.Reset()
+				manager.restartRequestProcess(taskName, resetInfo, nil)
+			})
+		})
+	})
+}
+
+// TestHandleSucceedRestartRequest for test handleSucceedRestartRequest
+func TestHandleSucceedRestartRequest(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTask1"
+	convey.Convey("test handleSucceedRestartRequest", t, func() {
+		mockSleep := gomonkey.ApplyFuncReturn(time.Sleep).ApplyFunc(common.SetDeviceInit, func(int32) { return })
+		defer mockSleep.Reset()
+		convey.Convey("01-update reset cm status failed, should not set resetTask", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetTask:       map[string]struct{}{taskName: {}},
+				resetDevNumOnce: 1,
+			}
+			manager.handleSucceedRestartRequest(taskName, common.ResetError, nil, nil)
+			convey.So(manager.hotResetManager.IsCurNodeTaskInReset(taskName), convey.ShouldBeTrue)
+		})
+		manager.hotResetManager = &HotResetTools{
+			taskPod:         map[string]v1.Pod{taskName: {}},
+			resetTask:       map[string]struct{}{taskName: {}},
+			resetDevNumOnce: 1,
+		}
+		mockFunc1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{},
+			"WriteResetInfoDataIntoCM", nil, nil)
+		defer mockFunc1.Reset()
+		convey.Convey("02-unset task in reset failed, ", func() {
+			manager.handleSucceedRestartRequest(taskName, common.ResetError, nil, nil)
+			convey.So(manager.hotResetManager.IsCurNodeTaskInReset(taskName), convey.ShouldBeFalse)
+		})
+	})
+}
+
+// TestCheckDevErrorCode for test checkDevErrorCode
+func TestCheckDevErrorCode(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{}
+	taskName := "mockTaskName"
+	convey.Convey("test checkDevErrorCode", t, func() {
+		convey.Convey("01-refresh dev fault info failed, should return error", func() {
+			mockFunc := mockRefreshDevFaultInfo(errors.New("mock refresh dev fault info error"))
+			defer mockFunc.Reset()
+			_, needUpgrade, resetErr := manager.checkDevErrorCode(taskName, getTaskInfo1(), mockGroupDevice())
+			convey.So(needUpgrade, convey.ShouldBeFalse)
+			convey.So(resetErr, convey.ShouldNotBeNil)
+		})
+		mockFunc := mockRefreshDevFaultInfo(nil)
+		defer mockFunc.Reset()
+		convey.Convey("02-get dev list by policy level failed, should return error", func() {
+			_, needUpgrade, resetErr := manager.checkDevErrorCode(taskName, getTaskInfo(), mockGroupDevice())
+			convey.So(needUpgrade, convey.ShouldBeFalse)
+			convey.So(resetErr, convey.ShouldNotBeNil)
+		})
+		convey.Convey("03-get empty dev list by policy level, should return nil", func() {
+			policy, needUpgrade, resetErr := manager.checkDevErrorCode(taskName, nil, mockGroupDevice())
+			convey.So(policy == common.RestartRequestError, convey.ShouldBeTrue)
+			convey.So(needUpgrade, convey.ShouldBeFalse)
+			convey.So(resetErr, convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestRestartProcess for test restartProcess
+func TestRestartProcess(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	resetInfo := &common.TaskResetInfo{RankList: mockTaskDevInfoList()}
+	convey.Convey("test restartProcess", t, func() {
+		mockFunc := mockUpdateResetCMStatus(errors.New("mock error")).ApplyFuncReturn(time.Sleep)
+		defer mockFunc.Reset()
+		convey.Convey("01-get task dev fault info list failed", func() {
+			manager.hotResetManager = &HotResetTools{}
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce:     1,
+			allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{taskName: getTaskInfo1()},
+			resetDev:            map[int32]struct{}{},
+		}
+		convey.Convey("02-wait for all fault device processes to zero failed", func() {
+			mockFunc1 := mockWaitForAllFaultyDeviceProcessesToZero(errors.New("mock error"))
+			defer mockFunc1.Reset()
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+		mockFunc1 := mockWaitForAllFaultyDeviceProcessesToZero(nil)
+		defer mockFunc1.Reset()
+		convey.Convey("03-reset device once failed", func() {
+			mockFunc2 := mockRefreshDevFaultInfo(errors.New("mock error"))
+			defer mockFunc2.Reset()
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+		mockFunc2 := mockRefreshDevFaultInfo(nil)
+		defer mockFunc2.Reset()
+		convey.Convey("04-upgrade restart process failed", func() {
+			mockFunc3 := mockUpgradeRestartProcess(common.ResetError, errors.New("mock error"))
+			defer mockFunc3.Reset()
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+		mockFunc3 := mockUpgradeRestartProcess(common.ResetError, nil)
+		defer mockFunc3.Reset()
+		convey.Convey("05-set reset cm status failed", func() {
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+		convey.Convey("06-unset task in reset failed", func() {
+			mockFunc4 := mockUpdateResetCMStatus(nil)
+			defer mockFunc4.Reset()
+			manager.restartProcess(taskName, resetInfo, nil)
+		})
+	})
+}
+
+// TestUpgradeRestartProcess for test upgradeRestartProcess
+func TestUpgradeRestartProcess(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{}
+	taskName := "mockTask"
+	convey.Convey("test upgradeRestartProcess", t, func() {
+		convey.Convey("01-get devList by policy level failed, should return error", func() {
+			_, err := manager.upgradeRestartProcess(taskName, getTaskInfo(), mockGroupDevice())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-get empty devList by policy level, should return nil", func() {
+			code, err := manager.upgradeRestartProcess(taskName, nil, mockGroupDevice())
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(code == common.RestartError, convey.ShouldBeTrue)
+		})
+		convey.Convey("03-update reset cm status without wait failed, should return error", func() {
+			_, err := manager.upgradeRestartProcess(taskName, getTaskInfo1(), mockGroupDevice())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("reset device once and write reset info into cm success", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetDevNumOnce: 1,
+				taskPod:         map[string]v1.Pod{taskName: {}},
+			}
+			mockFunc := mockResetDeviceOnce(nil).
+				ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM", nil, nil)
+			defer mockFunc.Reset()
+			convey.Convey("04-update reset cm status failed, should return error", func() {
+				mockFunc2 := mockUpdateResetCMStatus(errors.New("mock errors"))
+				defer mockFunc2.Reset()
+				_, err := manager.upgradeRestartProcess(taskName, getTaskInfo1(), mockGroupDevice())
+				convey.So(err, convey.ShouldNotBeNil)
+			})
+			convey.Convey("05-update reset cm status success, should return error", func() {
+				mockFunc2 := mockUpdateResetCMStatus(nil)
+				defer mockFunc2.Reset()
+				_, err := manager.upgradeRestartProcess(taskName, getTaskInfo1(), mockGroupDevice())
+				convey.So(err, convey.ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+// TestUpgradeRestartRequestProcess for test upgradeRestartRequestProcess
+func TestUpgradeRestartRequestProcess(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTask"
+	convey.Convey("upgradeRestartRequestProcess", t, func() {
+		mockFunc1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM",
+			nil, nil)
+		defer mockFunc1.Reset()
+		convey.Convey("01-update reset cm status failed, should return error", func() {
+			manager.hotResetManager = &HotResetTools{}
+			_, err := manager.upgradeRestartRequestProcess(taskName, getTaskInfo1(), mockGroupDevice())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce: 2,
+			taskPod:         map[string]v1.Pod{taskName: {}},
+		}
+		convey.Convey("02-invalid policy str, should return error", func() {
+			_, err := manager.upgradeRestartRequestProcess(taskName, getTaskInfo(), mockGroupDevice())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("03-reset device once failed, should return error", func() {
+			mockFunc := mockResetDeviceOnce(errors.New("mock errors"))
+			defer mockFunc.Reset()
+			_, err := manager.upgradeRestartRequestProcess(taskName, getTaskInfo1(), mockGroupDevice())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		mockFunc := mockResetDeviceOnce(nil)
+		defer mockFunc.Reset()
+		convey.Convey("04-get empty devList by policy level, should return nil", func() {
+			code, err := manager.upgradeRestartRequestProcess(taskName, nil, mockGroupDevice())
+			convey.So(code == common.ResetError, convey.ShouldBeTrue)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("05-update reset cm status, should return error", func() {
+			mockFunc2 := mockUpdateResetCMStatus(errors.New("mock errors"))
+			defer mockFunc2.Reset()
+			convey.Convey("", func() {
+				_, err := manager.upgradeRestartRequestProcess(taskName, getTaskInfo1(), mockGroupDevice())
+				convey.So(err, convey.ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+func TestUpdateResetCMStatus(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test updateResetCMStatus", t, func() {
+		convey.Convey("01-task is not in reset, should return error", func() {
+			manager.hotResetManager = &HotResetTools{}
+			taskName := "taskNameNotInTaskPod"
+			err := manager.updateResetCMStatus(taskName, common.ResetError,
+				common.ResetError, common.RecoveredStatus, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		mockSleep := gomonkey.ApplyFuncReturn(time.Sleep)
+		defer mockSleep.Reset()
+		convey.Convey("02-status is recovered and policy is reset, should return error", func() {
+			taskName := "mockTask1"
+			manager.hotResetManager = &HotResetTools{
+				taskPod:   map[string]v1.Pod{taskName: {}},
+				resetTask: map[string]struct{}{taskName: {}},
+			}
+			err := manager.updateResetCMStatus(taskName, common.ResetError,
+				common.ResetError, common.RecoveredStatus, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("target task has data in hotResetManager", func() {
+			taskName := "mockTask1"
+			manager.hotResetManager = &HotResetTools{
+				taskPod:         map[string]v1.Pod{taskName: {}},
+				resetTask:       map[string]struct{}{taskName: {}},
+				resetDevNumOnce: 1,
+			}
+			convey.Convey("03-write reset info data into cm failed, should return error", func() {
+				mockFunc1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM",
+					nil, errors.New("mock error"))
+				defer mockFunc1.Reset()
+				err := manager.updateResetCMStatus(taskName, common.ResetError,
+					common.ResetError, common.RecoveredStatus, nil)
+				convey.So(err, convey.ShouldNotBeNil)
+			})
+			convey.Convey("04-update reset cm status success, should return error", func() {
+				mockFunc1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM",
+					nil, nil)
+				defer mockFunc1.Reset()
+				err := manager.updateResetCMStatus(taskName, common.ResetError,
+					common.ResetError, common.RecoveredStatus, nil)
+				convey.So(err, convey.ShouldBeNil)
+			})
+		})
+	})
+}
+
+// TestUpdateResetCMStatusWithoutWait for test updateResetCMStatusWithoutWait
+func TestUpdateResetCMStatusWithoutWait(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	convey.Convey("test update resetCMStatus", t, func() {
+		convey.Convey("01-get task reset info failed, should return error", func() {
+			manager.hotResetManager = &HotResetTools{}
+			err := manager.updateResetCMStatusWithoutWait(taskName, common.ResetError,
+				common.ResetError, common.UnrecoveredStatus, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-get task pod failed, should return error", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetDevNumOnce: 1,
+				taskPod:         map[string]v1.Pod{},
+			}
+			err := manager.updateResetCMStatusWithoutWait(taskName, common.ResetError,
+				common.ResetError, common.UnrecoveredStatus, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("03-write reset info data info failed, should return error", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetDevNumOnce: 1,
+				taskPod:         map[string]v1.Pod{taskName: {}},
+			}
+			mockFunc := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM",
+				nil, errors.New("mock error"))
+			defer mockFunc.Reset()
+			err := manager.updateResetCMStatusWithoutWait(taskName, common.ResetError,
+				common.ResetError, common.UnrecoveredStatus, nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+	})
+
+}
+
+// TestResetProcess for test resetProcess
+func TestResetProcess(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	manager.hotResetManager = &HotResetTools{
+		resetDevNumOnce:     1,
+		allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{taskName: getTaskInfo1()},
+		resetDev:            map[int32]struct{}{},
+	}
+	resetInfo := &common.TaskResetInfo{RankList: mockTaskDevInfoList()}
+	convey.Convey("test resetProcess", t, func() {
+		mockFunc := mockUpdateResetCMStatus(errors.New("mock error"))
+		defer mockFunc.Reset()
+		convey.Convey("01-wait for all fault device processes to zero failed", func() {
+			mockFunc1 := mockWaitForAllFaultyDeviceProcessesToZero(errors.New("mock error"))
+			defer mockFunc1.Reset()
+			manager.resetProcess(taskName, resetInfo, nil)
+		})
+		mockFunc1 := mockWaitForAllFaultyDeviceProcessesToZero(nil)
+		defer mockFunc1.Reset()
+		convey.Convey("02-reset device once failed", func() {
+			mockFunc2 := mockResetDeviceOnce(errors.New("mock error"))
+			defer mockFunc2.Reset()
+			manager.resetProcess(taskName, resetInfo, nil)
+		})
+		mockFunc2 := mockResetDeviceOnce(nil)
+		defer mockFunc2.Reset()
+		convey.Convey("03-upgrade reset process failed", func() {
+			mockFunc3 := mockUpgradeResetProcess(errors.New("mock error"))
+			defer mockFunc3.Reset()
+			manager.resetProcess(taskName, resetInfo, nil)
+		})
+		mockFunc3 := mockUpgradeResetProcess(nil)
+		defer mockFunc3.Reset()
+		convey.Convey("04-set reset cm status failed", func() {
+			mockFunc4 := mockUpdateResetCMStatus(errors.New("mock error"))
+			defer mockFunc4.Reset()
+			manager.resetProcess(taskName, resetInfo, nil)
+		})
+		convey.Convey("05-unset task in reset failed", func() {
+			mockFunc4 := mockUpdateResetCMStatus(nil)
+			defer mockFunc4.Reset()
+			manager.resetProcess(taskName, resetInfo, nil)
+		})
+	})
+}
+
+// TestCanContinueGraceProcess for test canContinueGraceProcess
+func TestCanContinueGraceProcess(t *testing.T) {
+	manager := createFake910Manager()
+	taskName := "mockTaskName"
+	convey.Convey("test canContinueGraceProcess", t, func() {
+		faultDeviceLogicIdMap := map[int32]int32{1: 2, 2: 0}
+		convey.Convey("01-number of all process is zero, should return true", func() {
+			ret := manager.canContinueGraceProcess(faultDeviceLogicIdMap, taskName, true)
+			convey.So(ret, convey.ShouldBeTrue)
+		})
+		convey.Convey("get device process info fail", func() {
+			manager.SetDmgr(&devmanager.DeviceManagerMockErr{})
+			convey.Convey("02-isLastQuery is false, should return false", func() {
+				ret := manager.canContinueGraceProcess(faultDeviceLogicIdMap, taskName, false)
+				convey.So(ret, convey.ShouldBeFalse)
+			})
+			convey.Convey("03-isLastQuery is true, should return true", func() {
+				ret := manager.canContinueGraceProcess(faultDeviceLogicIdMap, taskName, true)
+				convey.So(ret, convey.ShouldBeTrue)
+			})
+		})
+	})
+}
+
+// TestUpgradeResetProcess for test upgradeResetProcess
+func TestUpgradeResetProcess(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{resetDevNumOnce: 1}
+	taskName := "mockTask1"
+	convey.Convey("test upgradeResetProcess", t, func() {
+		convey.Convey("01-get need reset devMap fail, should return err", func() {
+			err := manager.upgradeResetProcess(taskName, getTaskInfo())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-task dev info is empty, should return nil", func() {
+			err := manager.upgradeResetProcess(taskName, nil)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("04-update reset cm status fail, should return err", func() {
+			mockFunc := mockUpdateResetCMStatus(errors.New("mock error"))
+			defer mockFunc.Reset()
+			err := manager.upgradeResetProcess(taskName, getTaskInfo1())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("05-update reset cm status success, should return err", func() {
+			mockFunc := mockUpdateResetCMStatus(nil)
+			defer mockFunc.Reset()
+			err := manager.upgradeResetProcess(taskName, getTaskInfo1())
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+	})
+}
+
+// TestPreProcess for test preProcess
+func TestPreProcess(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{
+		resetDevNumOnce: 1,
+		resetTask:       map[string]struct{}{},
+		resetDev:        map[int32]struct{}{},
+	}
+	taskName := "mockTaskName"
+	convey.Convey("01-get task dev fault info fail, should return err", t, func() {
+		_, err := manager.preProcess(taskName, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	taskDevFaultInfo := map[string][]*common.TaskDevInfo{taskName: getTaskInfo1()}
+	err := manager.hotResetManager.UpdateTaskDevFaultInfoCache(taskDevFaultInfo)
+	convey.Convey("02-get task pod fail, should return err", t, func() {
+		convey.So(err, convey.ShouldBeNil)
+		_, err1 := manager.preProcess(taskName, "")
+		convey.So(err1, convey.ShouldNotBeNil)
+	})
+	mockFunc := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteResetInfoDataIntoCM",
+		&v1.ConfigMap{Data: map[string]string{}}, nil).
+		ApplyMethodReturn(&kubeclient.ClientK8s{}, "WriteFaultInfoDataIntoCM",
+			&v1.ConfigMap{Data: map[string]string{}}, nil)
+	defer mockFunc.Reset()
+	taskPod := map[string]v1.Pod{taskName: getSinglePod("pod1", map[string]string{})}
+	err = manager.hotResetManager.UpdateTaskPodCache(taskPod)
+	convey.Convey("03-pre process success, should return nil", t, func() {
+		convey.So(err, convey.ShouldBeNil)
+		_, err1 := manager.preProcess(taskName, common.ResetError)
+		convey.So(err1, convey.ShouldBeNil)
+		convey.So(manager.hotResetManager.IsCurNodeTaskInReset(taskName), convey.ShouldBeTrue)
+		convey.So(len(manager.hotResetManager.GetDevListInReset()) > 0, convey.ShouldBeTrue)
+		convey.So(manager.hotResetManager.GetDevListInReset(), convey.ShouldResemble,
+			map[int32]struct{}{chipPhyID0: {}, chipPhyID1: {}, chipPhyID2: {}})
+	})
+}
+
 // TestPostProcess for test postProcess
 func TestPostProcess(t *testing.T) {
 	manager := createFake910Manager()
@@ -993,6 +1752,57 @@ func TestPostProcess(t *testing.T) {
 			}
 			convey.So(manager.postProcess("fake-task", &nodeDeviceData), convey.ShouldBeNil)
 		})
+	})
+}
+
+// TestRefreshDevFaultInfo for test refreshDevFaultInfo
+func TestRefreshDevFaultInfo(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{
+		resetDevNumOnce: 1,
+	}
+	convey.Convey("test refreshDevFaultInfo", t, func() {
+		convey.Convey("01-910 npu device not exist, should return error", func() {
+			err := manager.refreshDevFaultInfo(getTaskInfo1(), nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+	})
+}
+
+// TestResetDeviceOnce for test resetDeviceOnce
+func TestResetDeviceOnce(t *testing.T) {
+	manager := createFake910Manager()
+	manager.hotResetManager = &HotResetTools{
+		resetDevNumOnce: 1,
+	}
+	convey.Convey("01-get need reset devMap fail because of invalid policy, should return err", t, func() {
+		err := manager.resetDeviceOnce(getTaskInfo(), mockGroupDevice())
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("02-exec reset device fail, should return err", t, func() {
+		mockFunc := gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "execResetDevice",
+			func(*HwAscend910Manager, map[int32]int32) error { return errors.New("reset device error") })
+		defer mockFunc.Reset()
+		err := manager.resetDeviceOnce(getTaskInfo1(), mockGroupDevice())
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	mockFunc := gomonkey.ApplyPrivateMethod(&HwAscend910Manager{}, "execResetDevice",
+		func(*HwAscend910Manager, map[int32]int32) error { return nil }).
+		ApplyGlobalVar(&resetGoroutine, &sync.Map{}).
+		ApplyFuncReturn(common.SetDeviceInit)
+	defer mockFunc.Reset()
+
+	convey.Convey("03-refresh dev Fault fail, should return err", t, func() {
+		mockFunc1 := mockRefreshDevFaultInfo(errors.New("refresh dev fault error"))
+		defer mockFunc1.Reset()
+		err := manager.resetDeviceOnce(getTaskInfo1(), mockGroupDevice())
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("04-reset device success, should return nil", t, func() {
+		mockFunc1 := mockRefreshDevFaultInfo(nil)
+		defer mockFunc1.Reset()
+		err := manager.resetDeviceOnce(getTaskInfo1(), mockGroupDevice())
+		convey.So(err, convey.ShouldBeNil)
 	})
 }
 
@@ -1124,20 +1934,20 @@ func TestIsDevShouldBeIsolate(t *testing.T) {
 		// 04-get cm from cache failed, should return true
 		convey.So(manager.isDevShouldBeIsolate(chipPhyID3), convey.ShouldBeTrue)
 		// 05-stub GetCMFromCache,  should return false
-		mockGetCMFromCacheMethod := mockGetCMFromCache()
+		mockGetCMFromCacheMethod := mockGetCMFromCache(mockTaskDevInfoList(), nil)
 		defer mockGetCMFromCacheMethod.Reset()
 		convey.So(manager.isDevShouldBeIsolate(chipPhyID3), convey.ShouldBeFalse)
 	})
 }
 
-func mockGetCMFromCache() *gomonkey.Patches {
+func mockGetCMFromCache(taskDev []*common.TaskDevInfo, err error) *gomonkey.Patches {
 	nodeDeviceData := common.TaskResetInfo{
 		UpdateTime: 11111111,
-		RankList:   mockTaskDevInfoList(),
+		RankList:   taskDev,
 	}
 	cm := &v1.ConfigMap{
 		Data: map[string]string{common.ResetInfoCMDataKey: string(common.MarshalData(nodeDeviceData))},
 	}
-	mockFunc := gomonkey.ApplyMethodReturn(&HotResetTools{}, "GetCMFromCache", cm, nil)
+	mockFunc := gomonkey.ApplyMethodReturn(&HotResetTools{}, "GetCMFromCache", cm, err)
 	return mockFunc
 }

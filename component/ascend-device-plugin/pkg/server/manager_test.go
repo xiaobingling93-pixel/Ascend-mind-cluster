@@ -498,11 +498,12 @@ func TestCheckNodeResetInfo(t *testing.T) {
 			})
 		defer patch.Reset()
 		const id0 = 0
+		hdm.manager = mockDevManager{}
 		convey.Convey("01-client nil, flag should be false", func() {
-			hdm.manager = mockDevManager{}
 			hdm.checkNodeResetInfo()
 			convey.So(flag, convey.ShouldBeFalse)
 		})
+		patch.ApplyMethodReturn(&mockDevManager{}, "GetKubeClient", &kubeclient.ClientK8s{})
 		convey.Convey("02-dev num zero, flag should be false", func() {
 			patch1 := gomonkey.ApplyFuncReturn(device.ResetToolInstance, &device.ResetTool{})
 			defer patch1.Reset()
@@ -516,12 +517,11 @@ func TestCheckNodeResetInfo(t *testing.T) {
 			device.ResetInfo{ThirdPartyResetDevs: []device.ResetFailDevice{
 				{PhyID: id0},
 			}})
-		patch.ApplyMethodReturn(mockDevManager{}, "GetKubeClient", &kubeclient.ClientK8s{})
 		convey.Convey("03-get npus error, flag should be false", func() {
 			hdm.checkNodeResetInfo()
 			convey.So(flag, convey.ShouldBeFalse)
 		})
-		patch.ApplyMethodReturn(mockDevManager{}, "GetNPUs", common.NpuAllInfo{}, nil)
+		patch.ApplyMethodReturn(&mockDevManager{}, "GetNPUs", common.NpuAllInfo{}, nil)
 		convey.Convey("04-success, flag should be true", func() {
 			patch1 := gomonkey.ApplyFuncReturn(checkDeviceStatus, []device.ResetFailDevice{}, true)
 			defer patch1.Reset()
@@ -564,7 +564,7 @@ func TestCheckDeviceStatus(t *testing.T) {
 		})
 	})
 }
-	
+
 // TestSetContainerdClient for test setContainerdClient
 func TestSetContainerdClient(t *testing.T) {
 	convey.Convey("test setContainerdClient", t, func() {

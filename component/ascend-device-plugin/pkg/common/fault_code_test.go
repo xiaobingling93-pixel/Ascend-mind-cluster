@@ -344,7 +344,8 @@ func TestSaveDevFaultInfo(t *testing.T) {
 			expectedNum0 := 0
 			expectedNum1 := 1
 			eventId := int64(1)
-			devFaultInfoMap = make(map[int32][]common.DevFaultInfo, GeneralMapSize)
+			patch := gomonkey.ApplyGlobalVar(&devFaultInfoMap, make(map[int32][]common.DevFaultInfo, GeneralMapSize))
+			defer patch.Reset()
 			SaveDevFaultInfo(common.DevFaultInfo{})
 			convey.So(len(devFaultInfoMap), convey.ShouldEqual, expectedNum0)
 			SaveDevFaultInfo(common.DevFaultInfo{EventID: eventId})
@@ -360,7 +361,8 @@ func TestTakeOutDevFaultInfo(t *testing.T) {
 			expectedNum := 0
 			eventId := int64(1)
 			logicId := int32(0)
-			devFaultInfoMap = make(map[int32][]common.DevFaultInfo, GeneralMapSize)
+			patch := gomonkey.ApplyGlobalVar(&devFaultInfoMap, make(map[int32][]common.DevFaultInfo, GeneralMapSize))
+			defer patch.Reset()
 			convey.So(len(GetAndCleanFaultInfo()), convey.ShouldEqual, expectedNum)
 			testInfo := []common.DevFaultInfo{{EventID: eventId}}
 			devFaultInfoMap[logicId] = testInfo
