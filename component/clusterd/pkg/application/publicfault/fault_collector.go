@@ -103,7 +103,7 @@ func dealFault(assertion, nodeName, faultKey string, newFault *constant.PubFault
 		if !faultExisted {
 			// deal 'recover' after 5 seconds
 			dealTime := time.Now().Unix() + diffTime
-			publicfault.PubFaultNeedDelete.Push(dealTime, nodeName, faultKey)
+			PubFaultNeedDelete.Push(dealTime, nodeName, faultKey)
 			return
 		}
 		// 5 seconds have passed, delete 'occur'
@@ -113,7 +113,7 @@ func dealFault(assertion, nodeName, faultKey string, newFault *constant.PubFault
 		}
 		// delete 'recover' after 5 seconds
 		deleteTime := addTime + diffTime
-		publicfault.PubFaultNeedDelete.Push(deleteTime, nodeName, faultKey)
+		PubFaultNeedDelete.Push(deleteTime, nodeName, faultKey)
 	default:
 		return
 	}

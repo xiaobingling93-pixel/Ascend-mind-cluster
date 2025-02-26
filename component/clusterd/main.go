@@ -16,11 +16,10 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/jobv2"
-	pubfault "clusterd/pkg/application/publicfault"
+	"clusterd/pkg/application/publicfault"
 	"clusterd/pkg/application/resource"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
-	"clusterd/pkg/domain/publicfault"
 	sv "clusterd/pkg/interface/grpc"
 	"clusterd/pkg/interface/grpc/service"
 	pubfaultsvc "clusterd/pkg/interface/grpc/service-pubfault"
@@ -64,7 +63,7 @@ func startInformer(ctx context.Context) {
 }
 
 func dealPubFault(ctx context.Context) {
-	go pubfault.WatchPubFaultCustomFile(ctx)
+	go publicfault.WatchPubFaultCustomFile(ctx)
 	go publicfault.PubFaultNeedDelete.DealDelete(ctx)
 }
 
