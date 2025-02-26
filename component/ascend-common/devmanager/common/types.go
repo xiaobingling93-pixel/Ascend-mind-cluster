@@ -387,3 +387,27 @@ type OpticalInfo struct {
 	// Optical module temperature
 	OpticalTemp float64
 }
+
+// HccspingMeshOperate refers to the operation of hccsping mesh
+type HccspingMeshOperate struct {
+	DstAddr      string
+	PktSize      int
+	PktSendNum   int
+	PktInterval  int
+	TaskInterval int
+	TaskId       int
+}
+
+// HccspingMeshInfo refers to the result of hccsping mesh
+type HccspingMeshInfo struct {
+	DstAddr      []string
+	SucPktNum    []uint
+	FailPktNum   []uint
+	MaxTime      []int
+	MinTime      []int
+	AvgTime      []int
+	TP95Time     []int
+	ReplyStatNum []int
+	PingTotalNum []int
+	DestNum      int
+}

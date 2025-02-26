@@ -245,3 +245,30 @@ const (
 	// ErrMsgGetBoardInfoFailed is used where there is a failure in getting board info
 	ErrMsgGetBoardInfoFailed = "get board info failed, no card found"
 )
+
+const (
+	// MaxHccspingMeshAddr is the max number of hccsping addresses
+	MaxHccspingMeshAddr = 1024
+	// MinPktSize is the min packet size
+	MinPktSize = 1792
+	// MaxPktSize is the max packet size
+	MaxPktSize = 3000
+	// MinPktSendNum is the min packet send number
+	MinPktSendNum = 1
+	// MaxPktSendNum is the max packet send number
+	MaxPktSendNum = 1000
+	// MinPktInterval is the min packet interval
+	MinPktInterval = 1
+	// MaxPktInterval is the max packet interval
+	MaxPktInterval = 1000
+	// MinTaskInterval is the min task interval
+	MinTaskInterval = 1
+	// MaxTaskInterval is the max task interval
+	MaxTaskInterval = 60
+	// InternalPingMeshTaskID is the inner ping mesh task id
+	InternalPingMeshTaskID uint = 0
+	// ExternalPingMeshTaskID is the outer ping mesh task id
+	ExternalPingMeshTaskID uint = 1
+	// DefaultPingMeshPortID is the default ping mesh port
+	DefaultPingMeshPortID = 0
+)
