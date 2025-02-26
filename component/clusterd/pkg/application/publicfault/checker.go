@@ -28,7 +28,7 @@ const (
 var regexps = map[string]*regexp.Regexp{
 	idStr:          regexp.MustCompile(`^[a-zA-Z0-9-_.]{8,128}$`),
 	timeStr:        regexp.MustCompile(`^\d{10}$`),
-	descriptionStr: regexp.MustCompile(`[\S ]{0,512}$`),
+	descriptionStr: regexp.MustCompile(`^[\S ]{0,512}$`),
 	nodeNameStr:    regexp.MustCompile(`^[a-z0-9]([a-z0-9-.]{0,251}[a-z0-9])?$`),
 }
 
