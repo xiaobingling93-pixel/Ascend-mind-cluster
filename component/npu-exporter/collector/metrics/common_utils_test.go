@@ -168,15 +168,15 @@ func TestNilValidation(t *testing.T) {
 		val := 10
 
 		convey.Convey("all non null pointers should return true", func() {
-			convey.So(validateIsNilForEveryElement(&val), convey.ShouldBeTrue)
+			convey.So(validateNotNilForEveryElement(&val), convey.ShouldBeTrue)
 		})
 
 		convey.Convey("a null pointer should return false", func() {
-			convey.So(validateIsNilForEveryElement(nilPtr), convey.ShouldBeFalse)
+			convey.So(validateNotNilForEveryElement(nilPtr), convey.ShouldBeFalse)
 		})
 
 		convey.Convey("non pointer types should return false", func() {
-			convey.So(validateIsNilForEveryElement(val), convey.ShouldBeFalse)
+			convey.So(validateNotNilForEveryElement(val), convey.ShouldBeFalse)
 		})
 	})
 }

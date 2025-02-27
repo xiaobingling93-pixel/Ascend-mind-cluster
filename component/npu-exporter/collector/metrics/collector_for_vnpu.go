@@ -153,14 +153,14 @@ func getPodDisplayInfo(chip *colcommon.HuaWeiAIChip, containerName []string) []s
 	chipInfo := common.DeepCopyChipInfo(chip.ChipInfo)
 	vDevActivityInfo := common.DeepCopyVDevActivityInfo(chip.VDevActivityInfo)
 
-	if !validateIsNilForEveryElement(chip) {
+	if !validateNotNilForEveryElement(chip) {
 		logger.Logger.Log(logger.Warn, "invalid chip param in function getPodDisplayInfo")
 		return []string{"", "", "", "",
 			containerName[colcommon.NameSpaceIdx], containerName[colcommon.PodNameIdx], containerName[colcommon.ConNameIdx], ""}
 	}
 
 	var vDevID, vDevAiCore, isVirtualDev string
-	if !validateIsNilForEveryElement(vDevActivityInfo) {
+	if !validateNotNilForEveryElement(vDevActivityInfo) {
 		logger.Logger.Logf(logger.Warn, "invalid vDevActivityInfo param in function getPodDisplayInfo")
 		vDevID = ""
 		vDevAiCore = ""

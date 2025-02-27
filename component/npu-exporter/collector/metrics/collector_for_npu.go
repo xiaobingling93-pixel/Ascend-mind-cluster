@@ -60,7 +60,7 @@ var (
 	// net status
 	descNetworkStatus = colcommon.BuildDesc("npu_chip_info_network_status", "the npu network health status")
 
-	// container, only report to prometheus
+	// container (vnpu not support this metrics), only report to prometheus
 	npuCtrUtilization = colcommon.BuildDesc("container_npu_utilization",
 		"npu ai core utilization in container, unit is '%'")
 	npuCtrTotalMemory = colcommon.BuildDesc("container_npu_total_memory",
@@ -86,7 +86,8 @@ func init() {
 
 	copy(cardLabelForNpuName, colcommon.CardLabel)
 	cardLabelForNpuName[1] = "name"
-	descNpuName = colcommon.BuildDescWithLabel("npu_chip_info_name", "the Ascend npu name with value '1'", cardLabelForNpuName)
+	descNpuName = colcommon.BuildDescWithLabel("npu_chip_info_name", "the Ascend npu name with value '1'",
+		cardLabelForNpuName)
 }
 
 type chipCache struct {
@@ -243,9 +244,16 @@ func updateContainerInfo(ch chan<- prometheus.Metric, containerInfo container.De
 		return
 	}
 	// based on chipType , container_npu_total_memory、container_npu_used_memory reported in hbm or ddr group
-	doUpdateMetricWithValidateNum(ch, timestamp, float64(chip.Utilization), cardLabel, npuCtrUtilization)
 	doUpdateMetric(ch, timestamp, 1, append(cardLabel, containerInfo.ID, strings.Join(containerName, "_")),
 		npuCtrInfo)
+
+	// vnpu not support this metrics
+	vDevActivityInfo := chip.chip.VDevActivityInfo
+	if vDevActivityInfo != nil && common.IsValidVDevID(vDevActivityInfo.VDevID) {
+		return
+	}
+
+	doUpdateMetricWithValidateNum(ch, timestamp, float64(chip.Utilization), cardLabel, npuCtrUtilization)
 }
 
 func updateErrorCodesInfo(ch chan<- prometheus.Metric, chip *chipCache, timestamp time.Time, cardLabel []string) {
@@ -314,16 +322,24 @@ func (c *BaseInfoCollector) UpdateTelegraf(fieldsMap map[int]map[string]interfac
 		updateErrorCode(&cache, fieldMap)
 	}
 
+	if fieldsMap[colcommon.GeneralDevTagKey] == nil {
+		fieldsMap[colcommon.GeneralDevTagKey] = make(map[string]interface{})
+	}
+	doUpdateTelegraf(fieldsMap[colcommon.GeneralDevTagKey], machineInfoNPUDesc, len(chips), "")
 	return fieldsMap
 }
 
 func updateErrorCode(chip *chipCache, fieldMap map[string]interface{}) {
+	if len(errorCodeDescs) == 0 {
+		return
+	}
+	descErrorCode := errorCodeDescs[0]
 	for i := 0; i < len(chip.ErrorCodes); i++ {
 		extInfo := ""
 		if i != 0 {
 			extInfo = "_" + strconv.Itoa(i)
 		}
-		doUpdateTelegrafWithValidateNum(fieldMap, errorCodeDescs[i], float64(chip.ErrorCodes[i]), extInfo)
+		doUpdateTelegrafWithValidateNum(fieldMap, descErrorCode, float64(chip.ErrorCodes[i]), extInfo)
 	}
 }
 
