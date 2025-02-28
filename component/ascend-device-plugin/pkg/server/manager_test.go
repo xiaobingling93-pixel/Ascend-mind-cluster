@@ -535,6 +535,10 @@ func TestCheckDeviceStatus(t *testing.T) {
 	convey.Convey("test checkDeviceStatus", t, func() {
 		const id1, id2, id3 = 1, 2, 3
 		convey.Convey("01-status change, should return true", func() {
+			patch := gomonkey.ApplyFunc(device.FreeBusyDev, func(cardID, deviceID int32) {
+				return
+			})
+			defer patch.Reset()
 			allInfo := common.NpuAllInfo{
 				AllDevs: []common.NpuDevice{
 					{
