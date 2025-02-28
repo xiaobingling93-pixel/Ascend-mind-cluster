@@ -1286,6 +1286,7 @@ func checkDeviceStatus(failDevs []device.ResetDevice, allInfo common.NpuAllInfo)
 			newDevs = append(newDevs, failDev)
 			continue
 		}
+		device.FreeBusyDev(failDev.CardId, failDev.DeviceId)
 		isChange = true
 	}
 	return newDevs, isChange
