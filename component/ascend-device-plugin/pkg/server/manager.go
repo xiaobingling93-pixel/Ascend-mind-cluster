@@ -67,6 +67,7 @@ func NewHwDevManager(devM devmanager.DeviceInterface) *HwDevManager {
 		hwlog.RunLog.Errorf("set all device and type failed, err: %v", err)
 		return nil
 	}
+	device.InitResetInfoMgr(hdm.manager.GetKubeClient())
 	if err := hdm.setContainerdClient(); err != nil {
 		hwlog.RunLog.Warnf("set containerd client failed, "+
 			"unable to get correct container used chip information, err: %v", err)
@@ -1248,8 +1249,7 @@ func (hdm *HwDevManager) checkNodeResetInfo() {
 	if client == nil {
 		return
 	}
-	resetTool := device.GetResetInfoMgr(client)
-	resetInfo := resetTool.ReadResetInfo()
+	resetInfo := device.ReadResetInfo()
 	if len(resetInfo.ThirdPartyResetDevs) <= 0 && len(resetInfo.ManualResetDevs) <= 0 {
 		return
 	}
@@ -1266,12 +1266,12 @@ func (hdm *HwDevManager) checkNodeResetInfo() {
 	}
 	newResetInfo.ThirdPartyResetDevs = newThirdPartyResetDevs
 	newResetInfo.ManualResetDevs = newManualResetDevs
-	resetTool.WriteResetInfo(newResetInfo, device.WMOverwrite)
+	device.WriteResetInfo(newResetInfo, device.WMOverwrite)
 }
 
-func checkDeviceStatus(failDevs []device.ResetFailDevice, allInfo common.NpuAllInfo) ([]device.ResetFailDevice, bool) {
+func checkDeviceStatus(failDevs []device.ResetDevice, allInfo common.NpuAllInfo) ([]device.ResetDevice, bool) {
 	isChange := false
-	var newDevs []device.ResetFailDevice
+	var newDevs []device.ResetDevice
 	devMap := make(map[int32]common.NpuDevice)
 	for _, dev := range allInfo.AllDevs {
 		devMap[dev.PhyID] = dev

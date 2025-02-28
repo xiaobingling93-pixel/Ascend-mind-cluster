@@ -17,6 +17,7 @@ package device
 
 import (
 	"encoding/json"
+	"strconv"
 	"sync"
 
 	"Ascend-device-plugin/pkg/common"
@@ -28,19 +29,21 @@ import (
 type ResetInfoMgr struct {
 	client    *kubeclient.ClientK8s
 	resetInfo *ResetInfo
+	busyDevs  sync.Map // map[int32]struct to record which device is busy
+	resetCnt  sync.Map // map[int32]int to record the reset count of each device
 	mu        sync.RWMutex
 }
 
 // ResetInfo information of npu reset
 type ResetInfo struct {
 	// ThirdPartyResetDevs devices waits for third party to reset
-	ThirdPartyResetDevs []ResetFailDevice
+	ThirdPartyResetDevs []ResetDevice
 	// ManualResetDevs devices waits for manually reset
-	ManualResetDevs []ResetFailDevice
+	ManualResetDevs []ResetDevice
 }
 
-// ResetFailDevice device that fail to be reset
-type ResetFailDevice struct {
+// ResetDevice device that fail to be reset
+type ResetDevice struct {
 	// CardId npu card id
 	CardId int32
 	// DeviceId npu device id
@@ -62,12 +65,12 @@ const (
 )
 
 var (
-	instance *ResetInfoMgr
-	once     sync.Once
+	mgr  *ResetInfoMgr
+	once sync.Once
 )
 
-// GetResetInfoMgr return the single instance of reset mgr, load reset info from node annotation
-func GetResetInfoMgr(client *kubeclient.ClientK8s) *ResetInfoMgr {
+// InitResetInfoMgr initialize ResetInfoMgr globally
+func InitResetInfoMgr(client *kubeclient.ClientK8s) {
 	once.Do(func() {
 		infoMgr := ResetInfoMgr{
 			client:    client,
@@ -76,21 +79,25 @@ func GetResetInfoMgr(client *kubeclient.ClientK8s) *ResetInfoMgr {
 		curNode, err := client.GetNode()
 		if err != nil {
 			hwlog.RunLog.Errorf("fail to get node from k8s, err: %v", err)
-			instance = &infoMgr
+			mgr = &infoMgr
 			return
 		}
 		if curNode.Annotations == nil {
-			instance = &infoMgr
+			mgr = &infoMgr
 			return
 		}
 		infoMgr.resetInfo = readAnnotation(curNode.Annotations, common.ResetInfoAnnotationKey)
-		instance = &infoMgr
+		mgr = &infoMgr
 	})
-	return instance
+}
+
+// GetResetInfoMgr return the single instance of reset mgr, load reset info from node annotation
+func GetResetInfoMgr() *ResetInfoMgr {
+	return mgr
 }
 
 // WriteResetInfo write reset info into cache and node annotation
-func (mgr *ResetInfoMgr) WriteResetInfo(resetInfo ResetInfo, writeMode WriteMode) {
+func WriteResetInfo(resetInfo ResetInfo, writeMode WriteMode) {
 	mgr.mu.Lock()
 	mgr.resetInfo.ThirdPartyResetDevs = mergeFailDevs(mgr.resetInfo.ThirdPartyResetDevs,
 		resetInfo.ThirdPartyResetDevs, writeMode)
@@ -104,32 +111,95 @@ func (mgr *ResetInfoMgr) WriteResetInfo(resetInfo ResetInfo, writeMode WriteMode
 		return
 	}
 	mgr.mu.Unlock()
-	mgr.writeNodeAnnotation(string(dataBytes))
+	writeNodeAnnotation(string(dataBytes))
 }
 
 // ReadResetInfo read reset info from cache
-func (mgr *ResetInfoMgr) ReadResetInfo() ResetInfo {
+func ReadResetInfo() ResetInfo {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	return *mgr.resetInfo
 }
 
-func (mgr *ResetInfoMgr) writeNodeAnnotation(resetStr string) {
+// IsDevBusy check whether one device is busy, for example in reset, wait third party reset or wait manually reset
+func IsDevBusy(cardID, deviceID int32) bool {
+	_, exist := mgr.busyDevs.Load(combineToString(cardID, deviceID))
+	return exist
+}
+
+// AddBusyDev add a new busy device
+func AddBusyDev(cardID, deviceID int32) {
+	mgr.busyDevs.Store(combineToString(cardID, deviceID), struct{}{})
+}
+
+// FreeBusyDev remove a device from busy map
+func FreeBusyDev(cardID, deviceID int32) {
+	mgr.busyDevs.Delete(combineToString(cardID, deviceID))
+}
+
+// GetResetCnt get device reset count by physic ID
+func GetResetCnt(cardID, deviceID int32) int {
+	cnt, exist := mgr.resetCnt.Load(combineToString(cardID, deviceID))
+	if !exist {
+		return 0
+	}
+
+	ret, ok := cnt.(int)
+	if !ok {
+		hwlog.RunLog.Warnf("reset cnt map invalid value, val: %v", cnt)
+		mgr.resetCnt.Store(combineToString(cardID, deviceID), 0)
+		return 0
+	}
+	return ret
+}
+
+// AddResetCnt add device reset count
+func AddResetCnt(cardID, deviceID int32) {
+	cnt := GetResetCnt(cardID, deviceID)
+	SetResetCnt(cardID, deviceID, cnt+1)
+}
+
+// SetResetCnt set device reset count
+func SetResetCnt(cardID, deviceID int32, cnt int) {
+	mgr.resetCnt.Store(combineToString(cardID, deviceID), cnt)
+}
+
+func writeNodeAnnotation(resetStr string) {
 	if err := mgr.client.AddAnnotation(common.ResetInfoAnnotationKey, resetStr); err != nil {
 		hwlog.RunLog.Errorf("fail to write reset info to node annotation, err: %v", err)
 	}
 }
 
-func mergeFailDevs(curDevs []ResetFailDevice, newDevs []ResetFailDevice, writeMode WriteMode) []ResetFailDevice {
+func mergeFailDevs(curDevs []ResetDevice, newDevs []ResetDevice, writeMode WriteMode) []ResetDevice {
 	if writeMode == WMOverwrite {
 		return newDevs
 	}
 	if writeMode == WMAppend {
-		curDevs = append(curDevs, newDevs...)
-		return curDevs
+		return mergeAndDeduplicate(curDevs, newDevs)
 	}
 	hwlog.RunLog.Errorf("write mode %v is invalid", writeMode)
 	return curDevs
+}
+
+func mergeAndDeduplicate(arr1, arr2 []ResetDevice) []ResetDevice {
+	seen := make(map[int32]struct{})
+	result := make([]ResetDevice, 0)
+
+	for _, v := range arr1 {
+		if _, exists := seen[v.PhyID]; !exists {
+			seen[v.PhyID] = struct{}{}
+			result = append(result, v)
+		}
+	}
+
+	for _, v := range arr2 {
+		if _, exists := seen[v.PhyID]; !exists {
+			seen[v.PhyID] = struct{}{}
+			result = append(result, v)
+		}
+	}
+
+	return result
 }
 
 func readAnnotation(annotation map[string]string, key string) *ResetInfo {
@@ -142,4 +212,8 @@ func readAnnotation(annotation map[string]string, key string) *ResetInfo {
 		return &ResetInfo{}
 	}
 	return &ret
+}
+
+func combineToString(a, b int32) string {
+	return strconv.Itoa(int(a)) + common.UnderLine + strconv.Itoa(int(b))
 }

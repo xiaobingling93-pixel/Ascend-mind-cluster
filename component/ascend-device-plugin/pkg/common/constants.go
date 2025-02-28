@@ -719,7 +719,7 @@ const (
 	MinLogicID = 0
 	// MaxResetTimes the max reset times of a device while error happened,
 	// setting to 30 to avoid manually reset on host machine
-	MaxResetTimes = 30
+	MaxResetTimes = 3
 )
 
 // the severity level of fault

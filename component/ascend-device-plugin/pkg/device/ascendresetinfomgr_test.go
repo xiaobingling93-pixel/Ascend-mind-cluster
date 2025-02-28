@@ -22,33 +22,26 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
-	"k8s.io/api/core/v1"
 
 	"Ascend-device-plugin/pkg/kubeclient"
 )
 
+const (
+	testCardId, testDeviceId = 0, 0
+	id1, id2, id3            = 1, 2, 3
+	zeroVal                  = 0
+)
+
 var resettoolTestErr = errors.New("test")
 
-// TestResetToolInstance tests ResetToolInstance
-func TestResetToolInstance(t *testing.T) {
-	convey.Convey("test ResetToolInstance", t, func() {
-		patch := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "GetNode",
-			&v1.Node{}, resettoolTestErr)
-		defer patch.Reset()
-		convey.Convey("01-get node error, should return empty object", func() {
-			resetTool := GetResetInfoMgr(&kubeclient.ClientK8s{})
-			convey.So(resetTool.resetInfo.ManualResetDevs, convey.ShouldBeEmpty)
-		})
-	})
+func init() {
+	mgr = &ResetInfoMgr{resetInfo: &ResetInfo{}}
 }
 
 // TestWriteResetInfo tests WriteResetInfo
 func TestWriteResetInfo(t *testing.T) {
-	resetTool := &ResetInfoMgr{
-		resetInfo: &ResetInfo{},
-	}
 	flag := false
-	patch := gomonkey.ApplyPrivateMethod(&ResetInfoMgr{}, "writeNodeAnnotation", func() {
+	patch := gomonkey.ApplyFunc(writeNodeAnnotation, func(resetStr string) {
 		flag = true
 	})
 	defer patch.Reset()
@@ -56,32 +49,111 @@ func TestWriteResetInfo(t *testing.T) {
 		convey.Convey("01-write cache success, flag should be true", func() {
 			patch1 := gomonkey.ApplyFuncReturn(json.Marshal, []byte{}, nil)
 			defer patch1.Reset()
-			resetTool.WriteResetInfo(ResetInfo{}, WMOverwrite)
+			WriteResetInfo(ResetInfo{}, WMOverwrite)
 			convey.So(flag, convey.ShouldBeTrue)
 		})
 		convey.Convey("02-json marshal failed, flag should be false", func() {
 			patch1 := gomonkey.ApplyFuncReturn(json.Marshal, []byte{}, resettoolTestErr)
 			defer patch1.Reset()
 			flag = false
-			resetTool.WriteResetInfo(ResetInfo{}, WMOverwrite)
+			WriteResetInfo(ResetInfo{}, WMOverwrite)
 			convey.So(flag, convey.ShouldBeFalse)
 		})
+	})
+}
+
+// TestIsDevBusy test the function IsDevBusy
+func TestIsDevBusy(t *testing.T) {
+	AddBusyDev(testCardId, testDeviceId)
+	ret := IsDevBusy(testCardId, testDeviceId)
+	if !ret {
+		t.Errorf("expected true, got false")
+	}
+}
+
+// TestFreeBusyDev test the function FreeBusyDev
+func TestFreeBusyDev(t *testing.T) {
+	AddBusyDev(testCardId, testDeviceId)
+	FreeBusyDev(testCardId, testDeviceId)
+	ret := IsDevBusy(testCardId, testDeviceId)
+	if ret {
+		t.Errorf("expected false, got true")
+	}
+}
+
+// TestGetResetCnt test the function GetResetCnt
+func TestGetResetCnt(t *testing.T) {
+	const testNum = 1
+	convey.Convey("test GetResetCnt", t, func() {
+		convey.Convey("01-not exist, should return 0", func() {
+			cnt := GetResetCnt(testCardId, testDeviceId)
+			convey.So(cnt, convey.ShouldEqual, zeroVal)
+		})
+		convey.Convey("02-set to 1, should return 1", func() {
+			SetResetCnt(testCardId, testDeviceId, testNum)
+			cnt := GetResetCnt(testCardId, testDeviceId)
+			convey.So(cnt, convey.ShouldEqual, testNum)
+		})
+	})
+}
+
+// TestAddResetCnt test the function AddResetCnt
+func TestAddResetCnt(t *testing.T) {
+	SetResetCnt(testCardId, testDeviceId, zeroVal)
+	AddResetCnt(testCardId, testDeviceId)
+	ret := GetResetCnt(testCardId, testDeviceId)
+	const expectVal = 1
+	if ret != expectVal {
+		t.Errorf("expect %v, got %v", expectVal, ret)
+	}
+}
+
+// TestSetResetCnt test the function SetResetCnt
+func TestSetResetCnt(t *testing.T) {
+	const testVal = 1
+	SetResetCnt(testCardId, testDeviceId, testVal)
+	ret := GetResetCnt(testCardId, testDeviceId)
+	if ret != testVal {
+		t.Errorf("expect %v, got %v", testVal, ret)
+	}
+}
+
+// TestMergeAndDeduplicate test the function mergeAndDeduplicate
+func TestMergeAndDeduplicate(t *testing.T) {
+	convey.Convey("test mergeAndDeduplicate", t, func() {
+		arr1 := []ResetDevice{
+			{PhyID: id1},
+			{PhyID: id2},
+		}
+		arr2 := []ResetDevice{
+			{PhyID: id2},
+			{PhyID: id3},
+		}
+		expect := []ResetDevice{
+			{PhyID: id1},
+			{PhyID: id2},
+			{PhyID: id3},
+		}
+		ret := mergeAndDeduplicate(arr1, arr2)
+		convey.So(ret, convey.ShouldResemble, expect)
 	})
 }
 
 // TestReadResetNodeAnnotation tests ReadResetNodeAnnotation
 func TestReadResetNodeAnnotation(t *testing.T) {
 	const id0 = 0
-	resetTool := &ResetInfoMgr{
-		resetInfo: &ResetInfo{
-			ManualResetDevs: []ResetFailDevice{
-				{
-					PhyID: id0,
-				},
+	patch := gomonkey.ApplyFunc(writeNodeAnnotation, func(resetStr string) {
+		return
+	})
+	defer patch.Reset()
+	WriteResetInfo(ResetInfo{
+		ManualResetDevs: []ResetDevice{
+			{
+				PhyID: id0,
 			},
 		},
-	}
-	info := resetTool.ReadResetInfo()
+	}, WMOverwrite)
+	info := ReadResetInfo()
 	if len(info.ManualResetDevs) == 0 {
 		t.Errorf("devs length expected greater than zero, but got zero")
 	}
@@ -89,9 +161,6 @@ func TestReadResetNodeAnnotation(t *testing.T) {
 
 // TestWriteNodeAnnotation tests writeNodeAnnotation
 func TestWriteNodeAnnotation(t *testing.T) {
-	resetTool := &ResetInfoMgr{
-		resetInfo: &ResetInfo{},
-	}
 	flag := false
 	patch := gomonkey.ApplyMethod(&kubeclient.ClientK8s{}, "AddAnnotation",
 		func(_ *kubeclient.ClientK8s, key, value string) error {
@@ -101,7 +170,7 @@ func TestWriteNodeAnnotation(t *testing.T) {
 	defer patch.Reset()
 	convey.Convey("test writeNodeAnnotation", t, func() {
 		convey.Convey("enter AddAnnotation, flag should be true", func() {
-			resetTool.writeNodeAnnotation("")
+			writeNodeAnnotation("")
 			convey.So(flag, convey.ShouldBeTrue)
 		})
 	})
@@ -109,12 +178,12 @@ func TestWriteNodeAnnotation(t *testing.T) {
 
 // TestMergeFailDevs tests mergeFailDevs
 func TestMergeFailDevs(t *testing.T) {
-	const id1, id2 = 1, 2
+
 	convey.Convey("test mergeFailDevs", t, func() {
-		curDevs := []ResetFailDevice{
+		curDevs := []ResetDevice{
 			{PhyID: id1},
 		}
-		newDevs := []ResetFailDevice{
+		newDevs := []ResetDevice{
 			{PhyID: id2},
 		}
 		convey.Convey("01-overwrite mode, should return newDevs", func() {
@@ -131,7 +200,6 @@ func TestMergeFailDevs(t *testing.T) {
 
 // TestReadAnnotation tests readAnnotation
 func TestReadAnnotation(t *testing.T) {
-	const id1 = 1
 	convey.Convey("test readAnnotation", t, func() {
 		convey.Convey("01-key not exists, should return empty info", func() {
 			annotations := map[string]string{}
@@ -149,7 +217,7 @@ func TestReadAnnotation(t *testing.T) {
 		})
 		convey.Convey("03-success, should return info", func() {
 			res := &ResetInfo{
-				ManualResetDevs: []ResetFailDevice{
+				ManualResetDevs: []ResetDevice{
 					{PhyID: id1},
 				},
 			}

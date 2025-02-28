@@ -492,8 +492,8 @@ func TestCheckNodeResetInfo(t *testing.T) {
 	hdm := HwDevManager{}
 	flag := false
 	convey.Convey("test checkNodeResetInfo", t, func() {
-		patch := gomonkey.ApplyMethod(&device.ResetInfoMgr{}, "WriteResetInfo",
-			func(_ *device.ResetInfoMgr, resetInfo device.ResetInfo, writeMode device.WriteMode) {
+		patch := gomonkey.ApplyFunc(device.WriteResetInfo,
+			func(resetInfo device.ResetInfo, writeMode device.WriteMode) {
 				flag = true
 			})
 		defer patch.Reset()
@@ -506,14 +506,13 @@ func TestCheckNodeResetInfo(t *testing.T) {
 		convey.Convey("02-dev num zero, flag should be false", func() {
 			patch1 := gomonkey.ApplyFuncReturn(device.GetResetInfoMgr, &device.ResetInfoMgr{})
 			defer patch1.Reset()
-			patch1.ApplyMethodReturn(&device.ResetInfoMgr{}, "ReadResetInfo",
-				device.ResetInfo{})
+			patch1.ApplyFuncReturn(device.ReadResetInfo, device.ResetInfo{})
 			hdm.checkNodeResetInfo()
 			convey.So(flag, convey.ShouldBeFalse)
 		})
 		patch.ApplyFuncReturn(device.GetResetInfoMgr, &device.ResetInfoMgr{})
-		patch.ApplyMethodReturn(&device.ResetInfoMgr{}, "ReadResetInfo",
-			device.ResetInfo{ThirdPartyResetDevs: []device.ResetFailDevice{
+		patch.ApplyFuncReturn(device.ReadResetInfo,
+			device.ResetInfo{ThirdPartyResetDevs: []device.ResetDevice{
 				{PhyID: id0},
 			}})
 		patch.ApplyMethodReturn(mockDevManager{}, "GetKubeClient", &kubeclient.ClientK8s{})
@@ -523,7 +522,7 @@ func TestCheckNodeResetInfo(t *testing.T) {
 		})
 		patch.ApplyMethodReturn(mockDevManager{}, "GetNPUs", common.NpuAllInfo{}, nil)
 		convey.Convey("04-success, flag should be true", func() {
-			patch1 := gomonkey.ApplyFuncReturn(checkDeviceStatus, []device.ResetFailDevice{}, true)
+			patch1 := gomonkey.ApplyFuncReturn(checkDeviceStatus, []device.ResetDevice{}, true)
 			defer patch1.Reset()
 			hdm.checkNodeResetInfo()
 			convey.So(flag, convey.ShouldBeTrue)
@@ -548,7 +547,7 @@ func TestCheckDeviceStatus(t *testing.T) {
 					},
 				},
 			}
-			failDevs := []device.ResetFailDevice{
+			failDevs := []device.ResetDevice{
 				{
 					PhyID: id1,
 				},
