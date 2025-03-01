@@ -84,3 +84,16 @@ func getGraceDeleteTime(Conf []config.Configuration) int64 {
 	}
 	return overTime
 }
+
+// JudgePublicFaultInReason return fTask has public fault
+func JudgePublicFaultInReason(fTask *miniFaultTask) bool {
+	if fTask == nil {
+		return false
+	}
+	for _, reason := range fTask.Reason {
+		if reason.FaultType == PublicFaultType {
+			return true
+		}
+	}
+	return false
+}

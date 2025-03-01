@@ -96,6 +96,8 @@ const (
 	maxIntervalTime      = 300
 	maxRankIndex         = 1000
 
+	// PublicFaultType represents a PublicFault fault type
+	PublicFaultType = "PublicFault"
 	// CardHealthy represents a healthy card
 	CardHealthy = "Healthy"
 	// CardUnhealthy represents an unhealthy card

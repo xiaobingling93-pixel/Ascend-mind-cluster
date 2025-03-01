@@ -595,6 +595,9 @@ func (fJob *FaultJob) recordFaultJobsToLogs() {
 		tmpfTaskInfo.FaultType = fTask.faultType
 		tmpfTaskInfo.UseCardName = fTask.UseCardName
 		tmpfTaskInfo.NodeRankIndex = fTask.NodeRankIndex
+		if JudgePublicFaultInReason(&tmpfTaskInfo) {
+			tmpfTaskInfo.FaultType = PublicFaultType
+		}
 		tmpfJobInfo.FaultTasks = append(tmpfJobInfo.FaultTasks, tmpfTaskInfo)
 	}
 	str, err := json.Marshal(tmpfJobInfo)
