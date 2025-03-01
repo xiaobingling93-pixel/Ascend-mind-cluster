@@ -33,15 +33,19 @@ type TorHandler struct {
 	globalTorEnv *plugin.TorList
 }
 
+// TorHandlerV1 nslb v1 handler
 type TorHandlerV1 struct {
 	TorHandler
+	enableSliceId int
 }
 
+// TorHandlerV2 nslb v2 handler
 type TorHandlerV2 struct {
 	oldTorInfos jobUsedTorInfos
 	TorHandler
 }
 
+// TorSingleLevelHandler single level tor handler
 type TorSingleLevelHandler struct {
 	TorHandler
 }
@@ -73,6 +77,14 @@ const (
 	LargeModelTag = "large-model-schema"
 	// SharedTorIp shared tor Ip
 	SharedTorIp = "sharedTorIp"
+	// TorNodeCMName the Name of tor info configmap
+	TorNodeCMName = "basic-tor-node-cm"
+	// TorShareCMName the Name of tor share info configmap
+	TorShareCMName = "tor-share-cm"
+	// TorInfoCMKey the key of tor info in configmap
+	TorInfoCMKey = "tor_info"
+	// TorLevelCMKey the key of tor level in configmap
+	TorLevelCMKey = "tor_level"
 )
 
 const (

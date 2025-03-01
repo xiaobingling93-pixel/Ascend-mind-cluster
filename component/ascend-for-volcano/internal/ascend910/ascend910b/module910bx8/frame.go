@@ -141,6 +141,9 @@ func (tp *module910bx8) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeI
 			return err
 		}
 	}
+	if len(tp.PolicyHandler) != 0 {
+		return nil
+	}
 	return tp.NPUHandler.ScoreBestNPUNodes(task, nodes, sMap)
 }
 

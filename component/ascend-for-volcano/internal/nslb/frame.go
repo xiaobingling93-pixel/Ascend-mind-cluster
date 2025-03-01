@@ -31,12 +31,17 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
+// InitPolicyHandler init nslb policy handler
 func InitPolicyHandler(attr util.SchedulerJobAttr, env plugin.ScheduleEnv) (plugin.ISchedulerPluginNeed, bool) {
 	if !attr.IsJobHasTorAffinityLabel() {
 		return nil, false
 	}
 	defaultHandler := TorHandler{
-		pluginName: pluginName,
+		pluginName:   pluginName,
+		globalTorEnv: env.Tors,
+	}
+	if tmpJob, ok := env.Jobs[attr.Name]; ok {
+		defaultHandler.Job = &tmpJob
 	}
 	if env.Tors == nil {
 		return &defaultHandler, true
@@ -44,7 +49,7 @@ func InitPolicyHandler(attr util.SchedulerJobAttr, env plugin.ScheduleEnv) (plug
 	if env.Tors.TorLevel == SingleLayer {
 		return &TorSingleLevelHandler{TorHandler: defaultHandler}, true
 	}
-	if env.Tors.GetNSLBVersion() == defaultNSLBVersion && attr.SchedulingTaskNum == len(attr.Tasks) {
+	if env.Tors.GetNSLBVersion() == defaultNSLBVersion {
 		return &TorHandlerV1{TorHandler: defaultHandler}, true
 	}
 	if env.Tors.GetNSLBVersion() == nslbv2Version {
@@ -59,22 +64,13 @@ func (th *TorHandler) PreStartAction(_ interface{}, _ *framework.Session) error 
 }
 
 // InitMyJobPlugin set attr and env for plugin
-func (th *TorHandler) InitMyJobPlugin(attr util.SchedulerJobAttr, env plugin.ScheduleEnv) error {
-	if th == nil || th.globalTorEnv == nil {
-		err := errors.New(util.ArgumentError)
-		klog.V(util.LogErrorLev).Infof("InitMyJobPlugin %s", err.Error())
-		return err
-	}
-	if tmpJob, ok := env.Jobs[attr.Name]; ok {
-		th.Job = &tmpJob
-	}
-	th.globalTorEnv = env.Tors
+func (th *TorHandler) InitMyJobPlugin(_ util.SchedulerJobAttr, _ plugin.ScheduleEnv) error {
 	return nil
 }
 
 // ValidNPUJob check job req npu num
 func (th *TorHandler) ValidNPUJob() *api.ValidateResult {
-	if th == nil {
+	if th == nil || th.Job == nil {
 		err := errors.New(util.ArgumentError)
 		return &api.ValidateResult{Pass: false, Reason: err.Error(), Message: err.Error()}
 	}
@@ -82,7 +78,7 @@ func (th *TorHandler) ValidNPUJob() *api.ValidateResult {
 
 	if th.globalTorEnv == nil {
 		reason := "job tor affinity check failed, cluster basic-tor-node-cm is not imported"
-		klog.V(util.LogWarningLev).Infof(reason)
+		klog.V(util.LogWarningLev).Info(reason)
 		return &api.ValidateResult{Pass: false, Reason: reason,
 			Message: fmt.Sprintf("validJobF failed:%s", reason)}
 	}

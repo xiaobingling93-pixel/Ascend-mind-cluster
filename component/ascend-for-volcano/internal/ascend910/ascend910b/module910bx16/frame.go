@@ -178,9 +178,26 @@ func (tp *module910bx16) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.Node
 		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes %s.", err)
 		return err
 	}
+	for _, handler := range tp.PolicyHandler {
+		if err := handler.ScoreBestNPUNodes(task, nodes, sMap); err != nil {
+			return err
+		}
+	}
+	if len(tp.PolicyHandler) != 0 {
+		return nil
+	}
 	if tp.VJob.Type == util.JobTypeDyCut {
 		return tp.VHandle.DynamicVNPU.ScoreBestNPUNodes(task, nodes, sMap)
 	}
+	if err := tp.setNodeScore(task, nodes, sMap); err != nil {
+		return err
+	}
+	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
+		task.Name, sMap)
+	return tp.ReHandle.ScoreBestNPUNodes(task, sMap)
+}
+
+func (tp *module910bx16) setNodeScore(task *api.TaskInfo, nodes []*api.NodeInfo, sMap map[string]float64) error {
 	taskNPUNum, getErr := tp.GetTaskReqNPUNum(task)
 	if getErr != nil {
 		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum %s: %s", tp.GetPluginName(), task.Name, getErr)
@@ -215,14 +232,7 @@ func (tp *module910bx16) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.Node
 		sortScore := tp.MaxNodeNPUNum - len(cardIds)
 		sMap[node.Name] = float64(tp.MaxNodeNPUNum*(int(healthyNPUNum/util.NPUHexKilo)-bestScore) + sortScore)
 	}
-	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
-		task.Name, sMap)
-	for _, handler := range tp.PolicyHandler {
-		if err := handler.ScoreBestNPUNodes(task, nodes, sMap); err != nil {
-			return err
-		}
-	}
-	return tp.ReHandle.ScoreBestNPUNodes(task, sMap)
+	return nil
 }
 
 // UseAnnotation select npu for task from node

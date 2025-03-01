@@ -314,8 +314,8 @@ func (tl *TorList) MarkTorListByJobV2(nodes map[string]*api.NodeInfo, jobUid api
 	}
 }
 
-// GetFullTorNumFromTorInfo get the num of full nslb
-func (tl *TorList) GetFullTorNumFromTorInfo(jobUid api.JobID) int {
+// SetTorFreeServerCountAndGetFullTor get the num of full nslb
+func (tl *TorList) SetTorFreeServerCountAndGetFullTor(jobUid api.JobID) int {
 	if tl == nil {
 		return 0
 	}

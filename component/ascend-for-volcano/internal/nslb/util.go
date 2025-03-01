@@ -84,7 +84,7 @@ func setNodeScoreByTorAttr(sMap map[string]float64, nodeName string, sl *plugin.
 }
 
 func changeTorMapsToSlice(torMaps map[string]*plugin.Tor) []*plugin.Tor {
-	var tors []*plugin.Tor
+	tors := make([]*plugin.Tor, 0, len(torMaps))
 	for _, tor := range torMaps {
 		tors = append(tors, tor)
 	}
@@ -96,7 +96,7 @@ func (th *TorHandler) GetPluginName() string { return th.pluginName }
 
 func (th *TorHandler) scoreBestNPUNodes(task *api.TaskInfo, nodeMaps map[string]*api.NodeInfo,
 	sMap map[string]float64) error {
-	th.SortJobServerListBySliceId()
+	th.sortJobServerListBySliceId()
 	th.setNodeRankIndex()
 
 	for _, sl := range th.ServerList {
@@ -112,8 +112,8 @@ func (th *TorHandler) scoreBestNPUNodes(task *api.TaskInfo, nodeMaps map[string]
 	return nil
 }
 
-// SortJobServerListBySliceId sort JobServer list by SliceId
-func (th *TorHandler) SortJobServerListBySliceId() {
+// sortJobServerListBySliceId sort JobServer list by SliceId
+func (th *TorHandler) sortJobServerListBySliceId() {
 	for _, tor := range th.ServerList {
 		sort.Slice(tor.Servers, func(i, j int) bool {
 			return tor.Servers[i].SliceId < tor.Servers[j].SliceId
@@ -123,10 +123,6 @@ func (th *TorHandler) SortJobServerListBySliceId() {
 
 // setNodeRankIndex set rank index for job
 func (th *TorHandler) setNodeRankIndex() {
-	if th == nil {
-		klog.V(util.LogDebugLev).Infof("SetJobRankIndex failed:%s", util.ArgumentError)
-		return
-	}
 	var rankIndex int
 	for _, tor := range th.ServerList {
 		for _, server := range tor.Servers {
@@ -139,8 +135,8 @@ func (th *TorHandler) setNodeRankIndex() {
 	}
 }
 
-// SetFillJobServerList set the fill job server list in nslb 1.0 and single layer switch networking rule
-func (th *TorHandler) SetFillJobServerList(Tors []*plugin.Tor, taskNum int) error {
+// setFillJobServerList set the fill job server list in nslb 1.0 and single layer switch networking rule
+func (th *TorHandler) setFillJobServerList(Tors []*plugin.Tor, taskNum int) error {
 	var count int
 	for i := len(Tors) - 1; i >= 0; i-- {
 		if Tors[i].FreeServerCount < taskNum {

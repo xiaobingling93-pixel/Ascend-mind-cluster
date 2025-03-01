@@ -66,11 +66,6 @@ func (tp *NPUHandler) InitMyJobPlugin(attr util.SchedulerJobAttr, env plugin.Sch
 	tp.SetSchedulerAttr(attr)
 	tp.SetSchedulerEnv(env)
 	tp.SetPolicyHandler(attr, env)
-	for _, handler := range tp.PolicyHandler {
-		if err := handler.InitMyJobPlugin(attr, env); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

@@ -26,54 +26,87 @@ import (
 
 	"k8s.io/klog"
 	"volcano.sh/volcano/pkg/scheduler/api"
+	"volcano.sh/volcano/pkg/scheduler/framework"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
+// PreStartAction pre-processing actions for rescheduling
+func (th *TorHandlerV1) PreStartAction(i interface{}, ssn *framework.Session) error {
+	if th.Job == nil {
+		return fmt.Errorf("prestart action is failed by job is nil")
+	}
+	if th.globalTorEnv == nil {
+		return fmt.Errorf("prestart action is failed by globalTorEnv is nil")
+	}
+	if th.Job.SchedulingTaskNum == 0 {
+		return nil
+	}
+	th.initEnableSliceId()
+	return nil
+}
+
+func (th *TorHandlerV1) initEnableSliceId() {
+	usedTorCount := make([]int, th.globalTorEnv.TorCount)
+	for _, task := range th.Job.Tasks {
+		if task.NodeName != "" {
+			server := th.globalTorEnv.GetServerMaps()[task.NodeName]
+			if server == nil {
+				continue
+			}
+			usedTorCount[server.SliceId]++
+		}
+	}
+	th.enableSliceId = getMinIndex(usedTorCount)
+}
+
 // CheckNodeNPUByTask check nod npu meet task req
 func (th *TorHandlerV1) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode) error {
-	if th == nil || task == nil || len(node.Annotation) == 0 {
+	if th == nil || task == nil {
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogErrorLev).Infof("CheckNodeNPUByTask err: %s.", err.Error())
 		return err
 	}
 	klog.V(util.LogDebugLev).Infof("%s NodePredicate %s select successes.", th.GetPluginName(), node.Name)
-	if !(th.Job.SchedulingTaskNum < len(th.Job.Tasks) && th.Job.IsTorAffinityJob()) {
-		return nil
+	if th.Job.SchedulingTaskNum < len(th.Job.Tasks) {
+		return th.checkTorJobSinglePodDelete(node)
 	}
-	return th.CheckTorJobSinglePodDeleteV1(task, node)
+	return nil
 }
 
 // ScoreBestNPUNodes score node by calculate task req npu num and node npu top
 func (th *TorHandlerV1) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo,
 	scoreMap map[string]float64) error {
-	if th == nil || task == nil || len(nodes) == 0 || len(scoreMap) == 0 || th.globalTorEnv == nil {
+	if th == nil || task == nil || len(nodes) == 0 || scoreMap == nil || th.globalTorEnv == nil {
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes err: %s.", err.Error())
 		return err
 	}
+	if th.Job.SchedulingTaskNum < len(th.Job.Tasks) {
+		return nil
+	}
 	nodeMaps := util.ChangeNodesToNodeMaps(nodes)
-	return th.SetTorAffinityJobNodesScoreV1(task, nodeMaps, scoreMap)
+	return th.setTorAffinityJobNodesScore(task, nodeMaps, scoreMap)
 }
 
-// SetTorAffinityJobNodesScoreV1 nslb 1.0 rule
-func (th *TorHandlerV1) SetTorAffinityJobNodesScoreV1(task *api.TaskInfo,
+// setTorAffinityJobNodesScore nslb 1.0 rule
+func (th *TorHandlerV1) setTorAffinityJobNodesScore(task *api.TaskInfo,
 	nodeMaps map[string]*api.NodeInfo, scoreMap map[string]float64) error {
-	if len(nodeMaps) == 0 || len(scoreMap) == 0 || !*th.Job.JobReadyTag {
+	if len(nodeMaps) == 0 || scoreMap == nil || !*th.Job.JobReadyTag {
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogDebugLev).Infof("ScoreBestNPUNodes %s.", err)
 		return nil
 	}
 
-	result := th.setTorHandlerServerListV1(nodeMaps)
+	result := th.setTorHandlerServerList(nodeMaps)
 	if result != nil {
 		klog.V(util.LogErrorLev).Infof("check job %s tor affinity failed: %s", th.Job.Name, result)
 		switch th.Job.Label[TorAffinityKey] {
 		case LargeModelTag:
 			*th.Job.JobReadyTag = false
 		case NormalSchema:
-			th.SetNormalJobServerList(th.Job.SchedulingTaskNum)
+			th.setNormalJobServerList(th.Job.SchedulingTaskNum)
 		default:
 			return nil
 		}
@@ -86,7 +119,7 @@ func (th *TorHandlerV1) SetTorAffinityJobNodesScoreV1(task *api.TaskInfo,
 	return result
 }
 
-func (th *TorHandlerV1) setTorHandlerServerListV1(nodeMaps map[string]*api.NodeInfo) error {
+func (th *TorHandlerV1) setTorHandlerServerList(nodeMaps map[string]*api.NodeInfo) error {
 	if th == nil || th.globalTorEnv == nil || len(nodeMaps) == 0 {
 		err := errors.New(util.ArgumentError)
 		return fmt.Errorf("initTorHandlerV1 err: %s", err.Error())
@@ -97,13 +130,13 @@ func (th *TorHandlerV1) setTorHandlerServerListV1(nodeMaps map[string]*api.NodeI
 	}
 	schedulingTaskNum := th.Job.SchedulingTaskNum
 	th.globalTorEnv.MarkTorListByJobV1(nodeMaps, th.Job.Name, schedulingTaskNum)
-	fullTorNum := th.globalTorEnv.GetFullTorNumFromTorInfo(th.Job.Name)
+	fullTorNum := th.globalTorEnv.SetTorFreeServerCountAndGetFullTor(th.Job.Name)
 	sort.Slice(th.globalTorEnv.Tors, func(i, j int) bool {
 		return th.globalTorEnv.Tors[i].FreeServerCount > th.globalTorEnv.Tors[j].FreeServerCount
 	})
 	netSliceNum := th.globalTorEnv.TorCount
 	if schedulingTaskNum < netSliceNum {
-		if err := th.SetFillJobServerList(th.globalTorEnv.Tors, schedulingTaskNum); err == nil ||
+		if err := th.setFillJobServerList(th.globalTorEnv.Tors, schedulingTaskNum); err == nil ||
 			isFillJob(th.Job.Label, th.Job.NPUTaskNum) {
 			return err
 		}
@@ -113,8 +146,8 @@ func (th *TorHandlerV1) setTorHandlerServerListV1(nodeMaps map[string]*api.NodeI
 		return fmt.Errorf("taskRow and taskColumn is illegal")
 	}
 	if taskRow+1 <= fullTorNum {
-		th.SetJobServerCacheTosHandler(th.globalTorEnv.Tors, taskRow, taskColumn)
-		th.MarkMulJobServerList()
+		th.setJobServerList(th.globalTorEnv.Tors, taskRow, taskColumn)
+		th.markMulJobServerList()
 		return nil
 	}
 	logicTor, fullTorNum := th.globalTorEnv.GetLogicTorsAndFullTorNum(th.Job.Name, taskColumn,
@@ -123,24 +156,24 @@ func (th *TorHandlerV1) setTorHandlerServerListV1(nodeMaps map[string]*api.NodeI
 		return fmt.Errorf("logicTor is illegal")
 	}
 	if taskRow < 1 && taskColumn != netSliceNum-1 {
-		err := th.SetFillJobServerList(logicTor, schedulingTaskNum)
-		th.MarkMulJobServerList()
+		err := th.setFillJobServerList(logicTor, schedulingTaskNum)
+		th.markMulJobServerList()
 		return err
 	}
 
-	th.SetJobServerCacheTosHandler(logicTor, taskRow, taskColumn)
-	th.MarkMulJobServerList()
+	th.setJobServerList(logicTor, taskRow, taskColumn)
+	th.markMulJobServerList()
 	return nil
 }
 
-// SetJobServerCacheTosHandler set job server list and update the job in sHandler
-func (th *TorHandlerV1) SetJobServerCacheTosHandler(tors []*plugin.Tor, taskRow, taskColumn int) {
+// setJobServerList set job server list and update the job in sHandler
+func (th *TorHandlerV1) setJobServerList(tors []*plugin.Tor, taskRow, taskColumn int) {
 	if th == nil || len(tors) == 0 {
-		klog.V(util.LogDebugLev).Infof("SetJobServerCacheTosHandler failed:%s", util.ArgumentError)
+		klog.V(util.LogDebugLev).Infof("setJobServerList failed:%s", util.ArgumentError)
 		return
 	}
 	if taskRow >= len(tors) {
-		klog.V(util.LogDebugLev).Infof("invalid taskRow: %d, pyTor length: %d", taskRow, len(tors))
+		klog.V(util.LogDebugLev).Infof("invalid taskRow: %d, tors length: %d", taskRow, len(tors))
 		return
 	}
 	tmpTors := copyTorList(tors[:taskRow])
@@ -150,8 +183,8 @@ func (th *TorHandlerV1) SetJobServerCacheTosHandler(tors []*plugin.Tor, taskRow,
 	th.ServerList = tmpTors
 }
 
-// MarkMulJobServerList mark the job if the server job used is over 1 tor
-func (th *TorHandlerV1) MarkMulJobServerList() {
+// markMulJobServerList mark the job if the server job used is over 1 tor
+func (th *TorHandlerV1) markMulJobServerList() {
 	if th.ServerList == nil {
 		return
 	}
@@ -165,10 +198,10 @@ func (th *TorHandlerV1) MarkMulJobServerList() {
 	}
 }
 
-// SetNormalJobServerList set the server list of normal job in nslb 1.0
-func (th *TorHandlerV1) SetNormalJobServerList(schedulingTaskNum int) {
+// setNormalJobServerList set the server list of normal job in nslb 1.0
+func (th *TorHandlerV1) setNormalJobServerList(schedulingTaskNum int) {
 	if th == nil {
-		klog.V(util.LogDebugLev).Infof("SetNormalJobServerList failed:%s", util.ArgumentError)
+		klog.V(util.LogDebugLev).Infof("setNormalJobServerList failed:%s", util.ArgumentError)
 		return
 	}
 	th.ServerList = []*plugin.Tor{}
@@ -185,7 +218,7 @@ func (th *TorHandlerV1) SetNormalJobServerList(schedulingTaskNum int) {
 			}
 			th.ServerList = append(th.ServerList, tmpTor)
 			if len(th.ServerList) > 1 {
-				th.MarkMulJobServerList()
+				th.markMulJobServerList()
 			}
 			return
 		}
@@ -194,21 +227,11 @@ func (th *TorHandlerV1) SetNormalJobServerList(schedulingTaskNum int) {
 	*th.Job.JobReadyTag = false
 }
 
-// CheckTorJobSinglePodDeleteV1 valid node.
-func (th *TorHandlerV1) CheckTorJobSinglePodDeleteV1(taskInfo *api.TaskInfo, vcNode plugin.NPUNode) error {
+// checkTorJobSinglePodDelete valid node.
+func (th *TorHandlerV1) checkTorJobSinglePodDelete(vcNode plugin.NPUNode) error {
 	if isFillJob(th.Job.Label, th.Job.NPUTaskNum) {
 		return fmt.Errorf("check node err by: large model job can not over tor")
 	}
-	nodeName, ok := th.Job.Annotation[taskInfo.Name]
-	if !ok {
-		klog.V(util.LogWarningLev).Infof("Cannot get task used fault node name")
-		return nil
-	}
-	faultServer, isTorNode := th.globalTorEnv.GetServerMaps()[nodeName]
-	if !isTorNode {
-		return fmt.Errorf("cannot get task used fault node name")
-	}
-
 	server, isTorNode := th.globalTorEnv.GetServerMaps()[vcNode.Name]
 	if !isTorNode {
 		return fmt.Errorf("node is not in tor node list by not get server")
@@ -224,7 +247,7 @@ func (th *TorHandlerV1) CheckTorJobSinglePodDeleteV1(taskInfo *api.TaskInfo, vcN
 		return fmt.Errorf("node is not in tor node list by not get tor")
 	}
 
-	if faultServer.SliceId != server.SliceId || tor.HasAcrossJob(false, th.Job.Name) {
+	if th.enableSliceId != server.SliceId || tor.HasAcrossJob(false, th.Job.Name) {
 		return fmt.Errorf("node sliceId is not meet task require")
 	}
 	return nil
@@ -240,4 +263,15 @@ func getTaskRowAndTaskColumn(nTaskNum int, netSliceNum int) (int, int) {
 	}
 	taskColumn := (nTaskNum%netSliceNum + netSliceNum - 1) % netSliceNum
 	return taskRow, taskColumn
+}
+
+func getMinIndex(t []int) int {
+	var minVal int
+	var minValIndex int
+	for i, v := range t {
+		if minVal < v {
+			minValIndex = i
+		}
+	}
+	return minValIndex
 }
