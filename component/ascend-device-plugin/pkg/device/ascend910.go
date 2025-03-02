@@ -145,7 +145,11 @@ func (hnm *HwAscend910Manager) GraceTolerance(classifyDevs map[string][]*common.
 		}
 	}
 	// handling hot reset without task
-	go hnm.hotResetHandler(classifyDevs)
+	go func() {
+		if err := hnm.hotResetHandler(classifyDevs); err != nil {
+			hwlog.RunLog.Errorf("hot reset err: %v", err)
+		}
+	}()
 	// filter the faulty device in the reset state in the device info cm to avoid rescheduling
 	if err := hnm.filterDevStatus(classifyDevs); err != nil {
 		hwlog.RunLog.Errorf("failed to filter device status,err: %v", err)
@@ -157,12 +161,11 @@ func (hnm *HwAscend910Manager) GraceTolerance(classifyDevs map[string][]*common.
 }
 
 // hotResetHandler handling hot reset
-func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common.NpuDevice) {
+func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common.NpuDevice) error {
 	var err error
 	deviceList, ok := classifyDevs[common.Ascend910]
 	if !ok {
-		hwlog.RunLog.Errorf("device list not found, %v", common.Ascend910)
-		return
+		return fmt.Errorf("device list not found, %v", common.Ascend910)
 	}
 	resetDevs := make([]*common.NpuDevice, 0)
 	isHotResetOn = true
@@ -193,8 +196,7 @@ func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common
 	}
 	hnm.hotResetTryOutBand(resetDevs)
 	isHotResetOn = false
-	hwlog.RunLog.Errorf("hot reset error: %v", err)
-	return
+	return err
 }
 
 func (hnm *HwAscend910Manager) hotResetTryOutBand(devs []*common.NpuDevice) {

@@ -204,6 +204,10 @@ func TestHotResetHandler(t *testing.T) {
 				return
 			}).ApplyMethodReturn(&HotResetTools{}, "GetResetDevNumOnce", common.Ascend910RingsNum, nil)
 		defer mockHandleResetProcess.Reset()
+		mockHandleResetProcess.ApplyPrivateMethod(manager, "hotResetTryOutBand",
+			func(_ *HwAscend910Manager, devs []*common.NpuDevice) {
+				return
+			})
 		// have L4 error, device busy, reset should be down
 		// device busy
 		mockPodList := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetAllPodList",
@@ -1069,6 +1073,10 @@ func TestUpdateResetInfo(t *testing.T) {
 			ri = resetInfo
 			return
 		})
+		patch.ApplyPrivateMethod(manager, "fillResetDevs",
+			func(_ *HwAscend910Manager, devs []ResetDevice) ([]ResetDevice, error) {
+				return devs, nil
+			})
 		defer patch.Reset()
 		convey.Convey("01-A3 device, should append to third party", func() {
 			common.ParamOption.RealCardType = common.Ascend910A3
