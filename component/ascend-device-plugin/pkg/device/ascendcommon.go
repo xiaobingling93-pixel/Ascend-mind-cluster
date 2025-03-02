@@ -303,6 +303,12 @@ func (tool *AscendTools) delVirDevInfo(newDeviceList map[string]string) {
 func (tool *AscendTools) assembleNpuDeviceStruct(deviType, deviceName string,
 	davinCiDev common.DavinCiDev) common.NpuDevice {
 	hwlog.RunLog.Debugf("Found Huawei Ascend, deviceType: %s, deviceName: %s", deviType, deviceName)
+	cardID, deviceID, err := tool.GetDmgr().GetCardIDDeviceID(davinCiDev.LogicID)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to get cardID and deviceID by logicID %v, err: %v",
+			davinCiDev.LogicID, err)
+		return common.NpuDevice{}
+	}
 	return common.NpuDevice{
 		DevType:       deviType,
 		DeviceName:    deviceName,
@@ -310,8 +316,9 @@ func (tool *AscendTools) assembleNpuDeviceStruct(deviType, deviceName string,
 		NetworkHealth: v1beta1.Healthy,
 		LogicID:       davinCiDev.LogicID,
 		PhyID:         davinCiDev.PhyID,
-		CardID:        davinCiDev.CardID,
+		CardID:        cardID,
 		IP:            davinCiDev.IP,
+		DeviceID:      deviceID,
 	}
 }
 

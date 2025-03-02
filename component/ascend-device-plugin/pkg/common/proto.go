@@ -108,6 +108,7 @@ type NpuDevice struct {
 	LogicID                int32
 	PhyID                  int32
 	CardID                 int32
+	DeviceID               int32
 	SuperDeviceID          uint32
 	Status                 string
 	PodUsedChips           sets.String
