@@ -40,10 +40,9 @@ const (
 	failedToUpdateCmPattern      = "failed to update reset cm to recover failed status, err: %v"
 	beforeRescanDelay            = 3 // seconds sleep before rescan devices
 	afterRescanDelay             = 2 // seconds sleep after rescan devices
-	deviceNumOfA3                = 2
-	deviceA3Id0                  = 0
-	deviceA3Id1                  = 1
-	ringNumOfA3                  = 2
+	deviceA3Id0                  = 0 // die id 0 of A3 card
+	deviceA3Id1                  = 1 // dir id 1 of A3 card
+	ringNumOfA3                  = 2 // device number in a ring
 )
 
 var (

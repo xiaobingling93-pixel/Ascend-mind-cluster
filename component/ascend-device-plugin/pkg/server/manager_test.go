@@ -599,3 +599,32 @@ func TestSetContainerdClient(t *testing.T) {
 		})
 	})
 }
+
+// TestRegisterFailDev test the function registerFailDev
+func TestRegisterFailDev(t *testing.T) {
+	resetFailDevs = make([]device.ResetDevice, 0)
+	const id1 = 1
+	dev := common.NpuDevice{
+		CardID: id1,
+	}
+	hdm := HwDevManager{}
+	hdm.registerFailDev(dev)
+	if resetFailDevs[0].CardId != id1 {
+		t.Errorf("expect %v, got %v", id1, resetFailDevs[0].CardId)
+	}
+}
+
+// TestUpdateHotRestInfo test the function updateHotRestInfo
+func TestUpdateHotRestInfo(t *testing.T) {
+	flag := false
+	patch := gomonkey.ApplyFunc(device.WriteResetInfo,
+		func(resetInfo device.ResetInfo, writeMode device.WriteMode) {
+			flag = true
+		})
+	defer patch.Reset()
+	hdm := HwDevManager{}
+	hdm.updateHotRestInfo()
+	if flag != true {
+		t.Errorf("flag should be true, got false")
+	}
+}
