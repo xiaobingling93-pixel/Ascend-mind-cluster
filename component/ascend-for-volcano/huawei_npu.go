@@ -241,7 +241,6 @@ func HandlerStart() *plugin.ScheduleHandler {
 		FaultHandle: rescheduling.NewHandler(),
 		ScheduleEnv: plugin.ScheduleEnv{
 			FrameAttr:               plugin.NewVolcanoFrame(),
-			ClusterInfoWitchCm:      plugin.NewClusterInfoWitchCm(),
 			JobScheduleInfoRecorder: plugin.NewJobScheduleInfoRecorder(),
 			ClusterCache:            plugin.NewClusterCache(),
 		},

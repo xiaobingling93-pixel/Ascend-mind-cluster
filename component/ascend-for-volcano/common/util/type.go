@@ -230,6 +230,8 @@ const (
 
 	// CmConsumer who uses these configmap
 	CmConsumer = "mx-consumer-volcano"
+	// NormalCmConsumer normal who uses these configmap
+	NormalCmConsumer = "mx-consumer-cim"
 	// CmConsumerValue the value only for true
 	CmConsumerValue = "true"
 	// ClusterDeviceInfo the name of cluster device info configmap

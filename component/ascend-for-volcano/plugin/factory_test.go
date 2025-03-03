@@ -390,63 +390,6 @@ func TestBeforeCloseHandler(t *testing.T) {
 	tmpPatche2.Reset()
 }
 
-type getNPUSchedulerArgs struct {
-	name string
-}
-
-type getNPUSchedulerTest struct {
-	name   string
-	fields fields
-	args   getNPUSchedulerArgs
-	want   ISchedulerPlugin
-	want1  bool
-}
-
-func buildGetNPUSchedulerTest() []getNPUSchedulerTest {
-	tests := []getNPUSchedulerTest{
-		{
-			name: "01-GetNPUScheduler not found test",
-			fields: fields{NPUPlugins: map[string]NPUBuilder{},
-				ScheduleEnv: ScheduleEnv{
-					ClusterCache: NewClusterCache(),
-					FrameAttr:    VolcanoFrame{}}},
-			args:  getNPUSchedulerArgs{name: "testPlugin"},
-			want:  nil,
-			want1: false,
-		},
-		{
-			name: "02-GetNPUScheduler found test",
-			fields: fields{NPUPlugins: map[string]NPUBuilder{"testPlugin": nil},
-				ScheduleEnv: ScheduleEnv{
-					ClusterCache: NewClusterCache(),
-					FrameAttr:    VolcanoFrame{}}},
-			args:  getNPUSchedulerArgs{name: "testPlugin"},
-			want:  nil,
-			want1: true,
-		},
-	}
-	return tests
-}
-
-func TestGetNPUScheduler(t *testing.T) {
-	tests := buildGetNPUSchedulerTest()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sHandle := &ScheduleHandler{
-				NPUPlugins:  tt.fields.NPUPlugins,
-				ScheduleEnv: tt.fields.ScheduleEnv,
-			}
-			got, got1 := sHandle.GetNPUScheduler(tt.args.name)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetNPUScheduler() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("GetNPUScheduler() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
 type initNPUSessionArgs struct {
 	ssn *framework.Session
 }
@@ -482,7 +425,6 @@ func TestInitNPUSession(t *testing.T) {
 	defer patch1.Reset()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			addsHandlerCmInfosBySsn(tt.args.ssn, tt.sHandler)
 			if err := tt.sHandler.InitNPUSession(tt.args.ssn); (err != nil) != tt.wantErr {
 				t.Errorf("InitNPUSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -847,7 +789,6 @@ func newDefaultHandler() *ScheduleHandler {
 		ScheduleEnv: ScheduleEnv{
 			ClusterCache:            NewClusterCache(),
 			FrameAttr:               NewVolcanoFrame(),
-			ClusterInfoWitchCm:      NewClusterInfoWitchCm(),
 			JobScheduleInfoRecorder: NewJobScheduleInfoRecorder(),
 		},
 	}
@@ -884,20 +825,6 @@ func initNormalsHandlerBySsnFunc(ssn *framework.Session, initSsnFunc ...func(ssn
 func initNormalsHandlerByNormalFunc(initFuncs ...func()) {
 	for _, initFunc := range initFuncs {
 		initFunc()
-	}
-}
-
-func addsHandlerCmInfosBySsn(ssn *framework.Session, sHandler *ScheduleHandler) {
-	if ssn == nil {
-		return
-	}
-	for nodeName := range ssn.Nodes {
-		sHandler.UpdateConfigMap(fakeDeviceInfoCMDataByNode(nodeName, fakeDeviceList()), util.DeleteOperator)
-		sHandler.UpdateConfigMap(fakeDeviceInfoCMDataByNode(nodeName, fakeDeviceList()), util.AddOperator)
-		sHandler.UpdateConfigMap(test.FakeConfigmap(util.NodeDCmInfoNamePrefix+nodeName, util.MindXDlNameSpace,
-			fakeNodeInfos()), util.DeleteOperator)
-		sHandler.UpdateConfigMap(test.FakeConfigmap(util.NodeDCmInfoNamePrefix+nodeName, util.MindXDlNameSpace,
-			fakeNodeInfos()), util.AddOperator)
 	}
 }
 

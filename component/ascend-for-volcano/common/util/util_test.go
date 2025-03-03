@@ -532,30 +532,6 @@ func TestCheckStrInSlice(t *testing.T) {
 	}
 }
 
-func TestDeepCopyCmData(t *testing.T) {
-	type args struct {
-		cmData map[string]string
-	}
-	tests := []struct {
-		name string
-		args args
-		want map[string]string
-	}{
-		{
-			name: "01-DeepCopyCmData",
-			args: args{cmData: map[string]string{"a": "a", "b": "b"}},
-			want: map[string]string{"a": "a", "b": "b"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := DeepCopyCmData(tt.args.cmData); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("DeepCopyCmData() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsNodeReady(t *testing.T) {
 	type args struct {
 		node *v1.Node

@@ -154,6 +154,7 @@ type StaticParameters struct {
 
 // DynamicParameters volcano scheduler dynamic parameters
 type DynamicParameters struct {
+	needRestartInformer bool
 	PresetVirtualDevice bool
 	GraceDeleteTime     int64
 	SuperPodSize        int
@@ -170,7 +171,6 @@ type ScheduleCache struct {
 // ScheduleEnv for job scheduler context.
 type ScheduleEnv struct {
 	JobScheduleInfoRecorder
-	ClusterInfoWitchCm
 	ClusterCache
 	FrameAttr   VolcanoFrame
 	OutputCache ScheduleCache
@@ -183,13 +183,6 @@ type ClusterCache struct {
 	Nodes        map[string]NPUNode
 	Tors         *TorList
 	SuperPodInfo *SuperPodInfo
-}
-
-// ClusterInfoWitchCm cluster info whit different configmap
-type ClusterInfoWitchCm struct {
-	DeviceInfos       *DeviceInfosWithMutex
-	NodeInfosFromCm   *NodeInfosFromCmWithMutex   // NodeInfos is get from kube-system/node-info- configmap
-	SwitchInfosFromCm *SwitchInfosFromCmWithMutex // SwitchInfosFromCm is get from mindx-dl/device-info- configmap
 }
 
 // JobScheduleInfoRecorder some info need recorded in job scheduling
@@ -212,24 +205,6 @@ type SuperPodInfo struct {
 	SuperPodReschdInfo        map[api.JobID]map[string][]SuperNode // cache super pod re-schd info
 	SuperPodFaultTaskNodes    map[api.JobID][]string               // cache fault task nodes info
 	SuperPodMapFaultTaskNodes map[api.JobID]map[string]string      // cache task and nodes for stage2
-}
-
-// DeviceInfosWithMutex information for the current plugin
-type DeviceInfosWithMutex struct {
-	sync.Mutex
-	Devices map[string]NodeDeviceInfoWithID
-}
-
-// NodeInfosFromCmWithMutex node info with mutex
-type NodeInfosFromCmWithMutex struct {
-	sync.Mutex
-	Nodes map[string]NodeDNodeInfo
-}
-
-// SwitchInfosFromCmWithMutex SwitchInfos From Cm WithMutex
-type SwitchInfosFromCmWithMutex struct {
-	sync.Mutex
-	Switches map[string]SwitchFaultInfo
 }
 
 // ScheduleHandler information for the current plugin
@@ -271,24 +246,6 @@ func NewJobScheduleInfoRecorder() JobScheduleInfoRecorder {
 		ResetCMSetFlag:       make(map[api.JobID]struct{}),
 		PendingMessage:       make(map[api.JobID]PendingReason),
 		ServerListRecordFlag: make(map[api.JobID]struct{}),
-	}
-}
-
-// NewClusterInfoWitchCm new empty cluster info with cm
-func NewClusterInfoWitchCm() ClusterInfoWitchCm {
-	return ClusterInfoWitchCm{
-		DeviceInfos: &DeviceInfosWithMutex{
-			Mutex:   sync.Mutex{},
-			Devices: map[string]NodeDeviceInfoWithID{},
-		},
-		NodeInfosFromCm: &NodeInfosFromCmWithMutex{
-			Mutex: sync.Mutex{},
-			Nodes: map[string]NodeDNodeInfo{},
-		},
-		SwitchInfosFromCm: &SwitchInfosFromCmWithMutex{
-			Mutex:    sync.Mutex{},
-			Switches: map[string]SwitchFaultInfo{},
-		},
 	}
 }
 
