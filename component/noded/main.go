@@ -55,11 +55,12 @@ var (
 		LogFileName:   defaultLogFile,
 		MaxLineLength: maxLineLength,
 	}
-	controller     = &control.NodeController{}
-	configManager  = &config.FaultConfigurator{}
-	monitorManager = &monitoring.MonitorManager{}
-	reportManager  = &reporter.ReportManager{}
-	version        bool
+	controller      = &control.NodeController{}
+	configManager   = &config.FaultConfigurator{}
+	monitorManager  = &monitoring.MonitorManager{}
+	reportManager   = &reporter.ReportManager{}
+	pingmeshManager *pingmesh.Manager
+	version         bool
 	// BuildVersion build version
 	BuildVersion string
 	// BuildName build name
@@ -100,6 +101,9 @@ func main() {
 	}
 	go configManager.Run(ctx)
 	go monitorManager.Run(ctx)
+	if pingmeshManager != nil {
+		go pingmeshManager.Run(ctx)
+	}
 	signalCatch(cancel)
 }
 
@@ -159,6 +163,10 @@ func createWorkers() error {
 	controller = control.NewNodeController(clientK8s)
 	monitorManager = monitoring.NewMonitorManager(clientK8s)
 	reportManager = reporter.NewReporterManager(clientK8s)
+	pingmeshManager = pingmesh.NewManager(&pingmesh.Config{
+		ResultMaxAge: resultMaxAge,
+		KubeClient:   clientK8s,
+	})
 
 	// build the connections between workers
 	monitorManager.SetNextFaultProcessor(controller)
