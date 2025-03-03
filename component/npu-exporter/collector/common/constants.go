@@ -68,7 +68,7 @@ const (
 	// BitSize is the bit size of float64
 	BitSize = 64
 	// GeneralDevTagKey is the default value of devTagKey in telegraf, it means the metric is not related to any device
-	GeneralDevTagKey = 0xFFFF
+	GeneralDevTagKey = "GeneralDevTagKey"
 )
 
 // log limit domains for metrics
