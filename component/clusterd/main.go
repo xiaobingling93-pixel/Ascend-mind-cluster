@@ -53,12 +53,15 @@ func limitQPS(ctx context.Context, req interface{},
 }
 
 func startInformer(ctx context.Context) {
+	// Starting informer requires after adding processing functions
+	addResourceFunc()
+	addJobFunc()
 	kube.InitCMInformer()
 	kube.InitPubFaultCMInformer()
 	kube.InitPodAndNodeInformer()
 	kube.InitPodGroupInformer()
-	addResourceFunc()
-	addJobFunc(ctx)
+	go jobv2.Handler(ctx)
+	go jobv2.Checker(ctx)
 	go resource.Report(ctx)
 	dealPubFault(ctx)
 }
@@ -68,9 +71,7 @@ func dealPubFault(ctx context.Context) {
 	go publicfault.PubFaultNeedDelete.DealDelete(ctx)
 }
 
-func addJobFunc(ctx context.Context) {
-	go jobv2.Handler(ctx)
-	go jobv2.Checker(ctx)
+func addJobFunc() {
 	kube.AddPodGroupFunc(constant.Job, jobv2.PodGroupCollector)
 	kube.AddPodFunc(constant.Job, jobv2.PodCollector)
 }
