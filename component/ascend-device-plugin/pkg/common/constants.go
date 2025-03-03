@@ -710,7 +710,7 @@ const (
 	// MinFaultTimeout is the min time(s) for the fault duration time of fault duration
 	MinFaultTimeout = 0
 	// MaxRecoverTimeout is the max time(s) for the fault recover duration time of fault duration
-	MaxRecoverTimeout = 600
+	MaxRecoverTimeout = 86400
 	// MinRecoverTimeout is the min time(s) for the fault recover duration time of fault duration
 	MinRecoverTimeout = 0
 	// DefaultSubscribeToPollingTime is the default time from subscribe to polling
