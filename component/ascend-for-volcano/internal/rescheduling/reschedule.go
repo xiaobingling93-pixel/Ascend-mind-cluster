@@ -422,7 +422,7 @@ func (reScheduler *ReScheduler) AddFaultNodeWithSession() {
 		klog.V(util.LogDebugLev).Infof("Adding node %s to reScheduler cache", name)
 		chipKind, nameErr := npuNode.GetChipKindFromNpuNode()
 		if nameErr != nil {
-			klog.V(util.LogWarningLev).Infof("get chip name err by err:%s", nameErr)
+			klog.V(util.LogDebugLev).Infof("get chip name err by err:%s", nameErr)
 			continue
 		}
 		npuName := util.HwPreName + chipKind

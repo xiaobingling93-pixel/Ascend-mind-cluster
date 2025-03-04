@@ -192,7 +192,7 @@ func getNpuNum(ssn *framework.Session, tp *huaweiNPUPlugin, npuName string) int 
 		}
 		deviceInfo, ok := vcNode.Annotation[npuName]
 		if !ok || len(deviceInfo) == 0 {
-			klog.V(util.LogErrorLev).Infof("AddJobEnqueueableFn add node failed,"+
+			klog.V(util.LogDebugLev).Infof("AddJobEnqueueableFn add node failed,"+
 				"%s deviceList is empty", node.Name)
 			continue
 		}

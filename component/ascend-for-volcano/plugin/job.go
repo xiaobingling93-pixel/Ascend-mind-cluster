@@ -333,6 +333,8 @@ func (sJob *SchedulerJob) updateResetConfigMap(sHandle *ScheduleHandler) {
 	if _, found := sHandle.ResetCMSetFlag[sJob.Name]; found {
 		return
 	}
+	klog.V(util.LogWarningLev).Infof("job <%v> scheduling as pod scheduling is %v", sJob.Name,
+		sHandle.PodScheduleFlag[sJob.Name])
 	if k, ok := sJob.Label[util.ProcessRecoverEnable]; ok && k == util.EnableFunc {
 		return
 	}

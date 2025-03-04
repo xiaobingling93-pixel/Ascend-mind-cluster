@@ -59,7 +59,7 @@ func InitCmInformer(k8sClient kubernetes.Interface, useClusterD bool) {
 		return
 	}
 	if time.Now().Unix()-lastInformerRestartTime < minRestartInterval && informerStartTimes != util.NPUIndex1 {
-		klog.V(util.LogWarningLev).Infof("time after last informer restart is <%v> less than 10 min",
+		klog.V(util.LogDebugLev).Infof("time after last informer restart is <%v> less than 10 min",
 			time.Now().Unix()-lastInformerRestartTime)
 		return
 	}
