@@ -188,9 +188,9 @@ func mergeFailDevs(curDevs, newDevs []ResetDevice, writeMode WriteMode) []ResetD
 	}
 }
 
-func mergeAndDeduplicate(curArr, NewArr []ResetDevice) []ResetDevice {
+func mergeAndDeduplicate(curArr, newArr []ResetDevice) []ResetDevice {
 	seen := make(map[int32]struct{})
-	result := make([]ResetDevice, 0)
+	result := make([]ResetDevice, 0, len(curArr)+len(newArr))
 
 	for _, v := range curArr {
 		if _, exists := seen[v.PhyID]; !exists {
@@ -199,7 +199,7 @@ func mergeAndDeduplicate(curArr, NewArr []ResetDevice) []ResetDevice {
 		}
 	}
 
-	for _, v := range NewArr {
+	for _, v := range newArr {
 		if _, exists := seen[v.PhyID]; !exists {
 			seen[v.PhyID] = struct{}{}
 			result = append(result, v)
@@ -211,7 +211,7 @@ func mergeAndDeduplicate(curArr, NewArr []ResetDevice) []ResetDevice {
 
 func deleteFrom(curArr, delArr []ResetDevice) []ResetDevice {
 	ret := make([]ResetDevice, 0, len(curArr))
-	toDelMap := make(map[int32]struct{})
+	toDelMap := make(map[int32]struct{}, len(delArr))
 	for _, dev := range delArr {
 		if _, exist := toDelMap[dev.PhyID]; !exist {
 			toDelMap[dev.PhyID] = struct{}{}

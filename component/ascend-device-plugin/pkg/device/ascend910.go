@@ -1492,6 +1492,9 @@ func (hnm *HwAscend910Manager) getAllLogicMapForA3(devFaultInfoList []*common.Ta
 			return nil, err
 		}
 		logicIDs, err := hnm.getAssociatedLogicIDs(devFault.LogicId, cardID, deviceID)
+		if err != nil {
+			return nil, err
+		}
 		idArr = append(idArr, logicIDs...)
 	}
 	for _, id := range idArr {
@@ -1674,7 +1677,7 @@ func (hnm *HwAscend910Manager) getNeedResetDevMapForA3(devFaultInfoList []*commo
 	if common.ParamOption.RealCardType != common.Ascend910A3 {
 		return nil, fmt.Errorf("not A3 device")
 	}
-	needResetDevMap := make(map[int32]int32)
+	needResetDevMap := make(map[int32]int32, len(devFaultInfoList))
 	for _, devFaultInfo := range devFaultInfoList {
 		policyType, ok := processPolicyTable[devFaultInfo.Policy]
 		if !ok {
@@ -1830,31 +1833,25 @@ func (hnm *HwAscend910Manager) execOutBandReset(devs, sucDevs []ResetDevice) err
 func (hnm *HwAscend910Manager) scanDeviceForThirdParty(failDevs []ResetDevice) {
 	delay := time.Duration(common.ParamOption.ThirdPartyScanDelay) * time.Second
 	time.AfterFunc(delay, func() {
-		for _, dev := range failDevs {
-			go hnm.scanOneDev(dev)
-		}
+		hnm.execRescan(failDevs)
 	})
 }
 
-func (hnm *HwAscend910Manager) scanOneDev(dev ResetDevice) {
-	waitErr := wait.PollImmediate(time.Duration(common.ParamOption.ScanInterval)*time.Second,
-		time.Duration(common.ParamOption.ScanDuration)*time.Second, func() (bool, error) {
-			if err := hnm.GetDmgr().RescanSoc(dev.CardId, dev.DeviceId); err != nil {
-				return false, err
-			}
-			return true, nil
-		})
-	if waitErr != nil {
-		hwlog.RunLog.Errorf("fail to rescan soc for third party, err: %v", waitErr)
+func (hnm *HwAscend910Manager) execRescan(failDevs []ResetDevice) {
+	for _, dev := range failDevs {
+		if err := hnm.GetDmgr().RescanSoc(dev.CardId, dev.DeviceId); err != nil {
+			hwlog.RunLog.Errorf("fail to rescan cardID %v deviceID %v, error: %v",
+				dev.CardId, dev.DeviceId, err)
+			WriteResetInfo(ResetInfo{
+				ManualResetDevs: []ResetDevice{dev},
+			}, WMAppend)
+			continue
+		}
+		FreeBusyDev(dev.CardId, dev.DeviceId)
 		WriteResetInfo(ResetInfo{
-			ManualResetDevs: []ResetDevice{dev},
-		}, WMAppend)
-		return
+			ThirdPartyResetDevs: []ResetDevice{dev},
+		}, WMDelete)
 	}
-	FreeBusyDev(dev.CardId, dev.DeviceId)
-	WriteResetInfo(ResetInfo{
-		ThirdPartyResetDevs: []ResetDevice{dev},
-	}, WMDelete)
 }
 
 // fillResetDevs complement phyID and associatedCardID

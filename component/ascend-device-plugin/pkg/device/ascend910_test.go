@@ -924,6 +924,10 @@ func TestHwAscend910ManagerGetNeedResetDeviceLogicIdMap(t *testing.T) {
 		},
 	}
 	mockGetNeedResetDevMapPatch := mockGetNeedResetDevMap()
+	mockGetNeedResetDevMapPatch.ApplyPrivateMethod(&HwAscend910Manager{}, "getAllLogicMapForA3",
+		func(devFaultInfoList []*common.TaskDevInfo) (map[int32]int32, error) {
+			return nil, testErr
+		})
 	defer mockGetNeedResetDevMapPatch.Reset()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -938,6 +942,79 @@ func TestHwAscend910ManagerGetNeedResetDeviceLogicIdMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetAllLogicMapForA3 test the function getAllLogicMapForA3
+func TestGetAllLogicMapForA3(t *testing.T) {
+	convey.Convey("test getAllLogicMapForA3", t, func() {
+		manager := createFake910Manager()
+		devs := []*common.TaskDevInfo{
+			{DevFaultInfo: common.DevFaultInfo{LogicId: int32(id1)}},
+		}
+		convey.Convey("01-not A3, should return error", func() {
+			common.ParamOption.RealCardType = common.Ascend910B
+			_, err := manager.getAllLogicMapForA3(devs)
+			convey.So(err, convey.ShouldBeError)
+		})
+		common.ParamOption.RealCardType = common.Ascend910A3
+		convey.Convey("02-get cardId failed, should return error", func() {
+			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetCardIDDeviceID",
+				int32(id1), int32(id1), testErr)
+			defer patch1.Reset()
+			_, err := manager.getAllLogicMapForA3(devs)
+			convey.So(err, convey.ShouldBeError)
+		})
+		patch := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetCardIDDeviceID",
+			int32(id1), int32(id1), nil)
+		defer patch.Reset()
+		convey.Convey("03-get associated card failed, should return error", func() {
+			patch1 := gomonkey.ApplyPrivateMethod(manager, "getAssociatedLogicIDs",
+				func(logicID, cardID, deviceID int32) ([]int32, error) {
+					return nil, testErr
+				})
+			defer patch1.Reset()
+			_, err := manager.getAllLogicMapForA3(devs)
+			convey.So(err, convey.ShouldBeError)
+		})
+		patch.ApplyPrivateMethod(manager, "getAssociatedLogicIDs",
+			func(logicID, cardID, deviceID int32) ([]int32, error) {
+				return []int32{int32(id1)}, testErr
+			})
+		convey.Convey("04-success, should return nil", func() {
+			_, err := manager.getAllLogicMapForA3(devs)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestExecRescan test the function execRescan
+func TestExecRescan(t *testing.T) {
+	manager := createFake910Manager()
+	devs := []ResetDevice{
+		{CardId: int32(id1), DeviceId: int32(id2)},
+	}
+	patch := gomonkey.ApplyFunc(WriteResetInfo, func(resetInfo ResetInfo, writeMode WriteMode) {
+		return
+	})
+	flag := false
+	patch.ApplyFunc(FreeBusyDev, func(cardID, deviceID int32) {
+		flag = true
+	})
+	defer patch.Reset()
+	convey.Convey("test execRescan", t, func() {
+		convey.Convey("01-rescan error, flag should be false", func() {
+			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "RescanSoc", testErr)
+			defer patch1.Reset()
+			manager.execRescan(devs)
+			convey.So(flag, convey.ShouldBeFalse)
+		})
+		convey.Convey("02-rescan success, flag should be true", func() {
+			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "RescanSoc", testErr)
+			defer patch1.Reset()
+			manager.execRescan(devs)
+			convey.So(flag, convey.ShouldBeTrue)
+		})
+	})
 }
 
 type args struct {
@@ -1619,7 +1696,7 @@ func TestFillResetDevs(t *testing.T) {
 			_, err := manager.fillResetDevs(devs)
 			convey.So(err, convey.ShouldBeError)
 		})
-		convey.Convey("03-success, should return nil", func() {
+		convey.Convey("04-success, should return nil", func() {
 			patch1 := gomonkey.ApplyMethodReturn(manager, "GetNPUs",
 				common.NpuAllInfo{AllDevs: []common.NpuDevice{
 					{LogicID: id1},

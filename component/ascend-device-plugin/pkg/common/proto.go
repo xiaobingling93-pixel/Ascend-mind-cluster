@@ -161,8 +161,6 @@ type Option struct {
 	CheckCachedPods     bool     // check cached pods periodically
 	EnableSlowNode      bool     // switch of set slow node notice environment
 	ThirdPartyScanDelay int      // delay time (seconds) for scanning devices when third party resetting
-	ScanInterval        int      // scan interval(seconds) of scanning devices when third party resetting
-	ScanDuration        int      // scan duration(seconds) of scanning devices when third party resetting
 }
 
 // GetAllDeviceInfoTypeList Get All Device Info Type List
