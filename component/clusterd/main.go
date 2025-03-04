@@ -20,6 +20,7 @@ import (
 	"clusterd/pkg/application/resource"
 	"clusterd/pkg/application/statistics"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/logs"
 	"clusterd/pkg/common/util"
 	sv "clusterd/pkg/interface/grpc"
 	"clusterd/pkg/interface/grpc/service"
@@ -62,6 +63,7 @@ func startInformer(ctx context.Context) {
 	kube.InitPodGroupInformer()
 	go jobv2.Handler(ctx)
 	go jobv2.Checker(ctx)
+
 	go resource.Report(ctx)
 	dealPubFault(ctx)
 }
@@ -96,6 +98,10 @@ func main() {
 		fmt.Printf("hwlog init failed, error is %v\n", err)
 		return
 	}
+	if err := logs.InitJobEventLogger(ctx); err != nil {
+		hwlog.RunLog.Errorf("JobEventLog init failed, error is %v", err)
+		return
+	}
 	if !checkParameters() {
 		return
 	}
@@ -106,7 +112,13 @@ func main() {
 	initGrpcServer(ctx)
 	faultmanager.GlobalFaultProcessCenter.Work(ctx)
 	startInformer(ctx)
+	initStatisticModule(ctx)
 	signalCatch(cancel)
+}
+
+func initStatisticModule(ctx context.Context) {
+	go statistics.GlobalJobCollectMgr.JobCollector(ctx)
+	go statistics.GlobalJobOutputMgr.JobOutput(ctx)
 }
 
 func initGrpcServer(ctx context.Context) {
