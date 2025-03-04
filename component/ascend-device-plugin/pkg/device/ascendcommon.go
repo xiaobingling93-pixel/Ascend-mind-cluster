@@ -312,6 +312,7 @@ func (tool *AscendTools) assembleNpuDeviceStruct(deviType, deviceName string,
 		PhyID:         davinCiDev.PhyID,
 		CardID:        davinCiDev.CardID,
 		IP:            davinCiDev.IP,
+		DeviceID:      davinCiDev.DeviceID,
 	}
 }
 
@@ -600,7 +601,7 @@ func (tool *AscendTools) getDavinCiDev(logicID int32) (common.DavinCiDev, error)
 	if err != nil {
 		return common.DavinCiDev{}, err
 	}
-	cardID, _, err := tool.dmgr.GetCardIDDeviceID(logicID)
+	cardID, deviceID, err := tool.dmgr.GetCardIDDeviceID(logicID)
 	if err != nil {
 		return common.DavinCiDev{}, err
 	}
@@ -610,10 +611,11 @@ func (tool *AscendTools) getDavinCiDev(logicID int32) (common.DavinCiDev, error)
 		ip = ""
 	}
 	return common.DavinCiDev{
-		LogicID: logicID,
-		PhyID:   phyID,
-		CardID:  cardID,
-		IP:      ip,
+		LogicID:  logicID,
+		PhyID:    phyID,
+		CardID:   cardID,
+		IP:       ip,
+		DeviceID: deviceID,
 	}, nil
 }
 

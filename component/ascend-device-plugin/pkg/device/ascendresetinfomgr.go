@@ -52,6 +52,8 @@ type ResetDevice struct {
 	AssociatedCardId int32
 	// PhyId npu physic id
 	PhyID int32
+	// LogicID npu logic id
+	LogicID int32
 }
 
 // WriteMode the mode determines how the content is written
@@ -170,15 +172,16 @@ func writeNodeAnnotation(resetStr string) {
 	}
 }
 
-func mergeFailDevs(curDevs []ResetDevice, newDevs []ResetDevice, writeMode WriteMode) []ResetDevice {
-	if writeMode == WMOverwrite {
+func mergeFailDevs(curDevs, newDevs []ResetDevice, writeMode WriteMode) []ResetDevice {
+	switch writeMode {
+	case WMOverwrite:
 		return newDevs
-	}
-	if writeMode == WMAppend {
+	case WMAppend:
 		return mergeAndDeduplicate(curDevs, newDevs)
+	default:
+		hwlog.RunLog.Errorf("write mode %v is invalid", writeMode)
+		return curDevs
 	}
-	hwlog.RunLog.Errorf("write mode %v is invalid", writeMode)
-	return curDevs
 }
 
 func mergeAndDeduplicate(arr1, arr2 []ResetDevice) []ResetDevice {
