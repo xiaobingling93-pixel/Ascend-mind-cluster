@@ -56,7 +56,7 @@ func (j *JobStcMgr) LoadConfigMapToCache(namespace, cmName string) {
 	cmData, err := kube.GetConfigMap(cmName, namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			hwlog.RunLog.Infof("job Statistic ConfigMap %s in namespace %s not found, skipping load in cache",
+			hwlog.RunLog.Infof("job Statistic ConfigMap %s in namespace %s not found, skip load in cache",
 				cmName, namespace)
 			return
 		}

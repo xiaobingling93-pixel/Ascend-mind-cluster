@@ -5,6 +5,7 @@ package publicfault
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,23 +15,24 @@ import (
 )
 
 // PubFaultCache public fault cache
-var PubFaultCache *pubFaultCache
+var PubFaultCache *PublicFaultCache
 
 func init() {
-	PubFaultCache = &pubFaultCache{
+	PubFaultCache = &PublicFaultCache{
 		faultCache: make(map[string]map[string]*constant.PubFaultCache),
 		mutex:      sync.Mutex{},
 	}
 }
 
-type pubFaultCache struct {
+// PublicFaultCache public fault cache
+type PublicFaultCache struct {
 	// key: node name; value: {faultResource+faultId:fault}
 	faultCache map[string]map[string]*constant.PubFaultCache
 	mutex      sync.Mutex
 }
 
-// AddPubFaultToCache add new public fault to cache
-func (pc *pubFaultCache) AddPubFaultToCache(newFault *constant.PubFaultCache, nodeName, faultKey string) {
+// AddPubFaultToCache add new public fault to cache. After adding, notify statistic module
+func (pc *PublicFaultCache) AddPubFaultToCache(newFault *constant.PubFaultCache, nodeName, faultKey string) {
 	newFault.FaultAddTime = time.Now().Unix()
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -43,22 +45,22 @@ func (pc *pubFaultCache) AddPubFaultToCache(newFault *constant.PubFaultCache, no
 	nodeFault[faultKey] = newFault
 }
 
-// DeleteOccurFault delete occur from cache
-func (pc *pubFaultCache) DeleteOccurFault(nodeName, faultKey string) {
+// DeleteOccurFault delete occur from cache. After deleting, notify statistic module
+func (pc *PublicFaultCache) DeleteOccurFault(nodeName, faultKey string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 	delete(pc.faultCache[nodeName], faultKey)
 }
 
 // GetPubFault get public fault from cache
-func (pc *pubFaultCache) GetPubFault() map[string]map[string]*constant.PubFaultCache {
+func (pc *PublicFaultCache) GetPubFault() map[string]map[string]*constant.PubFaultCache {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 	return pc.faultCache
 }
 
 // GetPubFaultByNodeName get public fault from cache by node name
-func (pc *pubFaultCache) GetPubFaultByNodeName(nodeName string) (map[string]*constant.PubFaultCache, bool) {
+func (pc *PublicFaultCache) GetPubFaultByNodeName(nodeName string) (map[string]*constant.PubFaultCache, bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 	nodeFault, nodeExisted := pc.faultCache[nodeName]
@@ -66,7 +68,7 @@ func (pc *pubFaultCache) GetPubFaultByNodeName(nodeName string) (map[string]*con
 }
 
 // DeepCopy deep copy fault cache
-func (pc *pubFaultCache) DeepCopy() (map[string]map[string]*constant.PubFaultCache, error) {
+func (pc *PublicFaultCache) DeepCopy() (map[string]map[string]*constant.PubFaultCache, error) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 	result := new(map[string]map[string]*constant.PubFaultCache)
@@ -78,7 +80,7 @@ func (pc *pubFaultCache) DeepCopy() (map[string]map[string]*constant.PubFaultCac
 }
 
 // FaultExisted if occur existed, means fault existed, return fault add time
-func (pc *pubFaultCache) FaultExisted(nodeName, faultKey string) (bool, int64) {
+func (pc *PublicFaultCache) FaultExisted(nodeName, faultKey string) (bool, int64) {
 	pc.mutex.Lock()
 	nodeFault, nodeExist := pc.faultCache[nodeName]
 	fault, faultExist := nodeFault[faultKey]
@@ -87,4 +89,55 @@ func (pc *pubFaultCache) FaultExisted(nodeName, faultKey string) (bool, int64) {
 		return false, 0
 	}
 	return true, fault.FaultAddTime
+}
+
+// GetPubFaultsForCM get public faults for configmap statistic-fault-info
+func (pc *PublicFaultCache) GetPubFaultsForCM() (map[string][]constant.NodeFault, int) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	pubFaults := make(map[string][]constant.NodeFault, len(pc.faultCache))
+	pubFaultsNum := 0
+	for nodeName, faultsCache := range pc.faultCache {
+		if len(faultsCache) == 0 {
+			continue
+		}
+		nodeFaults := make([]constant.NodeFault, 0, len(faultsCache))
+		for faultKey, fault := range faultsCache {
+			nodeFaults = append(nodeFaults, constant.NodeFault{
+				FaultResource: getResourceFromFaultKey(faultKey, fault.FaultId),
+				FaultDevIds:   fault.FaultDevIds,
+				FaultId:       fault.FaultId,
+				FaultType:     fault.FaultType,
+				FaultCode:     fault.FaultCode,
+				FaultLevel:    fault.FaultLevel,
+				FaultTime:     fault.FaultTime,
+			})
+		}
+		pubFaults[nodeName] = nodeFaults
+		pubFaultsNum += len(nodeFaults)
+	}
+	return pubFaults, pubFaultsNum
+}
+
+// LoadFaultToCache load public fault to cache
+func (pc *PublicFaultCache) LoadFaultToCache(faults map[string][]constant.NodeFault) {
+	for nodeName, nodeFaults := range faults {
+		for _, nodeFault := range nodeFaults {
+			faultKey := nodeFault.FaultResource + nodeFault.FaultId
+			faultCache := &constant.PubFaultCache{
+				FaultDevIds: nodeFault.FaultDevIds,
+				FaultId:     nodeFault.FaultId,
+				FaultType:   nodeFault.FaultType,
+				FaultCode:   nodeFault.FaultCode,
+				FaultLevel:  nodeFault.FaultLevel,
+				FaultTime:   nodeFault.FaultTime,
+				Assertion:   constant.AssertionOccur,
+			}
+			pc.AddPubFaultToCache(faultCache, nodeName, faultKey)
+		}
+	}
+}
+
+func getResourceFromFaultKey(faultKey, faultId string) string {
+	return strings.Replace(faultKey, faultId, "", -1)
 }

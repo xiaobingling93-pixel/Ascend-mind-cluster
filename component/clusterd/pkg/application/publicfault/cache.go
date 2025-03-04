@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"clusterd/pkg/application/statistics"
 	"clusterd/pkg/domain/publicfault"
 )
 
@@ -81,11 +82,13 @@ func (q *needDeleteQueue) DealDelete(ctx context.Context) {
 			deleteTime := needDeal.deleteTime
 			if deleteTime <= time.Now().Unix() {
 				publicfault.PubFaultCache.DeleteOccurFault(needDeal.nodeName, needDeal.faultKey)
+				statistics.StatisticFault.Notify()
 				continue
 			}
 			diffTime := (deleteTime - time.Now().Unix()) * int64(time.Second)
 			time.Sleep(time.Duration(diffTime))
 			publicfault.PubFaultCache.DeleteOccurFault(needDeal.nodeName, needDeal.faultKey)
+			statistics.StatisticFault.Notify()
 		}
 	}
 }

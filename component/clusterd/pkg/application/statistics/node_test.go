@@ -1,19 +1,15 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 // Package statistics test for statistic funcs about node
 package statistics
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/smartystreets/goconvey/convey"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/statistics"
 )
@@ -22,29 +18,6 @@ const (
 	nodeSN   = "nodeSN"
 	nodeName = "nodeName"
 )
-
-func TestMain(m *testing.M) {
-	if err := setup(); err != nil {
-		return
-	}
-	code := m.Run()
-	fmt.Printf("exit_xode = %v\n", code)
-}
-
-func setup() error {
-	return initLog()
-}
-
-func initLog() error {
-	logConfig := &hwlog.LogConfig{
-		OnlyToStdout: true,
-	}
-	if err := hwlog.InitRunLogger(logConfig, context.Background()); err != nil {
-		fmt.Printf("init hwlog failed, %v\n", err)
-		return errors.New("init hwlog failed")
-	}
-	return nil
-}
 
 func TestUpdateNodeSNAndNameCache(t *testing.T) {
 	node := &v1.Node{

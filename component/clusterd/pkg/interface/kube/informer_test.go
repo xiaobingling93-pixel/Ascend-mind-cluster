@@ -4,14 +4,11 @@
 package kube
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
-	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
@@ -19,19 +16,7 @@ import (
 var (
 	testTwoDeviceFunc = 2
 	testTwoNodeFunc   = 2
-	logLineLength     = 256
 )
-
-func init() {
-	config := hwlog.LogConfig{
-		OnlyToStdout:  true,
-		MaxLineLength: logLineLength,
-	}
-	err := hwlog.InitRunLogger(&config, context.TODO())
-	if err != nil {
-		fmt.Println(err)
-	}
-}
 
 func TestStopInformer(t *testing.T) {
 	convey.Convey("TestStopInformer", t, func() {

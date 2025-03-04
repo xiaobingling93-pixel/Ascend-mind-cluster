@@ -141,3 +141,8 @@ const (
 	JobInfoPreDelete = "JobPreDelete"
 	JobInfoDelete    = "JobDelete"
 )
+
+const (
+	// MaxFaultNum max detailed fault number form statistic
+	MaxFaultNum = 4500
+)

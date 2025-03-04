@@ -124,6 +124,19 @@ func PatchPodLabel(podName, podNamespace string, labels map[string]string) (*v1.
 		podName, types.MergePatchType, []byte(patchBody), metav1.PatchOptions{})
 }
 
+// PatchCMData path configmap data
+func PatchCMData(name, namespace string, data map[string]string) (*v1.ConfigMap, error) {
+	dataFormat := `{"data":%s}`
+	dataByte, err := json.Marshal(data)
+	if err != nil {
+		hwlog.RunLog.Errorf("marshal cm data failed, error: %v", err)
+		return nil, fmt.Errorf("marshal cm data failed")
+	}
+	patchBody := fmt.Sprintf(dataFormat, dataByte)
+	return k8sClient.ClientSet.CoreV1().ConfigMaps(namespace).Patch(context.TODO(),
+		name, types.MergePatchType, []byte(patchBody), metav1.PatchOptions{})
+}
+
 // CheckVolcanoExist check volcano is existed
 func CheckVolcanoExist(vcClient *versioned.Clientset) bool {
 	if vcClient == nil {

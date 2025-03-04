@@ -11,6 +11,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 )
@@ -34,6 +35,8 @@ func TestPubFaultCache(t *testing.T) {
 	convey.Convey("test PubFaultCache method 'FaultExisted'", t, testFaultExisted)
 	convey.Convey("test PubFaultCache method 'DeepCopy'", t, testDeepCopy)
 	convey.Convey("test PubFaultCache method 'DeleteOccurFault'", t, testDelete)
+	convey.Convey("test PubFaultCache method 'GetPubFaultsForCM'", t, testGetPubFaultsForCM)
+	convey.Convey("test PubFaultCache method 'LoadFaultToCache'", t, testLoadFaultToCache)
 }
 
 func testAdd() {
@@ -55,7 +58,7 @@ func testAdd() {
 }
 
 func resetCache() {
-	PubFaultCache = &pubFaultCache{
+	PubFaultCache = &PublicFaultCache{
 		faultCache: make(map[string]map[string]*constant.PubFaultCache),
 		mutex:      sync.Mutex{},
 	}
@@ -109,5 +112,63 @@ func testDelete() {
 
 	// both node and fault does not exist
 	PubFaultCache.DeleteOccurFault(notExistNode, notExistFault)
+	convey.So(len(PubFaultCache.faultCache), convey.ShouldEqual, cacheLen)
+}
+
+func testGetPubFaultsForCM() {
+	resetCache()
+	PubFaultCache.AddPubFaultToCache(&testCacheData, testNodeName1, faultKey1)
+	_, pubFaultsNum := PubFaultCache.GetPubFaultsForCM()
+	convey.So(pubFaultsNum, convey.ShouldEqual, 1)
+}
+
+func testLoadFaultToCache() {
+	const (
+		testFaultId   = "12345"
+		testFaultId2  = "54321"
+		testFaultCode = "123456789"
+		testFaultTime = 1234567890
+	)
+
+	resetCache()
+	faults := map[string][]constant.NodeFault{
+		testNodeName1: {
+			{
+				FaultResource: constant.PublicFaultType,
+				FaultDevIds:   []int32{0},
+				FaultId:       testFaultId,
+				FaultType:     constant.FaultTypeStorage,
+				FaultCode:     testFaultCode,
+				FaultLevel:    constant.SeparateNPU,
+				FaultTime:     testFaultTime,
+			},
+			{
+				FaultResource: constant.PublicFaultType,
+				FaultDevIds:   []int32{1},
+				FaultId:       testFaultId2,
+				FaultType:     constant.FaultTypeNetwork,
+				FaultCode:     testFaultCode,
+				FaultLevel:    constant.SeparateNPU,
+				FaultTime:     testFaultTime,
+			},
+		},
+		testNodeName2: {{
+			FaultResource: constant.PublicFaultType,
+			FaultDevIds:   []int32{0},
+			FaultId:       testFaultId,
+			FaultType:     constant.FaultTypeNode,
+			FaultCode:     testFaultCode,
+			FaultLevel:    constant.SeparateNPU,
+			FaultTime:     testFaultTime,
+		}},
+	}
+	PubFaultCache.LoadFaultToCache(faults)
+	for nodeName, nodeFault := range PubFaultCache.GetPubFault() {
+		hwlog.RunLog.Info(nodeName)
+		for faultKey, fault := range nodeFault {
+			hwlog.RunLog.Info(faultKey)
+			hwlog.RunLog.Infof("%#v", fault)
+		}
+	}
 	convey.So(len(PubFaultCache.faultCache), convey.ShouldEqual, cacheLen)
 }

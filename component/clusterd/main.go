@@ -54,16 +54,18 @@ func limitQPS(ctx context.Context, req interface{},
 }
 
 func startInformer(ctx context.Context) {
-	// Starting informer requires after adding processing functions
+	// starting informer requires after adding processing functions
 	addResourceFunc()
 	addJobFunc()
 	kube.InitCMInformer()
 	kube.InitPubFaultCMInformer()
 	kube.InitPodAndNodeInformer()
 	kube.InitPodGroupInformer()
+	// specific functions requires after informer
+	addFuncAfterInformer()
+
 	go jobv2.Handler(ctx)
 	go jobv2.Checker(ctx)
-
 	go resource.Report(ctx)
 	dealPubFault(ctx)
 }
@@ -82,8 +84,11 @@ func addResourceFunc() {
 	kube.AddCmSwitchFunc(constant.Resource, faultmanager.SwitchInfoCollector)
 	kube.AddCmNodeFunc(constant.Resource, faultmanager.NodeCollector)
 	kube.AddCmDeviceFunc(constant.Resource, faultmanager.DeviceInfoCollector)
-	kube.AddCmPubFaultFunc(constant.Resource, faultmanager.PubFaultCollector)
 	kube.AddNodeFunc(constant.Resource, statistics.UpdateNodeSNAndNameCache)
+}
+
+func addFuncAfterInformer() {
+	kube.AddCmPubFaultFunc(constant.Resource, faultmanager.PubFaultCollector)
 }
 
 func main() {
@@ -119,6 +124,10 @@ func main() {
 func initStatisticModule(ctx context.Context) {
 	go statistics.GlobalJobCollectMgr.JobCollector(ctx)
 	go statistics.GlobalJobOutputMgr.JobOutput(ctx)
+
+	// fault relation
+	go statistics.StatisticFault.UpdateFault(ctx)
+	statistics.StatisticFault.LoadFaultData()
 }
 
 func initGrpcServer(ctx context.Context) {

@@ -437,3 +437,23 @@ type PubFaultCache struct {
 	Assertion     string
 	FaultAddTime  int64
 }
+
+// NodeFault node fault info
+type NodeFault struct {
+	FaultResource string  `json:"resource,omitempty"`
+	FaultDevIds   []int32 `json:"devIds,omitempty"`
+	FaultId       string  `json:"faultId,omitempty"`
+	FaultType     string  `json:"type,omitempty"`
+	FaultCode     string  `json:"faultCode,omitempty"`
+	FaultLevel    string  `json:"level,omitempty"`
+	FaultTime     int64   `json:"faultTime,omitempty"`
+}
+
+// FaultNum faults number
+type FaultNum struct {
+	TotalFaultNum      int `json:"-"`
+	DevFaultNum        int `json:"-"`
+	DevNetworkFaultNum int `json:"-"`
+	NodeFaultNum       int `json:"-"`
+	PubFaultNum        int `json:"PublicFaultNum"`
+}

@@ -11,6 +11,7 @@ import (
 
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
+	statistics2 "clusterd/pkg/application/statistics"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/publicfault"
 	"clusterd/pkg/domain/statistics"
@@ -63,6 +64,8 @@ func PubFaultCollector(newPubFault *api.PubFaultInfo) error {
 			dealFault(fault.Assertion, nodeName, faultKey, newFault)
 		}
 	}
+	// a public fault message, update statistic configmap once
+	statistics2.StatisticFault.Notify()
 	return nil
 }
 
