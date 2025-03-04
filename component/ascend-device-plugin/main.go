@@ -85,6 +85,8 @@ var (
 		"check pods in cache periodically, default true")
 	enableSlowNode = flag.Bool("enableSlowNode", false,
 		"switch of set slow node notice environment,default false")
+	thirdPartyScanDelay = flag.Int("thirdPartyScanDelay", common.DefaultScanDelay,
+		"delay time(second) before scanning devices reset by third party")
 )
 
 var (
@@ -159,6 +161,10 @@ func checkParam() bool {
 		hwlog.RunLog.Warn("linkdown timeout duration out of range")
 		return false
 	}
+	if *thirdPartyScanDelay < 0 {
+		hwlog.RunLog.Errorf("reset scan delay %v is invalid", *thirdPartyScanDelay)
+		return false
+	}
 
 	return checkShareDevCount()
 }
@@ -226,20 +232,21 @@ func InitFunction() (*server.HwDevManager, error) {
 
 func setParameters() {
 	common.ParamOption = common.Option{
-		GetFdFlag:          *fdFlag,
-		UseAscendDocker:    *useAscendDocker,
-		UseVolcanoType:     *volcanoType,
-		AutoStowingDevs:    *autoStowing,
-		ListAndWatchPeriod: *listWatchPeriod,
-		PresetVDevice:      *presetVirtualDevice,
-		Use310PMixedInsert: *use310PMixedInsert,
-		HotReset:           *hotReset,
-		BuildScene:         BuildScene,
-		ShareCount:         *shareDevCount,
-		LinkdownTimeout:    *linkdownTimeout,
-		DealWatchHandler:   *dealWatchHandler,
-		CheckCachedPods:    *checkCachedPods,
-		EnableSlowNode:     *enableSlowNode,
+		GetFdFlag:           *fdFlag,
+		UseAscendDocker:     *useAscendDocker,
+		UseVolcanoType:      *volcanoType,
+		AutoStowingDevs:     *autoStowing,
+		ListAndWatchPeriod:  *listWatchPeriod,
+		PresetVDevice:       *presetVirtualDevice,
+		Use310PMixedInsert:  *use310PMixedInsert,
+		HotReset:            *hotReset,
+		BuildScene:          BuildScene,
+		ShareCount:          *shareDevCount,
+		LinkdownTimeout:     *linkdownTimeout,
+		DealWatchHandler:    *dealWatchHandler,
+		CheckCachedPods:     *checkCachedPods,
+		EnableSlowNode:      *enableSlowNode,
+		ThirdPartyScanDelay: *thirdPartyScanDelay,
 	}
 }
 

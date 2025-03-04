@@ -496,6 +496,7 @@ func TestCheckNodeResetInfo(t *testing.T) {
 			func(resetInfo device.ResetInfo, writeMode device.WriteMode) {
 				flag = true
 			})
+		patch.ApplyFuncReturn(checkOverRetryDev, device.ResetInfo{})
 		defer patch.Reset()
 		const id0 = 0
 		convey.Convey("01-client nil, flag should be false", func() {
@@ -596,6 +597,32 @@ func TestSetContainerdClient(t *testing.T) {
 			defer mock.Reset()
 			err := hdm.setContainerdClient()
 			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestCheckOverRetryDev test the function checkOverRetryDev
+func TestCheckOverRetryDev(t *testing.T) {
+	const id = 0
+	const numOne, numZero = 1, 0
+	convey.Convey("test checkOverRetryDev", t, func() {
+		input := device.ResetInfo{
+			ThirdPartyResetDevs: []device.ResetDevice{{
+				CardId: id,
+			}},
+			ManualResetDevs: make([]device.ResetDevice, 0),
+		}
+		convey.Convey("01-over retry time, dev should be add to manualDev", func() {
+			patch1 := gomonkey.ApplyFuncReturn(device.GetResetCnt, common.MaxResetTimes+numOne)
+			defer patch1.Reset()
+			ret := checkOverRetryDev(input)
+			convey.So(len(ret.ManualResetDevs), convey.ShouldEqual, numOne)
+		})
+		convey.Convey("02-not over retry times, dev be add to third party", func() {
+			patch1 := gomonkey.ApplyFuncReturn(device.GetResetCnt, common.MaxResetTimes-numOne)
+			defer patch1.Reset()
+			ret := checkOverRetryDev(input)
+			convey.So(len(ret.ManualResetDevs), convey.ShouldEqual, numZero)
 		})
 	})
 }
