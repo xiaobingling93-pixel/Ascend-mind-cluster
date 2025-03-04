@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -45,8 +44,6 @@ import (
 
 var lastStatus = common.NewAtomicBool(false)
 var resourceVersion = ""
-var resetFailDevs []device.ResetDevice
-var riMu sync.Mutex
 
 // HwDevManager manages huawei device devices.
 type HwDevManager struct {
@@ -529,8 +526,6 @@ func (hdm *HwDevManager) chipHotReset() {
 		return
 	}
 	prClient := NewPodResource()
-	resetFailDevs = make([]device.ResetDevice, 0)
-	defer hdm.updateHotRestInfo()
 	for devType, devices := range hdm.groupDevice {
 		if common.IsVirtualDev(devType) || len(devices) == 0 {
 			continue
@@ -960,29 +955,11 @@ func (hdm *HwDevManager) hotReset(device *common.NpuDevice) {
 		hwlog.RunLog.Warnf("hot reset failed, timeout or err: %v", err)
 		hdm.manager.SetCardsInResetting(device.LogicID, false)
 		hdm.manager.SetResetFailedTimes(device.LogicID, hdm.manager.GetResetFailedTimes(device.LogicID)+1)
-		hdm.registerFailDev(*device)
 		return
 	}
 	hdm.manager.SetResetFailedTimes(device.LogicID, 0)
 	hdm.manager.SetCardsInResetting(device.LogicID, false)
 	hwlog.RunLog.Info("hot reset success")
-}
-
-func (hdm *HwDevManager) registerFailDev(dev common.NpuDevice) {
-	riMu.Lock()
-	resetFailDevs = append(resetFailDevs, device.ResetDevice{
-		CardId:   dev.CardID,
-		PhyID:    dev.PhyID,
-		LogicID:  dev.LogicID,
-		DeviceId: dev.DeviceID,
-	})
-	riMu.Unlock()
-}
-
-func (hdm *HwDevManager) updateHotRestInfo() {
-	device.WriteResetInfo(device.ResetInfo{
-		ManualResetDevs: resetFailDevs,
-	}, device.WMAppend)
 }
 
 func (hdm *HwDevManager) isPodRemove(devType string, device *common.NpuDevice, prClient *PodResource) bool {
