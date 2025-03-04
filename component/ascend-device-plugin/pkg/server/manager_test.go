@@ -616,7 +616,7 @@ func TestCheckOverRetryDev(t *testing.T) {
 			patch1 := gomonkey.ApplyFuncReturn(device.GetResetCnt, common.MaxResetTimes+numOne)
 			defer patch1.Reset()
 			ret := checkOverRetryDev(input)
-			convey.So(len(ret.ManualResetDevs), convey.ShouldEqual)
+			convey.So(len(ret.ManualResetDevs), convey.ShouldEqual, numOne)
 		})
 		convey.Convey("02-not over retry times, dev be add to third party", func() {
 			patch1 := gomonkey.ApplyFuncReturn(device.GetResetCnt, common.MaxResetTimes-numOne)

@@ -978,7 +978,7 @@ func TestGetAllLogicMapForA3(t *testing.T) {
 		})
 		patch.ApplyPrivateMethod(manager, "getAssociatedLogicIDs",
 			func(logicID, cardID, deviceID int32) ([]int32, error) {
-				return []int32{int32(id1)}, testErr
+				return []int32{int32(id1)}, nil
 			})
 		convey.Convey("04-success, should return nil", func() {
 			_, err := manager.getAllLogicMapForA3(devs)
@@ -1009,7 +1009,7 @@ func TestExecRescan(t *testing.T) {
 			convey.So(flag, convey.ShouldBeFalse)
 		})
 		convey.Convey("02-rescan success, flag should be true", func() {
-			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "RescanSoc", testErr)
+			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "RescanSoc", nil)
 			defer patch1.Reset()
 			manager.execRescan(devs)
 			convey.So(flag, convey.ShouldBeTrue)
@@ -1335,7 +1335,7 @@ func TestGetNeedResetDevMapForA3(t *testing.T) {
 	devs := []*common.TaskDevInfo{
 		{DevFaultInfo: common.DevFaultInfo{
 			LogicId: int32(id1),
-			Policy:  common.FreeResetError,
+			Policy:  common.RestartError,
 		}},
 	}
 	convey.Convey("test getNeedResetDevMapForA3", t, func() {
@@ -1347,7 +1347,7 @@ func TestGetNeedResetDevMapForA3(t *testing.T) {
 		common.ParamOption.RealCardType = common.Ascend910A3
 		convey.Convey("02-get index error, should return error", func() {
 			patch1 := gomonkey.ApplyPrivateMethod(manager, "getResetIndexForA3",
-				func(logicID int32) (int32, error) {
+				func(_ *HwAscend910Manager, logicID int32) (int32, error) {
 					return errorId, testErr
 				})
 			defer patch1.Reset()
