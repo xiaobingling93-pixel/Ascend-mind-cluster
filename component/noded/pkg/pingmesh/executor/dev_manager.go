@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager"
 	"ascend-common/devmanager/common"
@@ -35,8 +33,9 @@ import (
 )
 
 const (
-	notSupportErrCode   = "-99996"
-	collectPeriodFactor = 5
+	notMatchErrCode     = "-99996"
+	notSupportErrCode   = "-8255"
+	collectPeriodFactor = 10
 )
 
 // Executor execute action of hccsping mesh
@@ -64,8 +63,11 @@ func New() (*Executor, error) {
 	var superPodId uint32
 	for _, chip := range chips {
 		_, err = dm.DcGetHccsPingMeshState(chip.CardID, chip.DeviceID, 0, common.InternalPingMeshTaskID)
-		if err != nil && strings.Contains(err.Error(), notSupportErrCode) {
-			return nil, err
+		if err != nil {
+			hwlog.RunLog.Warnf("deviceManager get hccsPingMeshState failed, err: %v", err)
+			if strings.Contains(err.Error(), notSupportErrCode) || strings.Contains(err.Error(), notMatchErrCode) {
+				return nil, err
+			}
 		}
 		superPodInfo, err := dm.GetSuperPodInfo(chip.LogicID)
 		if err != nil {
@@ -127,8 +129,8 @@ func (d *Executor) startHccspingMesh() {
 		}
 
 		for taskID := range addrs {
-			hwlog.RunLog.Debugf("deviceManager start hccspingmesh, cardID: %d, deviceID: %d, taskID: %d",
-				chip.CardID, chip.DeviceID, taskID)
+			hwlog.RunLog.Infof("execute starting hccspingmesh, cardID: %d, deviceID: %d, taskID: %d, "+
+				"destination address: %v", chip.CardID, chip.DeviceID, taskID, addrs[taskID])
 			if err := d.devManager.DcStartHccsPingMesh(chip.CardID, chip.DeviceID, 0, common.HccspingMeshOperate{
 				DstAddr:      addrs[taskID],
 				PktSize:      common.DefaultPktSize,
@@ -138,7 +140,7 @@ func (d *Executor) startHccspingMesh() {
 				TaskInterval: d.currentPolicy.Config.TaskInterval,
 				TaskId:       int(taskID),
 			}); err != nil {
-				hwlog.RunLog.Errorf("deviceManager start hccspingmesh failed, err: %v", err)
+				hwlog.RunLog.Errorf("start hccspingmesh failed, err: %v", err)
 			}
 		}
 	}
@@ -156,11 +158,11 @@ func (d *Executor) stopAllTasks() {
 	for _, chip := range d.chips {
 		for _, taskID := range []uint{common.InternalPingMeshTaskID, common.ExternalPingMeshTaskID} {
 			if err := d.devManager.DcStopHccsPingMesh(chip.CardID, chip.DeviceID, 0, taskID); err != nil {
-				hwlog.RunLog.Errorf("deviceManager stop hccspingmesh failed, err: %v", err)
+				hwlog.RunLog.Errorf("stop hccspingmesh failed, err: %v", err)
 				continue
 			}
 
-			hwlog.RunLog.Debugf("deviceManager stop hccspingmesh success, cardID: %d, deviceID: %d, taskID: %d",
+			hwlog.RunLog.Infof("stop hccspingmesh success, cardID: %d, deviceID: %d, taskID: %d",
 				chip.CardID, chip.DeviceID, taskID)
 		}
 	}
@@ -188,10 +190,17 @@ func (d *Executor) startCollect() {
 		d.stopChan = make(chan struct{}, 1)
 	}
 
-	wait.Until(
-		d.getHccspingMeshInfo,
-		time.Duration(d.currentPolicy.Config.TaskInterval*collectPeriodFactor)*time.Second,
-		d.stopChan)
+	ticker := time.NewTicker(time.Duration(d.currentPolicy.Config.TaskInterval*collectPeriodFactor) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-d.stopChan:
+			hwlog.RunLog.Infof("stop collect hccspingmesh info")
+			return
+		case <-ticker.C:
+			d.getHccspingMeshInfo()
+		}
+	}
 }
 
 func (d *Executor) stopCollect() {

@@ -24,6 +24,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -46,9 +47,9 @@ const (
 	faultAssertionRecover = "recover"
 	faultAssertionOccur   = "occur"
 	publicFaultVersion    = "1.0"
-	faultResource         = "ping-mesh"
+	faultResource         = "pingmesh"
 	faultConfigmapKey     = "publicFault"
-	faultCode             = "010001001"
+	faultCode             = "220001001"
 )
 
 type faultReporter struct {
@@ -71,12 +72,16 @@ func New(cfg *Config) *faultReporter {
 // HandlePingMeshInfo handle ping-mesh result
 func (f *faultReporter) HandlePingMeshInfo(res *types.HccspingMeshResult) error {
 	hwlog.RunLog.Debugf("start to handle ping-mesh result, res:%v", res)
+	curFault, err := f.calCurrentFault(res)
+	if err != nil {
+		return err
+	}
 	lastFault, err := f.getLastFault()
 	if err != nil {
 		return err
 	}
 	lastFault = refreshFault(lastFault)
-	curFault := f.calCurrentFault(res)
+
 	fault, change := f.checkFault(lastFault, curFault)
 	if !change {
 		return nil
@@ -150,36 +155,34 @@ type faultCard struct {
 	physicID string
 }
 
-func (f *faultReporter) filterFaultCards(res *types.HccspingMeshResult) []*faultCard {
+func (f *faultReporter) filterFaultCards(res *types.HccspingMeshResult) ([]*faultCard, error) {
 	faultCardIds := make([]*faultCard, 0)
 	for physicID, infos := range res.Results {
-		if !isFaultCard(infos) {
-			continue
+		fault, err := checkFaultCard(infos)
+		if err != nil {
+			return nil, fmt.Errorf("check fault card %s failed, err:%v", physicID, err)
 		}
-		faultCardIds = append(faultCardIds, &faultCard{physicID: physicID})
+		if fault {
+			faultCardIds = append(faultCardIds, &faultCard{physicID: physicID})
+		}
+
 	}
-	return faultCardIds
+	return faultCardIds, nil
 }
 
-func isFaultCard(infos map[uint]*common.HccspingMeshInfo) bool {
+func checkFaultCard(infos map[uint]*common.HccspingMeshInfo) (bool, error) {
 	hasSuc := false
-	hasReply := false
 	for _, info := range infos {
 		for i := 0; i < info.DestNum; i++ {
 			if info.ReplyStatNum[i] == 0 {
-				continue
+				return false, fmt.Errorf("no reply from %s", info.DstAddr[i])
 			}
-			hasReply = true
 			if info.SucPktNum[i] != 0 {
 				hasSuc = true
-				break
 			}
 		}
-		if hasSuc {
-			break
-		}
 	}
-	return hasReply && !hasSuc
+	return !hasSuc, nil
 }
 
 func (f *faultReporter) constructFaultInfo(faultCards []*faultCard) *api.PubFaultInfo {
@@ -219,12 +222,16 @@ func (f *faultReporter) constructFaultInfo(faultCards []*faultCard) *api.PubFaul
 	return pf
 }
 
-func (f *faultReporter) calCurrentFault(res *types.HccspingMeshResult) *api.PubFaultInfo {
-	faultCardIds := f.filterFaultCards(res)
-	if len(faultCardIds) == 0 {
-		return nil
+func (f *faultReporter) calCurrentFault(res *types.HccspingMeshResult) (*api.PubFaultInfo, error) {
+	faultCardIds, err := f.filterFaultCards(res)
+	if err != nil {
+		return nil, err
 	}
-	return f.constructFaultInfo(faultCardIds)
+
+	if len(faultCardIds) == 0 {
+		return nil, nil
+	}
+	return f.constructFaultInfo(faultCardIds), nil
 }
 
 func (f *faultReporter) checkFault(last, cur *api.PubFaultInfo) (*api.PubFaultInfo, bool) {

@@ -99,6 +99,7 @@ func (c *Manager) initHandler(config *Config) {
 		Labels: map[string]string{
 			consts.FaultConfigmapLabelKey: consts.FaultConfigmapLabelValue,
 		},
+		NodeName: c.nodeName,
 	})
 	c.handler = resulthandler.NewAggregatedHandler(fw.HandlePingMeshInfo, reporter.HandlePingMeshInfo)
 }
@@ -136,7 +137,7 @@ func (c *Manager) handleClusterAddress(cm *v1.ConfigMap) {
 }
 
 func (c *Manager) updateConfig() {
-	hwlog.RunLog.Infof("has dest: %v, has config %v", len(c.current.DestAddr) != 0, c.current.Config != nil)
+	hwlog.RunLog.Infof("has dest: %v, has config %v", len(c.current.Address) != 0, c.current.Config != nil)
 	if len(c.current.Address) != 0 && c.current.Config != nil {
 		c.current.DestAddr = c.policyFactory.Rule(fullmesh.Rule).Generate(c.current.Address)
 		uid, err := generateJobUID(c.current.Config, c.current.Address)

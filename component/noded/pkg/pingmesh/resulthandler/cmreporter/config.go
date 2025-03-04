@@ -30,4 +30,5 @@ type Config struct {
 	Namespace string
 	Name      string
 	Labels    map[string]string
+	NodeName  string
 }

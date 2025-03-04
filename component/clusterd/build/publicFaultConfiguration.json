@@ -2,7 +2,7 @@
   "publicFaultCode": {
     "NotHandleFaultCodes":[],
     "SubHealthFaultCodes":["010001001"],
-    "SeparateNPUCodes":[]
+    "SeparateNPUCodes":["220001001"]
   },
   "publicFaultResource": [
     "CCAE", "fd-online", "pingmesh"
