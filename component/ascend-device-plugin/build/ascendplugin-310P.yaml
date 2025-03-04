@@ -120,6 +120,9 @@ spec:
             - name: containerd
               mountPath: /run/containerd
               readOnly: true
+            - name: localtime
+              mountPath: /etc/localtime
+              readOnly: true
           env:
             - name: NODE_NAME
               valueFrom:
@@ -149,3 +152,6 @@ spec:
         - name: containerd
           hostPath:
             path: /run/containerd # update the directory where the containerd.sock file is located When using older version of Docker
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
