@@ -455,5 +455,5 @@ type FaultNum struct {
 	DevFaultNum        int `json:"-"`
 	DevNetworkFaultNum int `json:"-"`
 	NodeFaultNum       int `json:"-"`
-	PubFaultNum        int `json:"PublicFaultNum"`
+	PubFaultNum        int `json:"publicFaultNum"`
 }
