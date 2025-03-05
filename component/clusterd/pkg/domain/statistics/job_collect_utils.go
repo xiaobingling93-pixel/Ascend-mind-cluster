@@ -229,7 +229,7 @@ func (j *JobStcMgr) DeleteJobStatistic(jobKey string) {
 		hwlog.RunLog.Debugf("job Statistic cache is empty, skip delete job %s statistc", jobKey)
 		return
 	}
-	hwlog.RunLog.Debugf("delete jobStc, current job Status: %s, jobStc Key: %s",
+	hwlog.RunLog.Infof("delete jobStc, current job Status: %s, jobStc Key: %s",
 		jobInfo.Status, jobKey)
 	//  update the stop time if stopTime not exist
 	if jobStc.StopTime == 0 {
