@@ -139,7 +139,8 @@ func initGrpcServer(ctx context.Context) {
 		grpc.UnaryInterceptor(limitQPS)})
 	recoverService := service.NewFaultRecoverService(keepAliveInterval, ctx)
 	pubFaultSvc := pubfaultsvc.NewPubFaultService(ctx)
-	if err := server.Start(recoverService, pubFaultSvc); err != nil {
+	dataTraceSvc := &service.ProfilingSwitchManager{}
+	if err := server.Start(recoverService, pubFaultSvc, dataTraceSvc); err != nil {
 		hwlog.RunLog.Errorf("clusterd grpc server start failed, error: %v", err)
 	}
 }
