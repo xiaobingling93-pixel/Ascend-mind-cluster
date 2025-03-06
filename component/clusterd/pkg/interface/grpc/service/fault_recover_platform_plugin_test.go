@@ -467,14 +467,15 @@ func TestRankTableReady(t *testing.T) {
 		testRankTableReadyCase2()
 		testRankTableReadyCase3()
 		testRankTableReadyCase4()
+		testRankTableReadyCase5()
 	})
 }
 
 // testRankTableReadyCase1 tests the scenario where the rank table is ready.
-// Expected result: The rankTableReady function should return true.
+// Expected result: The rankTableReady function should return a true str.
 func testRankTableReadyCase1() {
 	convey.Convey("Test case 1: Rank table is ready. "+
-		"Expected: The rankTableReady function should return true.", func() {
+		"Expected: The rankTableReady function should return an empty str and a nil err.", func() {
 		patches := gomonkey.ApplyFunc(kube.RetryGetPodGroup,
 			func(name, namespace string, times int) (*v1beta1.PodGroup, error) {
 				return &v1beta1.PodGroup{
@@ -488,12 +489,12 @@ func testRankTableReadyCase1() {
 		defer patches.Reset()
 
 		ready := rankTableReady(testPgName, testNameSpace)
-		convey.So(ready, convey.ShouldBeTrue)
+		convey.So(ready, convey.ShouldEqual, strconv.FormatBool(true))
 	})
 }
 
 // testRankTableReadyCase2 tests the scenario where the rank table is not ready.
-// Expected result: The rankTableReady function should return false.
+// Expected result: The rankTableReady function should return a false str.
 func testRankTableReadyCase2() {
 	convey.Convey("Test case 2: Rank table is not ready. "+
 		"Expected: The rankTableReady function should return false.", func() {
@@ -510,12 +511,12 @@ func testRankTableReadyCase2() {
 		defer patches.Reset()
 
 		ready := rankTableReady(testPgName, testNameSpace)
-		convey.So(ready, convey.ShouldBeFalse)
+		convey.So(ready, convey.ShouldEqual, strconv.FormatBool(false))
 	})
 }
 
 // testRankTableReadyCase3 tests the scenario where getting the PodGroup fails.
-// Expected result: The rankTableReady function should return false.
+// Expected result: The rankTableReady function should return an empty str.
 func testRankTableReadyCase3() {
 	convey.Convey("Test case 3: Failed to get PodGroup. "+
 		"Expected: The rankTableReady function should return false.", func() {
@@ -526,12 +527,12 @@ func testRankTableReadyCase3() {
 		defer patches.Reset()
 
 		ready := rankTableReady(testPgName, testNameSpace)
-		convey.So(ready, convey.ShouldBeFalse)
+		convey.So(ready, convey.ShouldEqual, "")
 	})
 }
 
 // testRankTableReadyCase4 tests the scenario where the PodGroup has no annotations.
-// Expected result: The rankTableReady function should return false.
+// Expected result: The rankTableReady function should return an empty str.
 func testRankTableReadyCase4() {
 	convey.Convey("Test case 4: PodGroup has no annotations. "+
 		"Expected: The rankTableReady function should return false.", func() {
@@ -546,22 +547,58 @@ func testRankTableReadyCase4() {
 		defer patches.Reset()
 
 		ready := rankTableReady(testPgName, testNameSpace)
-		convey.So(ready, convey.ShouldBeFalse)
+		convey.So(ready, convey.ShouldEqual, "")
 	})
 }
 
-// TestWaitRankTableReady tests the WaitRankTableReady function.
-func TestWaitRankTableReady(t *testing.T) {
-	convey.Convey("Testing WaitRankTableReady", t, func() {
-		patches := gomonkey.ApplyFunc(rankTableReady, func(name, namespace string) bool {
-			return true
-		})
+// testRankTableReadyCase5 tests the scenario where RankTable annotation value invalid.
+// Expected result: The rankTableReady function should return a wrong str.
+func testRankTableReadyCase5() {
+	convey.Convey("Test case 5: PodGroup has no annotations. "+
+		"Expected: The rankTableReady function should return false.", func() {
+		patches := gomonkey.ApplyFunc(kube.RetryGetPodGroup,
+			func(name, namespace string, times int) (*v1beta1.PodGroup, error) {
+				return &v1beta1.PodGroup{
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							constant.RankTableReadyKey: "wrong",
+						},
+					},
+				}, nil
+			})
 		defer patches.Reset()
 
+		ready := rankTableReady(testPgName, testNameSpace)
+		convey.So(ready, convey.ShouldNotEqual, "")
+	})
+}
+
+// TestWaitRankTableReady tests the WaitRankTableReady function return normal.
+func TestWaitRankTableReady(t *testing.T) {
+	convey.Convey("Testing WaitRankTableReady", t, func() {
+		patches := gomonkey.ApplyFunc(rankTableReady, func(name, namespace string) string {
+			return "true"
+		})
+		defer patches.Reset()
 		convey.Convey("Test case: Successful waiting for rank table to be ready. "+
 			"Expected: No error should occur.", func() {
 			err := WaitRankTableReady(testPgName, testNameSpace)
 			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// TestWaitRankTableNotReady tests the WaitRankTableReady function return abnormal.
+func TestWaitRankTableNotReady(t *testing.T) {
+	convey.Convey("Testing WaitRankTableNotReady", t, func() {
+		patches := gomonkey.ApplyFunc(rankTableReady, func(name, namespace string) string {
+			return "false"
+		})
+		defer patches.Reset()
+		convey.Convey("Test case: waiting for rank table to be ready failed. "+
+			"Expected: error should occur.", func() {
+			err := WaitRankTableReady(testPgName, testNameSpace)
+			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
 }

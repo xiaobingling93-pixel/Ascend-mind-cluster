@@ -139,27 +139,30 @@ func WaitProcessResultFault(name, namespace string) ([]*pb.FaultRank, error) {
 	return common.RemoveSliceDuplicateFaults(append(resultRanks, confirmRanks...)), err
 }
 
-func rankTableReady(name, namespace string) bool {
+func rankTableReady(name, namespace string) string {
 	pg, err := kube.RetryGetPodGroup(name, namespace, constant.GetPodGroupTimes)
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to get pg when check rankTableReady, err:%s,name:%s", err, name)
-		return false
+		return ""
 	}
 	if pg.Annotations == nil {
 		pg.Annotations = make(map[string]string)
 	}
 	ready, ok := pg.Annotations[constant.RankTableReadyKey]
 	if !ok {
-		return false
+		return ""
 	}
-	return ready == strconv.FormatBool(true)
+	return ready
 }
 
 // WaitRankTableReady block process until RankTableReady is true
 func WaitRankTableReady(name, namespace string) error {
 	startTime := time.Now().Unix()
 	ready := rankTableReady(name, namespace)
-	for !ready {
+	for ready != strconv.FormatBool(true) {
+		if ready != "" {
+			return fmt.Errorf("check %s RankTableReady, RankTable ready failed", name)
+		}
 		time.Sleep(constant.CheckPeriod * time.Second)
 		timeUse := time.Now().Unix() - startTime
 		if timeUse > constant.ProcessControlTimeout {

@@ -896,7 +896,7 @@ func (ctl *EventController) handleNotifyDecidedStrategy() (string, common.RespCo
 		hwlog.RunLog.Infof("finish wait plat rankTable ready, jobId=%s, pgName=%s, err=%v",
 			ctl.jobInfo.JobId, ctl.jobInfo.PgName, err)
 		if err != nil {
-			return common.WaitRankTableReadyTimeoutEvent, common.ServerInnerError, nil
+			signal.ChangeStrategy = ctl.chooseForRecoverFail()
 		}
 	}
 	return ctl.signalEnqueue(signal)
