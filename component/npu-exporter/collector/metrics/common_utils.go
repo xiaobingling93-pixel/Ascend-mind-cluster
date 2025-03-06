@@ -93,7 +93,7 @@ func doUpdateMetric(ch chan<- prometheus.Metric, timestamp time.Time, value inte
 	case float64:
 		finalValue = value.(float64)
 	default:
-		logger.Logger.Logf(logger.Error, "invalid param in function doUpdateMetric,"+
+		logger.Errorf("invalid param in function doUpdateMetric,"+
 			"metrics name is (%v), value type is (%T),value is (%v)", getDescName(desc), value, value)
 	}
 	// collect failed, set value to -1
@@ -164,7 +164,7 @@ func handleErr(err error, domain string, logicID int32) {
 }
 
 func logErrMetricsWithLimit(metric string, logicID int32, err error) {
-	logger.Logger.LogfWithOptions(logger.Error, logger.LogOptions{
+	logger.LogfWithOptions(logger.ErrorLevel, logger.LogOptions{
 		Domain: metric,
 		ID:     logicID},
 		"logicID(%d),%v", logicID, err)
@@ -184,7 +184,7 @@ func validateNotNilForEveryElement(objs ...interface{}) bool {
 }
 func handleUnsupportDevice(isSupport bool, devType string, group string, extInfo string) {
 	if !isSupport {
-		logger.Logger.Logf(logger.Info, "devType %v does not support [%v], %v", devType, group, extInfo)
+		logger.Infof("devType %v does not support [%v], %v", devType, group, extInfo)
 	}
 }
 
@@ -193,14 +193,14 @@ func updateFrame[T any](cacheKey string, n *colcommon.NpuCollector, containerMap
 
 	caches := colcommon.GetInfoFromCache[T](n, cacheKey)
 	if len(caches) == 0 {
-		logger.Logger.Logf(logger.Debug, "cacheKey(%v) not found", cacheKey)
+		logger.Debugf("cacheKey(%v) not found", cacheKey)
 		return
 	}
 	for _, chip := range chips {
 		cardLabel := geenGeneralCardLabel(&chip, containerMap)
 		cache, ok := caches[chip.PhyId]
 		if !ok {
-			logger.Logger.Logf(logger.Warn, "cacheKey(%v) not found, chip.PhyId(%v)", cacheKey, chip.PhyId)
+			logger.Warnf("cacheKey(%v) not found, chip.PhyId(%v)", cacheKey, chip.PhyId)
 			continue
 		}
 

@@ -62,19 +62,58 @@ func TestInitLogger(t *testing.T) {
 				t.Errorf("InitLogger(%s) = %v, want %v", tt.platform, err, tt.expected)
 			}
 
-			Logger.Log(Debug, args)
-			Logger.Log(Info, args)
-			Logger.Log(Warn, args)
-			Logger.Log(noExistLevel, args)
-			Logger.LogfWithOptions(Debug, LogOptions{}, "test logf with options %s", "arg")
+			logger.log(nil, DebugLevel, args)
+			logger.log(nil, InfoLevel, args)
+			logger.log(nil, WarnLevel, args)
+			logger.log(nil, noExistLevel, args)
+			logger.logfWithOptions(nil, DebugLevel, LogOptions{}, "test logf with options %s", "arg")
 
-			Logger.Logf(Debug, args)
-			Logger.Logf(Info, args)
-			Logger.Logf(Warn, args)
-			Logger.Logf(Error, args)
-			Logger.Logf(noExistLevel, args)
-			Logger.LogfWithOptions(Debug, LogOptions{}, "test logf with options %s", "arg")
+			logger.logf(nil, DebugLevel, args)
+			logger.logf(nil, InfoLevel, args)
+			logger.logf(nil, WarnLevel, args)
+			logger.logf(nil, noExistLevel, args)
+			logger.logfWithOptions(nil, DebugLevel, LogOptions{}, "test logf with options %s", "arg")
 
+		})
+	}
+}
+
+func TestLoggerMethods(t *testing.T) {
+
+	tests := []struct {
+		name   string
+		method func(...interface{})
+		level  Level
+		args   []interface{}
+	}{
+		{"test Debug", Debug, DebugLevel, []interface{}{"debug message"}},
+		{"test Info", Info, InfoLevel, []interface{}{"info message"}},
+		{"test Warn", Warn, WarnLevel, []interface{}{"warn message"}},
+		{"test Error", Error, ErrorLevel, []interface{}{"error message"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.method(test.args...)
+		})
+	}
+
+	testsF := []struct {
+		name   string
+		method func(string, ...interface{})
+		level  Level
+		format string
+		args   []interface{}
+	}{
+		{"test Debugf", Debugf, DebugLevel, "debug message %d", []interface{}{1}},
+		{"test Infof", Infof, InfoLevel, "info message %d", []interface{}{1}},
+		{"test Warnf", Warnf, WarnLevel, "warn message %d", []interface{}{1}},
+		{"test Errorf", Errorf, ErrorLevel, "error message %d", []interface{}{1}},
+	}
+
+	for _, test := range testsF {
+		t.Run(test.name, func(t *testing.T) {
+			test.method(test.format, test.args...)
 		})
 	}
 }

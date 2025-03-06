@@ -48,6 +48,10 @@ func getCallerInfo(ctx ...context.Context) string {
 		}
 		userID = c.Value(UserID)
 		traceID = c.Value(ReqID)
+		if val := c.Value(extraDeepKey); val != nil {
+			currentVal, _ := val.(int) // security type assertions, invalid values are automatically zeroed
+			deep += currentVal
+		}
 	}
 	var funcName string
 	pc, codePath, codeLine, ok := runtime.Caller(deep)
@@ -77,4 +81,18 @@ func getGoroutineID() string {
 	b = bytes.TrimPrefix(b, []byte("goroutine "))
 	b = b[:bytes.IndexByte(b, ' ')]
 	return string(b)
+}
+
+// DeepIncrease increases the stack depth by 1
+func DeepIncrease(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.WithValue(context.Background(), extraDeepKey, 1)
+	}
+
+	var currentVal int
+	if val := ctx.Value(extraDeepKey); val != nil {
+		currentVal, _ = val.(int) // security type assertions, invalid values are automatically zeroed
+	}
+
+	return context.WithValue(ctx, extraDeepKey, currentVal+1)
 }

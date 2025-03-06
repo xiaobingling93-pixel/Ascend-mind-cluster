@@ -16,6 +16,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 
 	"ascend-common/common-utils/hwlog"
@@ -29,33 +30,33 @@ const (
 type generalLogger struct {
 }
 
-// DynamicConfigure configures the logger
-func (c *generalLogger) DynamicConfigure(Config) {
+// dynamicConfigure configures the logger
+func (c *generalLogger) dynamicConfigure(Config) {
 }
 
-// Log logs with specified level
-func (c *generalLogger) Log(level Level, args ...interface{}) {
+// log logs with specified level
+func (c *generalLogger) log(ctx context.Context, level Level, args ...interface{}) {
 	fn, ok := logFuncs[level]
 	if !ok {
 		hwlog.RunLog.Warnf("unknown log level: %v", level)
 		return
 	}
 
-	fn(nil, args...)
+	fn(hwlog.DeepIncrease(ctx), args...)
 }
 
-// Logf logs with specified level and format
-func (c *generalLogger) Logf(level Level, format string, args ...interface{}) {
+// logf logs with specified level and format
+func (c *generalLogger) logf(ctx context.Context, level Level, format string, args ...interface{}) {
 	fn, ok := logfFuncs[level]
 	if !ok {
 		hwlog.RunLog.Warnf("unknown log level: %v", level)
 		return
 	}
 
-	fn(nil, format, args...)
+	fn(hwlog.DeepIncrease(ctx), format, args...)
 }
 
-func (c *generalLogger) LogfWithOptions(level Level, opts LogOptions, format string, args ...interface{}) {
+func (c *generalLogger) logfWithOptions(ctx context.Context, level Level, opts LogOptions, format string, args ...interface{}) {
 
 	if opts.MaxCounts == 0 {
 		opts.MaxCounts = hwlog.ProblemOccurMaxNumbers
@@ -69,6 +70,6 @@ func (c *generalLogger) LogfWithOptions(level Level, opts LogOptions, format str
 			return
 		}
 
-		fn(nil, format, args...)
+		fn(hwlog.DeepIncrease(ctx), format, args...)
 	}
 }

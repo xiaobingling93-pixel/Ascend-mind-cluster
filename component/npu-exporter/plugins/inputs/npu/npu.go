@@ -58,7 +58,7 @@ func (npu *WatchNPU) Gather(acc telegraf.Accumulator) error {
 	} else {
 		devTagValue = strings.ToLower(cardType)
 	}
-	logger.Logger.DynamicConfigure(logger.Config{Acc: acc})
+	logger.DynamicConfigure(logger.Config{Acc: acc})
 
 	containerMap := colcommon.GetContainerNPUInfo(npu.collector)
 	chips := colcommon.GetChipListWithVNPU(npu.collector)

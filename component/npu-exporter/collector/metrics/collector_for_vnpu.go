@@ -148,7 +148,7 @@ func (c *VnpuCollector) UpdateTelegraf(fieldsMap map[string]map[string]interface
 
 func getPodDisplayInfo(chip *colcommon.HuaWeiAIChip, containerName []string) []string {
 	if len(containerName) != colcommon.ContainerNameLen {
-		logger.Logger.Logf(logger.Error, "container name length %v is not %v", len(containerName), colcommon.ContainerNameLen)
+		logger.Errorf("container name length %v is not %v", len(containerName), colcommon.ContainerNameLen)
 		return nil
 	}
 
@@ -156,14 +156,14 @@ func getPodDisplayInfo(chip *colcommon.HuaWeiAIChip, containerName []string) []s
 	vDevActivityInfo := common.DeepCopyVDevActivityInfo(chip.VDevActivityInfo)
 
 	if !validateNotNilForEveryElement(chip) {
-		logger.Logger.Log(logger.Warn, "invalid chip param in function getPodDisplayInfo")
+		logger.Warn("invalid chip param in function getPodDisplayInfo")
 		return []string{"", "", "", "",
 			containerName[colcommon.NameSpaceIdx], containerName[colcommon.PodNameIdx], containerName[colcommon.ConNameIdx], ""}
 	}
 
 	var vDevID, vDevAiCore, isVirtualDev string
 	if !validateNotNilForEveryElement(vDevActivityInfo) {
-		logger.Logger.Logf(logger.Warn, "invalid vDevActivityInfo param in function getPodDisplayInfo")
+		logger.Warn("invalid vDevActivityInfo param in function getPodDisplayInfo")
 		vDevID = ""
 		vDevAiCore = ""
 		isVirtualDev = ""

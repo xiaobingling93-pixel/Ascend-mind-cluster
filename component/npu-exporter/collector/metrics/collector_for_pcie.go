@@ -122,7 +122,7 @@ func (c *PcieCollector) UpdatePrometheus(ch chan<- prometheus.Metric, n *colcomm
 		}
 
 		if cache.chip.VDevActivityInfo != nil && common.IsValidVDevID(cache.chip.VDevActivityInfo.VDevID) {
-			logger.Logger.Log(logger.Debug, "vnpu does not supports pcie info query")
+			logger.Debug("vnpu does not supports pcie info query")
 			return
 		}
 

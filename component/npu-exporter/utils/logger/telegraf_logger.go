@@ -16,6 +16,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -30,27 +31,27 @@ type telegrafLogger struct {
 	acc telegraf.Accumulator
 }
 
-// DynamicConfigure configures the logger
-func (c *telegrafLogger) DynamicConfigure(config Config) {
+// dynamicConfigure configures the logger
+func (c *telegrafLogger) dynamicConfigure(config Config) {
 	c.acc = config.Acc
 }
 
-// Log logs with specified level
-func (c *telegrafLogger) Log(level Level, args ...interface{}) {
-	c.Logf(level, "%s", args...)
+// log logs with specified level
+func (c *telegrafLogger) log(ctx context.Context, level Level, args ...interface{}) {
+	c.logf(hwlog.DeepIncrease(ctx), level, "%s", args...)
 }
 
-// Logf logs with specified level and format
-func (c *telegrafLogger) Logf(level Level, format string, args ...interface{}) {
+// logf logs with specified level and format
+func (c *telegrafLogger) logf(ctx context.Context, level Level, format string, args ...interface{}) {
 
-	if level < Info || c.acc == nil {
+	if level < InfoLevel || c.acc == nil {
 		fn, ok := logfFuncs[level]
 		if !ok {
 			hwlog.RunLog.Warnf("unknown log level: %v", level)
 			return
 		}
 
-		fn(nil, format, args...)
+		fn(hwlog.DeepIncrease(ctx), format, args...)
 		return
 	}
 
@@ -58,7 +59,7 @@ func (c *telegrafLogger) Logf(level Level, format string, args ...interface{}) {
 }
 
 // LogfWithOptions print log info with options
-func (c *telegrafLogger) LogfWithOptions(level Level, opts LogOptions, format string, args ...interface{}) {
+func (c *telegrafLogger) logfWithOptions(ctx context.Context, level Level, opts LogOptions, format string, args ...interface{}) {
 
 	if opts.MaxCounts == 0 {
 		opts.MaxCounts = hwlog.ProblemOccurMaxNumbers
@@ -66,6 +67,6 @@ func (c *telegrafLogger) LogfWithOptions(level Level, opts LogOptions, format st
 
 	if needPrint, extraErrLog := hwlog.IsNeedPrintWithSpecifiedCounts(opts.Domain, opts.ID, opts.MaxCounts); needPrint {
 		format = fmt.Sprintf("%s %s", format, extraErrLog)
-		c.Logf(level, format, args...)
+		c.logf(hwlog.DeepIncrease(ctx), level, format, args...)
 	}
 }

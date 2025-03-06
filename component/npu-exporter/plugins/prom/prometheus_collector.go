@@ -39,7 +39,7 @@ func NewPrometheusCollector(collector *common.NpuCollector) *CollectorForPrometh
 // Describe desc metrics of prometheus
 func (*CollectorForPrometheus) Describe(ch chan<- *prometheus.Desc) {
 	if ch == nil {
-		logger.Logger.Logf(logger.Error, "ch is nil ")
+		logger.Error("ch is nil ")
 		return
 	}
 	describeChain(ch, common.ChainForSingleGoroutine)
@@ -63,7 +63,7 @@ func (n *CollectorForPrometheus) Collect(ch chan<- prometheus.Metric) {
 func collectChain(ch chan<- prometheus.Metric, n *CollectorForPrometheus, containerMap map[int32]container.DevicesInfo,
 	chips []common.HuaWeiAIChip, chain []common.MetricsCollector) {
 	if ch == nil {
-		logger.Logger.Logf(logger.Error, "ch is nil")
+		logger.Error("ch is nil")
 		return
 	}
 	for _, collector := range chain {

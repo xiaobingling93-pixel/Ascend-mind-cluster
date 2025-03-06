@@ -84,7 +84,7 @@ func Register(n *common.NpuCollector) {
 		metricsGroupName := config[metricsGroup]
 
 		if config[state] != stateOn {
-			logger.Logger.Logf(logger.Info, "metricsGroup [%v] is off", metricsGroupName)
+			logger.Infof("metricsGroup [%v] is off", metricsGroupName)
 			continue
 		}
 		collector, exist := singleGoroutineMap[metricsGroupName]
@@ -97,13 +97,13 @@ func Register(n *common.NpuCollector) {
 			common.ChainForMultiGoroutine = append(common.ChainForMultiGoroutine, collector)
 		}
 	}
-	logger.Logger.Logf(logger.Debug, "ChainForSingleGoroutine:%#v", common.ChainForSingleGoroutine)
-	logger.Logger.Logf(logger.Debug, "ChainForMultiGoroutine:%#v", common.ChainForMultiGoroutine)
+	logger.Debugf("ChainForSingleGoroutine:%#v", common.ChainForSingleGoroutine)
+	logger.Debugf("ChainForMultiGoroutine:%#v", common.ChainForMultiGoroutine)
 }
 
 // UnRegister delete collector from chain
 func UnRegister(worker reflect.Type) {
-	logger.Logger.Logf(logger.Debug, "unRegister collector:%v", worker)
+	logger.Debugf("unRegister collector:%v", worker)
 	unRegisterChain(worker, &common.ChainForSingleGoroutine)
 	unRegisterChain(worker, &common.ChainForMultiGoroutine)
 }

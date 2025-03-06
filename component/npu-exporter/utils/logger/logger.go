@@ -32,14 +32,14 @@ var (
 )
 
 const (
-	// Debug Level
-	Debug Level = iota - 1
-	// Info Level
-	Info
-	// Warn Level
-	Warn
-	// Error Level
-	Error
+	// DebugLevel Debug level
+	DebugLevel Level = iota - 1
+	// InfoLevel Info level
+	InfoLevel
+	// WarnLevel Warn level
+	WarnLevel
+	// ErrorLevel Error level
+	ErrorLevel
 
 	// PrometheusPlatform Prometheus platform
 	PrometheusPlatform = "Prometheus"
@@ -65,18 +65,19 @@ type logFunc func(ctx context.Context, args ...interface{})
 type logfFunc func(ctx context.Context, format string, args ...interface{})
 
 var (
-	// Logger Unified log printer
-	Logger UnifiedLogger
+	// logger Unified log printer
+	logger UnifiedLogger
 )
 
 // InitLogger initialize the log manager
 func InitLogger(platform string) error {
 
 	if platform == TelegrafPlatform {
-		Logger = &telegrafLogger{}
+		logger = &telegrafLogger{}
 		HwLogConfig.LogFileName = defaultTelegrafLogPath
+		HwLogConfig.OnlyToFile = true
 	} else if platform == PrometheusPlatform {
-		Logger = &generalLogger{}
+		logger = &generalLogger{}
 	} else {
 		return errors.New("platform is not supported:" + platform)
 	}
@@ -87,17 +88,17 @@ func InitLogger(platform string) error {
 	}
 
 	logFuncs = map[Level]logFunc{
-		Debug: hwlog.RunLog.DebugWithCtx,
-		Info:  hwlog.RunLog.InfoWithCtx,
-		Warn:  hwlog.RunLog.WarnWithCtx,
-		Error: hwlog.RunLog.ErrorWithCtx,
+		DebugLevel: hwlog.RunLog.DebugWithCtx,
+		InfoLevel:  hwlog.RunLog.InfoWithCtx,
+		WarnLevel:  hwlog.RunLog.WarnWithCtx,
+		ErrorLevel: hwlog.RunLog.ErrorWithCtx,
 	}
 
 	logfFuncs = map[Level]logfFunc{
-		Debug: hwlog.RunLog.DebugfWithCtx,
-		Info:  hwlog.RunLog.InfofWithCtx,
-		Warn:  hwlog.RunLog.WarnfWithCtx,
-		Error: hwlog.RunLog.ErrorfWithCtx,
+		DebugLevel: hwlog.RunLog.DebugfWithCtx,
+		InfoLevel:  hwlog.RunLog.InfofWithCtx,
+		WarnLevel:  hwlog.RunLog.WarnfWithCtx,
+		ErrorLevel: hwlog.RunLog.ErrorfWithCtx,
 	}
 	return nil
 }
@@ -116,10 +117,58 @@ type Config struct {
 
 // UnifiedLogger unified logger interface
 type UnifiedLogger interface {
-	// DynamicConfigure configure the logger
-	DynamicConfigure(Config)
+	dynamicConfigure(Config)
+	log(ctx context.Context, level Level, args ...interface{})
+	logf(ctx context.Context, level Level, format string, args ...interface{})
+	logfWithOptions(ctx context.Context, level Level, opts LogOptions, format string, args ...interface{})
+}
 
-	Log(level Level, args ...interface{})
-	Logf(level Level, format string, args ...interface{})
-	LogfWithOptions(level Level, opts LogOptions, format string, args ...interface{})
+// Debug print log info with debug level
+func Debug(args ...interface{}) {
+	logger.log(hwlog.DeepIncrease(context.Background()), DebugLevel, args...)
+}
+
+// Info print log info with info level
+func Info(args ...interface{}) {
+	logger.log(hwlog.DeepIncrease(context.Background()), InfoLevel, args...)
+}
+
+// Warn print log info with warn level
+func Warn(args ...interface{}) {
+	logger.log(hwlog.DeepIncrease(context.Background()), WarnLevel, args...)
+}
+
+// Error print log info with error level
+func Error(args ...interface{}) {
+	logger.log(hwlog.DeepIncrease(context.Background()), ErrorLevel, args...)
+}
+
+// Debugf print log info with debug level
+func Debugf(format string, args ...interface{}) {
+	logger.logf(hwlog.DeepIncrease(context.Background()), DebugLevel, format, args...)
+}
+
+// Infof print log info with info level
+func Infof(format string, args ...interface{}) {
+	logger.logf(hwlog.DeepIncrease(context.Background()), InfoLevel, format, args...)
+}
+
+// Warnf print log info with warn level
+func Warnf(format string, args ...interface{}) {
+	logger.logf(hwlog.DeepIncrease(context.Background()), WarnLevel, format, args...)
+}
+
+// Errorf print log info with error level
+func Errorf(format string, args ...interface{}) {
+	logger.logf(hwlog.DeepIncrease(context.Background()), ErrorLevel, format, args...)
+}
+
+// LogfWithOptions print log info with error level
+func LogfWithOptions(level Level, opts LogOptions, format string, args ...interface{}) {
+	logger.logfWithOptions(hwlog.DeepIncrease(context.Background()), level, opts, format, args...)
+}
+
+// DynamicConfigure configure the logger
+func DynamicConfigure(config Config) {
+	logger.dynamicConfigure(config)
 }

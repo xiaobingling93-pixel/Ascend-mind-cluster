@@ -129,12 +129,12 @@ func UpdateCache[T any](n *NpuCollector, cacheKey string, localCache *sync.Map) 
 	var cacheInfo = make(map[int32]T)
 	obj, err := n.cache.Get(cacheKey)
 	if err != nil {
-		logger.Logger.Logf(logger.Debug, "get info of %s failed: %v, use initial data", cacheKey, err)
+		logger.Debugf("get info of %s failed: %v, use initial data", cacheKey, err)
 	} else {
 		if oldCacheInfo, ok := obj.(map[int32]T); ok {
 			cacheInfo = copyMap(oldCacheInfo)
 		} else {
-			logger.Logger.Logf(logger.Debug, "cache format invalid, reset")
+			logger.Debug("cache format invalid, reset")
 		}
 	}
 
@@ -152,9 +152,9 @@ func UpdateCache[T any](n *NpuCollector, cacheKey string, localCache *sync.Map) 
 		return
 	}
 	if err != nil {
-		logger.Logger.Log(logger.Error, err)
+		logger.Error(err)
 	} else {
-		logger.Logger.Logf(logger.Info, UpdateCachePattern, cacheKey)
+		logger.Infof(UpdateCachePattern, cacheKey)
 	}
 }
 
@@ -171,14 +171,14 @@ func GetInfoFromCache[T any](n *NpuCollector, cacheKey string) map[int32]T {
 	res := make(map[int32]T)
 	obj, err := n.cache.Get(cacheKey)
 	if err != nil {
-		logger.Logger.Log(logger.Warn, "cache not found, please wait for rebuild")
+		logger.Warn("cache not found, please wait for rebuild")
 		return res
 	}
 
 	if data, ok := obj.(map[int32]T); ok {
 		return data
 	}
-	logger.Logger.Log(logger.Error, "cache type mismatch")
+	logger.Error("cache type mismatch")
 	return res
 }
 

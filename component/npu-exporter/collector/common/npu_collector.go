@@ -84,7 +84,7 @@ func startCollectForMultiGoroutine(group *sync.WaitGroup, ctx context.Context, n
 			for {
 				select {
 				case <-ctx.Done():
-					logger.Logger.Log(logger.Info, "received the stop signal,STOP npu base info collect")
+					logger.Info("received the stop signal,stop npu base info collect")
 					return
 				default:
 					singleChipSlice := []HuaWeiAIChip{chip}
@@ -95,7 +95,7 @@ func startCollectForMultiGoroutine(group *sync.WaitGroup, ctx context.Context, n
 						c.PostCollect(n)
 					}
 					if _, ok := <-ticker.C; !ok {
-						logger.Logger.Logf(logger.Error, tickerFailedPattern, "collect for multigroutine ")
+						logger.Errorf(tickerFailedPattern, "collect for multigroutine ")
 						return
 					}
 				}
@@ -113,7 +113,7 @@ func startCollectSingleGoroutine(group *sync.WaitGroup, ctx context.Context, n *
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Logger.Log(logger.Info, "received the stop signal,STOP npu base info collect")
+				logger.Info("received the stop signal,stop npu base info collect")
 				return
 			default:
 				chipList := getChipListCache(n)
@@ -123,7 +123,7 @@ func startCollectSingleGoroutine(group *sync.WaitGroup, ctx context.Context, n *
 					c.PostCollect(n)
 				}
 				if _, ok := <-ticker.C; !ok {
-					logger.Logger.Logf(logger.Error, tickerFailedPattern, "handling all collectors")
+					logger.Errorf(tickerFailedPattern, "handling all collectors")
 					return
 				}
 			}
@@ -137,15 +137,15 @@ func npuChipInfoInitAtFirstTime(n *NpuCollector) {
 	npuChipInfoInit.Do(func() {
 		_, err := n.cache.Get(npuListCacheKey)
 		if err != nil {
-			logger.Logger.Log(logger.Debug, "no cache in first time, start to collect chip list and rebuild cache")
+			logger.Debug("no cache in first time, start to collect chip list and rebuild cache")
 
 			npuInfo := getNPUChipList(n.Dmgr)
 			if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
-				logger.Logger.Log(logger.Error, err)
+				logger.Error(err)
 			} else {
-				logger.Logger.Logf(logger.Info, UpdateCachePattern, npuListCacheKey)
+				logger.Infof(UpdateCachePattern, npuListCacheKey)
 			}
-			logger.Logger.Log(logger.Debug, "rebuild cache successfully")
+			logger.Debug("rebuild cache successfully")
 		}
 	})
 }
@@ -159,20 +159,20 @@ func InitCardInfo(group *sync.WaitGroup, ctx context.Context, n *NpuCollector) {
 		ticker := time.NewTicker(updateTimeForCardIds)
 		defer ticker.Stop()
 		for {
-			logger.Logger.Log(logger.Info, "start to collect npu chip list info")
+			logger.Info("start to collect npu chip list info")
 			select {
 			case <-ctx.Done():
-				logger.Logger.Log(logger.Info, "received the stop signal,STOP npu base info collect")
+				logger.Info("received the stop signal,stop npu base info collect")
 				return
 			default:
 				npuInfo := getNPUChipList(n.Dmgr)
 				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
-					logger.Logger.Log(logger.Error, err)
+					logger.Error(err)
 				} else {
-					logger.Logger.Logf(logger.Info, UpdateCachePattern, npuListCacheKey)
+					logger.Infof(UpdateCachePattern, npuListCacheKey)
 				}
 				if _, ok := <-ticker.C; !ok {
-					logger.Logger.Logf(logger.Error, tickerFailedPattern, npuListCacheKey)
+					logger.Errorf(tickerFailedPattern, npuListCacheKey)
 					return
 				}
 			}
@@ -185,7 +185,7 @@ func getNPUChipList(dmgr devmanager.DeviceInterface) (npuInfo []HuaWeiAIChip) {
 
 	cardNum, cards, err := dmgr.GetCardList()
 	if err != nil || cardNum == 0 {
-		logger.Logger.Logf(logger.Error, "failed to get npu info, error is: %v", err)
+		logger.Errorf("failed to get npu info, error is: %v", err)
 		return chipList
 	}
 
@@ -198,7 +198,7 @@ func getNPUChipList(dmgr devmanager.DeviceInterface) (npuInfo []HuaWeiAIChip) {
 			// get logicID
 			logicID, err := dmgr.GetDeviceLogicID(cardID, deviceID)
 			if err != nil {
-				logger.Logger.Logf(logger.Error, "get logic ID of card: %v device:%v failed: %v", cardID, deviceID, err)
+				logger.Errorf("get logic ID of card: %v device:%v failed: %v", cardID, deviceID, err)
 				continue
 			}
 
@@ -218,7 +218,7 @@ func getNPUChipList(dmgr devmanager.DeviceInterface) (npuInfo []HuaWeiAIChip) {
 		}
 	}
 
-	logger.Logger.Logf(logger.Debug, "flush chip info list successed,chip num is : %v, chipLogicIDs: %v",
+	logger.Debugf("flush chip info list successed,chip num is : %v, chipLogicIDs: %v",
 		len(chipList), chipListIDs)
 	return chipList
 }
@@ -226,7 +226,7 @@ func getNPUChipList(dmgr devmanager.DeviceInterface) (npuInfo []HuaWeiAIChip) {
 func setBoardInfo(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID int32, deviceID int32) {
 	boardInfo, err := dmgr.GetBoardInfo(chip.LogicID)
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "get board info of card: %v device:%v failed: %v", cardID, deviceID, err)
+		logger.Errorf("get board info of card: %v device:%v failed: %v", cardID, deviceID, err)
 		boardInfo = common.BoardInfo{}
 	}
 	chip.BoardInfo = &boardInfo
@@ -234,7 +234,7 @@ func setBoardInfo(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID in
 func setVdieID(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID int32, deviceID int32) {
 	vdieID, err := dmgr.GetDieID(chip.LogicID, dcmi.VDIE)
 	if err != nil {
-		logger.Logger.Log(logger.Debug, err)
+		logger.Debug(err)
 	}
 	chip.VDieID = vdieID
 }
@@ -242,7 +242,7 @@ func setVdieID(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID int32
 func setPhyId(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID int32, deviceID int32) {
 	phyID, err := dmgr.GetPhysicIDFromLogicID(chip.LogicID)
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "get phy ID of card: %v device:%v failed: %v", cardID, deviceID, err)
+		logger.Errorf("get phy ID of card: %v device:%v failed: %v", cardID, deviceID, err)
 	}
 	chip.PhyId = phyID
 	chip.DeviceID = phyID
@@ -251,7 +251,7 @@ func setChipInfo(chip *HuaWeiAIChip, dmgr devmanager.DeviceInterface, cardID int
 	// get chip info
 	chipInfo, err := dmgr.GetChipInfo(chip.LogicID)
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "get chip info of card: %v device:%v failed: %v", cardID, deviceID, err)
+		logger.Errorf("get chip info of card: %v device:%v failed: %v", cardID, deviceID, err)
 		chipInfo = &common.ChipInfo{}
 	}
 	chip.ChipInfo = chipInfo
@@ -262,11 +262,11 @@ func setPCIeBusInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaW
 	pcieInfo, err := dmgr.GetPCIeBusInfo(logicID)
 	if err != nil {
 		if len(productTypes) == 1 && productTypes[0] == common.Atlas200ISoc {
-			logger.Logger.Logf(logger.Debug, "pcie bus info is not supported on %s", common.Atlas200ISoc)
+			logger.Debugf("pcie bus info is not supported on %s", common.Atlas200ISoc)
 			hwChip.PCIeBusInfo = ""
 			return
 		}
-		logger.Logger.Log(logger.Error, err)
+		logger.Error(err)
 		pcieInfo = ""
 	}
 	hwChip.PCIeBusInfo = pcieInfo
@@ -278,7 +278,7 @@ func assemblevNPUInfo(dmgr devmanager.DeviceInterface, logicID int32, baseChipIn
 	}
 	vDevInfos, err := dmgr.GetVirtualDeviceInfo(logicID)
 	if err != nil {
-		logger.Logger.Logf(logger.Warn, "failed to get virtual device info,logicID(%d),err: %v", logicID, err)
+		logger.Warnf("failed to get virtual device info,logicID(%d),err: %v", logicID, err)
 		baseChipInfo.VDevInfos = nil
 	}
 	if vDevInfos.TotalResource.VDevNum == 0 {
@@ -315,18 +315,18 @@ func GetChipListWithVNPU(n *NpuCollector) []HuaWeiAIChip {
 func getChipListCache(n *NpuCollector) []HuaWeiAIChip {
 	obj, err := n.cache.Get(npuListCacheKey)
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "get npu chip list from cache failed,err is : %v", err)
+		logger.Errorf("get npu chip list from cache failed,err is : %v", err)
 		return make([]HuaWeiAIChip, 0)
 	}
 	if obj == nil {
-		logger.Logger.LogfWithOptions(logger.Error, logger.LogOptions{Domain: "getChipListCache"},
+		logger.LogfWithOptions(logger.ErrorLevel, logger.LogOptions{Domain: "getChipListCache"},
 			"there is no chip list info in cache,please check collect logs")
 		return make([]HuaWeiAIChip, 0)
 	}
 
 	chipList, ok := obj.([]HuaWeiAIChip)
 	if !ok {
-		logger.Logger.Logf(logger.Error, "error npu chip info cache and convert failed,real type is (%T)", obj)
+		logger.Errorf("error npu chip info cache and convert failed,real type is (%T)", obj)
 		n.cache.Delete(npuListCacheKey)
 		return make([]HuaWeiAIChip, 0)
 	}

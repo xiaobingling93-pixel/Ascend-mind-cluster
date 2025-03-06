@@ -31,6 +31,8 @@ const (
 	UserID ContextKey = "UserID"
 	// ReqID used for context value key of "requestID"
 	ReqID ContextKey = "RequestID"
+	// extraDeepKey used for context value key of "extraDeepKey"
+	extraDeepKey ContextKey = "extraDeepKey"
 )
 
 // SelfLogWriter used this to replace some opensource log

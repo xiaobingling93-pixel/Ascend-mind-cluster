@@ -120,15 +120,15 @@ func main() {
 	}
 	dmgr, err := devmanager.AutoInit("")
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "new npu collector failed, error is %v", err)
+		logger.Errorf("new npu collector failed, error is %v", err)
 		return
 	}
-	logger.Logger.Logf(logger.Info, "npu exporter starting and the version is %s", versions.BuildVersion)
+	logger.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
 	deviceParser := container.MakeDevicesParser(readCntMonitoringFlags())
 	defer deviceParser.Close()
 
 	if err := deviceParser.Init(); err != nil {
-		logger.Logger.Logf(logger.Error, "failed to init devices parser: %v", err)
+		logger.Errorf("failed to init devices parser: %v", err)
 	}
 	deviceParser.Timeout = time.Duration(updateTime) * time.Second
 
@@ -180,7 +180,7 @@ func paramValid(platform string) error {
 		err = fmt.Errorf("err platform input")
 	}
 	if err != nil {
-		logger.Logger.Log(logger.Error, err)
+		logger.Error(err)
 		return err
 	}
 	return nil
@@ -214,7 +214,7 @@ func newServerAndListener(conf *limiter.HandlerConfig) (*http.Server, net.Listen
 	}
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		logger.Logger.Log(logger.Error, "listen ip and port error: %v", err)
+		logger.Errorf("listen ip and port error: %v", err)
 		return nil, nil
 	}
 	limitLs, err := limiter.LimitListener(ln, limitTotalConn, limitIPConn, limiter.DefaultCacheSize)
@@ -266,7 +266,7 @@ func paramValidInPrometheus() error {
 		return errors.New("the listen ip is invalid")
 	}
 	ip = parsedIP.String()
-	logger.Logger.Logf(logger.Info, "listen on: %s", ip)
+	logger.Infof("listen on: %s", ip)
 	if updateTime > oneMinute || updateTime < 1 {
 		return errors.New("the updateTime is invalid")
 	}
@@ -375,7 +375,7 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 			</body>
 			</html>`))
 	if err != nil {
-		logger.Logger.Logf(logger.Error, "Write to response error: %v", err)
+		logger.Errorf("Write to response error: %v", err)
 	}
 }
 
@@ -394,22 +394,22 @@ func startServe(ctx context.Context, cancel context.CancelFunc, reg *prometheus.
 	}
 
 	go func() {
-		logger.Logger.Log(logger.Warn, "enable unsafe http server")
+		logger.Warn("enable unsafe http server")
 		if err := s.Serve(limitLs); err != nil {
-			logger.Logger.Logf(logger.Error, "Http server error: %v and stopped", err)
+			logger.Errorf("Http server error: %v and stopped", err)
 			cancel()
 		}
 	}()
 
 	<-ctx.Done()
 	shutErr := func() error {
-		logger.Logger.Log(logger.Info, "received stop signal, STOP http server")
+		logger.Info("received stop signal, STOP http server")
 		ctxShutDown, timeOut := context.WithTimeout(context.Background(), defaultShutDownTimeout)
 		defer timeOut()
 		return s.Shutdown(ctxShutDown)
 	}()
 	if shutErr != nil {
-		logger.Logger.Logf(logger.Error, "shutdown http server error: %v", shutErr)
+		logger.Errorf("shutdown http server error: %v", shutErr)
 	}
 }
 

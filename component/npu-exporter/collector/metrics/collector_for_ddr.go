@@ -120,14 +120,14 @@ func (c *DdrCollector) UpdateTelegraf(fieldsMap map[string]map[string]interface{
 	for _, chip := range chips {
 		cache, ok := caches[chip.PhyId]
 		if !ok {
-			logger.Logger.Logf(logger.Debug, "cacheKey(%v) not found", chip.PhyId)
+			logger.Debugf("cacheKey(%v) not found", chip.PhyId)
 			continue
 		}
 		fieldMap := getFieldMap(fieldsMap, cache.chip.LogicID)
 
 		memoryInfo := cache.extInfo
 		if memoryInfo == nil {
-			logger.Logger.Logf(logger.Debug, "info in cache is nil,cacheKey(%v)", chip.PhyId)
+			logger.Debugf("info in cache is nil,cacheKey(%v)", chip.PhyId)
 			continue
 		}
 		memorySize := memoryInfo.MemorySize

@@ -258,7 +258,7 @@ func updateContainerInfo(ch chan<- prometheus.Metric, containerInfo container.De
 
 func updateErrorCodesInfo(ch chan<- prometheus.Metric, chip *chipCache, timestamp time.Time, cardLabel []string) {
 	if len(chip.ErrorCodes) > common.MaxErrorCodeLen {
-		logger.Logger.Logf(logger.Warn, "Error code number is larger than %v, only the first %v will be reported, "+
+		logger.Warnf("Error code number is larger than %v, only the first %v will be reported, "+
 			"all errorCode is: %v", common.MaxErrorCodeLen, common.MaxErrorCodeLen, chip.ErrorCodes)
 	}
 	for i := 0; i < len(chip.ErrorCodes) && i < len(errorCodeDescs); i++ {
@@ -377,7 +377,7 @@ func setNetHealthStatus(logicID int32, dmgr devmanager.DeviceInterface, chip *ch
 	}
 
 	netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
-	logger.Logger.Logf(logger.Debug, "chip %d network healthy code is %d", logicID, netCode)
+	logger.Debugf("chip %d network healthy code is %d", logicID, netCode)
 	if err != nil {
 		netCode = math.MaxUint32
 	}
@@ -420,7 +420,7 @@ func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *chip
 	info, err := dmgr.GetDevProcessInfo(logicID)
 	if err != nil {
 		if len(productTypes) == 1 && productTypes[0] == common.Atlas200ISoc {
-			logger.Logger.Logf(logger.Debug, "process info is not supported on %s", common.Atlas200ISoc)
+			logger.Debugf("process info is not supported on %s", common.Atlas200ISoc)
 			hwChip.DevProcessInfo = &common.DevProcessInfo{}
 			return
 		}

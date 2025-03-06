@@ -34,21 +34,21 @@ func StartContainerInfoCollect(ctx context.Context, cancelFunc context.CancelFun
 		defer group.Done()
 		retryCount := 0
 		collectContainerInfo := func() {
-			logger.Logger.Logf(logger.Info, "start to collect container info")
+			logger.Info("start to collect container info")
 			n.devicesParser.FetchAndParse(nil)
 			select {
 			case result := <-n.devicesParser.RecvResult():
 				if err := n.cache.Set(containersDevicesCacheKey, result, n.cacheTime); err != nil {
-					logger.Logger.Log(logger.Error, err)
+					logger.Error(err)
 				}
-				logger.Logger.Logf(logger.Info, UpdateCachePattern, containersDevicesCacheKey)
+				logger.Infof(UpdateCachePattern, containersDevicesCacheKey)
 				retryCount = 0
 			case err := <-n.devicesParser.RecvErr():
-				logger.Logger.Log(logger.Error, "received error from device parser: %v", err)
+				logger.Errorf("received error from device parser: %v", err)
 				if strings.Contains(err.Error(), "connection refused") {
 					retryCount++
 					if retryCount == connectRefusedMaxRetry {
-						logger.Logger.Logf(logger.Error, "connection refused, task shutdown")
+						logger.Error("connection refused, task shutdown")
 						cancelFunc()
 					}
 				}
@@ -60,12 +60,12 @@ func StartContainerInfoCollect(ctx context.Context, cancelFunc context.CancelFun
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Logger.Logf(logger.Info, "received the stop signal,stop container info collect")
+				logger.Info("received the stop signal,stop container info collect")
 				return
 			default:
 				collectContainerInfo()
 				if _, ok := <-ticker.C; !ok {
-					logger.Logger.Log(logger.Error, tickerFailedPattern, containersDevicesCacheKey)
+					logger.Errorf(tickerFailedPattern, containersDevicesCacheKey)
 					return
 				}
 			}
@@ -79,21 +79,22 @@ func GetContainerNPUInfo(n *NpuCollector) map[int32]container.DevicesInfo {
 	// only run once to prevent wait when container info get failed
 	npuContainerInfoInit.Do(func() {
 		if err != nil {
-			logger.Logger.Logf(logger.Warn, "containers' devices info not found in cache, rebuilding")
+			logger.Warn("containers' devices info not found in cache, rebuilding")
 			resultChan := make(chan container.DevicesInfos, 1)
 			n.devicesParser.FetchAndParse(resultChan)
 			select {
 			case obj = <-resultChan:
 			case <-time.After(time.Second):
-				logger.Logger.Logf(logger.Warn, "rebuild container info cache timeout")
+				logger.Warn("rebuild container info cache timeout")
 				return
 			}
-			logger.Logger.Logf(logger.Info, "rebuild cache successfully")
+			logger.Info("rebuild cache successfully")
 		}
 	})
 	cntNpuInfos, ok := obj.(container.DevicesInfos)
 	if !ok {
-		hwlog.RunLog.ErrorfWithLimit(DomainForContainerInfo, 0, "error container npu info cache and convert failed")
+		logger.LogfWithOptions(logger.ErrorLevel, logger.LogOptions{Domain: DomainForContainerInfo, ID: 0},
+			"error container npu info cache and convert failed")
 		return nil
 	}
 	hwlog.ResetErrCnt(DomainForContainerInfo, 0)

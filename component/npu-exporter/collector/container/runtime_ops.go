@@ -94,19 +94,19 @@ type RuntimeOperatorTool struct {
 // Init initializes container runtime operator
 func (operator *RuntimeOperatorTool) Init() error {
 	start := syscall.Getuid()
-	logger.Logger.Logf(logger.Debug, "the init uid is:%d", start)
+	logger.Debugf("the init uid is:%d", start)
 	if start != 0 {
 		err := syscall.Setuid(0)
 		if err != nil {
 			return fmt.Errorf("raise uid failed: %v", err)
 		}
-		logger.Logger.Logf(logger.Debug, "raise uid to:%d", 0)
+		logger.Debugf("raise uid to:%d", 0)
 		defer func() {
 			err = syscall.Setuid(start)
 			if err != nil {
-				logger.Logger.Log(logger.Error, "recover uid failed: %v", err)
+				logger.Errorf("recover uid failed: %v", err)
 			}
-			logger.Logger.Logf(logger.Debug, "recover uid to:%d", start)
+			logger.Debugf("recover uid to:%d", start)
 		}()
 	}
 	if err := sockCheck(operator); err != nil {
@@ -127,9 +127,9 @@ func (operator *RuntimeOperatorTool) Init() error {
 func (operator *RuntimeOperatorTool) initCriClient() error {
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
-		logger.Logger.Logf(logger.Warn, "connecting to CRI server failed: %v", err)
+		logger.Warnf("connecting to CRI server failed: %v", err)
 		if operator.UseBackup {
-			logger.Logger.Log(logger.Warn, "use cri-dockerd address to try again")
+			logger.Warn("use cri-dockerd address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPre)) {
 				criConn, err = GetConnection(DefaultCRIDockerd)
 			}
@@ -150,9 +150,9 @@ func (operator *RuntimeOperatorTool) initCriClient() error {
 func (operator *RuntimeOperatorTool) initOciClient() error {
 	conn, err := GetConnection(operator.OciEndpoint)
 	if err != nil || conn == nil {
-		logger.Logger.Logf(logger.Warn, "failed to get OCI connection: %v", err)
+		logger.Warnf("failed to get OCI connection: %v", err)
 		if operator.UseBackup {
-			logger.Logger.Log(logger.Warn, "use backup address to try again")
+			logger.Warn("use backup address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultContainerdAddr, unixPre)) {
 				conn, err = GetConnection(DefaultContainerdAddr)
 
@@ -208,7 +208,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*Comm
 		return getContainersByIsulad(ctx, client)
 	}
 
-	logger.Logger.Log(logger.Error, "client %v is unexpected", operator.criClient)
+	logger.Errorf("client %v is unexpected", operator.criClient)
 	return nil, errors.New("unexpected client type")
 }
 
@@ -254,7 +254,7 @@ func (operator *RuntimeOperatorTool) GetIsulaContainerInfoByID(ctx context.Conte
 			return containerJsonInfo, err
 		}
 		if err = json.Unmarshal([]byte(resp.ContainerJSON), &containerJsonInfo); err != nil {
-			logger.Logger.Log(logger.Error, "unmarshal err: %v", err)
+			logger.Errorf("unmarshal err: %v", err)
 			return containerJsonInfo, err
 		}
 		return containerJsonInfo, nil
