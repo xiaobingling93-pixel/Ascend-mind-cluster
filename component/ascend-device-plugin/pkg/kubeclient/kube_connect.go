@@ -52,7 +52,7 @@ var (
 func isValidPort(port string) error {
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
-		return fmt.Errorf("host ip is invalid")
+		return err
 	}
 
 	if portNum < 0 || portNum > MaxPortIntValue {
@@ -66,14 +66,13 @@ func getKltPodsURL() (string, error) {
 	envHostIP := os.Getenv(HostIPEnv)
 	parseIP := net.ParseIP(envHostIP)
 	if parseIP == nil {
-		hwlog.RunLog.Errorf("host ip is invalid")
 		return "", fmt.Errorf("host ip is invalid")
 	}
 	hostIP := parseIP.String()
 	kubeletPort := os.Getenv(KubeletPortEnv)
 	if err := isValidPort(kubeletPort); err != nil {
-		hwlog.RunLog.Debugf("kubelet port:%s is not valid, use default port: %s",
-			kubeletPort, DefaultKubeletPort)
+		hwlog.RunLog.Debugf("kubelet port: %s is invalid, err: %s, use default port: %s",
+			kubeletPort, err.Error(), DefaultKubeletPort)
 		kubeletPort = DefaultKubeletPort
 	}
 
@@ -103,7 +102,7 @@ func createKltPodsReqWithToken() (*http.Request, error) {
 		if err != nil {
 			hwlog.RunLog.Errorf("build kubeConfig err: %v", err)
 		}
-		hwlog.RunLog.Infof("init kubeConfig success")
+		hwlog.RunLog.Info("init kubeConfig success")
 	})
 	if kubeConfig == nil {
 		return nil, fmt.Errorf("kubeConfig is nil")

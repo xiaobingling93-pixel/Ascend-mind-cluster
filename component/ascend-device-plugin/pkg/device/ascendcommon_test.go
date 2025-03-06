@@ -180,14 +180,14 @@ func TestUpdateDeviceUsedStatus(t *testing.T) {
 		convey.Convey("01-used chip is empty, not update chip status", func() {
 			groupDevices := map[string][]*common.NpuDevice{common.Ascend910: {{DeviceName: ascend910LogicID1}}}
 			tool.UpdateDeviceUsedStatus(groupDevices)
-			convey.So(groupDevices[common.Ascend910][0].Status == common.NPUUsedChipStatus, convey.ShouldBeFalse)
+			convey.So(groupDevices[common.Ascend910][0].NotPodUsedChipStatus == common.NPUUsedChipStatus, convey.ShouldBeFalse)
 		})
 		convey.Convey("02-used chip is not empty, update chip status, "+
 			"groupDevices[common.Ascend910][0] should be used", func() {
 			groupDevices := map[string][]*common.NpuDevice{common.Ascend910: {{DeviceName: ascend910LogicID1,
 				NotPodUsedChips: sets.String{ascend910LogicID1: struct{}{}}}}}
 			tool.UpdateDeviceUsedStatus(groupDevices)
-			convey.So(groupDevices[common.Ascend910][0].Status == common.NPUUsedChipStatus, convey.ShouldBeTrue)
+			convey.So(groupDevices[common.Ascend910][0].NotPodUsedChipStatus == common.NPUUsedChipStatus, convey.ShouldBeTrue)
 		})
 	})
 }
