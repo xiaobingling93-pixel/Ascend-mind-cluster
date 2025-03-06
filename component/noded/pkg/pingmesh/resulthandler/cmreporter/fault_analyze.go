@@ -160,11 +160,13 @@ func (f *faultReporter) getLastFault() (*api.PubFaultInfo, error) {
 }
 
 func checkFaultCard(infos map[uint]*common.HccspingMeshInfo) state {
-	if len(infos) == 0 {
-		return stateUnknown
-	}
 	hasSuc := false
+	hasDest := false
 	for _, info := range infos {
+		if info.DestNum == 0 {
+			continue
+		}
+		hasDest = true
 		for i := 0; i < info.DestNum; i++ {
 			if info.ReplyStatNum[i] == 0 {
 				return stateUnknown
@@ -173,6 +175,9 @@ func checkFaultCard(infos map[uint]*common.HccspingMeshInfo) state {
 				hasSuc = true
 			}
 		}
+	}
+	if !hasDest {
+		return stateUnknown
 	}
 	if hasSuc {
 		return stateHealthy
