@@ -456,6 +456,7 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 				PhyID:                  npuDevice.PhyID,
 				CardID:                 npuDevice.CardID,
 				Status:                 npuDevice.Status,
+				NotPodUsedChipStatus:   npuDevice.NotPodUsedChipStatus,
 				PodUsedChips:           npuDevice.PodUsedChips,
 				NotPodUsedChips:        npuDevice.NotPodUsedChips,
 			}

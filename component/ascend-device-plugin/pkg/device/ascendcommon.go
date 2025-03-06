@@ -753,10 +753,12 @@ func (tool *AscendTools) GetChange(groupDevice, oldGroupDevice map[string][]*com
 	for devType, devices := range groupDevice {
 		isStateChange[devType] = false
 		for idx, device := range devices {
-			hwlog.RunLog.Debugf("device LogicID=%d, status=%s, health=%s", device.LogicID, device.Status, device.Health)
-			hwlog.RunLog.Debugf("old device LogicID=%d status=%s, health=%s",
-				oldGroupDevice[devType][idx].LogicID, oldGroupDevice[devType][idx].Status, oldGroupDevice[devType][idx].Health)
-			if device.Status != oldGroupDevice[devType][idx].Status ||
+			hwlog.RunLog.Debugf("device LogicID=%d, chipUsedStatus=%s, health=%s",
+				device.LogicID, device.NotPodUsedChipStatus, device.Health)
+			hwlog.RunLog.Debugf("old device LogicID=%d chipUsedStatus=%s, health=%s",
+				oldGroupDevice[devType][idx].LogicID, oldGroupDevice[devType][idx].NotPodUsedChipStatus,
+				oldGroupDevice[devType][idx].Health)
+			if device.NotPodUsedChipStatus != oldGroupDevice[devType][idx].NotPodUsedChipStatus ||
 				device.Health != oldGroupDevice[devType][idx].Health {
 				isStateChange[devType] = true
 			}
@@ -769,12 +771,12 @@ func (tool *AscendTools) GetChange(groupDevice, oldGroupDevice map[string][]*com
 func (tool *AscendTools) UpdateDeviceUsedStatus(groupDevice map[string][]*common.NpuDevice) {
 	for _, devices := range groupDevice {
 		for _, device := range devices {
-			hwlog.RunLog.Debugf("update not pod used chip status:%v", device.NotPodUsedChips)
+			hwlog.RunLog.Debugf("update not pod used chip NotPodUsedChipStatus:%v", device.NotPodUsedChips)
 			if _, ok := device.NotPodUsedChips[device.DeviceName]; ok {
-				device.Status = common.NPUUsedChipStatus
+				device.NotPodUsedChipStatus = common.NPUUsedChipStatus
 				continue
 			}
-			device.Status = ""
+			device.NotPodUsedChipStatus = ""
 		}
 	}
 }

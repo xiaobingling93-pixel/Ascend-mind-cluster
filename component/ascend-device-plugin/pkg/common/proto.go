@@ -111,8 +111,9 @@ type NpuDevice struct {
 	DeviceID               int32
 	SuperDeviceID          uint32
 	Status                 string
-	PodUsedChips           sets.String
-	NotPodUsedChips        sets.String
+	PodUsedChips           sets.String // PodUsedChips represents the set of all chips used
+	NotPodUsedChips        sets.String // NotPodUsedChips represents the set of chips used in non-pod scenarios
+	NotPodUsedChipStatus   string      // NotPodUsedChipStatus represents the usage status of chips in non-pod scenarios
 }
 
 // DavinCiDev davinci device
