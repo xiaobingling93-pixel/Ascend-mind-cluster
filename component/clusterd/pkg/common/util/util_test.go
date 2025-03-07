@@ -22,6 +22,8 @@ const (
 	testNilHashCode   = "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
 	testHashCodeError = "2343245345"
 	testMapString     = `{"0":1}`
+	msTime            = 1741309200000
+	dateStr           = "2025-03-07 09:00:00"
 )
 
 func init() {
@@ -290,5 +292,47 @@ func TestRemoveDuplicates(t *testing.T) {
 		oriSli := []int{0, 2, 1, 2}
 		res := RemoveDuplicates(oriSli)
 		convey.So(len(res), convey.ShouldEqual, expLen)
+	})
+}
+
+func TestAbs(t *testing.T) {
+	convey.Convey("test Abs", t, func() {
+		x := -1
+		convey.So(Abs(x), convey.ShouldEqual, 1)
+		x = 0
+		convey.So(Abs(x), convey.ShouldEqual, 0)
+	})
+}
+
+func TestDeleteStringSliceItem(t *testing.T) {
+	convey.Convey("test DeleteStringSliceItem", t, func() {
+		srcSlice := []string{testHashCode, testHashCodeStr, testHashCode}
+		srcSlice = DeleteStringSliceItem(srcSlice, testNilHashCode)
+		srcSlice = DeleteStringSliceItem(srcSlice, testHashCode)
+		convey.So(len(srcSlice), convey.ShouldEqual, 1)
+		convey.So(srcSlice[0], convey.ShouldEqual, testHashCodeStr)
+	})
+}
+
+func TestReadableMsTime(t *testing.T) {
+	convey.Convey("test ReadableMsTime", t, func() {
+		convey.So(ReadableMsTime(msTime), convey.ShouldEqual, dateStr)
+	})
+}
+
+func TestIsSliceContain(t *testing.T) {
+	convey.Convey("test IsSliceContain", t, func() {
+		convey.Convey("case targetSlice is nil", func() {
+			convey.ShouldBeFalse(IsSliceContain(nil, nil), false)
+		})
+		convey.Convey("case targetSlice type is not slice or array", func() {
+			convey.ShouldBeFalse(IsSliceContain(nil, ""), false)
+		})
+		convey.Convey("case targetSlice contain keyword", func() {
+			convey.ShouldBeFalse(IsSliceContain("", []string{""}), true)
+		})
+		convey.Convey("case targetSlice not contain keyword", func() {
+			convey.ShouldBeFalse(IsSliceContain("", []string{}), true)
+		})
 	})
 }
