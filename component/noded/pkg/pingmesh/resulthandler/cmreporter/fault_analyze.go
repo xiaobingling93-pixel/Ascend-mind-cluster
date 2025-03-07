@@ -144,7 +144,7 @@ func (f *faultReporter) getLastFault() (*api.PubFaultInfo, error) {
 	if f.lastFault != nil {
 		return f.lastFault, nil
 	}
-	hwlog.RunLog.Infof("try to get last fault from configmap")
+	hwlog.RunLog.Info("try to get last fault from configmap")
 	cm, err := f.client.GetConfigMap(f.name, consts.ConfigmapNamespace)
 	if errors.IsNotFound(err) {
 		return nil, nil
