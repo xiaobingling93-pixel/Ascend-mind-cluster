@@ -133,19 +133,24 @@ func (tool *AscendTools) getDeviceWithAscendRuntime(containerObj containerd.Cont
 	}
 	envs := spec.Process.Env
 	for i := len(envs) - 1; i >= 0; i-- {
-		if strings.Contains(envs[i], common.AscendVisibleDevicesEnv) {
-			hwlog.RunLog.Debugf("get device info by env (%s) in %s", envs[i], containerInfo.ID)
-			devInfo := strings.Split(envs[i], "=")
-			if len(devInfo) != ascendEnvPart {
-				hwlog.RunLog.Debugf("an invalid %s env(%s)", common.AscendVisibleDevicesEnv, envs[i])
-				continue
+		devInfo := strings.Split(envs[i], "=")
+		if len(devInfo) != ascendEnvPart {
+			if len(devInfo) > 0 && devInfo[0] == common.AscendVisibleDevicesEnv {
+				hwlog.RunLog.Warnf("an invalid %s env(%s)", common.AscendVisibleDevicesEnv, envs[i])
+				return usedChips
 			}
+			hwlog.RunLog.Debugf("an invalid env(%s)", envs[i])
+			continue
+		}
+		if devInfo[0] == common.AscendVisibleDevicesEnv {
+			hwlog.RunLog.Debugf("get device info by env (%s) in %s", envs[i], containerInfo.ID)
 			devicesIDs := parseDiffEnvFmt(devInfo[1], containerInfo.ID)
 			hwlog.RunLog.Debugf("parse diffEnv get devicesIDs %v", devicesIDs)
 			for _, deviceID := range devicesIDs {
 				chipName := fmt.Sprintf("%s-%d", tool.name, deviceID)
 				usedChips.Insert(chipName)
 			}
+			break
 		}
 	}
 	return usedChips
