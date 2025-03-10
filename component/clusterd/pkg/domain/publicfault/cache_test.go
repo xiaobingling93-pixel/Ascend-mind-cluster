@@ -27,6 +27,13 @@ var (
 	faultKey2 = testResource2 + testId
 )
 
+func resetCache() {
+	PubFaultCache = &PublicFaultCache{
+		faultCache: make(map[string]map[string]*constant.PubFaultCache),
+		mutex:      sync.Mutex{},
+	}
+}
+
 func TestPubFaultCache(t *testing.T) {
 	resetCache()
 	defer resetCache()
@@ -64,13 +71,6 @@ func testAdd() {
 	resetCache()
 	PubFaultCache.AddPubFaultToCache(&testCacheData, testNodeName1, faultKey1)
 	convey.So(len(PubFaultCache.faultCache), convey.ShouldEqual, 0)
-}
-
-func resetCache() {
-	PubFaultCache = &PublicFaultCache{
-		faultCache: make(map[string]map[string]*constant.PubFaultCache),
-		mutex:      sync.Mutex{},
-	}
 }
 
 func testGet() {

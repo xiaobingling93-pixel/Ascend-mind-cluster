@@ -17,14 +17,6 @@ import (
 )
 
 const (
-	testId          = "11937763019444715778"
-	testTimeStamp   = 1739866717000
-	testResource    = "resource1"
-	testFaultCode   = "000000001"
-	testNodeName    = "node1"
-	testNodeSN      = "node1-sn"
-	testDescription = "fault description"
-
 	testErrId         = "err id"
 	testErrTimeStamp  = 123
 	testErrTimeStamp2 = 1234567890000
@@ -43,14 +35,14 @@ var (
 
 var (
 	faultInfoValid = api.PubFaultInfo{
-		Id:        testId,
+		Id:        testId1,
 		TimeStamp: testTimeStamp,
 		Version:   validVersion,
-		Resource:  testResource,
+		Resource:  testResource1,
 		Faults:    []api.Fault{faultValid},
 	}
 	faultValid = api.Fault{
-		FaultId:       testId,
+		FaultId:       testId1,
 		FaultType:     constant.FaultTypeNPU,
 		FaultCode:     testFaultCode,
 		FaultTime:     testTimeStamp,
@@ -60,7 +52,7 @@ var (
 		Description:   "fault description",
 	}
 	influenceValid = api.Influence{
-		NodeName:  testNodeName,
+		NodeName:  testNodeName1,
 		DeviceIds: []int32{0},
 	}
 )
@@ -81,73 +73,73 @@ var (
 		{"id not exist", api.PubFaultInfo{
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"id invalid", api.PubFaultInfo{
 			Id:        testErrId,
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"timestamp not exist", api.PubFaultInfo{
-			Id:       testId,
+			Id:       testId1,
 			Version:  validVersion,
-			Resource: testResource,
+			Resource: testResource1,
 			Faults:   []api.Fault{faultValid},
 		}},
 		{"timestamp invalid, length error", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testErrTimeStamp,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"timestamp invalid, size error", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testErrTimeStamp2,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"version not exist", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"version invalid", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
 			Version:   "err version",
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"resource not exist", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"resource invalid", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
 			Resource:  "error resource",
 			Faults:    []api.Fault{faultValid},
 		}},
 		{"faults not exist", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 		}},
 		{"faults length invalid", api.PubFaultInfo{
-			Id:        testId,
+			Id:        testId1,
 			TimeStamp: testTimeStamp,
 			Version:   validVersion,
-			Resource:  testResource,
+			Resource:  testResource1,
 			Faults:    nil,
 		}},
 	}
@@ -157,7 +149,7 @@ var (
 		fault       api.Fault
 	}{
 		{"fault location not exist", api.Fault{
-			FaultId:     testId,
+			FaultId:     testId1,
 			FaultType:   constant.FaultTypeNPU,
 			FaultCode:   testFaultCode,
 			FaultTime:   testTimeStamp,
@@ -166,7 +158,7 @@ var (
 			Description: "fault description",
 		}},
 		{"description not exist", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
@@ -200,7 +192,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault type not exist", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
 			Assertion:     constant.AssertionOccur,
@@ -209,7 +201,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault type invalid", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     testErrId,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
@@ -219,7 +211,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault code not exist", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultTime:     testTimeStamp,
 			Assertion:     constant.AssertionOccur,
@@ -228,7 +220,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault code invalid", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testErrFaultCode,
 			FaultTime:     testTimeStamp,
@@ -238,7 +230,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault time not exist", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			Assertion:     constant.AssertionOccur,
@@ -247,7 +239,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault time invalid, length error", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testErrTimeStamp,
@@ -257,7 +249,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault time invalid, size error", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testErrTimeStamp2,
@@ -267,7 +259,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault assertion not exist", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
@@ -276,7 +268,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault assertion invalid", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
@@ -286,7 +278,7 @@ var (
 			Description:   testDescription,
 		}},
 		{"fault location invalid", api.Fault{
-			FaultId:   testId,
+			FaultId:   testId1,
 			FaultType: constant.FaultTypeNPU,
 			FaultCode: testFaultCode,
 			FaultTime: testTimeStamp,
@@ -297,7 +289,7 @@ var (
 			Description: testDescription,
 		}},
 		{"influence invalid", api.Fault{
-			FaultId:       testId,
+			FaultId:       testId1,
 			FaultType:     constant.FaultTypeNPU,
 			FaultCode:     testFaultCode,
 			FaultTime:     testTimeStamp,
@@ -313,11 +305,11 @@ var (
 		influence   api.Influence
 	}{
 		{"node name not exist", api.Influence{
-			NodeSN:    testNodeSN,
+			NodeSN:    testNodeSN1,
 			DeviceIds: []int32{0},
 		}},
 		{"node sn not exist", api.Influence{
-			NodeSN:    testNodeSN,
+			NodeSN:    testNodeSN1,
 			DeviceIds: []int32{0},
 		}},
 	}
@@ -338,21 +330,21 @@ var (
 			DeviceIds: []int32{0},
 		}},
 		{"device id not exist", api.Influence{
-			NodeName: testNodeName,
+			NodeName: testNodeName1,
 		}},
 		{"device id value invalid", api.Influence{
-			NodeName:  testNodeName,
+			NodeName:  testNodeName1,
 			DeviceIds: []int32{testErrDevId},
 		}},
 		{"device id value invalid, duplicate ids", api.Influence{
-			NodeName:  testNodeName,
+			NodeName:  testNodeName1,
 			DeviceIds: []int32{0, 1, 1},
 		}},
 	}
 )
 
 func TestPubFaultInfoChecker(t *testing.T) {
-	publicfault.PubFaultResource = []string{testResource}
+	publicfault.PubFaultResource = []string{testResource1}
 	publicfault.PubFaultCodeCfg.SeparateNPUCodes[testFaultCode] = struct{}{}
 	convey.Convey("test fault info success", t, testValidFaultInfo)
 	convey.Convey("test fault info failed", t, testInvalidFaultInfo)
@@ -361,9 +353,9 @@ func TestPubFaultInfoChecker(t *testing.T) {
 	convey.Convey("test fault success", t, testValidFault)
 	convey.Convey("test fault failed", t, testInvalidFault)
 
-	statistics.GetNodeSNAndNameCache()[testNodeSN] = testNodeName
+	statistics.GetNodeSNAndNameCache()[testNodeSN1] = testNodeName1
 	convey.Convey("test influence success", t, testValidInfluence)
-	delete(statistics.GetNodeSNAndNameCache(), testNodeSN)
+	delete(statistics.GetNodeSNAndNameCache(), testNodeSN1)
 	convey.Convey("test influence failed", t, testInvalidInfluence)
 }
 

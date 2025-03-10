@@ -15,8 +15,6 @@ import (
 )
 
 func TestLimiter(t *testing.T) {
-	const testResource1 = "resource1"
-	const testResource2 = "resource2"
 	publicfault.PubFaultResource = []string{testResource1, testResource2}
 	defer resetResourceCache()
 	limiterMap.Store(testResource2, rate.NewLimiter(1, 1))

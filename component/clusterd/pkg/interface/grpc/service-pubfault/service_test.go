@@ -1,0 +1,95 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+
+// Package pubfaultsvc test for public fault service
+package pubfaultsvc
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/smartystreets/goconvey/convey"
+
+	"clusterd/pkg/application/publicfault"
+	"clusterd/pkg/common/constant"
+	"clusterd/pkg/interface/grpc/common"
+	pb2 "clusterd/pkg/interface/grpc/pb-publicfault"
+)
+
+var (
+	pubFaultSvc *PubFaultService
+	req         *pb2.PublicFaultRequest
+	testErr     = errors.New("test error")
+)
+
+const (
+	testId        = "11937763019444715778"
+	testTimeStamp = 1739866717000
+	testResource  = "resource1"
+	testFaultCode = "000000001"
+	testNodeName  = "node1"
+)
+
+func fakeService() *PubFaultService {
+	ctx := context.Background()
+	return NewPubFaultService(ctx)
+}
+
+func TestSendPublicFault(t *testing.T) {
+	pubFaultSvc = fakeService()
+	influence := &pb2.PubFaultInfo{
+		NodeName:  testNodeName,
+		DeviceIds: []int32{0, 1},
+	}
+	fault := &pb2.Fault{
+		FaultId:       testId,
+		FaultType:     constant.FaultTypeNPU,
+		FaultCode:     testFaultCode,
+		FaultTime:     testTimeStamp,
+		Assertion:     constant.AssertionOccur,
+		FaultLocation: nil,
+		Influence:     []*pb2.PubFaultInfo{influence},
+		Description:   "",
+	}
+	req = &pb2.PublicFaultRequest{
+		Id:        testId,
+		Timestamp: testTimeStamp,
+		Version:   "1.0",
+		Resource:  testResource,
+		Faults:    []*pb2.Fault{fault},
+	}
+	convey.Convey("test method 'SendPublicFault' success", t, testSendFault)
+	convey.Convey("test method 'SendPublicFault' failed, limit error", t, testSendFaultErrLimit)
+	convey.Convey("test method 'SendPublicFault' failed, check error", t, testSendFaultErrCheck)
+}
+
+func testSendFault() {
+	p1 := gomonkey.ApplyFuncReturn(publicfault.PubFaultCollector, nil)
+	defer p1.Reset()
+	resp, err := pubFaultSvc.SendPublicFault(context.Background(), req)
+	expInfo := "public fault send successfully"
+	convey.So(err, convey.ShouldBeNil)
+	convey.So(resp.Code, convey.ShouldEqual, int32(common.OK))
+	convey.So(resp.Info, convey.ShouldResemble, expInfo)
+}
+
+func testSendFaultErrLimit() {
+	limitErr := errors.New("limiter work by resource failed")
+	p1 := gomonkey.ApplyFuncReturn(publicfault.PubFaultCollector, limitErr)
+	defer p1.Reset()
+	resp, err := pubFaultSvc.SendPublicFault(context.Background(), req)
+	expInfo := "limiter work by resource failed"
+	convey.So(err, convey.ShouldBeNil)
+	convey.So(resp.Code, convey.ShouldEqual, int32(common.InvalidReqRate))
+	convey.So(resp.Info, convey.ShouldResemble, expInfo)
+}
+
+func testSendFaultErrCheck() {
+	p1 := gomonkey.ApplyFuncReturn(publicfault.PubFaultCollector, testErr)
+	defer p1.Reset()
+	resp, err := pubFaultSvc.SendPublicFault(context.Background(), req)
+	convey.So(err, convey.ShouldBeNil)
+	convey.So(resp.Code, convey.ShouldEqual, int32(common.InvalidReqParam))
+	convey.So(resp.Info, convey.ShouldResemble, testErr.Error())
+}

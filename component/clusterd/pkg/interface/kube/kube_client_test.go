@@ -4,6 +4,7 @@
 package kube
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -15,51 +16,62 @@ import (
 )
 
 const (
-	testPatchCMName = "test-cm-name"
-	testPatchCMNS   = "default"
-	testKey1        = "key1"
-	testKey2        = "key2"
-	testKey3        = "key3"
-	testValue1      = "value1"
-	testValue2      = "value2"
-	testValue3      = "value3"
+	testCMName  = "test-cm-name"
+	testPodName = "test-pod-name"
+	testNS      = "default"
+	testKey1    = "key1"
+	testKey2    = "key2"
+	testKey3    = "key3"
+	testValue1  = "value1"
+	testValue2  = "value2"
+	testValue3  = "value3"
+)
+
+var (
+	cm  *v1.ConfigMap
+	pod *v1.Pod
 )
 
 func TestPatchCMData(t *testing.T) {
 	createCM(t)
+	defer func() {
+		if err := DeleteConfigMap(testCMName, testNS); err != nil {
+			t.Error(err)
+		}
+	}()
 	convey.Convey("test func 'PatchCMData' success", t, func() {
 
 		// data from null to 'key1:value1, key2:value2'
 		patchData := map[string]string{testKey1: testValue1, testKey2: testValue2}
-		newCM, err := PatchCMData(testPatchCMName, testPatchCMNS, patchData)
+		newCM, err := PatchCMData(testCMName, testNS, patchData)
 		expData := map[string]string{testKey1: testValue1, testKey2: testValue2}
-		convey.So(newCM.Data, convey.ShouldResemble, expData)
 		convey.So(err, convey.ShouldBeNil)
+		convey.So(newCM.Data, convey.ShouldResemble, expData)
 
 		// data from 'key1:value1, key2:value2' to 'key1:value1, key2:value1, key3:value3'
 		patchData = map[string]string{testKey2: testValue1, testKey3: testValue3}
-		newCM, err = PatchCMData(testPatchCMName, testPatchCMNS, patchData)
+		newCM, err = PatchCMData(testCMName, testNS, patchData)
 		expData = map[string]string{testKey1: testValue1, testKey2: testValue1, testKey3: testValue3}
-		convey.So(newCM.Data, convey.ShouldResemble, expData)
 		convey.So(err, convey.ShouldBeNil)
+		convey.So(newCM.Data, convey.ShouldResemble, expData)
 	})
 
 	convey.Convey("test func 'PatchCMData' failed, marshal data failed", t, func() {
 		p1 := gomonkey.ApplyFuncReturn(json.Marshal, nil, testErr)
 		defer p1.Reset()
-		testData := map[string]string{testKey1: testValue1}
-		_, err := PatchCMData(testPatchCMName, testPatchCMNS, testData)
+		patchData := map[string]string{testKey1: testValue1}
+		_, err := PatchCMData(testCMName, testNS, patchData)
 		expErr := fmt.Errorf("marshal cm data failed")
 		convey.So(err, convey.ShouldResemble, expErr)
 	})
 }
 
 func createCM(t *testing.T) {
-	cm := &v1.ConfigMap{
+	cm = &v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testPatchCMName,
-			Namespace: testPatchCMNS,
+			Name:      testCMName,
+			Namespace: testNS,
 		},
 		Data: nil,
 	}
@@ -67,4 +79,203 @@ func createCM(t *testing.T) {
 	if err != nil {
 		t.Errorf("create test cm failed, error: %v", err)
 	}
+}
+
+func TestCreateCM(t *testing.T) {
+	cm = &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testCMName,
+			Namespace: testNS,
+		},
+		Data: nil,
+	}
+	defer func() {
+		if err := DeleteConfigMap(testCMName, testNS); err != nil {
+			t.Error(err)
+		}
+	}()
+	convey.Convey("test func 'CreateConfigMap' success", t, func() {
+		resCM, err := CreateConfigMap(cm)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(resCM, convey.ShouldResemble, cm)
+	})
+	convey.Convey("test func 'CreateConfigMap' failed, input cm is nil", t, func() {
+		_, err := CreateConfigMap(nil)
+		expErr := fmt.Errorf("param cm is nil")
+		convey.So(err, convey.ShouldResemble, expErr)
+	})
+}
+
+func TestUpdateCM(t *testing.T) {
+	createCM(t)
+	defer func() {
+		if err := DeleteConfigMap(testCMName, testNS); err != nil {
+			t.Error(err)
+		}
+	}()
+	convey.Convey("test func 'UpdateConfigMap' success", t, func() {
+		resCM, err := UpdateConfigMap(cm)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(resCM, convey.ShouldResemble, cm)
+	})
+	convey.Convey("test func 'UpdateConfigMap' failed, input cm is nil", t, func() {
+		_, err := UpdateConfigMap(nil)
+		expErr := fmt.Errorf("param cm is nil")
+		convey.So(err, convey.ShouldResemble, expErr)
+	})
+}
+
+func TestGetCM(t *testing.T) {
+	createCM(t)
+	defer func() {
+		if err := DeleteConfigMap(testCMName, testNS); err != nil {
+			t.Error(err)
+		}
+	}()
+	convey.Convey("test func 'UpdateConfigMap' success", t, func() {
+		resCM, err := GetConfigMap(testCMName, testNS)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(resCM, convey.ShouldResemble, cm)
+	})
+}
+
+func TestDeleteCM(t *testing.T) {
+	createCM(t)
+	convey.Convey("test func 'DeleteConfigMap' success", t, func() {
+		err := DeleteConfigMap(testCMName, testNS)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestCreateOrUpdateCM(t *testing.T) {
+	convey.Convey("test func 'CreateOrUpdateConfigMap' success. cm does not exist, create success", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		err := CreateOrUpdateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test func 'CreateOrUpdateConfigMap' failed. cm does not exist, create error", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Create", &v1.ConfigMap{}, testErr)
+		defer p1.Reset()
+		err := CreateOrUpdateConfigMap(testCMName, testNS, nil, nil)
+		expErr := fmt.Errorf("unable to create ConfigMap: %v", testErr)
+		convey.So(err, convey.ShouldResemble, expErr)
+	})
+	convey.Convey("test func 'CreateOrUpdateConfigMap' success. cm existed, update success", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		createCM(t)
+		err := CreateOrUpdateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test func 'CreateOrUpdateConfigMap' failed. cm existed, update error", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		createCM(t)
+		// first create, second update: configmaps "test-cm-name" already exists
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Update", nil, testErr)
+		defer p1.Reset()
+		err := CreateOrUpdateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldResemble, testErr)
+	})
+}
+
+func TestUpdateOrCreateCM(t *testing.T) {
+	convey.Convey("test func 'UpdateOrCreateConfigMap' success. cm existed, update success", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		createCM(t)
+		err := UpdateOrCreateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test func 'UpdateOrCreateConfigMap' failed. cm existed, update error", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		createCM(t)
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Update", nil, testErr)
+		defer p1.Reset()
+		err := UpdateOrCreateConfigMap(testCMName, testNS, nil, nil)
+		expErr := fmt.Errorf("unable to update ConfigMap: %v", testErr)
+		convey.So(err, convey.ShouldResemble, expErr)
+	})
+	convey.Convey("test func 'UpdateOrCreateConfigMap' success. cm does not exist, create success", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		err := UpdateOrCreateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test func 'UpdateOrCreateConfigMap' failed. cm does not exist, create error", t, func() {
+		DeleteConfigMap(testCMName, testNS)
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Create", &v1.ConfigMap{}, testErr)
+		defer p1.Reset()
+		err := UpdateOrCreateConfigMap(testCMName, testNS, nil, nil)
+		convey.So(err, convey.ShouldResemble, testErr)
+	})
+}
+
+func createPod(t *testing.T) {
+	pod = &v1.Pod{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testPodName,
+			Namespace: testNS,
+		},
+		Spec:   v1.PodSpec{},
+		Status: v1.PodStatus{},
+	}
+	_, err := GetClientK8s().ClientSet.CoreV1().Pods(testNS).Create(context.TODO(), pod, metav1.CreateOptions{})
+	if err != nil {
+		t.Errorf("create test pod failed, error: %v", err)
+	}
+}
+
+func deletePod(t *testing.T) {
+	if err := GetClientK8s().ClientSet.CoreV1().Pods(testNS).Delete(context.TODO(),
+		testPodName, metav1.DeleteOptions{}); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestPatchPodLabel(t *testing.T) {
+	createPod(t)
+	defer deletePod(t)
+	convey.Convey("test func 'PatchPodLabel' success", t, func() {
+
+		// label from null to 'key1:value1, key2:value2'
+		patchData := map[string]string{testKey1: testValue1, testKey2: testValue2}
+		newPod, err := PatchPodLabel(testPodName, testNS, patchData)
+		expData := map[string]string{testKey1: testValue1, testKey2: testValue2}
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(newPod.Labels, convey.ShouldResemble, expData)
+
+		// label from 'key1:value1, key2:value2' to 'key1:value1, key2:value1, key3:value3'
+		patchData = map[string]string{testKey2: testValue1, testKey3: testValue3}
+		newPod, err = PatchPodLabel(testPodName, testNS, patchData)
+		expData = map[string]string{testKey1: testValue1, testKey2: testValue1, testKey3: testValue3}
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(newPod.Labels, convey.ShouldResemble, expData)
+	})
+
+	convey.Convey("test func 'PatchPodLabel' failed, marshal data failed", t, func() {
+		p1 := gomonkey.ApplyFuncReturn(json.Marshal, nil, testErr)
+		defer p1.Reset()
+		patchData := map[string]string{testKey1: testValue1}
+		_, err := PatchPodLabel(testPodName, testNS, patchData)
+		convey.So(err, convey.ShouldResemble, testErr)
+	})
+}
+
+func TestRetryPatchPodLabels(t *testing.T) {
+	convey.Convey("test func 'RetryPatchPodLabels' success", t, func() {
+		p1 := gomonkey.ApplyFuncReturn(PatchPodLabel, pod, nil)
+		defer p1.Reset()
+		err := RetryPatchPodLabels(testPodName, testNS, 1, nil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test func 'RetryPatchPodLabels' failed, PatchPodLabel error", t, func() {
+		p1 := gomonkey.ApplyFuncReturn(PatchPodLabel, nil, testErr)
+		defer p1.Reset()
+		err := RetryPatchPodLabels(testPodName, testNS, 1, nil)
+		convey.So(err, convey.ShouldResemble, testErr)
+	})
 }
