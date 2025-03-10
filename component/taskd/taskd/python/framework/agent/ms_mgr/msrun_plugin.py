@@ -132,12 +132,12 @@ class MSRunPlugin:
             if not self.all_fault_has_recovered():
                 return True
             self.__funcMap[KILL_ALL_WORKER_CALLBACK_NAME]([KILL_ALL_WORKERS])
-            run_log.warning(f"nodeRank:{self.ms_node_rank}  will sleep for 10 secs, after kill workers")
-            time.sleep(KILL_INTERVAL)
-            run_log.warning("sleep over, will start")
             if self.ms_node_rank == "0":
                 run_log.warning("will kill mindio controller")
                 shared_data.shared_data_inst.set_exit_flag(True)
+            run_log.warning(f"nodeRank:{self.ms_node_rank}  will sleep for 10 secs, after kill workers")
+            time.sleep(KILL_INTERVAL)
+            run_log.warning("sleep over, will start")
             self.start_mindspore_workers()
             self.update_pre_fault_infos()
             return True
