@@ -1099,13 +1099,13 @@ func (hnm *HwAscend910Manager) restartRequestProcess(taskName string, resetInfo 
 		hnm.handleSucceedRestartRequest(taskName, currentPolicy, devFaultInfoList, devFaultInfoListInReset)
 		return
 	}
-	hwlog.RunLog.Errorf("failed to refresh device fault info, err %v", err)
+	hwlog.RunLog.Errorf("failed to refresh device fault info, err %v", resetErr)
 	if !needUpgrade {
 		return
 	}
 	currentPolicy, resetErr = hnm.upgradeRestartRequestProcess(taskName, devFaultInfoList, classifyDevs)
 	if resetErr != nil {
-		hwlog.RunLog.Errorf("failed to exec upgrade reset process, err: %v", err)
+		hwlog.RunLog.Errorf("failed to exec upgrade reset process, err: %v", resetErr)
 		if err := hnm.updateResetCMStatus(taskName, common.IsolateError, common.RestartRequestError,
 			common.RecoverFailedStatus, devFaultInfoList); err != nil {
 			hwlog.RunLog.Errorf(failedToUpdateCmPattern, err)
