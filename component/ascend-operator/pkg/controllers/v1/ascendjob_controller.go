@@ -398,7 +398,7 @@ func (r *ASJobReconciler) onPodDeleteFunc() func(event.DeleteEvent) bool {
 			hwlog.RunLog.Errorf("failed to convert string to int, err: %v", err)
 			return false
 		}
-		hwlog.RunLog.Infof("deleted pod version is: %v", version)
+		hwlog.RunLog.Infof("deleted pod <%s> version is: %v", e.Object.GetName(), version)
 		if controllerRef == nil {
 			return true
 		}
