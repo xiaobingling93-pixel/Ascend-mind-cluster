@@ -30,9 +30,11 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310/chip310x4"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/card310px2"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/chip310px2"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/vnpu"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/module910a3x16"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/superpod"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910b/module910bx16"
+	vnpu2 "volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910b/vnpu"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/asend910old/module910x8"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
@@ -123,6 +125,9 @@ func init310CardPolicyHandler(attr util.SchedulerJobAttr) (plugin.SchedulerPlugi
 }
 
 func init910CardPolicyHandler(attr util.SchedulerJobAttr) (plugin.SchedulerPluginNeed, bool) {
+	if attr.ReqNPUName == util.AscendNPUCore {
+		return vnpu2.New(util.NPU910CardName), true
+	}
 	handlerName := get910CardHandlerName(attr)
 	value, ok := card910Factory[handlerName]
 	if !ok {
@@ -150,6 +155,9 @@ func get910CardHandlerName(attr util.SchedulerJobAttr) string {
 }
 
 func init310PCardPolicyHandler(attr util.SchedulerJobAttr) (plugin.SchedulerPluginNeed, bool) {
+	if attr.ReqNPUName == util.AscendNPUCore {
+		return vnpu.New(util.NPU310PCardName), true
+	}
 	duo, ok := attr.Label[duoKeyLabel]
 	if !ok {
 		klog.V(util.LogInfoLev).Info("not 300I duo")
