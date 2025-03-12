@@ -63,7 +63,7 @@ const (
 	// CheckProfilingCacheInterval every interval to check cache
 	CheckProfilingCacheInterval = 5 * time.Second
 	// DomainCheckInterval the interval between each check of domain change
-	DomainCheckInterval = 2 * time.Second
+	DomainCheckInterval = 1 * time.Second
 	// ProfilingFileMode the mode of profiling file
 	ProfilingFileMode = 0644
 	// ProfilingDirMode the mode of profiling directory

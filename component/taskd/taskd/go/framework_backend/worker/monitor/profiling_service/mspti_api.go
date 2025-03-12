@@ -254,7 +254,7 @@ func DisableMsptiActivity() error {
 	if retCode := C.mspti_activity_dis_enable(C.MSPTI_ACTIVITY_KIND_API); retCode != C.SUCCESS {
 		return fmt.Errorf("failed to enable profiling api data, error code: %d", int32(retCode))
 	}
-	hwlog.RunLog.Infof("successfully disabled profiling")
+	hwlog.RunLog.Infof("rank:%v successfully disabled profiling", GlobalRankId)
 	return nil
 }
 
@@ -264,7 +264,7 @@ func FlushAllActivity() error {
 		hwlog.RunLog.Errorf("failed to flush all activities, errCode:%v", retCode)
 		return fmt.Errorf("failed to flush all activties, errCode:%v", retCode)
 	}
-	hwlog.RunLog.Infof("successfully flush all activities")
+	hwlog.RunLog.Infof("rank:%v successfully flush all activities", GlobalRankId)
 	return nil
 }
 

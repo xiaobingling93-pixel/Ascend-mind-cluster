@@ -84,17 +84,6 @@ func StartMonitorClient() C.int {
 	if err := profiling_service.MsptiActivityRegisterCallbacksWrapper(); err != nil {
 		return C.int(1)
 	}
-	// need to switch on activity marker before any other five kinds
-	// default domain contains step\FP\dataloader\ckpt
-	if err := profiling_service.EnableMsptiMarkerActivity(); err != nil {
-		hwlog.RunLog.Error(err)
-		return C.int(1)
-	}
-	errComm := profiling_service.EnableMarkerDomain(constant.CommunicationDomainName, constant.SwitchOFF)
-	if errComm != nil {
-		hwlog.RunLog.Errorf("failed to enable some markers, errComm:%v", errComm)
-		return C.int(1)
-	}
 	return C.int(0)
 }
 
