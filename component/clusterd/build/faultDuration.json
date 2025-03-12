@@ -5,7 +5,7 @@
     "TimeOutInterval": 300
   },
   {
-    "FaultCode": "[0x08520003,,L2,na]",
+    "FaultCode": "[0x08520003,na,L2,na]",
     "FaultType": "faultSwitch",
     "TimeOutInterval": 300
   }
