@@ -2223,6 +2223,9 @@ func TestExecOutBandReset(t *testing.T) {
 			func(failDevs []ResetDevice) {
 				return
 			})
+		patch.ApplyPrivateMethod(manager, "fillResetDevs", func(devs []ResetDevice) ([]ResetDevice, error) {
+			return devs, nil
+		})
 		defer patch.Reset()
 		common.ParamOption.RealCardType = common.Ascend910A3
 		convey.Convey("01-reset error, should return error", func() {

@@ -322,7 +322,7 @@ func (hnm *HwAscend910Manager) setUnhealthyForA3(devStatusList []*common.NpuDevi
 func (hnm *HwAscend910Manager) getAssociatedLogicIDs(logicID, cardID, deviceID int32) ([]int32, error) {
 	associatedCardID, err := hnm.GetDmgr().GetBrotherCardID(cardID, deviceID)
 	if err != nil {
-		hwlog.RunLog.Errorf("get brother card failed, cardID %v deviceID %v, err: %v",
+		hwlog.RunLog.Debugf("get brother card failed, cardID %v deviceID %v, err: %v",
 			cardID, deviceID, err)
 		return nil, err
 	}
@@ -1815,11 +1815,19 @@ func (hnm *HwAscend910Manager) execOutBandReset(devs, sucDevs []ResetDevice) err
 		time.Sleep(afterRescanDelay * time.Second)
 	}
 	hnm.updateResetInfo(failDevs, newSucDevs)
-	go hnm.scanDeviceForThirdParty(failDevs)
+	filledFailDevs, err := hnm.fillResetDevs(failDevs)
+	if err != nil {
+		hwlog.RunLog.Errorf("complement device info err: %v", err)
+		return resetError
+	}
+	go hnm.scanDeviceForThirdParty(filledFailDevs)
 	return resetError
 }
 
 func (hnm *HwAscend910Manager) scanDeviceForThirdParty(failDevs []ResetDevice) {
+	if len(failDevs) <= 0 {
+		return
+	}
 	delay := time.Duration(common.ParamOption.ThirdPartyScanDelay) * time.Second
 	time.AfterFunc(delay, func() {
 		hnm.execRescan(failDevs)
