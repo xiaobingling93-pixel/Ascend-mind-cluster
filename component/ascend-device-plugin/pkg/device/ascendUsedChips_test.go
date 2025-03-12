@@ -17,6 +17,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -25,6 +26,11 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/api/types/task"
+	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/containers"
+	"github.com/containerd/containerd/oci"
+	"github.com/gogo/protobuf/types"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -199,4 +205,138 @@ func TestGetChipsUsedByContainerd(t *testing.T) {
 		defer mockLoadContainer.Reset()
 		testGetChipsUsedByContainerdCase3(tool)
 	})
+}
+
+// TestGetDeviceWithAscendRuntime for test getDeviceWithAscendRuntime
+func TestGetDeviceWithAscendRuntime(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test getDeviceWithAscendRuntime", t, func() {
+		convey.Convey("01-get info failed, should return empty sets", func() {
+			patch := gomonkey.ApplyFuncReturn((*MockContainer).Info, nil, errors.New("get info failed"))
+			defer patch.Reset()
+			chips := tool.getDeviceWithAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString())
+		})
+		convey.Convey("02-get spec failed, should return empty sets", func() {
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, nil, errors.New("get spec failed"))
+			defer patch.Reset()
+			chips := tool.getDeviceWithAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString())
+		})
+		convey.Convey("03-invalid env, should return empty sets", func() {
+			spec := &oci.Spec{Process: &specs.Process{
+				Env: []string{"ASCEND_VISIBLE_DEVICES", "FAKE_ENV"},
+			}}
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, spec, nil)
+			defer patch.Reset()
+			chips := tool.getDeviceWithAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString())
+		})
+		convey.Convey("04-get dev success, should return chip set", func() {
+			spec := &oci.Spec{Process: &specs.Process{
+				Env: []string{"ASCEND_VISIBLE_DEVICES=0,1", "FAKE_ENV"},
+			}}
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, spec, nil)
+			defer patch.Reset()
+			chips := tool.getDeviceWithAscendRuntime(MockContainer{}, nil)
+			dev0 := fmt.Sprintf("%s-%d", common.Ascend910, 0)
+			dev1 := fmt.Sprintf("%s-%d", common.Ascend910, 1)
+			convey.So(chips, convey.ShouldResemble, sets.NewString(dev0, dev1))
+		})
+	})
+}
+
+// TestGetDeviceWithoutAscendRuntime for test getDeviceWithoutAscendRuntime
+func TestGetDeviceWithoutAscendRuntime(t *testing.T) {
+	tool := mockAscendTools()
+	convey.Convey("test getDeviceWithoutAscendRuntime", t, func() {
+		convey.Convey("01-get spec failed, should return empty sets", func() {
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, nil, errors.New("get spec failed"))
+			defer patch.Reset()
+			chips := tool.getDeviceWithoutAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString())
+		})
+		convey.Convey("02-filter npu devices failed, should return empty sets", func() {
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, &oci.Spec{}, nil)
+			defer patch.Reset()
+			chips := tool.getDeviceWithoutAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString())
+		})
+		convey.Convey("03-filter npu devices failed, should return empty sets", func() {
+			minor := int64(0)
+			major := int64(3)
+			spec := &oci.Spec{Linux: &specs.Linux{Resources: &specs.LinuxResources{
+				Devices: []specs.LinuxDeviceCgroup{{Minor: &minor, Major: &major, Type: charDevice}}}},
+			}
+			patch := gomonkey.ApplyFuncReturn(getContainerValidSpec, spec, nil).
+				ApplyFuncReturn(npuMajor, []string{"3"})
+			defer patch.Reset()
+			dev4 := fmt.Sprintf("%s-%d", common.Ascend910, 0)
+			chips := tool.getDeviceWithoutAscendRuntime(MockContainer{}, nil)
+			convey.So(chips, convey.ShouldResemble, sets.NewString(dev4))
+		})
+	})
+}
+
+// MockContainer mock container implements interface containerd.Container
+type MockContainer struct{}
+
+// ID identifies the container
+func (m MockContainer) ID() string { return "mockContainer" }
+
+// Info returns the underlying container record type
+func (m MockContainer) Info(ctx context.Context, opts ...containerd.InfoOpts) (containers.Container, error) {
+	return containers.Container{}, nil
+}
+
+// Extensions returns the extensions set on the container
+func (m MockContainer) Extensions(ctx context.Context) (map[string]types.Any, error) {
+	return map[string]types.Any{}, nil
+}
+
+// Labels returns the labels set on the container
+func (m MockContainer) Labels(ctx context.Context) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+// SetLabels sets the provided labels for the container and returns the final label set
+func (m MockContainer) SetLabels(ctx context.Context, labels map[string]string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+// Spec returns the OCI runtime specification
+func (m MockContainer) Spec(ctx context.Context) (*oci.Spec, error) {
+	return &oci.Spec{}, nil
+}
+
+// Delete removes the container
+func (m MockContainer) Delete(ctx context.Context, opts ...containerd.DeleteOpts) error {
+	return nil
+}
+
+// Task returns the current task for the container
+func (m MockContainer) Task(ctx context.Context, attach cio.Attach) (containerd.Task, error) {
+	return nil, nil
+}
+
+// Image returns the image that the container is based on
+func (m MockContainer) Image(ctx context.Context) (containerd.Image, error) {
+	return nil, nil
+}
+
+// NewTask creates a new task based on the container metadata
+func (m MockContainer) NewTask(ctx context.Context, ioCreate cio.Creator,
+	opts ...containerd.NewTaskOpts) (containerd.Task, error) {
+	return nil, nil
+}
+
+// Update a container
+func (m MockContainer) Update(ctx context.Context, opts ...containerd.UpdateContainerOpts) error {
+	return nil
+}
+
+// Checkpoint creates a checkpoint image of the current container
+func (m MockContainer) Checkpoint(ctx context.Context, ref string,
+	opts ...containerd.CheckpointOpts) (containerd.Image, error) {
+	return nil, nil
 }

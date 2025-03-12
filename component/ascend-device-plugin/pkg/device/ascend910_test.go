@@ -962,6 +962,16 @@ func getSinglePod(podName string, annotation map[string]string) v1.Pod {
 	}
 }
 
+func getSinglePodWithMoreInfo(podName string, annotation map[string]string, labels map[string]string) v1.Pod {
+	return v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        podName,
+			Annotations: annotation,
+			Labels:      labels,
+		},
+	}
+}
+
 // TestHwAscend910ManagerGetNeedResetDeviceLogicIdMap a ut for method getNeedResetDeviceLogicIdMap
 func TestHwAscend910ManagerGetNeedResetDeviceLogicIdMap(t *testing.T) {
 	ascendTools := AscendTools{}
@@ -1377,6 +1387,380 @@ func mockCheckDevErrorCode(policy string, needUpgrade bool, err error) *gomonkey
 		func(*HwAscend910Manager, string, []*common.TaskDevInfo, map[string][]*common.NpuDevice) (string, bool, error) {
 			return policy, needUpgrade, err
 		})
+}
+
+func mockGetDeviceNetWorkHealth(code uint32, err error) *gomonkey.Patches {
+	return gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{},
+		"GetDeviceNetWorkHealth", code, err)
+}
+
+// TestHandleResetProcess for test handleResetProcess
+func TestHandleResetProcess(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test handleResetProcess", t, func() {
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce: common.Ascend910RingsNum,
+			globalDevFaultInfo: map[int32]*common.DevFaultInfo{
+				chipPhyID0: {Policy: common.EmptyError},
+			},
+		}
+		patch := gomonkey.ApplyFuncReturn((*HwAscend910Manager).execHotReset, nil).
+			ApplyMethodReturn(&devmanager.DeviceManagerMock{},
+				"GetDeviceAllErrorCode", int32(0), []int64{}, errors.New("get error code failed")).
+			ApplyFunc(common.SetDeviceInit, func(int32) {}).
+			ApplyGlobalVar(&isolateDevList, []int32{})
+		defer patch.Reset()
+		classifyDevs := map[string][]*common.NpuDevice{
+			common.Ascend910: {{LogicID: chipPhyID0, Health: ""}},
+		}
+		npuDev := &common.NpuDevice{LogicID: chipPhyID0}
+		devInfo := &common.DevFaultInfo{LogicId: chipPhyID0}
+		manager.handleResetProcess(classifyDevs, devInfo, npuDev)
+		convey.So(classifyDevs[common.Ascend910][0].Health, convey.ShouldEqual, v1beta1.Healthy)
+		convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID0})
+	})
+}
+
+// TestHandleL2L3FaultRestart for test handleL2L3FaultRestart
+func TestHandleL2L3FaultRestart(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test handleL2L3FaultRestart", t, func() {
+		patch := gomonkey.ApplyGlobalVar(&isL3FaultExistMap, map[int32]bool{id2: true, id3: false})
+		defer patch.Reset()
+		convey.Convey("01-free reset error,should return false", func() {
+			devFaultInfo := &common.DevFaultInfo{LogicId: id1, Policy: common.FreeResetError}
+			l3RestartFlag := manager.handleL2L3FaultRestart(devFaultInfo)
+			convey.So(l3RestartFlag, convey.ShouldBeFalse)
+			convey.So(isL3FaultExistMap[id1], convey.ShouldBeFalse)
+		})
+
+		convey.Convey("02-restart error and value is true in isL3FaultExistMap, should return true", func() {
+			devFaultInfo := &common.DevFaultInfo{LogicId: id2, Policy: common.RestartError}
+			l3RestartFlag := manager.handleL2L3FaultRestart(devFaultInfo)
+			convey.So(l3RestartFlag, convey.ShouldBeTrue)
+			convey.So(isL3FaultExistMap[id2], convey.ShouldBeFalse)
+		})
+		convey.Convey("03-restart error and value is false in isL3FaultExistMap, should return false", func() {
+			devFaultInfo := &common.DevFaultInfo{LogicId: id3, Policy: common.RestartError}
+			l3RestartFlag := manager.handleL2L3FaultRestart(devFaultInfo)
+			convey.So(l3RestartFlag, convey.ShouldBeFalse)
+			convey.So(isL3FaultExistMap[id3], convey.ShouldBeTrue)
+		})
+	})
+}
+
+// TestGetResetIndexForA3 for test getResetIndexForA3
+func TestGetResetIndexForA3(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test getResetIndexForA3", t, func() {
+		convey.Convey("01-get card id device id failed, should return error", func() {
+			patch1 := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetCardIDDeviceID",
+				int32(id1), int32(id1), errors.New("get card id device id failed"))
+			defer patch1.Reset()
+			retId, err := manager.getResetIndexForA3(chipPhyID0)
+			convey.So(err.Error(), convey.ShouldEqual, "get card id device id failed")
+			convey.So(retId, convey.ShouldEqual, errorId)
+		})
+		patch := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetCardIDDeviceID",
+			int32(id1), int32(id1), nil)
+		defer patch.Reset()
+		convey.Convey("02-get card id device id failed, should return error", func() {
+			patch1 := gomonkey.ApplyFuncReturn((*HwAscend910Manager).getAssociatedLogicIDs, []int32{}, nil)
+			defer patch1.Reset()
+			retId, err := manager.getResetIndexForA3(chipPhyID0)
+			convey.So(err.Error(), convey.ShouldEqual, "sort logic ids failed, logic ids [], sorted ids []")
+			convey.So(retId, convey.ShouldEqual, errorId)
+		})
+
+		convey.Convey("03-get reset index success, should return nil", func() {
+			patch1 := gomonkey.ApplyFuncReturn((*HwAscend910Manager).getAssociatedLogicIDs, []int32{id1, id2, id3}, nil)
+			defer patch1.Reset()
+			retId, err := manager.getResetIndexForA3(chipPhyID0)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(retId, convey.ShouldEqual, int32(id1))
+		})
+	})
+}
+
+// TestUpgradeHotResetError for test upgradeHotResetError
+func TestUpgradeHotResetError(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test upgradeHotResetError", t, func() {
+		npuDev := &common.NpuDevice{LogicID: chipPhyID0}
+		patch := gomonkey.ApplyGlobalVar(&isolateDevList, []int32{})
+		defer patch.Reset()
+		convey.Convey("01-Ascend910 dev is empty, should not upgrade", func() {
+			manager.upgradeHotResetError(map[string][]*common.NpuDevice{}, npuDev)
+			convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID0})
+		})
+		classifyDevs := map[string][]*common.NpuDevice{
+			common.Ascend910: {
+				{LogicID: chipPhyID0, Health: ""},
+				{LogicID: chipPhyID1, Health: ""},
+				{LogicID: chipPhyID2, Health: ""},
+				{LogicID: chipPhyID3, Health: v1beta1.Unhealthy},
+				{LogicID: chipPhyID4, Health: v1beta1.Unhealthy},
+			},
+		}
+		convey.Convey("02-resetDevNumOnce is 0, should not upgrade", func() {
+			manager.hotResetManager = &HotResetTools{}
+			manager.upgradeHotResetError(classifyDevs, npuDev)
+			convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID0})
+			convey.So(classifyDevs[common.Ascend910][0].Health, convey.ShouldBeEmpty)
+			convey.So(classifyDevs[common.Ascend910][3].Health, convey.ShouldEqual, v1beta1.Unhealthy)
+		})
+		convey.Convey("03-upgrade success", func() {
+			manager.hotResetManager = &HotResetTools{
+				resetDevNumOnce: common.Ascend910RingsNum,
+				globalDevFaultInfo: map[int32]*common.DevFaultInfo{
+					chipPhyID1: {Policy: common.RestartError},
+					chipPhyID2: {Policy: common.RestartError},
+					chipPhyID3: {Policy: common.EmptyError},
+					chipPhyID4: {Policy: common.IgnoreError},
+				},
+			}
+			manager.upgradeHotResetError(classifyDevs, npuDev)
+			convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID0})
+			convey.So(classifyDevs[common.Ascend910][0].Health, convey.ShouldBeEmpty)
+			convey.So(classifyDevs[common.Ascend910][1].Health, convey.ShouldBeEmpty)
+			convey.So(classifyDevs[common.Ascend910][2].Health, convey.ShouldBeEmpty)
+			convey.So(classifyDevs[common.Ascend910][3].Health, convey.ShouldEqual, v1beta1.Healthy)
+			convey.So(classifyDevs[common.Ascend910][4].Health, convey.ShouldEqual, v1beta1.Unhealthy)
+		})
+	})
+}
+
+// TestRefreshDevFaultInfoForResetProcess for test refreshDevFaultInfoForResetProcess
+func TestRefreshDevFaultInfoForResetProcess(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test refreshDevFaultInfoForResetProcess", t, func() {
+		manager.hotResetManager = &HotResetTools{}
+		devInfo := &common.DevFaultInfo{LogicId: chipPhyID0}
+		convey.Convey("01-error code is empty, should return false and nil", func() {
+			isShouldUpgrade, err := manager.refreshDevFaultInfoForResetProcess(devInfo)
+			convey.So(isShouldUpgrade, convey.ShouldBeFalse)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("02-error code is empty, should return true and error", func() {
+			patch := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{},
+				"GetDeviceAllErrorCode", int32(0), []int64{}, errors.New("get error code failed"))
+			defer patch.Reset()
+			isShouldUpgrade, err := manager.refreshDevFaultInfoForResetProcess(devInfo)
+			convey.So(isShouldUpgrade, convey.ShouldBeTrue)
+			convey.So(err.Error(), convey.ShouldEqual, "get error code failed")
+		})
+		convey.Convey("03-refresh success, should return true and nil", func() {
+			patch := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{},
+				"GetDeviceAllErrorCode", int32(0), []int64{1}, nil).
+				ApplyFuncReturn(common.GetFaultType, common.RestartRequest)
+			defer patch.Reset()
+			isShouldUpgrade, err := manager.refreshDevFaultInfoForResetProcess(devInfo)
+			convey.So(isShouldUpgrade, convey.ShouldBeTrue)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(devInfo.Policy, convey.ShouldEqual, common.RestartRequestError)
+		})
+	})
+}
+
+// TestGetDeviceNetworkState for test getDeviceNetworkState
+func TestGetDeviceNetworkState(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test getDeviceNetworkState", t, func() {
+		convey.Convey("01-classifyDevs is empty, should return error", func() {
+			mockHealth := mockGetDeviceNetWorkHealth(uint32(0), errors.New("get network health failed"))
+			defer mockHealth.Reset()
+			_, err := manager.getDeviceNetworkState(chipPhyID0, v1beta1.Healthy)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-health code is networkDetectOK, should return healthy and nil", func() {
+			mockHealth := mockGetDeviceNetWorkHealth(networkDetectOK, nil)
+			defer mockHealth.Reset()
+			code, err := manager.getDeviceNetworkState(chipPhyID0, v1beta1.Unhealthy)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(code, convey.ShouldEqual, v1beta1.Healthy)
+		})
+		convey.Convey("03-health code is unexpected value, should return unhealthy and nil", func() {
+			mockHealth := mockGetDeviceNetWorkHealth(uint32(1), nil)
+			defer mockHealth.Reset()
+			code, err := manager.getDeviceNetworkState(chipPhyID0, v1beta1.Healthy)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(code, convey.ShouldEqual, v1beta1.Unhealthy)
+		})
+	})
+}
+
+// TestUpdateHotResetCache for test updateHotResetCache
+func TestUpdateHotResetCache(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test updateHotResetCache", t, func() {
+		manager.hotResetManager = &HotResetTools{}
+		patch := gomonkey.ApplyGlobalVar(&isolateDevList, []int32{})
+		defer patch.Reset()
+		convey.Convey("01-classifyDevs is empty, should return error", func() {
+			err := manager.updateHotResetCache(nil)
+			convey.So(err.Error(), convey.ShouldEqual, "ascend 910 device list not found")
+		})
+		convey.Convey("02-Ascend910 dev is empty, should return error", func() {
+			classifyDevs := map[string][]*common.NpuDevice{common.Ascend910: {}}
+			err := manager.updateHotResetCache(classifyDevs)
+			convey.So(err.Error(), convey.ShouldEqual, "npu device list is nil")
+		})
+		convey.Convey("03-set task dev info cache failed, should return error", func() {
+			patch1 := gomonkey.ApplyGlobalVar(&isolateDevList, []int32{chipPhyID1, chipPhyID2}).
+				ApplyPrivateMethod(&HwAscend910Manager{}, "setTaskDevInfoCache",
+					func(*HwAscend910Manager) error { return errors.New("set task dev info cache error") }).
+				ApplyFuncReturn(common.GetFaultType, common.NotHandleFault)
+			defer patch1.Reset()
+			classifyDevs := map[string][]*common.NpuDevice{
+				common.Ascend910: {
+					{LogicID: chipPhyID1, Health: v1beta1.Unhealthy},
+					{LogicID: chipPhyID2, Health: v1beta1.Healthy}},
+			}
+			err := manager.updateHotResetCache(classifyDevs)
+			convey.So(err.Error(), convey.ShouldEqual, "set task dev info cache error")
+			convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID1})
+			devFaultInfo, err := manager.hotResetManager.GetGlobalDevFaultInfo(chipPhyID1)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(devFaultInfo, convey.ShouldNotBeNil)
+			convey.So(devFaultInfo.Policy, convey.ShouldEqual, common.IsolateError)
+		})
+	})
+}
+
+// TestUpdateUpgradeErrorInfo for test updateUpgradeErrorInfo
+func TestUpdateUpgradeErrorInfo(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test  updateUpgradeErrorInfo", t, func() {
+		patch := gomonkey.ApplyGlobalVar(&isolateDevList, []int32{})
+		defer patch.Reset()
+		convey.Convey("01-isolateDevList is empty, should return nil", func() {
+			err := manager.updateUpgradeErrorInfo(nil)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		patch.ApplyGlobalVar(&isolateDevList, []int32{chipPhyID2, chipPhyID4})
+		convey.Convey("02-classifyDevs is empty, should return error", func() {
+			err := manager.updateUpgradeErrorInfo(map[string][]*common.NpuDevice{})
+			convey.So(err.Error(), convey.ShouldEqual, "no Ascend 910 device found in cache")
+		})
+		convey.Convey("03-update success, should return nil", func() {
+			classifyDevs := map[string][]*common.NpuDevice{
+				common.Ascend910: {
+					{
+						LogicID: chipPhyID1,
+						Health:  v1beta1.Healthy,
+					},
+					{
+						LogicID: chipPhyID2,
+						Health:  v1beta1.Unhealthy,
+					},
+					{
+						LogicID: chipPhyID4,
+						Health:  v1beta1.Healthy,
+					},
+					{
+						LogicID: chipPhyID5,
+						Health:  v1beta1.Healthy,
+					},
+				},
+			}
+			err := manager.updateUpgradeErrorInfo(classifyDevs)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(isolateDevList, convey.ShouldResemble, []int32{chipPhyID2})
+		})
+	})
+}
+
+func mockSetTaskDevInfoCacheFuncData1() []v1.Pod {
+	annotationDevError := map[string]string{
+		common.HuaweiAscend910: "Ascend910#4,Ascend910#5,Ascend910#6",
+	}
+	annotationSuccess := map[string]string{
+		common.HuaweiAscend910: "Ascend910-4,Ascend910-5,Ascend910-6",
+	}
+	annotationSuccess1 := map[string]string{
+		common.HuaweiAscend910: "Ascend910-4,Ascend910-5,Ascend910-6",
+		common.RankIndexKey:    "2",
+	}
+	labelSuccess := map[string]string{
+		common.ResetTaskNameKey: "task1",
+	}
+	podList := []v1.Pod{
+		getSinglePodWithMoreInfo("test-pod1", map[string]string{}, labelSuccess),
+		getSinglePodWithMoreInfo("test-pod2", annotationDevError, labelSuccess),
+		getSinglePodWithMoreInfo("test-pod3", annotationSuccess, labelSuccess),
+		getSinglePodWithMoreInfo("test-pod4", annotationSuccess1, labelSuccess),
+	}
+	return podList
+}
+
+func mockSetTaskDevInfoCacheFuncData2() []v1.Pod {
+	annotationError := map[string]string{
+		common.HuaweiAscend910: "Ascend910-4,Ascend910-5,Ascend910-6",
+		common.RankIndexKey:    "1.2",
+	}
+	labelSuccess := map[string]string{
+		common.ResetTaskNameKey: "task1",
+	}
+	podList := []v1.Pod{
+		getSinglePodWithMoreInfo("test-pod1", annotationError, labelSuccess),
+	}
+	return podList
+}
+
+// TestSetTaskDevInfoCache for test setTaskDevInfoCache
+func TestSetTaskDevInfoCache(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test setTaskDevInfoCache", t, func() {
+		manager.hotResetManager = &HotResetTools{
+			resetDevNumOnce: common.Ascend910RingsNum,
+			globalDevFaultInfo: map[int32]*common.DevFaultInfo{
+				chipPhyID4: {}, chipPhyID5: {}, chipPhyID6: {},
+			},
+		}
+		patch := gomonkey.ApplyMethod(&devmanager.DeviceManagerMock{}, "GetLogicIDFromPhysicID",
+			func(dm *devmanager.DeviceManagerMock, physicID int32) (int32, error) {
+				return physicID, nil
+			})
+		defer patch.Reset()
+		convey.Convey("01-set task dev info success, should return nil", func() {
+			podList := mockSetTaskDevInfoCacheFuncData1()
+			patch1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "GetActivePodListCache", podList)
+			defer patch1.Reset()
+			err := manager.setTaskDevInfoCache()
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("test setTaskDevInfoCache", func() {
+			podList := mockSetTaskDevInfoCacheFuncData2()
+			patch1 := gomonkey.ApplyMethodReturn(&kubeclient.ClientK8s{}, "GetActivePodListCache", podList)
+			defer patch1.Reset()
+			err := manager.setTaskDevInfoCache()
+			convey.So(err.Error(), convey.ShouldEqual, `strconv.Atoi: parsing "1.2": invalid syntax`)
+		})
+	})
+}
+
+// TestHandleUpdateCaches for test handleUpdateCaches
+func TestHandleUpdateCaches(t *testing.T) {
+	manager := createFake910Manager()
+	convey.Convey("test handleUpdateCaches", t, func() {
+		taskName := "taskName"
+		usedDevice := map[string]struct{}{taskName: {}}
+		taskDevList := map[string][]int32{taskName: {1, 2, 3}}
+		taskDevFaultInfo := map[string][]*common.TaskDevInfo{}
+		taskPod := map[string]v1.Pod{}
+		manager.hotResetManager = &HotResetTools{
+			allTaskDevList: taskDevList,
+			resetTask:      map[string]struct{}{taskName: {}},
+		}
+		err := manager.handleUpdateCaches(usedDevice, nil, taskDevFaultInfo, taskPod)
+		convey.So(err.Error(), convey.ShouldEqual, "task device list is nil")
+		err = manager.handleUpdateCaches(usedDevice, taskDevList, nil, taskPod)
+		convey.So(err.Error(), convey.ShouldEqual, "taskDevFaultInfo is nil")
+		err = manager.handleUpdateCaches(usedDevice, taskDevList, taskDevFaultInfo, nil)
+		convey.So(err.Error(), convey.ShouldEqual, "taskPod is nil")
+		err = manager.handleUpdateCaches(usedDevice, taskDevList, taskDevFaultInfo, taskPod)
+		convey.So(err, convey.ShouldBeNil)
+	})
 }
 
 // TestConvertPhysicIdToLogicId for test convertPhysicIdToLogicId
@@ -2341,14 +2725,12 @@ func TestIsNetResetCompleted(t *testing.T) {
 		logicID := int32(2)
 		convey.So(manager.isNetResetCompleted(logicID), convey.ShouldBeTrue)
 		convey.Convey("01-get network health failed, should return false", func() {
-			mockHealth := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetDeviceNetWorkHealth",
-				uint32(0), errors.New("get network health failed"))
+			mockHealth := mockGetDeviceNetWorkHealth(uint32(0), errors.New("get network health failed"))
 			defer mockHealth.Reset()
 			convey.So(manager.isNetResetCompleted(logicID), convey.ShouldBeFalse)
 		})
 		convey.Convey("02-network status is unhealthy, should return false", func() {
-			mockHealth := gomonkey.ApplyMethodReturn(&devmanager.DeviceManagerMock{}, "GetDeviceNetWorkHealth",
-				uint32(1), nil)
+			mockHealth := mockGetDeviceNetWorkHealth(uint32(1), nil)
 			defer mockHealth.Reset()
 			convey.So(manager.isNetResetCompleted(logicID), convey.ShouldBeFalse)
 		})
