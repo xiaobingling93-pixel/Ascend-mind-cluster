@@ -42,15 +42,6 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/config"
 )
 
-// checkSession check the ssn's parameters
-func (sHandle *ScheduleHandler) checkSession(ssn *framework.Session) error {
-	if sHandle == nil || ssn == nil {
-		klog.V(util.LogInfoLev).Infof("%s nil session hence doing nothing.", PluginName)
-		return errors.New("nil ssn")
-	}
-	return nil
-}
-
 // InitJobsFromSsn init all jobs in ssn.
 func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 	if sHandle == nil || ssn == nil {

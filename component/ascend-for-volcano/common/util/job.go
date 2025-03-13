@@ -97,14 +97,6 @@ func (sJob SchedulerJobAttr) GetPluginNameByReq() string {
 			return ""
 		}
 	}
-	// 2. static vJobs
-	if strings.HasSuffix(name, "c") {
-		nameSplit := strings.Split(name, "-")
-		if len(nameSplit) < NPUIndex2 {
-			return ""
-		}
-		return nameSplit[0]
-	}
 	return name
 }
 

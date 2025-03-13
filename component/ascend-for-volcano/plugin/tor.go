@@ -407,11 +407,7 @@ func (t *Tor) setTorIsHealthy(isHealthy string) {
 }
 
 // GetNodeByNodeName get node by node name
-func (t *Tor) GetNodeByNodeName(name string) *Server {
-	if t == nil {
-		klog.V(util.LogInfoLev).Infof("GetNodeByNodeName failed: %s", util.ArgumentError)
-		return nil
-	}
+func (t *Tor) getNodeByNodeName(name string) *Server {
 	for _, tNode := range t.Servers {
 		if tNode.Name == name {
 			return tNode
@@ -439,7 +435,7 @@ func (t *Tor) HasAcrossJob(isNSLBv2 bool, jobName api.JobID) bool {
 			if task.NodeName == "" {
 				continue
 			}
-			if t.GetNodeByNodeName(task.NodeName) == nil {
+			if t.getNodeByNodeName(task.NodeName) == nil {
 				return true
 			}
 		}

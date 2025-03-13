@@ -350,6 +350,9 @@ func (sHandle *ScheduleHandler) NodePredicate(taskInfo *api.TaskInfo, nodeInfo *
 		klog.V(util.LogErrorLev).Infof("NodePredicate got null parameter(s), which is invalid.")
 		return fmt.Errorf("got null parameter(s)")
 	}
+	if !IsNPUTask(taskInfo) {
+		return nil
+	}
 	klog.V(util.LogDebugLev).Infof("enter node(%s) predicate", nodeInfo.Name)
 	defer klog.V(util.LogDebugLev).Infof("leave node(%s) predicate", nodeInfo.Name)
 	vcJob, ok := sHandle.Jobs[taskInfo.Job]
@@ -366,9 +369,6 @@ func (sHandle *ScheduleHandler) NodePredicate(taskInfo *api.TaskInfo, nodeInfo *
 	vcNode, ok := sHandle.Nodes[nodeInfo.Name]
 	if !ok {
 		klog.V(util.LogDebugLev).Infof("NodePredicate %s not in.", nodeInfo.Name)
-		return nil
-	}
-	if !IsNPUTask(taskInfo) {
 		return nil
 	}
 
