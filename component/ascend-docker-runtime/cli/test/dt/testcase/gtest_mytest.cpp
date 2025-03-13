@@ -388,6 +388,16 @@ TEST_F(Test_Fhho, ClassEQ)
     EXPECT_LE(0, ret);
 }
 
+TEST_F(Test_Fhho, GetNsPathCaseOne)
+{
+    int pid = 1;
+    const char *nsType = NULL;
+    char buf[100] = {0x0};
+    int bufSize = 100;
+    int ret = GetNsPath(pid, nsType, buf, bufSize);
+    EXPECT_LE(ret, 0);
+}
+
 TEST_F(Test_Fhho, StatusOne)
 {
     int pid = 1;
@@ -426,6 +436,46 @@ TEST_F(Test_Fhho, StatusTwo1)
     int nsType = 1;
     int ret = EnterNsByPath(containerNsPath, nsType);
     EXPECT_LE(-1, ret);
+}
+
+TEST_F(Test_Fhho, EnterNsByPathCase3)
+{
+    const char* containerNsPath = NULL;
+    int nsType = 1;
+    int ret = EnterNsByPath(containerNsPath, nsType);
+    EXPECT_LE(-1, ret);
+}
+
+TEST_F(Test_Fhho, EnterNsByPathCase4)
+{
+    char containerNsPath[BUF_SIZE] = {0};
+    int nsType = 1;
+    MOCKER(open).stubs().will(invoke(stub_open_failed));
+    int ret = EnterNsByPath(containerNsPath, nsType);
+    GlobalMockObject::verify();
+    EXPECT_LE(-1, ret);
+}
+
+TEST_F(Test_Fhho, EnterNsByPathCase5)
+{
+    char containerNsPath[BUF_SIZE] = {0};
+    int nsType = 1;
+    MOCKER(open).stubs().will(invoke(stub_open_success));
+    MOCKER(EnterNsByFd).stubs().will(invoke(Stub_EnterNsByFd_Failed));
+    int ret = EnterNsByPath(containerNsPath, nsType);
+    GlobalMockObject::verify();
+    EXPECT_LE(-1, ret);
+}
+
+TEST_F(Test_Fhho, EnterNsByPathCase6)
+{
+    char containerNsPath[BUF_SIZE] = {0};
+    int nsType = 1;
+    MOCKER(open).stubs().will(invoke(stub_open_success));
+    MOCKER(EnterNsByFd).stubs().will(invoke(Stub_EnterNsByFd_Success));
+    int ret = EnterNsByPath(containerNsPath, nsType);
+    GlobalMockObject::verify();
+    EXPECT_LE(0, ret);
 }
 
 TEST_F(Test_Fhho, GetNsPathAndGetSelfNsPath)
