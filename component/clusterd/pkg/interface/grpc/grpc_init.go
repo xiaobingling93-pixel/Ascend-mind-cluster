@@ -17,9 +17,9 @@ import (
 	"clusterd/pkg/application/publicfault"
 	"clusterd/pkg/application/recover"
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/interface/grpc/pb"
-	pbprofiling "clusterd/pkg/interface/grpc/pb-profiling"
-	pb2 "clusterd/pkg/interface/grpc/pb-publicfault"
+	pbprofiling "clusterd/pkg/interface/grpc/profiling"
+	"clusterd/pkg/interface/grpc/pubfault"
+	"clusterd/pkg/interface/grpc/recover"
 )
 
 // ClusterInfoMgrServer is a server of clusterd
@@ -73,7 +73,7 @@ func (server *ClusterInfoMgrServer) Start(recoverSvc *recover.FaultRecoverServic
 	}
 	server.grpcServer = grpc.NewServer(server.opts...)
 	pb.RegisterRecoverServer(server.grpcServer, recoverSvc)
-	pb2.RegisterPubFaultServer(server.grpcServer, pubFaultSvc)
+	pubfault.RegisterPubFaultServer(server.grpcServer, pubFaultSvc)
 	pbprofiling.RegisterTrainingDataTraceServer(server.grpcServer, dataTraceSvc)
 
 	go func() {

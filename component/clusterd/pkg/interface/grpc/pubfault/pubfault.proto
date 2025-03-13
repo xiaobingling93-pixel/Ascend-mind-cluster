@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = ".;pb2";
+option go_package = ".;pubfault";
 
 // different services with the same name may result in errors
 message RespStatus {

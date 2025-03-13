@@ -8,13 +8,13 @@ import (
 
 	"ascend-common/api"
 	"clusterd/pkg/domain/common"
-	pb2 "clusterd/pkg/interface/grpc/pb-publicfault"
+	"clusterd/pkg/interface/grpc/pubfault"
 )
 
 // PubFaultService a service for public fault
 type PubFaultService struct {
 	serviceCtx context.Context
-	pb2.UnimplementedPubFaultServer
+	pubfault.UnimplementedPubFaultServer
 }
 
 // NewPubFaultService new PubFaultService
@@ -23,27 +23,28 @@ func NewPubFaultService(ctx context.Context) *PubFaultService {
 }
 
 // SendPublicFault send public fault to clusterd
-func (s *PubFaultService) SendPublicFault(ctx context.Context, req *pb2.PublicFaultRequest) (*pb2.RespStatus, error) {
+func (s *PubFaultService) SendPublicFault(ctx context.Context,
+	req *pubfault.PublicFaultRequest) (*pubfault.RespStatus, error) {
 	pubFaultInfo := constructPubFaultInfo(req)
 	if err := PubFaultCollector(pubFaultInfo); err != nil {
 		if err.Error() == "limiter work by resource failed" {
-			return &pb2.RespStatus{
+			return &pubfault.RespStatus{
 				Code: int32(common.InvalidReqRate),
 				Info: err.Error(),
 			}, nil
 		}
-		return &pb2.RespStatus{
+		return &pubfault.RespStatus{
 			Code: int32(common.InvalidReqParam),
 			Info: err.Error(),
 		}, nil
 	}
-	return &pb2.RespStatus{
+	return &pubfault.RespStatus{
 		Code: int32(common.OK),
 		Info: "public fault send successfully",
 	}, nil
 }
 
-func constructPubFaultInfo(req *pb2.PublicFaultRequest) *api.PubFaultInfo {
+func constructPubFaultInfo(req *pubfault.PublicFaultRequest) *api.PubFaultInfo {
 	var faults = []api.Fault{}
 	for _, reqFault := range req.Faults {
 		var influence []api.Influence

@@ -17,7 +17,7 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
-	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/grpc/recover"
 )
 
 const (

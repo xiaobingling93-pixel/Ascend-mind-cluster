@@ -13,7 +13,7 @@ import (
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/domain/profile"
-	"clusterd/pkg/interface/grpc/pb-profiling"
+	"clusterd/pkg/interface/grpc/profiling"
 	"clusterd/pkg/interface/kube"
 )
 

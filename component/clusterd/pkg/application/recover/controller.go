@@ -18,7 +18,7 @@ import (
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podgroup"
-	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
 

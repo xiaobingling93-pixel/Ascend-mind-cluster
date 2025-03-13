@@ -14,7 +14,7 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
 

@@ -4,7 +4,7 @@
 package common
 
 import (
-	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/grpc/recover"
 )
 
 // SignalRetrySender have a method send

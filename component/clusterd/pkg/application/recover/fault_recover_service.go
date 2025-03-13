@@ -15,7 +15,7 @@ import (
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/podgroup"
-	"clusterd/pkg/interface/grpc/pb"
+	"clusterd/pkg/interface/grpc/recover"
 )
 
 var globalFaultBeaconSecond = 2

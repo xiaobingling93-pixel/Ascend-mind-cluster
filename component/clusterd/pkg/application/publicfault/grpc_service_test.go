@@ -13,12 +13,12 @@ import (
 
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
-	pb2 "clusterd/pkg/interface/grpc/pb-publicfault"
+	"clusterd/pkg/interface/grpc/pubfault"
 )
 
 var (
 	pubFaultSvc *PubFaultService
-	req         *pb2.PublicFaultRequest
+	req         *pubfault.PublicFaultRequest
 )
 
 const (
@@ -34,26 +34,26 @@ func fakeService() *PubFaultService {
 
 func TestSendPublicFault(t *testing.T) {
 	pubFaultSvc = fakeService()
-	influence := &pb2.PubFaultInfo{
+	influence := &pubfault.PubFaultInfo{
 		NodeName:  testNodeName,
 		DeviceIds: []int32{0, 1},
 	}
-	fault := &pb2.Fault{
+	fault := &pubfault.Fault{
 		FaultId:       testId,
 		FaultType:     constant.FaultTypeNPU,
 		FaultCode:     testFaultCode,
 		FaultTime:     testTimeStamp,
 		Assertion:     constant.AssertionOccur,
 		FaultLocation: nil,
-		Influence:     []*pb2.PubFaultInfo{influence},
+		Influence:     []*pubfault.PubFaultInfo{influence},
 		Description:   "",
 	}
-	req = &pb2.PublicFaultRequest{
+	req = &pubfault.PublicFaultRequest{
 		Id:        testId,
 		Timestamp: testTimeStamp,
 		Version:   "1.0",
 		Resource:  testResource,
-		Faults:    []*pb2.Fault{fault},
+		Faults:    []*pubfault.Fault{fault},
 	}
 	convey.Convey("test method 'SendPublicFault' success", t, testSendFault)
 	convey.Convey("test method 'SendPublicFault' failed, limit error", t, testSendFaultErrLimit)

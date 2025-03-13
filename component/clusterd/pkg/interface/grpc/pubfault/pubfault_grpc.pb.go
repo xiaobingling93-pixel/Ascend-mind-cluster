@@ -4,7 +4,7 @@
 // - protoc             v5.27.0
 // source: pubfault.proto
 
-package pb2
+package pubfault
 
 import (
 	context "context"

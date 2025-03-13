@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"ascend-common/common-utils/hwlog"
-	pbprofiling "clusterd/pkg/interface/grpc/pb-profiling"
+	"clusterd/pkg/interface/grpc/profiling"
 	"clusterd/pkg/interface/kube"
 )
 
@@ -48,7 +48,7 @@ func (dtc *DataTraceController) IsDataTraceCmExist() (*v1.ConfigMap, error) {
 }
 
 // UpdateDataTraceCm to update the datatrace configmap with in parameters
-func (dtc *DataTraceController) UpdateDataTraceCm(inParam *pbprofiling.ProfilingSwitch) error {
+func (dtc *DataTraceController) UpdateDataTraceCm(inParam *pb_profiling.ProfilingSwitch) error {
 	if inParam == nil {
 		return errors.New("the incoming param is nil")
 	}
@@ -77,7 +77,7 @@ func (dtc *DataTraceController) UpdateDataTraceCm(inParam *pbprofiling.Profiling
 }
 
 // CreateDataTraceCm creates a new data trace for the given profile
-func (dtc *DataTraceController) CreateDataTraceCm(inParam *pbprofiling.ProfilingSwitch) error {
+func (dtc *DataTraceController) CreateDataTraceCm(inParam *pb_profiling.ProfilingSwitch) error {
 	if inParam == nil {
 		return errors.New("the incoming param is nil")
 	}
@@ -106,7 +106,7 @@ func (dtc *DataTraceController) CreateDataTraceCm(inParam *pbprofiling.Profiling
 }
 
 func (dtc *DataTraceController) setDataTraceData(dataTraceParam *SwitchStruct,
-	inParam *pbprofiling.ProfilingSwitch) {
+	inParam *pb_profiling.ProfilingSwitch) {
 	dataTraceParam.CommunicationOperator = inParam.CommunicationOperator
 	dataTraceParam.FP = inParam.FP
 	dataTraceParam.Step = inParam.Step
