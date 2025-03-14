@@ -42,6 +42,15 @@ import (
 
 const retryTime = 3
 
+var defaultSafeCipherSuites = []uint16{
+	tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+}
+
 // ClientK8s include ClientK8sSet & nodeName & configmap name & kubelet http Client
 type ClientK8s struct {
 	Clientset      kubernetes.Interface
@@ -60,18 +69,23 @@ func NewClientK8s() (*ClientK8s, error) {
 		hwlog.RunLog.Errorf("build client config err: %v", err)
 		return nil, err
 	}
-
 	client, err := kubernetes.NewForConfig(clientCfg)
 	if err != nil {
 		hwlog.RunLog.Errorf("get client err: %v", err)
 		return nil, err
 	}
+
 	nodeName, err := GetNodeNameFromEnv()
 	if err != nil {
 		return nil, err
 	}
+
 	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			CipherSuites:       defaultSafeCipherSuites,
+			MinVersion:         tls.VersionTLS13,
+		},
 	}
 	kltClient := &http.Client{Transport: transport}
 
