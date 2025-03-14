@@ -18,6 +18,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -29,6 +30,7 @@ import (
 
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager"
+	"ascend-common/devmanager/common"
 	"huawei.com/npu-exporter/v6/collector/container"
 	"huawei.com/npu-exporter/v6/collector/container/isula"
 	"huawei.com/npu-exporter/v6/collector/container/v1"
@@ -37,6 +39,7 @@ import (
 
 var (
 	defaultLogFile = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	mockErr        = errors.New("mockErr")
 )
 
 const (
@@ -45,7 +48,8 @@ const (
 	waitTime          = 2 * time.Second
 	npuCount          = 8
 	time5s            = 5 * time.Second
-	defaultUpdateTime = 5 * time.Second
+	defaultUpdateTime = 10 * time.Millisecond
+	num2              = 2
 	num100            = 100
 )
 
@@ -178,7 +182,6 @@ func mockGetNPUChipList() []HuaWeiAIChip {
 
 // TestInitCardInfo test  method getChipInfo
 func TestInitCardInfo(t *testing.T) {
-
 	patches := gomonkey.ApplyFuncReturn(getNPUChipList, mockGetNPUChipList())
 	defer patches.Reset()
 	convey.Convey("test InitCardInfo", t, func() {
@@ -232,4 +235,180 @@ func mockNewNpuCollector() *NpuCollector {
 	}
 	c := NewNpuCollector(tc.cacheTime, tc.updateTime, tc.deviceParser, tc.dmgr)
 	return c
+}
+
+func TestNpuChipInfoInitAtFirstTime(t *testing.T) {
+	n := mockNewNpuCollector()
+	convey.Convey("TestNpuChipInfoInitAtFirstTime", t, func() {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFuncReturn(getNPUChipList, []HuaWeiAIChip{{CardId: 0}})
+		// do test
+		npuChipInfoInitAtFirstTime(n)
+		// valid cache
+		data, err := n.cache.Get(npuListCacheKey)
+		convey.So(err, convey.ShouldBeNil)
+		chips, ok := data.([]HuaWeiAIChip)
+		convey.So(ok, convey.ShouldBeTrue)
+		convey.So(len(chips), convey.ShouldEqual, 1)
+	})
+}
+
+func TestStartCollectSingleGoroutine(t *testing.T) {
+	const mockKey = "mockKey"
+	const mockValue = "mockValue"
+	n := mockNewNpuCollector()
+	wg := sync.WaitGroup{}
+	ChainForSingleGoroutine = []MetricsCollector{
+		&MetricsCollectorAdapter{},
+	}
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyMethod(&MetricsCollectorAdapter{}, "CollectToCache",
+		func(_ *MetricsCollectorAdapter, n *NpuCollector, chipList []HuaWeiAIChip) {
+			n.cache.Set(mockKey, mockValue, n.cacheTime)
+		})
+	convey.Convey("TestStartCollectSingleGoroutine", t, func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		startCollectSingleGoroutine(&wg, ctx, n, "")
+		time.Sleep(n.updateTime)
+		cancel()
+		// valid cache
+		data, err := n.cache.Get(mockKey)
+		convey.So(err, convey.ShouldBeNil)
+		value, ok := data.(string)
+		convey.So(ok, convey.ShouldBeTrue)
+		convey.So(value, convey.ShouldEqual, mockValue)
+	})
+}
+
+type chipsCase struct {
+	name        string
+	devType     string
+	buildChips  func()
+	expectValue int
+}
+
+func TestGetChipListWithVNPU(t *testing.T) {
+	n := mockNewNpuCollector()
+	chip := HuaWeiAIChip{}
+	tests := []chipsCase{
+		{name: "TestGetChipListWithVNPU_310p_no_vnpu",
+			devType: common.Ascend310P,
+			buildChips: func() {
+				chip = createChip()
+			},
+			expectValue: 1,
+		},
+		{name: "TestGetChipListWithVNPU_310p_2_vnpus",
+			devType: common.Ascend310P,
+			buildChips: func() {
+				chip = createValidVnpuChip()
+			},
+			expectValue: num2,
+		},
+		{name: "TestGetChipListWithVNPU_910",
+			devType: common.Ascend910,
+			buildChips: func() {
+				chip = createChip()
+			},
+			expectValue: 1,
+		},
+	}
+
+	convey.Convey("TestGetChipListWithVNPU", t, func() {
+		for _, tt := range tests {
+			convey.Convey(tt.name, func() {
+				tt.buildChips()
+				patches := gomonkey.NewPatches()
+				defer patches.Reset()
+				patches.ApplyMethodReturn(n.Dmgr, "GetDevType", tt.devType)
+				patches.ApplyFuncReturn(getChipListCache, []HuaWeiAIChip{chip})
+
+				chips := GetChipListWithVNPU(n)
+				convey.So(len(chips), convey.ShouldEqual, tt.expectValue)
+			})
+		}
+	})
+}
+
+func createValidVnpuChip() HuaWeiAIChip {
+	chip := createChip()
+	chip.VDevInfos = &common.VirtualDevInfo{
+		VDevActivityInfo: []common.VDevActivityInfo{
+			{
+				VDevID:       0,
+				VDevAiCore:   0,
+				VDevTotalMem: 0,
+				VDevUsedMem:  0,
+				IsVirtualDev: true,
+			},
+			{
+				VDevID:       1,
+				VDevAiCore:   1,
+				VDevTotalMem: 1,
+				VDevUsedMem:  1,
+				IsVirtualDev: true,
+			},
+		},
+	}
+	return chip
+}
+
+func createChip() HuaWeiAIChip {
+	return HuaWeiAIChip{
+		CardId:   0,
+		PhyId:    0,
+		DeviceID: 0,
+		LogicID:  0,
+		ChipInfo: &common.ChipInfo{
+			Name:    common.Ascend910,
+			Type:    "Ascend",
+			Version: "V1",
+		},
+	}
+}
+
+func TestSetPCIeBusInfo(t *testing.T) {
+	const mockPcieBus = "0000:01:00.0"
+	tests := []struct {
+		name         string
+		productTypes []string
+		err          error
+		expectValue  string
+	}{{
+		name:         "TestSetPCIeBusInfo_910",
+		productTypes: []string{common.Ascend910},
+		err:          nil,
+		expectValue:  mockPcieBus,
+	}, {
+		name:         "TestSetPCIeBusInfo_910_err",
+		productTypes: []string{common.Ascend910},
+		err:          mockErr,
+		expectValue:  "",
+	}, {
+		name:         "TestSetPCIeBusInfo_Atlas200ISoc",
+		productTypes: []string{common.Atlas200ISoc},
+		err:          nil,
+		expectValue:  mockPcieBus,
+	}, {
+		name:         "TestSetPCIeBusInfo_Atlas200ISoc_err",
+		productTypes: []string{common.Atlas200ISoc},
+		err:          mockErr,
+		expectValue:  "",
+	}}
+	chip := createChip()
+	convey.Convey("TestSetPCIeBusInfo", t, func() {
+		for _, tt := range tests {
+			convey.Convey(tt.name, func() {
+				dmgr := &devmanager.DeviceManager{ProductTypes: tt.productTypes}
+				patches := gomonkey.NewPatches()
+				defer patches.Reset()
+				patches.ApplyMethodReturn(dmgr, "GetPCIeBusInfo", mockPcieBus, tt.err)
+
+				setPCIeBusInfo(0, dmgr, &chip)
+				convey.So(chip.PCIeBusInfo, convey.ShouldEqual, tt.expectValue)
+			})
+		}
+	})
 }

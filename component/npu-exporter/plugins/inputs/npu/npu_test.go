@@ -131,7 +131,8 @@ type MockAccumulator struct {
 	fields map[string]map[string]interface{}
 }
 
-func (m *MockAccumulator) AddFields(measurement string, fields map[string]interface{}, tags map[string]string, t ...time.Time) {
+func (m *MockAccumulator) AddFields(measurement string, fields map[string]interface{}, tags map[string]string,
+	t ...time.Time) {
 	if m.fields == nil {
 		m.fields = make(map[string]map[string]interface{})
 	}
@@ -143,16 +144,20 @@ func (m *MockAccumulator) AddFields(measurement string, fields map[string]interf
 	m.fields[metricKey] = fields
 }
 
-func (m *MockAccumulator) AddGauge(measurement string, fields map[string]interface{}, tags map[string]string, t ...time.Time) {
+func (m *MockAccumulator) AddGauge(measurement string, fields map[string]interface{}, tags map[string]string,
+	t ...time.Time) {
 }
 
-func (m *MockAccumulator) AddCounter(measurement string, fields map[string]interface{}, tags map[string]string, t ...time.Time) {
+func (m *MockAccumulator) AddCounter(measurement string, fields map[string]interface{}, tags map[string]string,
+	t ...time.Time) {
 }
 
-func (m *MockAccumulator) AddSummary(measurement string, fields map[string]interface{}, tags map[string]string, t ...time.Time) {
+func (m *MockAccumulator) AddSummary(measurement string, fields map[string]interface{}, tags map[string]string,
+	t ...time.Time) {
 }
 
-func (m *MockAccumulator) AddHistogram(measurement string, fields map[string]interface{}, tags map[string]string, t ...time.Time) {
+func (m *MockAccumulator) AddHistogram(measurement string, fields map[string]interface{}, tags map[string]string,
+	t ...time.Time) {
 }
 
 func (m *MockAccumulator) AddMetric(metric telegraf.Metric) {

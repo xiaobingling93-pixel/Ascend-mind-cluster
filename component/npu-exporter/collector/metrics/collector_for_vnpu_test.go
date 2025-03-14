@@ -166,7 +166,6 @@ func TestVnpuCollectorUpdateTelegraf(t *testing.T) {
 }
 
 func TestGetPodDisplayInfo(t *testing.T) {
-	const num7 = 7
 	const num8 = 8
 	convey.Convey("TestGetPodDisplayInfo", t, func() {
 		chip := createValidVnpuChip()
@@ -175,7 +174,7 @@ func TestGetPodDisplayInfo(t *testing.T) {
 			labels := getPodDisplayInfo(&chip, containerNames)
 			convey.Convey("should return 8 metrics", func() {
 				convey.So(len(labels), convey.ShouldEqual, num8)
-				convey.So(labels[num7], convey.ShouldEqual, "true")
+				convey.So(labels[len(labels)-1], convey.ShouldEqual, "true")
 			})
 		})
 

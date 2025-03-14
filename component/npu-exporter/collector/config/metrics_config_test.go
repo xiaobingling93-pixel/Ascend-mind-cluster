@@ -125,6 +125,7 @@ func TestUnRegisterChain(t *testing.T) {
 					&metrics.HccsCollector{},
 					&metrics.NetworkCollector{},
 				}
+				convey.So(len(chain), convey.ShouldEqual, len(expected))
 				for i, collector := range chain {
 					convey.So(reflect.TypeOf(collector), convey.ShouldEqual, reflect.TypeOf(expected[i]))
 				}

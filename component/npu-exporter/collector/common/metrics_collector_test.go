@@ -160,8 +160,8 @@ func TestUpdateCache(t *testing.T) {
 
 				data, err := n.cache.Get(tt.cacheKey)
 				convey.So(err, convey.ShouldBeNil)
-				map2, err2 := data.(map[int32]string)
-				convey.So(err2, convey.ShouldBeTrue)
+				map2, ok := data.(map[int32]string)
+				convey.So(ok, convey.ShouldBeTrue)
 				convey.So(len(map2), convey.ShouldEqual, tt.expected)
 			})
 		}

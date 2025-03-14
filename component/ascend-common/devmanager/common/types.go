@@ -23,19 +23,19 @@ type MemoryInfo struct {
 	Utilization     uint32 `json:"memory_utilization"`
 }
 
-// HbmInfo HBM info
+// HbmInfo high bandwidth memory info
 type HbmInfo struct {
-	MemorySize        uint64 `json:"memory_size"`        // HBM total size,KB
-	Frequency         uint32 `json:"hbm_frequency"`      // HBM frequency MHz
-	Usage             uint64 `json:"memory_usage"`       // HBM memory usage,KB
-	Temp              int32  `json:"hbm_temperature"`    // HBM temperature
-	BandWidthUtilRate uint32 `json:"hbm_bandwidth_util"` // HBM bandwidth utilization
+	MemorySize        uint64 `json:"memory_size"`        // total size,MB
+	Frequency         uint32 `json:"hbm_frequency"`      // frequency MHz
+	Usage             uint64 `json:"memory_usage"`       // memory usage,MB
+	Temp              int32  `json:"hbm_temperature"`    // temperature
+	BandWidthUtilRate uint32 `json:"hbm_bandwidth_util"` // bandwidth utilization
 }
 
-// HbmAggregateInfo more comprehensive hbm information with ecc information
+// HbmAggregateInfo more comprehensive high bandwidth memory information with ecc information
 type HbmAggregateInfo struct {
 	*HbmInfo
-	ECCInfo *ECCInfo `json:"hbm_ecc_info"` // HBM ECC information
+	ECCInfo *ECCInfo `json:"hbm_ecc_info"` // ECC information
 }
 
 // ChipInfo chip info
