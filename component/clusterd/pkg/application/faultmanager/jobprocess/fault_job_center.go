@@ -47,5 +47,5 @@ func (fJobCenter *faultJobProcessCenter) Process() {
 }
 
 func (fJobCenter *faultJobProcessCenter) isProcessLimited(currentTime int64) bool {
-	return fJobCenter.lastProcessTime+constant.FaultJobProcessInterval > currentTime
+	return fJobCenter.lastProcessTime+constant.FaultCenterProcessPeriod > currentTime
 }

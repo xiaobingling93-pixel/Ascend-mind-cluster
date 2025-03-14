@@ -302,12 +302,26 @@ func faultsGroupByType(faults []constant.DeviceFault) map[string][]constant.Devi
 	return result
 }
 
+func isNotHandleFaultsWithFaultType(faults []constant.DeviceFault, faultType string) bool {
+	for _, fault := range faults {
+		if fault.FaultType == faultType && fault.FaultLevel != constant.NotHandleFault {
+			return false
+		}
+	}
+	return true
+}
+
 func mergeCodeAndRemoveUnhealthy(advanceDeviceCm constant.AdvanceDeviceFaultCm) constant.AdvanceDeviceFaultCm {
 	for deviceName, faults := range advanceDeviceCm.FaultDeviceList {
-		if len(faults) == 0 {
-			advanceDeviceCm.NetworkUnhealthy = util.DeleteStringSliceItem(advanceDeviceCm.NetworkUnhealthy, deviceName)
+		if isNotHandleFaultsWithFaultType(faults, constant.CardUnhealthy) {
 			advanceDeviceCm.CardUnHealthy = util.DeleteStringSliceItem(advanceDeviceCm.CardUnHealthy, deviceName)
-			hwlog.RunLog.Warnf("remove device %s from unhealthy", deviceName)
+			hwlog.RunLog.Warnf("remove device %s from CardUnHealthy", deviceName)
+		}
+		if isNotHandleFaultsWithFaultType(faults, constant.CardNetworkUnhealthy) {
+			advanceDeviceCm.NetworkUnhealthy = util.DeleteStringSliceItem(advanceDeviceCm.NetworkUnhealthy, deviceName)
+			hwlog.RunLog.Warnf("remove device %s from NetworkUnhealthy", deviceName)
+		}
+		if len(faults) == 0 {
 			continue
 		}
 		mergedFaults, err := mergeDeviceFault(faults)

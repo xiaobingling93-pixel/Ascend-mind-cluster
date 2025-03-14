@@ -188,17 +188,28 @@ const (
 )
 
 const (
-	InvalidSuperPodIndex    = -2
-	PatchPodTimes           = 3
-	FaultJobProcessInterval = 5 * 1000
-	AllCardId               = "FF"
-	SwitchFaultType         = "switchFault"
-	DeviceFaultType         = "deviceFault"
-	NodeFaultType           = "nodeFault"
-	TriggerFaultType        = "TriggerFault"
-	RelationFaultType       = "RelationFaultCodes"
-	TaskFaultKey            = "fault-type"
-	Kilo                    = 1000
-	FaultCustomizationPath  = "/home/hwMindX/relationFaultCustomization.json"
-	FaultDurationPath       = "/home/hwMindX/faultDuration.json"
+	// InvalidSuperPodIndex invalid super pod index
+	InvalidSuperPodIndex = -2
+	// PatchPodTimes patch pod retry times
+	PatchPodTimes = 3
+	// AllCardId all card id
+	AllCardId = "FF"
+	// SwitchFaultType is switchFault
+	SwitchFaultType = "switchFault"
+	// DeviceFaultType is deviceFault
+	DeviceFaultType = "deviceFault"
+	// NodeFaultType is nodeFault
+	NodeFaultType = "nodeFault"
+	// TriggerFaultType is TriggerFault
+	TriggerFaultType = "TriggerFault"
+	// RelationFaultType is RelationFaultCodes
+	RelationFaultType = "RelationFaultCodes"
+	// TaskFaultKey is fault-type
+	TaskFaultKey = "fault-type"
+	// Kilo is 1000
+	Kilo = 1000
+	// FaultCustomizationPath fault customization path
+	FaultCustomizationPath = "/home/hwMindX/relationFaultCustomization.json"
+	// FaultDurationPath fault duration path
+	FaultDurationPath = "/home/hwMindX/faultDuration.json"
 )

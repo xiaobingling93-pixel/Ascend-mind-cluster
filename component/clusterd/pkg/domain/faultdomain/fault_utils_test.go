@@ -288,6 +288,7 @@ func TestMergeManuallySeparateNPUTypeDeviceFault(t *testing.T) {
 	})
 }
 
+// TestGetAdvanceDeviceCm should get advanceDeviceCm from originalDeviceCm
 func TestGetAdvanceDeviceCm(t *testing.T) {
 	advanceDeviceCm := GetAdvanceDeviceCm(originalDeviceCm)
 	if len(advanceDeviceCm.FaultDeviceList[deviceName]) != originalDeviceFaultCodeCnt {
@@ -302,6 +303,7 @@ func TestGetAdvanceDeviceCm(t *testing.T) {
 	}
 }
 
+// TestValidBusinessUceReportInfo valid business uce report info
 func TestValidBusinessUceReportInfo(t *testing.T) {
 	t.Run("TestValidBusinessUceReportInfo", func(t *testing.T) {
 		reportInfo := &constant.ReportInfo{
@@ -329,6 +331,7 @@ func TestValidBusinessUceReportInfo(t *testing.T) {
 	})
 }
 
+// TestCanDoStepRetry check uceDeviceInfo can do step retry
 func TestCanDoStepRetry(t *testing.T) {
 	uceDeviceInfo := &constant.UceDeviceInfo{
 		DeviceName:   deviceName,
@@ -354,6 +357,7 @@ func TestCanDoStepRetry(t *testing.T) {
 	})
 }
 
+// TestGetContainedElementIdx should return id of the item from slice
 func TestGetContainedElementIdx(t *testing.T) {
 	arr := []string{"1", "2"}
 	t.Run("TestGetContainedElementIdx", func(t *testing.T) {
@@ -366,6 +370,7 @@ func TestGetContainedElementIdx(t *testing.T) {
 	})
 }
 
+// TestGetFaultTime should return fault time from DeviceFault
 func TestGetFaultTime(t *testing.T) {
 	fault := constant.DeviceFault{
 		FaultCode: constant.UceFaultCode,
@@ -387,6 +392,7 @@ func TestGetFaultTime(t *testing.T) {
 	})
 }
 
+// TestFaultCodeJudge check fault code is right
 func TestFaultCodeJudge(t *testing.T) {
 	t.Run("TestFaultCodeJudgeAic", func(t *testing.T) {
 		if got := IsUceAccompanyFault(constant.AicFaultCode); got == false {
@@ -410,6 +416,7 @@ func TestFaultCodeJudge(t *testing.T) {
 	})
 }
 
+// TestAdvanceDeviceCmForNodeMapToString should return string-format CM from AdvanceDeviceCm
 func TestAdvanceDeviceCmForNodeMapToString(t *testing.T) {
 	deviceInfoCms := map[string]*constant.DeviceInfo{
 		cmName: originalDeviceCm,
@@ -425,6 +432,7 @@ func TestAdvanceDeviceCmForNodeMapToString(t *testing.T) {
 	})
 }
 
+// TestAddFaultAndDeleteFaultMap should add or delete fault right
 func TestAddFaultAndDeleteFaultMap(t *testing.T) {
 	addFault := constant.DeviceFault{
 		NPUName: deviceName,
@@ -448,6 +456,7 @@ func TestAddFaultAndDeleteFaultMap(t *testing.T) {
 	})
 }
 
+// TestGetAdvanceDeviceCmForNodeMap should get AdvanceDeviceCm
 func TestGetAdvanceDeviceCmForNodeMap(t *testing.T) {
 	deviceInfoCms := map[string]*constant.DeviceInfo{
 		cmName: originalDeviceCm,
@@ -460,6 +469,7 @@ func TestGetAdvanceDeviceCmForNodeMap(t *testing.T) {
 	})
 }
 
+// TestGetNodeAndDeviceFromJobIdAndRankId should return right node and device according to the jobId and rankID
 func TestGetNodeAndDeviceFromJobIdAndRankId(t *testing.T) {
 	t.Run("TestGetNodeAndDeviceFromJobIdAndRankId", func(t *testing.T) {
 		serverName, device, err := GetNodeAndDeviceFromJobIdAndRankId(jobId, rankID, jobServerMap)
@@ -469,6 +479,7 @@ func TestGetNodeAndDeviceFromJobIdAndRankId(t *testing.T) {
 	})
 }
 
+// TestIsNodeReady check node is ready
 func TestIsNodeReady(t *testing.T) {
 	node := &v1.Node{
 		Status: v1.NodeStatus{
@@ -481,6 +492,34 @@ func TestIsNodeReady(t *testing.T) {
 	t.Run("TestIsNodeReady", func(t *testing.T) {
 		if !IsNodeReady(node) {
 			t.Error("TestIsNodeReady fail")
+		}
+	})
+}
+
+// TestIsNotHandleFaultsWithFaultType check faults in specified fault type are NotHandleFault
+func TestIsNotHandleFaultsWithFaultType(t *testing.T) {
+	t.Run("TestIsNotHandleFaultsWithFaultType", func(t *testing.T) {
+		faults := make([]constant.DeviceFault, 0)
+		faults = append(faults, constant.DeviceFault{
+			FaultType:  constant.CardUnhealthy,
+			FaultLevel: constant.NotHandleFault,
+		})
+		faults = append(faults, constant.DeviceFault{
+			FaultType:  constant.CardNetworkUnhealthy,
+			FaultLevel: constant.NotHandleFault,
+		})
+		if !isNotHandleFaultsWithFaultType(faults, constant.CardNetworkUnhealthy) {
+			t.Error("TestIsNotHandleFaultsWithFaultType fail")
+		}
+		if !isNotHandleFaultsWithFaultType(faults, constant.CardUnhealthy) {
+			t.Error("TestIsNotHandleFaultsWithFaultType fail")
+		}
+		faults = append(faults, constant.DeviceFault{
+			FaultType:  constant.CardUnhealthy,
+			FaultLevel: constant.SeparateNPU,
+		})
+		if isNotHandleFaultsWithFaultType(faults, constant.CardUnhealthy) {
+			t.Error("TestIsNotHandleFaultsWithFaultType fail")
 		}
 	})
 }

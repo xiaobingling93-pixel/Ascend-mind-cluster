@@ -84,22 +84,9 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(
 	}
 	for _, deviceInfo := range devicesOfJobOnNode.DeviceList {
 		deviceName := advanceDeviceInfo.ServerType + "-" + deviceInfo.DeviceID
-		faultList, found := advanceDeviceInfo.FaultDeviceList[deviceName]
+		faultList := advanceDeviceInfo.FaultDeviceList[deviceName]
 		podRank, podUid := pod.GetPodRankAndPodUid(jobId, deviceInfo.RankID)
-		if !found {
-			// business plane find uce fault
-			if processor.uceInBusinessPlane(jobId, nodeName, deviceName) {
-				faultRankList = append(faultRankList, constant.FaultRank{
-					RankId:      deviceInfo.RankID,
-					PodUid:      podUid,
-					PodRank:     podRank,
-					FaultCode:   constant.UceFaultCode,
-					FaultLevel:  constant.RestartBusiness,
-					DoStepRetry: processor.canDoStepRetry(jobId, nodeName, deviceName),
-				})
-			}
-			continue
-		}
+		uceInManagementPlane := false
 		// scan management plane fault info. management plane may filter uce fault in uceProcessor
 		for _, fault := range faultList {
 			faultRank := constant.FaultRank{
@@ -112,11 +99,25 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(
 			}
 			if strings.Contains(fault.FaultCode, constant.UceFaultCode) {
 				// management plane find uce fault
+				uceInManagementPlane = true
 				faultRank.DoStepRetry = processor.canDoStepRetry(jobId, nodeName, deviceName)
 			}
 			faultRankList = append(faultRankList, faultRank)
 		}
-
+		if uceInManagementPlane {
+			continue
+		}
+		// business plane find uce fault
+		if processor.uceInBusinessPlane(jobId, nodeName, deviceName) {
+			faultRankList = append(faultRankList, constant.FaultRank{
+				RankId:      deviceInfo.RankID,
+				PodUid:      podUid,
+				PodRank:     podRank,
+				FaultCode:   constant.UceFaultCode,
+				FaultLevel:  constant.RestartBusiness,
+				DoStepRetry: processor.canDoStepRetry(jobId, nodeName, deviceName),
+			})
+		}
 	}
 	return faultRankList
 }
@@ -140,7 +141,11 @@ func (processor *jobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, 
 		return false
 	}
 	// business plane found uce fault
-	return faultdomain.ValidBusinessRecoverTime(uceDevice.RecoverTime)
+	result := faultdomain.ValidBusinessRecoverTime(uceDevice.RecoverTime)
+	if !result {
+		hwlog.RunLog.Debugf("invalid BusinessRecoverTime %v", uceDevice)
+	}
+	return result
 }
 
 // Process job fault rank info
