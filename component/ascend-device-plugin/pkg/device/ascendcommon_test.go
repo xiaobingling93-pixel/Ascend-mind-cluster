@@ -1151,3 +1151,47 @@ func mockGetDevProcessInfo(devProcessInfo *npuCommon.DevProcessInfo, err error) 
 			return devProcessInfo, err
 		})
 }
+
+// TestCompareDeviceList for test compareDeviceList
+func TestCompareDeviceList(t *testing.T) {
+	convey.Convey("test compareDeviceList", t, func() {
+		convey.Convey("01-deviceList and newDeviceList are both nil, should return true", func() {
+			res := compareDeviceList(nil, nil)
+			convey.So(res, convey.ShouldBeTrue)
+		})
+		convey.Convey("02-deviceList is nil and newDeviceList is not nil, should return false", func() {
+			res := compareDeviceList(nil, map[string]string{})
+			convey.So(res, convey.ShouldBeFalse)
+		})
+		convey.Convey("03-deviceList and newDeviceList length are different, should return false", func() {
+			deviceList := map[string]string{"key1": "value1"}
+			newDeviceList := map[string]string{"key1": "value1", "key2": "value2"}
+			res := compareDeviceList(deviceList, newDeviceList)
+			convey.So(res, convey.ShouldBeFalse)
+		})
+		convey.Convey("04-deviceList and newDeviceList only key are different, should return false", func() {
+			deviceList := map[string]string{"key1": "value"}
+			newDeviceList := map[string]string{"key2": "value"}
+			res := compareDeviceList(deviceList, newDeviceList)
+			convey.So(res, convey.ShouldBeFalse)
+		})
+		convey.Convey("05-deviceList and newDeviceList only value are different, should return false", func() {
+			deviceList := map[string]string{"key": "value1"}
+			newDeviceList := map[string]string{"key": "value2"}
+			res := compareDeviceList(deviceList, newDeviceList)
+			convey.So(res, convey.ShouldBeFalse)
+		})
+		convey.Convey("06-deviceList and newDeviceList only fault_time are different, should return true", func() {
+			deviceList := map[string]string{`key`: `key:value,"fault_time":11111,key:value`}
+			newDeviceList := map[string]string{`key`: `key:value,"fault_time":22222,key:value`}
+			res := compareDeviceList(deviceList, newDeviceList)
+			convey.So(res, convey.ShouldBeTrue)
+		})
+		convey.Convey("07-deviceList and newDeviceList are same, should return true", func() {
+			deviceList := map[string]string{"key": "value"}
+			newDeviceList := map[string]string{"key": "value"}
+			res := compareDeviceList(deviceList, newDeviceList)
+			convey.So(res, convey.ShouldBeTrue)
+		})
+	})
+}

@@ -18,6 +18,7 @@ package device
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,8 +48,7 @@ var (
 	faultMode              = make(map[int32]string, common.GeneralMapSize)
 	lastCheckNodeLabel     int64
 	useIpv4                = true
-	preSubHealthy          = false
-	firstUpdate            = true
+	re                     = regexp.MustCompile(`"fault_time":\d+,`)
 )
 
 const (
@@ -264,7 +264,7 @@ func (tool *AscendTools) UpdateNodeDeviceInfo(devStatusSet common.DevStatusSet,
 		if common.GetSyncMapLen(resetGoroutine) != 0 {
 			common.UpdateSwitchFaultInfoAndFaultLevel(&switchFaultInfo)
 		}
-		dataSame := common.CompareStringMap(deviceList, newDeviceList) &&
+		dataSame := compareDeviceList(deviceList, newDeviceList) &&
 			common.DeepEqualSwitchFaultInfo(switchFaultInfo, tool.lastSwitchFaultInfo) &&
 			manuallySeparateNPU == tool.lastManuallySeparateNPU
 		timeDiff := time.Now().Sub(tool.lastUpdateTimeStamp)
@@ -287,6 +287,31 @@ func (tool *AscendTools) UpdateNodeDeviceInfo(devStatusSet common.DevStatusSet,
 		return true, nil
 	})
 	return waitErr
+}
+
+// compareDeviceList compare deviceList and newDeviceList are exactly the same without fault_time
+func compareDeviceList(deviceList, newDeviceList map[string]string) bool {
+	if deviceList == nil && newDeviceList == nil {
+		return true
+	}
+	if deviceList == nil || newDeviceList == nil {
+		return false
+	}
+	if len(deviceList) != len(newDeviceList) {
+		return false
+	}
+	for key, value := range deviceList {
+		val, exists := newDeviceList[key]
+		if !exists {
+			return false
+		}
+		str1 := re.ReplaceAllString(value, "")
+		str2 := re.ReplaceAllString(val, "")
+		if str1 != str2 {
+			return false
+		}
+	}
+	return true
 }
 
 func (tool *AscendTools) delVirDevInfo(newDeviceList map[string]string) {
