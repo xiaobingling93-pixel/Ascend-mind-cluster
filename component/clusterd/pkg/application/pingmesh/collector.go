@@ -4,6 +4,8 @@
 package pingmesh
 
 import (
+	"strconv"
+
 	"k8s.io/api/core/v1"
 
 	"ascend-common/common-utils/hwlog"
@@ -16,6 +18,11 @@ func NodeCollector(oldNodeInfo, newNodeInfo *v1.Node, operator string) {
 	superPodDevice, superPodID := superpod.GetNodeDeviceAndSuperPodID(newNodeInfo)
 	if superPodID == "" || superPodDevice == nil {
 		hwlog.RunLog.Debugf("discard illegal super pod device info, superPodID=%s.", superPodID)
+		return
+	}
+	spIdIntValue, err := strconv.Atoi(superPodID)
+	if spIdIntValue < 0 || err != nil {
+		hwlog.RunLog.Debugf("superPodID=%s cannot converto a natural number", superPodID)
 		return
 	}
 	switch operator {

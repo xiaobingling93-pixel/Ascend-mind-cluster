@@ -128,6 +128,6 @@ func TestInitClusterDevice(t *testing.T) {
 		defer patchSaveNode.Reset()
 
 		initClusterDevice()
-		convey.So(calledSaveNode, convey.ShouldBeTrue)
+		convey.So(calledSaveNode, convey.ShouldBeFalse)
 	})
 }

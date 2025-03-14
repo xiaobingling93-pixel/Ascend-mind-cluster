@@ -6,6 +6,7 @@ package kube
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -185,8 +186,12 @@ func initClusterDevice() {
 	hwlog.RunLog.Infof("init cluster node length=%d", len(nodes))
 	for _, n := range nodes {
 		nodeDevice, superPodID := superpod.GetNodeDeviceAndSuperPodID(n)
-		superPodID = strings.Trim(superPodID, " ")
 		if nodeDevice == nil || superPodID == "" {
+			continue
+		}
+		superPodID = strings.Trim(superPodID, " ")
+		spIdIntValue, err := strconv.Atoi(superPodID)
+		if spIdIntValue < 0 || err != nil {
 			continue
 		}
 		superpod.SaveNode(superPodID, nodeDevice)

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	testSuperPodID = "test-superpod-id"
+	testSuperPodID = "1"
 	testCheckCode  = "test-check-code"
 )
 
