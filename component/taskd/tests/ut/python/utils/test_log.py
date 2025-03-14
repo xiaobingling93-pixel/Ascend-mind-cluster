@@ -113,7 +113,7 @@ class TestCustomRotationHandler(unittest.TestCase):
             f.write("test2 log")
         handler.doRollover()
         # sleep to ensure that file creation timestamps are not duplicated
-        time.sleep(0.001)
+        time.sleep(1)
         with open(self.base_filename, "w") as f:
             f.write("test3 log")
         handler.doRollover()

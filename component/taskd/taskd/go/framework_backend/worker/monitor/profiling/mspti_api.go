@@ -275,7 +275,7 @@ func FlushAllActivity() error {
 		hwlog.RunLog.Errorf("failed to flush all activities, errCode:%v", retCode)
 		return fmt.Errorf("failed to flush all activties, errCode:%v", retCode)
 	}
-	hwlog.RunLog.Infof("rank:%v successfully flush all activities", GlobalRankId)
+	hwlog.RunLog.Debugf("rank:%v successfully flush all activities", GlobalRankId)
 	return nil
 }
 

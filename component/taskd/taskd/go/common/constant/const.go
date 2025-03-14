@@ -33,7 +33,7 @@ const (
 	// DefaultLogLevel default log level
 	DefaultLogLevel = 0
 	// DefaultMaxBackups max backup log file num
-	DefaultMaxBackups = 30
+	DefaultMaxBackups = 10
 	// DefaultMaxAge max age backup file exist
 	DefaultMaxAge = 7
 	// DefaultMaxLineLength max line length in log

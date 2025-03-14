@@ -311,7 +311,6 @@ func needSave() bool {
 	if len(ProfilingRecordsMark)+len(ProfilingRecordsApi)+len(ProfilingRecordsKernel) > constant.MaxCacheRecords {
 		return true
 	} else {
-		hwlog.RunLog.Infof("will flush all profiling records")
 		if err := FlushAllActivity(); err != nil {
 			hwlog.RunLog.Errorf("failed to flush profiling data,err: %s", err.Error())
 			return false

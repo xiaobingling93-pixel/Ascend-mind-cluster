@@ -85,7 +85,7 @@ func ManageDomainEnableStatus(ctx context.Context) {
 		default:
 			profilingSwitches := GetProfilingSwitch(constant.ProfilingSwitchFilePath)
 			if lastStatus == getProfilingStatusStr(profilingSwitches) {
-				hwlog.RunLog.Infof("status not changed will not call mspti")
+				hwlog.RunLog.Debug("status not changed will not call mspti")
 				time.Sleep(constant.DomainCheckInterval)
 				continue
 			}

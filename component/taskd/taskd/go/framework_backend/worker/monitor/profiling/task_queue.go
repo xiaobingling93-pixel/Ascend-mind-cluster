@@ -62,7 +62,7 @@ func NewTaskQueue(ctx context.Context) *TaskQueue {
 // worker get a job to do
 func (tq *TaskQueue) worker(ctx context.Context) {
 	for {
-		hwlog.RunLog.Infof("rank:%d, current undo task num:%v", GlobalRankId, len(tq.taskChan))
+		hwlog.RunLog.Debugf("rank:%d, current undo task num:%v", GlobalRankId, len(tq.taskChan))
 		if len(tq.taskChan) >= constant.TaskBufferSize*constant.TaskThreadHold {
 			hwlog.RunLog.Warnf("rank:%d, current got too many task", GlobalRankId)
 		}
@@ -76,7 +76,7 @@ func (tq *TaskQueue) worker(ctx context.Context) {
 
 			tq.wg.Done()
 		case <-ctx.Done():
-			hwlog.RunLog.Warnf("worker queue will exit")
+			hwlog.RunLog.Warn("worker queue will exit")
 			return
 		}
 	}
