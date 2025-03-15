@@ -22,6 +22,7 @@ package filewriter
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -79,6 +80,9 @@ type manager struct {
 
 // HandlePingMeshInfo handle pingmesh result
 func (m *manager) HandlePingMeshInfo(res *types.HccspingMeshResult) error {
+	if res == nil || res.Policy == nil || res.Results == nil {
+		return fmt.Errorf("result is nil")
+	}
 	m.writer.Infof("uid: %s, config: %#v", res.Policy.UID, res.Policy.Config)
 	for physicID, infos := range res.Results {
 		devices, ok := res.Policy.Address[os.Getenv(nodedcommon.ENVNodeNameKey)]
