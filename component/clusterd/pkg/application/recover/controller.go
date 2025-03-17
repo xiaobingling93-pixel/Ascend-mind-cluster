@@ -896,6 +896,11 @@ func (ctl *EventController) handleNotifyDecidedStrategy() (string, common.RespCo
 		hwlog.RunLog.Infof("finish wait plat rankTable ready, jobId=%s, pgName=%s, err=%v",
 			ctl.jobInfo.JobId, ctl.jobInfo.PgName, err)
 		if err != nil {
+			ctl.platStrategy, err = platFormStrategy(ctl.jobInfo.PgName, ctl.jobInfo.Namespace, true)
+			if err != nil {
+				hwlog.RunLog.Errorf("flush platform strategy failed, err:%v", err)
+				return "", common.ServerInnerError, err
+			}
 			signal.ChangeStrategy = ctl.chooseForRecoverFail()
 		}
 	}
