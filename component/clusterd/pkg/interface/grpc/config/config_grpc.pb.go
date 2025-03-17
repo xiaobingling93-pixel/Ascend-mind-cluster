@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Config_Register_FullMethodName           = "/config.config/Register"
-	Config_SubscribeRankTable_FullMethodName = "/config.config/SubscribeRankTable"
+	Config_Register_FullMethodName           = "/config.Config/Register"
+	Config_SubscribeRankTable_FullMethodName = "/config.Config/SubscribeRankTable"
 )
 
 // ConfigClient is the client API for Config service.
@@ -155,7 +155,7 @@ func (x *configSubscribeRankTableServer) Send(m *RankTableStream) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Config_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "config.config",
+	ServiceName: "config.Config",
 	HandlerType: (*ConfigServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

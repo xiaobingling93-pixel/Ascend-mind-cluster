@@ -1,83 +1,102 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+
+// Package busconfig business configuration service for grpc client
 package busconfig
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/interface/grpc/config"
 )
 
-var server *BusinessConfigServer
+const (
+	waitTime = 100 * time.Millisecond
+)
 
+// BusinessConfigServer business config server
 type BusinessConfigServer struct {
-	serviceCtx   context.Context
-	configHolder map[string]*ConfigHolder
-	lock         sync.RWMutex
+	serviceCtx      context.Context
+	configPublisher map[string]*ConfigPublisher
+	lock            sync.RWMutex
 	config.UnimplementedConfigServer
 }
 
-func NewBusinessConfigServer(serviceCtx context.Context) *BusinessConfigServer {
-	server = &BusinessConfigServer{
-		serviceCtx:   serviceCtx,
-		configHolder: make(map[string]*ConfigHolder),
-		lock:         sync.RWMutex{},
+// NewBusinessConfigServer create a business config server
+func NewBusinessConfigServer(ctx context.Context) *BusinessConfigServer {
+	server := &BusinessConfigServer{
+		serviceCtx:      ctx,
+		configPublisher: make(map[string]*ConfigPublisher),
+		lock:            sync.RWMutex{},
 	}
 	return server
 }
 
+// rankTableChange The callback function when the rank table changes
+func (c *BusinessConfigServer) rankTableChange(jobId, data string) (bool, error) {
+	publisher, ok := c.getPublisher(jobId)
+	if !ok {
+		return true, errors.New("job not registered")
+	}
+	hwlog.RunLog.Infof("ranktable changed, jobId=%s", jobId)
+	publisher.SaveData(jobId, data)
+	return false, nil
+}
+
 // Register is task register service
 func (c *BusinessConfigServer) Register(ctx context.Context, req *config.ClientInfo) (*config.Status, error) {
-	hwlog.RunLog.Infof("config service receive Register request, jobId=%s, role=%s", req.JobId, req.Role)
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	_, ok := c.configHolder[req.JobId]
-	if ok {
-		return &config.Status{Code: int32(common.OK), Info: "register success"}, nil
+	hwlog.RunLog.Infof("business config service receive Register request, jobId=%s, role=%s",
+		req.JobId, req.Role)
+	publisher, ok := c.getPublisher(req.JobId)
+	if ok && publisher != nil {
+		publisher.stop()
+		for {
+			if _, ok = c.getPublisher(req.JobId); !ok {
+				break
+			}
+			time.Sleep(waitTime)
+		}
 	}
-	holder := NewConfigHolder(req.JobId, c.serviceCtx)
-	c.configHolder[req.JobId] = holder
+	c.addPublisher(req.JobId)
 	return &config.Status{Code: int32(common.OK), Info: "register success"}, nil
 }
 
 // SubscribeRankTable subscribe rank table from ClusterD
 func (c *BusinessConfigServer) SubscribeRankTable(request *config.ClientInfo,
 	stream config.Config_SubscribeRankTableServer) error {
-	requestInfo := fmt.Sprintf("taskId=%s, rule=%s", request.JobId, request.Role)
-	hwlog.RunLog.Infof("receive Subscribe ranktable request, %s", requestInfo)
-	holder, ok := c.configHolder[request.JobId]
-	if !ok {
-		return fmt.Errorf("jobId=%s not registed", request.JobId)
+	hwlog.RunLog.Infof("receive Subscribe ranktable request, jobId=%s, rule=%s",
+		request.JobId, request.Role)
+	publisher, ok := c.getPublisher(request.JobId)
+	if !ok || publisher == nil {
+		hwlog.RunLog.Warnf("jobId=%s not registered, role=%s", request.JobId, request.Role)
+		return fmt.Errorf("jobId=%s not registered, role=%s", request.JobId, request.Role)
 	}
-	table := GetData(request.JobId)
-	if len(table) > 0 {
-		err := stream.Send(&config.RankTableStream{JobId: request.JobId, RankTable: table})
-		if err != nil {
-			hwlog.RunLog.Infof("send global ranktable failed, error: %v", err)
-		}
-	}
-
-	// reset controller
-	holder.listenRankTableChan(stream)
+	publisher.listenRankTableChange(stream)
+	c.deletePublisher(request.JobId)
 	return nil
 }
 
-func (c *BusinessConfigServer) ranktableChanged(jobId, rankTable string) {
+func (c *BusinessConfigServer) getPublisher(jobId string) (*ConfigPublisher, bool) {
 	c.lock.RLock()
-	holder, ok := c.configHolder[jobId]
-	if !ok {
-		return
-	}
-	c.lock.RUnlock()
-	data := &config.RankTableStream{
-		JobId:     jobId,
-		RankTable: rankTable,
-	}
-	holder.notify(data)
+	defer c.lock.RUnlock()
+	publisher, ok := c.configPublisher[jobId]
+	return publisher, ok
 }
 
-func dataChanged(jobId, rankTable string) {
-	//server.ranktableChanged(jobId, rankTable)
+func (c *BusinessConfigServer) deletePublisher(jobId string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.configPublisher, jobId)
+}
+
+func (c *BusinessConfigServer) addPublisher(jobId string) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	publisher := NewConfigPublisher(jobId, c.serviceCtx)
+	c.configPublisher[jobId] = publisher
 }

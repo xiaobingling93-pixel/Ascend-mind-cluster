@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/busconfig"
@@ -31,7 +32,8 @@ import (
 )
 
 const (
-	defaultLogFile = "/var/log/mindx-dl/clusterd/clusterd.log"
+	defaultLogFile       = "/var/log/mindx-dl/clusterd/clusterd.log"
+	grpcKeepAliveTimeOut = 5
 )
 
 var (
@@ -135,9 +137,14 @@ func initStatisticModule(ctx context.Context) {
 }
 
 func initGrpcServer(ctx context.Context) {
+	keepAlive := keepalive.ServerParameters{
+		Time:    time.Minute,
+		Timeout: grpcKeepAliveTimeOut * time.Second,
+	}
 	server = sv.NewClusterInfoMgrServer([]grpc.ServerOption{grpc.MaxRecvMsgSize(constant.MaxGRPCRecvMsgSize),
 		grpc.MaxConcurrentStreams(constant.MaxGRPCConcurrentStreams),
-		grpc.UnaryInterceptor(limitQPS)})
+		grpc.UnaryInterceptor(limitQPS),
+		grpc.KeepaliveParams(keepAlive)})
 	recoverService := recover.NewFaultRecoverService(keepAliveInterval, ctx)
 	pubFaultSvc := publicfault.NewPubFaultService(ctx)
 	dataTraceSvc := &profiling.ProfilingSwitchManager{}

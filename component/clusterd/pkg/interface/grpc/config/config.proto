@@ -17,7 +17,7 @@ message RankTableStream {
   string rankTable = 2;
 }
 
-service config {
+service Config {
   rpc Register(ClientInfo) returns (Status) {}
   rpc SubscribeRankTable(ClientInfo) returns (stream RankTableStream) {}
 }
