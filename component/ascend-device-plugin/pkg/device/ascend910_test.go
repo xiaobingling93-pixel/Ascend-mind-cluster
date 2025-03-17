@@ -2939,3 +2939,64 @@ func TestFillResetDevs(t *testing.T) {
 		})
 	})
 }
+
+func TestCanResetDeviceByLogicID(t *testing.T) {
+	convey.Convey("test canResetDeviceByLogicID", t, func() {
+		manager := createFake910Manager()
+		patch := gomonkey.ApplyPrivateMethod(manager, "canResetDevice", func(cardID, deviceID int32) bool {
+			return true
+		})
+		defer patch.Reset()
+		convey.Convey("01-get card id error, should return false", func() {
+			patch1 := gomonkey.ApplyMethodReturn(manager.GetDmgr(), "GetCardIDDeviceID", int32(id1),
+				int32(id1), testErr)
+			defer patch1.Reset()
+			convey.So(manager.canResetDeviceByLogicID(int32(id1)), convey.ShouldBeFalse)
+		})
+		convey.Convey("02-success, should return true", func() {
+			patch1 := gomonkey.ApplyMethodReturn(manager.GetDmgr(), "GetCardIDDeviceID", int32(id1),
+				int32(id1), nil)
+			defer patch1.Reset()
+			convey.So(manager.canResetDeviceByLogicID(int32(id1)), convey.ShouldBeTrue)
+		})
+	})
+}
+
+func TestGetResetIndex(t *testing.T) {
+	convey.Convey("test getResetIndex", t, func() {
+		manager := createFake910Manager()
+		manager.hotResetManager = newTestHotResetManager(common.Ascend910, common.Train)
+		dev := &common.NpuDevice{}
+		convey.Convey("01-A3, get idx success, should return nil", func() {
+			patch1 := gomonkey.ApplyPrivateMethod(manager, "getResetIndexForA3",
+				func(logicID int32) (int32, error) {
+					return int32(id1), nil
+				})
+			defer patch1.Reset()
+			_, err := manager.getResetIndex(dev)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		patch := gomonkey.ApplyPrivateMethod(manager, "getResetIndexForA3",
+			func(logicID int32) (int32, error) {
+				return int32(id1), testErr
+			})
+		defer patch.Reset()
+		convey.Convey("02-get dev num once err, should return err", func() {
+			patch1 := gomonkey.ApplyPrivateMethod(manager.hotResetManager, "GetResetDevNumOnce",
+				func() (int, error) {
+					return id1, testErr
+				})
+			defer patch1.Reset()
+			_, err := manager.getResetIndex(dev)
+			convey.So(err, convey.ShouldBeError)
+		})
+		patch.ApplyPrivateMethod(manager.hotResetManager, "GetResetDevNumOnce",
+			func() (int, error) {
+				return id1, nil
+			})
+		convey.Convey("03-success, should return nil", func() {
+			_, err := manager.getResetIndex(dev)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}

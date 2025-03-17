@@ -1258,9 +1258,6 @@ func (hdm *HwDevManager) checkNodeResetInfo() {
 		return
 	}
 	resetInfo := device.ReadResetInfo()
-	if len(resetInfo.ThirdPartyResetDevs) <= 0 && len(resetInfo.ManualResetDevs) <= 0 {
-		return
-	}
 	newResetInfo := device.ResetInfo{}
 	newThirdPartyResetDevs, tpChanged := checkDeviceStatus(resetInfo.ThirdPartyResetDevs, hdm.groupDevice)
 	newManualResetDevs, manChanged := checkDeviceStatus(resetInfo.ManualResetDevs, hdm.groupDevice)
@@ -1289,21 +1286,22 @@ func checkDeviceStatus(failDevs []device.ResetDevice,
 	var newDevs []device.ResetDevice
 	devMap := make(map[int32]*common.NpuDevice)
 	for _, dev := range flattenMap(groupDev) {
+		if dev.Health != v1beta1.Healthy {
+			hwlog.RunLog.Debugf("device not recover, health %v, faultCode num %v", dev.Health,
+				len(dev.FaultCodes))
+			continue
+		}
 		devMap[dev.PhyID] = dev
+		device.FreeBusyDev(dev.CardID, dev.DeviceID)
+		// device recovered, set reset times to 0, then that device could be reset again
+		device.SetResetCnt(dev.CardID, dev.DeviceID, 0)
 	}
 	for _, failDev := range failDevs {
 		if _, exist := devMap[failDev.PhyID]; !exist {
 			newDevs = append(newDevs, failDev)
 			continue
 		}
-		dev := devMap[failDev.PhyID]
-		if dev.Health != v1beta1.Healthy {
-			newDevs = append(newDevs, failDev)
-			continue
-		}
-		device.FreeBusyDev(failDev.CardId, failDev.DeviceId)
-		// device recovered, set reset times to 0, then that device could be reset again
-		device.SetResetCnt(failDev.CardId, failDev.DeviceId, 0)
+
 		isChange = true
 	}
 	return newDevs, isChange

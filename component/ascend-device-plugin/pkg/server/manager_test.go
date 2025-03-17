@@ -505,24 +505,17 @@ func TestCheckNodeResetInfo(t *testing.T) {
 			convey.So(flag, convey.ShouldBeFalse)
 		})
 		patch.ApplyMethodReturn(&mockDevManager{}, "GetKubeClient", &kubeclient.ClientK8s{})
-		convey.Convey("02-dev num zero, flag should be false", func() {
-			patch1 := gomonkey.ApplyFuncReturn(device.GetResetInfoMgr, &device.ResetInfoMgr{})
-			defer patch1.Reset()
-			patch1.ApplyFuncReturn(device.ReadResetInfo, device.ResetInfo{})
-			hdm.checkNodeResetInfo()
-			convey.So(flag, convey.ShouldBeFalse)
-		})
 		patch.ApplyFuncReturn(device.GetResetInfoMgr, &device.ResetInfoMgr{})
 		patch.ApplyFuncReturn(device.ReadResetInfo,
 			device.ResetInfo{ThirdPartyResetDevs: []device.ResetDevice{
 				{PhyID: id0},
 			}})
-		convey.Convey("03-get npus error, flag should be false", func() {
+		convey.Convey("02-get npus error, flag should be false", func() {
 			hdm.checkNodeResetInfo()
 			convey.So(flag, convey.ShouldBeFalse)
 		})
 		patch.ApplyMethodReturn(&mockDevManager{}, "GetNPUs", common.NpuAllInfo{}, nil)
-		convey.Convey("04-success, flag should be true", func() {
+		convey.Convey("03-success, flag should be true", func() {
 			patch1 := gomonkey.ApplyFuncReturn(checkDeviceStatus, []device.ResetDevice{}, true)
 			defer patch1.Reset()
 			hdm.checkNodeResetInfo()
