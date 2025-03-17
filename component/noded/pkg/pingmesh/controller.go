@@ -90,7 +90,7 @@ func (c *Manager) initWatcher(config *Config) {
 func (c *Manager) initHandler(config *Config) {
 	var handleFuncs []resulthandler.HandleFunc
 	fw := filewriter.New(&filewriter.Config{
-		Path:   consts.ResultRootDir + "/" + c.nodeName,
+		Path:   consts.ResultRootDir + "/" + c.nodeName + consts.SuffixOfPingMeshLogFile,
 		MaxAge: config.ResultMaxAge,
 	})
 	if fw != nil {

@@ -38,4 +38,6 @@ const (
 	PingMeshConfigLabelKey = "app"
 	// PingMeshConfigLabelValue is the label value of pingmesh configmap
 	PingMeshConfigLabelValue = "pingmesh"
+	// SuffixOfPingMeshLogFile is the suffix of pingmesh log file
+	SuffixOfPingMeshLogFile = ".log"
 )
