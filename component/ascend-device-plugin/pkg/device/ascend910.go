@@ -69,11 +69,12 @@ type HwAscend910Manager struct {
 func NewHwAscend910Manager() *HwAscend910Manager {
 	return &HwAscend910Manager{
 		AscendTools: AscendTools{
-			name:                common.Ascend910,
-			unHealthyKey:        common.HuaweiUnHealthAscend910,
-			devCount:            common.MaxDevicesNum,
-			cardInResetMap:      make(map[int32]bool, common.GeneralMapSize),
-			resetFailedTimesMap: make(map[int32]int, common.GeneralMapSize),
+			name:                      common.Ascend910,
+			unHealthyKey:              common.HuaweiUnHealthAscend910,
+			devCount:                  common.MaxDevicesNum,
+			cardInResetMap:            make(map[int32]bool, common.GeneralMapSize),
+			resetFailedTimesMap:       make(map[int32]int, common.GeneralMapSize),
+			lastUsedChipsContainerMap: make(map[string]sets.String),
 		},
 	}
 }

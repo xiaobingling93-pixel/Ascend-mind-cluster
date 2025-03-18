@@ -71,8 +71,12 @@ func (tool *AscendTools) getChipsUsedByProcess() sets.String {
 			usedChips = append(usedChips, chipName)
 		}
 	}
-	hwlog.RunLog.Debugf("process used chips: %v", usedChips)
-	return sets.NewString(usedChips...)
+	curProcUsedChips := sets.NewString(usedChips...)
+	if !curProcUsedChips.Equal(tool.lastUsedChipsByProcess) {
+		hwlog.RunLog.Infof("process used chips: %v", usedChips)
+		tool.lastUsedChipsByProcess = curProcUsedChips
+	}
+	return curProcUsedChips
 }
 
 // getChipsUsedByContainerd return chips used by process
@@ -88,6 +92,7 @@ func (tool *AscendTools) getChipsUsedByContainerd() sets.String {
 		return usedChips
 	}
 	hwlog.RunLog.Debugf("containerd namespace list: %v", nss)
+	curUsedChipsContainerMap := make(map[string]sets.String)
 	for _, ns := range nss {
 		ctx := namespaces.WithNamespace(context.Background(), ns)
 		taskList, err := tool.containerdClient.TaskService().List(ctx, &tasks.ListTasksRequest{})
@@ -108,14 +113,21 @@ func (tool *AscendTools) getChipsUsedByContainerd() sets.String {
 			}
 			usedChipsWithAscendRuntime := tool.getDeviceWithAscendRuntime(containerObj, ctx)
 			if usedChipsWithAscendRuntime.Len() > 0 {
+				curUsedChipsContainerMap[taskInfo.ID] = usedChipsWithAscendRuntime
 				usedChips = usedChips.Union(usedChipsWithAscendRuntime)
 				continue
 			}
 			usedChipsWithoutAscendRuntime := tool.getDeviceWithoutAscendRuntime(containerObj, ctx)
+			if usedChipsWithoutAscendRuntime.Len() > 0 {
+				curUsedChipsContainerMap[taskInfo.ID] = usedChipsWithoutAscendRuntime
+			}
 			usedChips = usedChips.Union(usedChipsWithoutAscendRuntime)
 		}
 	}
-	hwlog.RunLog.Debugf("containerd used chips: %v", usedChips)
+	if !common.CompareStringSetMap(curUsedChipsContainerMap, tool.lastUsedChipsContainerMap) {
+		hwlog.RunLog.Infof("containerd used chips: %v", curUsedChipsContainerMap)
+		tool.lastUsedChipsContainerMap = curUsedChipsContainerMap
+	}
 	return usedChips
 }
 

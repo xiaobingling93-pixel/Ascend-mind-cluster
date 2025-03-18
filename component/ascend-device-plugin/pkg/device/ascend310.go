@@ -18,6 +18,8 @@ package device
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"Ascend-device-plugin/pkg/common"
 	"ascend-common/common-utils/hwlog"
 )
@@ -35,11 +37,12 @@ func NewHwAscend310Manager() *HwAscend310Manager {
 	}
 	return &HwAscend310Manager{
 		AscendTools: AscendTools{
-			name:                name,
-			unHealthyKey:        common.HuaweiUnHealthAscend310,
-			devCount:            common.MaxCardNum * common.MaxDevNumInCard,
-			cardInResetMap:      make(map[int32]bool, common.GeneralMapSize),
-			resetFailedTimesMap: make(map[int32]int, common.GeneralMapSize),
+			name:                      name,
+			unHealthyKey:              common.HuaweiUnHealthAscend310,
+			devCount:                  common.MaxCardNum * common.MaxDevNumInCard,
+			cardInResetMap:            make(map[int32]bool, common.GeneralMapSize),
+			resetFailedTimesMap:       make(map[int32]int, common.GeneralMapSize),
+			lastUsedChipsContainerMap: make(map[string]sets.String),
 		},
 	}
 }

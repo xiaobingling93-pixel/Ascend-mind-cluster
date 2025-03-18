@@ -31,9 +31,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/smartystreets/goconvey/convey"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"ascend-common/common-utils/hwlog"
@@ -719,5 +720,46 @@ func TestIntInList(t *testing.T) {
 		convey.So(IntInList(2, list), convey.ShouldBeTrue)
 		// 01-list has not target number, should return false
 		convey.So(IntInList(4, list), convey.ShouldBeFalse)
+	})
+}
+
+// TestCompareStringSetMap for test CompareStringSetMap
+func TestCompareStringSetMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		map1     map[string]sets.String
+		map2     map[string]sets.String
+		expected bool
+	}{
+		{"Both maps are nil, should return true", nil, nil, true},
+		{"One map is nil and the other is not, should return false",
+			nil, map[string]sets.String{}, false},
+		{"Maps have different lengths, should return false",
+			map[string]sets.String{"key1": sets.NewString("subKey1")},
+			map[string]sets.String{"key1": sets.NewString("subKey1"),
+				"key2": sets.NewString("subKey1")}, false},
+		{"Maps have different keys, should return false",
+			map[string]sets.String{"key1": sets.NewString("subKey1")},
+			map[string]sets.String{"key2": sets.NewString("subKey1")}, false},
+		{"Maps have different values, should return false",
+			map[string]sets.String{"key": sets.NewString("subKey1")},
+			map[string]sets.String{"key": sets.NewString("subKey2")}, false},
+		{"Maps are identical, should return true",
+			map[string]sets.String{"key": sets.NewString("subKey")},
+			map[string]sets.String{"key": sets.NewString("subKey")}, true},
+		{"Maps have same keys and values but different order, should return true",
+			map[string]sets.String{"key": sets.NewString("subKey1", "subKey2")},
+			map[string]sets.String{"key": sets.NewString("subKey2", "subKey1")}, true},
+		{"Both maps are empty, should return true",
+			map[string]sets.String{}, map[string]sets.String{}, true},
+	}
+
+	convey.Convey("Test CompareStringSetMap function", t, func() {
+		for _, tc := range tests {
+			convey.Convey(tc.name, func() {
+				res := CompareStringSetMap(tc.map1, tc.map2)
+				convey.So(res, convey.ShouldEqual, tc.expected)
+			})
+		}
 	})
 }

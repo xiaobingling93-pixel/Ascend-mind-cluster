@@ -77,11 +77,13 @@ type AscendTools struct {
 	cardInResetMap  map[int32]bool
 	cardInResetLock sync.Mutex
 	// record map[device_logic_id]failed times
-	resetFailedTimesMap     map[int32]int
-	resetFailedTimesLock    sync.Mutex
-	lastUpdateTimeStamp     time.Time
-	lastManuallySeparateNPU string
-	lastSwitchFaultInfo     common.SwitchFaultInfo
+	resetFailedTimesMap       map[int32]int
+	resetFailedTimesLock      sync.Mutex
+	lastUpdateTimeStamp       time.Time
+	lastManuallySeparateNPU   string
+	lastSwitchFaultInfo       common.SwitchFaultInfo
+	lastUsedChipsByProcess    sets.String
+	lastUsedChipsContainerMap map[string]sets.String
 }
 
 // DevManager interface for manager device

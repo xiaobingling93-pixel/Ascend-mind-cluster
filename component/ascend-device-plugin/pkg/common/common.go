@@ -35,6 +35,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"ascend-common/common-utils/hwlog"
@@ -695,4 +696,23 @@ func Keys[T comparable, U any](mp map[T]U) []T {
 		result = append(result, key)
 	}
 	return result
+}
+
+// CompareStringSetMap compare whether two map[string]sets.String are exactly same
+func CompareStringSetMap(map1, map2 map[string]sets.String) bool {
+	if map1 == nil && map2 == nil {
+		return true
+	}
+	if map1 == nil || map2 == nil {
+		return false
+	}
+	if len(map1) != len(map2) {
+		return false
+	}
+	for key, value := range map1 {
+		if val, exists := map2[key]; !exists || !val.Equal(value) {
+			return false
+		}
+	}
+	return true
 }
