@@ -252,167 +252,52 @@
 <h2 id="目录结构文档">目录结构</h2>
 
 ```
-├── build                       		# CI编译脚本
-│  ├── build.sh			# CI构建二进制脚本
-│  ├── testBuild.sh			# LLT测试启动脚本
-│  ├── volcano-v1.4.0.yaml
-│  └── volcano-v1.7.0.yaml
+├── build                        # CI编译脚本
+│  ├── build.sh
+│  ├── testBuild.sh
+│  ├── volcano-v1.7.0.yaml
+│  └── volcano-v1.9.0.yaml
+├── common                       # 公共代码目录             
+│  ├── k8s                       # k8s相关接口代码目录
+│  └── util                      # 调度基础公共代码目录
 ├── config
-│  └── config.go
-├── doc			# 说明文档
+├── doc
 │  └── figures
-│      ├── Affinity-algorithm-design-process-ch.png
-│      ├── Affinity-algorithm-design-process-en.png
-│      ├── Affinity-program-process-(Volcano-part)-ch.png
-│      ├── Affinity-program-process-(Volcano-part)-en.png
-│      ├── Ascend-910-AI-Processor-interconnection-topology.png
-│      ├── icon-caution.gif
-│      ├── icon-danger.gif
-│      ├── icon-note.gif
-│      ├── icon-notice.gif
-│      ├── icon-tip.gif
-│      └── icon-warning.gif
-├── huawei_npu.go		  # ascend-volcano-plugin组件入口代码
-├── huawei_npu_test.go
 ├── internal
-│  ├── ascend310			
-│  │  ├── card310x4		# 310卡调度策略代码目录
-│  │  │  ├── frame.go
-│  │  │  ├── frame_test.go
-│  │  │  ├── task.go
-│  │  │  └── type.go
-│  │  ├── chip310x4		# 310 芯片调度策略代码目录
-│  │  │  ├── frame.go
-│  │  │  ├── frame_test.go
-│  │  │  ├── node.go
-│  │  │  └── type.go
-│  │  ├── frame.go
-│  │  ├── frame_test.go
-│  │  └── type.go
-│  ├── ascend310p		# 310P 卡调度公共代码目录
-│  │  ├── frame.go
-│  │  ├── frame_test.go
-│  │  ├── rescheduling.go
-│  │  ├── type.go
-│  │  ├── vnpu.go
-│  │  └── vnpu_test.go
-│  ├── ascend910
-│  │  ├── ascend910b
-│  │  │  ├── base.go
-│  │  │  ├── card910bx2		 # A300T A2调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  └── type.go
-│  │  │  ├── card910bx2infer	# A300I A2调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  └── type.go
-│  │  │  ├── job.go
-│  │  │  ├── module910bx16	# A200T A2 Box16调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  ├── node.go
-│  │  │  │  └── type.go
-│  │  │  ├── module910bx8	# A800T A2 调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  ├── job.go
-│  │  │  │  ├── node.go
-│  │  │  │  └── type.go
-│  │  │  ├── node.go
-│  │  │  └── type.go
-│  │  ├── asend910old
-│  │  │  ├── card910x2		# A300T调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  ├── frame_test.go
-│  │  │  │  ├── job.go
-│  │  │  │  └── type.go
-│  │  │  ├── half910x4		# 800/9000 4卡调度策略代码目录
-│  │  │  │  ├── frame.go
-│  │  │  │  ├── frame_test.go
-│  │  │  │  ├── job.go
-│  │  │  │  ├── node.go
-│  │  │  │  └── type.go
-│  │  │  └── module910x8		# 800/9000调度策略代码目录
-│  │  │      ├── frame.go
-│  │  │      ├── frame_reschedule_test.go
-│  │  │      ├── frame_test.go
-│  │  │      ├── job.go
-│  │  │      ├── node.go
-│  │  │      ├── task.go
-│  │  │      └── type.go
-│  │  ├── frame.go
-│  │  ├── frame_test.go
-│  │  └── type.go
-│  ├── base			 # 基础调度策略代码目录
-│  │  ├── frame.go
-│  │  ├── frame_test.go
-│  │  ├── node.go
-│  │  ├── task.go
-│  │  └── type.go
-│  ├── rescheduling		# 故障调度策略代码目录
-│  │  ├── cache.go
-│  │  ├── cache_test.go
-│  │  ├── configmap.go
-│  │  ├── configmap_test.go
-│  │  ├── frame_reschedule_test.go
-│  │  ├── job.go
-│  │  ├── job_test.go
-│  │  ├── node.go
-│  │  ├── node_test.go
-│  │  ├── reschedule.go
-│  │  ├── reschedule_test.go
-│  │  ├── task.go
-│  │  └── type.go
-│  ├── test		# LLT公共代码目录
-│  │  ├── job.go
-│  │  ├── reschedule.go
-│  │  └── type.go
-│  └── vnpu		 # VNPU调度公共代码目录
-│      ├── frame.go
-│      ├── frame_test.go
-│      ├── node.go
-│      ├── pod.go
-│      ├── type.go
-│      ├── vdynamic.go
-│      └── vstatic.go
+│  ├── controller
+│  ├── npu
+│  │  ├── ascend310              # 310推理芯片代码目录         
+│  │  │  ├── card310x4
+│  │  │  └── chip310x4
+│  │  ├── ascend310p             # 推理芯片动态算力切分代码目录
+│  │  │  ├── card310px2          # 300i duo卡 卡模式调度策略代码目录
+│  │  │  ├── chip310px2          # 300i duo卡 芯片模式调度策略代码目录
+│  │  │  └── vnpu                # 推理芯片动态算力切分代码目录
+│  │  ├── ascend910
+│  │  │  ├── ascend910a3         # A3硬件亲和性调度代码目录
+│  │  │  │  ├── module910a3x16   # 800T A3硬件亲和性调度代码目录
+│  │  │  │  ├── superpod         # A3 超节点亲和性调度代码目录
+│  │  │  ├── ascend910b          # A2硬件亲和性调度代码目录 
+│  │  │  │  ├── module910bx16    # 200T box A2硬件亲和性调度策略代码目录
+│  │  │  │  └── vnpu             # A2动态算力切分调度策略代码目录
+│  │  │  └── asend910old         # A1硬件亲和性调度策略代码目录
+│  │  │      └── module910x8
+│  │  ├── base                   # 基础调度策略代码目录
+│  │  └── vnpu                   # VNPU调度公共代码目录
+│  ├── nslb                      # 交换机亲和性调度策略代码目录
+│  ├── rescheduling              # 重调度策略代码目录
+│  └── test                      # internal包LLT公共代码目录
 ├── LICENSE
-├── output		 # CI编译结果目录
+├── output                # CI编译结果目录
 │  ├── Dockerfile-controller
 │  └── Dockerfile-scheduler
-├── OWNERS
-├── plugin			 # 插件适配代码目录
-│  ├── const.go
-│  ├── device_info.go
-│  ├── device_info_test.go
-│  ├── factory.go
-│  ├── factory_test.go
-│  ├── job.go
-│  ├── job_test.go
-│  ├── node.go
-│  ├── node_test.go
-│  ├── plugin.go
-│  ├── plugin_test.go
-│  ├── task.go
-│  ├── task_test.go
-│  ├── tor.go
-│  ├── type.go
-│  └── vnode.go
+├── plugin                # 插件数据初始化代码目录
 ├── README.md
-├── test				# llt公共基础代码目录
-│  ├── frame.go
-│  ├── job.go
-│  ├── node.go
-│  ├── pod.go
-│  ├── reschedule.go
-│  └── type.go
-├── type.go
-└── util				# 调度策略公共代码目录
-    ├── configmap.go
-    ├── configmap_test.go
-    ├── job.go
-    ├── job_test.go
-    ├── task.go
-    ├── task_test.go
-    ├── type.go
-    └── util.go
-
+├── test                  # llt公共基础代码目录
+├── testdata              # llt测试数据代码目录
+│  └── tor
+│      └── tor-node.json
+└── huawei_npu.go		  # ascend-volcano-plugin组件入口代码
 ```
 
 <h2 id="编译说明文档">编译说明</h2>
