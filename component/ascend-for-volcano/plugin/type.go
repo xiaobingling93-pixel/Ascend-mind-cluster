@@ -103,8 +103,8 @@ const (
 )
 
 var (
-	Ascend910VirtualDevNameReg = regexp.MustCompile("Ascend910-([2-6]|8|10|12|16)c")
-	Ascend310VirtualDevNameReg = regexp.MustCompile("Ascend310P-(1|2|4)c")
+	ascend910VirtualDevNameReg = regexp.MustCompile("Ascend910-([2-6]|8|10|12|16)c")
+	ascend310VirtualDevNameReg = regexp.MustCompile("Ascend310P-(1|2|4)c")
 )
 
 // SchedulerJob the plugin define job info

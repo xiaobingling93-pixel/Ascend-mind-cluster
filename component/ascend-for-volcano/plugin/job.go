@@ -736,7 +736,7 @@ func validVirtualDevJob(job *api.JobInfo) *api.ValidateResult {
 	if err != nil {
 		return nil
 	}
-	if (Ascend910VirtualDevNameReg.MatchString(npuName) || Ascend310VirtualDevNameReg.MatchString(npuName)) &&
+	if (ascend910VirtualDevNameReg.MatchString(npuName) || ascend310VirtualDevNameReg.MatchString(npuName)) &&
 		(rNpuNum > util.NPUIndex1 || len(job.Tasks) > util.NPUIndex1) {
 		err := fmt.Errorf("job %s task num is <%v> request <%v> more than 1 virtual device"+
 			"and 1 replicas , keep job pending ", job.Name, len(job.Tasks), rNpuNum)
