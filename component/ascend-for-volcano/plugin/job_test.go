@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -939,4 +940,16 @@ func TestValidJobFn(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidVirtualDevJob(t *testing.T) {
+	patch := gomonkey.ApplyFunc(GetVCJobReqNPUTypeFromJobInfo, func(vcJob *api.JobInfo) (string, int, error) {
+		return "huawei.com/Ascend910-2c", util.NPUIndex2, nil
+	})
+	defer patch.Reset()
+	t.Run("01 no pass by job request is 2", func(t *testing.T) {
+		if got := validVirtualDevJob(&api.JobInfo{}); !reflect.DeepEqual(got.Pass, false) {
+			t.Errorf("validVirtualDevJob() = %v, want %v", got.Pass, false)
+		}
+	})
 }
