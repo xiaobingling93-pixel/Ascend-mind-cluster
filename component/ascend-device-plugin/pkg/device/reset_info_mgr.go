@@ -141,8 +141,12 @@ func AddBusyDev(cardID, deviceID int32) {
 
 // FreeBusyDev remove a device from busy map
 func FreeBusyDev(cardID, deviceID int32) {
+	key := combineToString(cardID, deviceID)
+	if _, exist := mgr.busyDevs.Load(key); !exist {
+		return
+	}
 	hwlog.RunLog.Infof("free busy device cardID %v, deviceID %v", cardID, deviceID)
-	mgr.busyDevs.Delete(combineToString(cardID, deviceID))
+	mgr.busyDevs.Delete(key)
 }
 
 // GetResetCnt get device reset count by physic ID
