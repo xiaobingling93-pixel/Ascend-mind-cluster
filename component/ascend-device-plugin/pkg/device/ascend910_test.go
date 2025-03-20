@@ -312,8 +312,11 @@ func TestCanBeReset(t *testing.T) {
 				func(dev *common.DevFaultInfo) bool {
 					return true
 				})
+			patch1.ApplyPrivateMethod(manager, "canResetDeviceByLogicID", func(logicID int32) bool {
+				return true
+			})
 			defer patch1.Reset()
-			_, err := manager.canBeReset(nil)
+			_, err := manager.canBeReset(mockSingleDevFaultInfo())
 			convey.So(err, convey.ShouldBeNil)
 		})
 		common.ParamOption.RealCardType = common.Ascend910B

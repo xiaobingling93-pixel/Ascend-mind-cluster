@@ -166,6 +166,9 @@ func (hnm *HwAscend910Manager) GraceTolerance(classifyDevs map[string][]*common.
 
 // hotResetHandler handling hot reset
 func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common.NpuDevice) error {
+	if isHotResetOn {
+		return nil
+	}
 	deviceList, ok := classifyDevs[common.Ascend910]
 	if !ok {
 		return fmt.Errorf("device list not found, %v", common.Ascend910)
@@ -189,9 +192,6 @@ func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common
 		if _, exist := resetRing[idx]; exist {
 			continue
 		}
-		if !hnm.canResetDeviceByLogicID(idx) {
-			continue
-		}
 		canReset, err := hnm.canBeReset(tempFaultInfo)
 		if err != nil || !canReset {
 			hwlog.RunLog.Infof("device %v cannot reset, it is busy, err: %v", tempFaultInfo.LogicId, err)
@@ -212,7 +212,6 @@ func (hnm *HwAscend910Manager) hotResetHandler(classifyDevs map[string][]*common
 			hwlog.RunLog.Errorf("failed to start up hot reset, err: %v", err)
 		}
 	}
-	offlineInBandFailLogicId = sync.Map{}
 	isHotResetOn = false
 	return err
 }
@@ -496,6 +495,9 @@ func (hnm *HwAscend910Manager) isChipActive(logicID int32, busyChipList []string
 
 // canBeReset check if all chips are active
 func (hnm *HwAscend910Manager) canBeReset(dev *common.DevFaultInfo) (bool, error) {
+	if !hnm.canResetDeviceByLogicID(dev.LogicId) {
+		return false, nil
+	}
 	if common.ParamOption.RealCardType == common.Ascend910A3 &&
 		hnm.canA3BeReset(dev) {
 		return true, nil
