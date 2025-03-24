@@ -172,9 +172,9 @@ class MSRunPlugin:
         if kill_worker_func is None or start_worker_func is None or monitor_func is None:
             raise Exception(f"{self.FRAMEWORK_MS_NAME} hasn't fully registered all callbacks")
 
-        self._init_grpc_client_if_needed()
         # First, start the MindSpore training.
         self.start_mindspore_workers()
+        self._init_grpc_client_if_needed()
         while True:
             if self.ms_node_rank == "0" and shared_data.shared_data_inst.get_kill_flag():
                 run_log.info("master agent receive killMaster signal")
