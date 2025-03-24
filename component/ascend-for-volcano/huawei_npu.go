@@ -80,13 +80,11 @@ func (tp *huaweiNPUPlugin) OnSessionOpen(ssn *framework.Session) {
 		return
 	}
 	// check job npu resource, if illegal return failed
-	ssn.AddJobValidFn(tp.Name(), func(obj interface{}) *api.ValidateResult {
-		return tp.Scheduler.JobValid(obj)
-	})
+	addJobValidFn(ssn, tp)
 	// if node not meet the task require, the task will be failed. so need to intercept in advance
-	ssn.AddPredicateFn(tp.Name(), tp.addPredicateFn)
+	addPredicateFn(ssn, tp)
 
-	ssn.AddJobPipelinedFn(tp.Name(), tp.jobPipelinedFn)
+	addJobPipelinedFn(ssn, tp)
 
 	addBatchNodeOrderFn(ssn, tp)
 
@@ -95,22 +93,7 @@ func (tp *huaweiNPUPlugin) OnSessionOpen(ssn *framework.Session) {
 	addJobEnqueueableFn(ssn, tp)
 	// Register event handlers to update task info in PodLister & nodeMap
 	// for support Concurrency
-	ssn.AddEventHandler(&framework.EventHandler{
-		AllocateFunc: func(event *framework.Event) {
-			if event == nil {
-				klog.V(util.LogErrorLev).Infof("AllocateFunc event nil.")
-				return
-			}
-			tp.Scheduler.NPUAllocateFunc(event.Task)
-		},
-		DeallocateFunc: func(event *framework.Event) {
-			if event == nil {
-				klog.V(util.LogErrorLev).Infof("DeallocateFunc event nil.")
-				return
-			}
-			tp.Scheduler.NPUDeallocateFunc(event.Task)
-		},
-	})
+	addEventHandler(ssn, tp)
 }
 
 // OnSessionClose Close session by volcano frame.
@@ -138,36 +121,48 @@ func (tp *huaweiNPUPlugin) OnSessionClose(ssn *framework.Session) {
 	tp.Scheduler.BeforeCloseHandler()
 }
 
-// addPredicateFn in v1.9.0, this function will be modified, see in build.sh
-func (tp *huaweiNPUPlugin) addPredicateFn(taskInfo *api.TaskInfo, nodeInfo *api.NodeInfo) error {
-	predicateErr := tp.Scheduler.NodePredicate(taskInfo, nodeInfo)
-	if predicateErr != nil {
-		tp.Scheduler.Jobs[taskInfo.Job].Lock()
-		vcJob := tp.Scheduler.Jobs[taskInfo.Job]
-		vcJob.UpdateJobPendingMessage(predicateErr.Error(), nodeInfo.Name)
-		tp.Scheduler.Jobs[taskInfo.Job].Unlock()
-		klog.V(util.LogDebugLev).Infof("NodePredicate failed for task %s err:%s", taskInfo.Name, predicateErr)
-		predicateErr = fmt.Errorf("node check failed. for details,log by search keywords <%s> in volcano's log",
-			predicateErr.Error())
-	}
-	return predicateErr
+func addJobValidFn(ssn *framework.Session, tp *huaweiNPUPlugin) {
+	// check job npu resource, if illegal return failed
+	ssn.AddJobValidFn(tp.Name(), func(obj interface{}) *api.ValidateResult {
+		return tp.Scheduler.JobValid(obj)
+	})
 }
 
-func (tp *huaweiNPUPlugin) jobPipelinedFn(obj interface{}) int {
-	ji, ok := obj.(*api.JobInfo)
-	if !ok {
-		klog.V(util.LogErrorLev).Info("obj assertion failed.")
-		return util.Reject
-	}
+func addPredicateFn(ssn *framework.Session, tp *huaweiNPUPlugin) {
+	// check job npu resource, if illegal return failed
+	ssn.AddPredicateFn(tp.Name(), func(taskInfo *api.TaskInfo, nodeInfo *api.NodeInfo) error {
+		predicateErr := tp.Scheduler.NodePredicate(taskInfo, nodeInfo)
+		if predicateErr != nil {
+			tp.Scheduler.Jobs[taskInfo.Job].Lock()
+			vcJob := tp.Scheduler.Jobs[taskInfo.Job]
+			vcJob.UpdateJobPendingMessage(predicateErr.Error(), nodeInfo.Name)
+			tp.Scheduler.Jobs[taskInfo.Job].Unlock()
+			klog.V(util.LogDebugLev).Infof("NodePredicate failed for task %s err:%s", taskInfo.Name, predicateErr)
+			predicateErr = fmt.Errorf("node check failed. for details,log by search keywords <%s> in volcano's log",
+				predicateErr.Error())
+		}
+		return predicateErr
+	})
+}
 
-	job, ok := tp.Scheduler.Jobs[ji.UID]
-	if !ok {
-		return util.Abstain
-	}
-	if *job.JobReadyTag {
-		return util.Abstain
-	}
-	return util.Reject
+func addJobPipelinedFn(ssn *framework.Session, tp *huaweiNPUPlugin) {
+	// check job npu resource, if illegal return failed
+	ssn.AddJobPipelinedFn(tp.Name(), func(obj interface{}) int {
+		ji, ok := obj.(*api.JobInfo)
+		if !ok {
+			klog.V(util.LogErrorLev).Info("obj assertion failed.")
+			return util.Reject
+		}
+
+		job, ok := tp.Scheduler.Jobs[ji.UID]
+		if !ok {
+			return util.Abstain
+		}
+		if *job.JobReadyTag {
+			return util.Abstain
+		}
+		return util.Reject
+	})
 }
 
 func addBatchNodeOrderFn(ssn *framework.Session, tp *huaweiNPUPlugin) {
@@ -194,6 +189,25 @@ func addJobReadyFn(ssn *framework.Session, tp *huaweiNPUPlugin) {
 			return true
 		}
 		return *job.JobReadyTag
+	})
+}
+
+func addEventHandler(ssn *framework.Session, tp *huaweiNPUPlugin) {
+	ssn.AddEventHandler(&framework.EventHandler{
+		AllocateFunc: func(event *framework.Event) {
+			if event == nil {
+				klog.V(util.LogErrorLev).Infof("AllocateFunc event nil.")
+				return
+			}
+			tp.Scheduler.NPUAllocateFunc(event.Task)
+		},
+		DeallocateFunc: func(event *framework.Event) {
+			if event == nil {
+				klog.V(util.LogErrorLev).Infof("DeallocateFunc event nil.")
+				return
+			}
+			tp.Scheduler.NPUDeallocateFunc(event.Task)
+		},
 	})
 }
 
