@@ -1,4 +1,16 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
 
 // Package busconfig business configuration service for grpc client
 package busconfig
@@ -8,18 +20,19 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/util/workqueue"
-
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/interface/grpc/config"
 )
 
-const retryTimes = 3
+const (
+	retryTimes     = 3
+	chanBufferSize = 1000
+)
 
 // ConfigPublisher save the rank table and send it to the client
 type ConfigPublisher struct {
 	jobId          string
-	rankTableQue   workqueue.Interface
+	rankTableChan  chan *config.RankTableStream
 	ctxContext     context.Context
 	ctxCancelFunc  context.CancelFunc
 	serviceContext context.Context
@@ -30,7 +43,7 @@ type ConfigPublisher struct {
 func NewConfigPublisher(jobId string, serviceCtx context.Context) *ConfigPublisher {
 	publisher := &ConfigPublisher{
 		jobId:          jobId,
-		rankTableQue:   workqueue.New(),
+		rankTableChan:  make(chan *config.RankTableStream, chanBufferSize),
 		serviceContext: serviceCtx,
 		lock:           sync.RWMutex{},
 	}
@@ -38,61 +51,67 @@ func NewConfigPublisher(jobId string, serviceCtx context.Context) *ConfigPublish
 	return publisher
 }
 
-func (c *ConfigPublisher) selectStreamAndContext(stream config.Config_SubscribeRankTableServer) {
-	defer c.rankTableQue.ShutDown()
-	for {
-		select {
-		case <-c.ctxContext.Done():
-			hwlog.RunLog.Infof("context canceled, jobId=%s", c.jobId)
-			return
-		case <-stream.Context().Done():
-			hwlog.RunLog.Warnf("stream is closed, do not send ranktable jobId=%s", c.jobId)
-			return
-		}
-	}
-}
-
 func (c *ConfigPublisher) listenRankTableChange(stream config.Config_SubscribeRankTableServer) {
-	hwlog.RunLog.Infof("start listen a new work queue, jobId=%s", c.jobId)
-	go c.selectStreamAndContext(stream)
+	hwlog.RunLog.Infof("start listen a new rankTableChan, jobId=%s", c.jobId)
 	for {
-		if !c.sendRankTable(stream) {
+		if !c.selectChanAndContext(stream) {
 			break
 		}
 	}
 }
 
-func (c *ConfigPublisher) sendRankTable(stream config.Config_SubscribeRankTableServer) bool {
-	element, isShutdown := c.rankTableQue.Get()
-	if isShutdown {
-		hwlog.RunLog.Warnf("work queue shut down, do not send ranktable jobId=%s", c.jobId)
+func (c *ConfigPublisher) selectChanAndContext(stream config.Config_SubscribeRankTableServer) bool {
+	select {
+	case <-c.ctxContext.Done():
+		hwlog.RunLog.Warnf("context canceled, jobId=%s", c.jobId)
 		return false
+	case <-stream.Context().Done():
+		hwlog.RunLog.Warnf("stream is closed, do not send ranktable jobId=%s", c.jobId)
+		return false
+	case data, ok := <-c.rankTableChan:
+		if ok {
+			sendRankTable(stream, data)
+			return true
+		} else {
+			hwlog.RunLog.Warnf("rankTableChan closed, jobId=%s break listen rankTableChan", c.jobId)
+			return false
+		}
 	}
-	c.rankTableQue.Done(element)
-	data, ok := element.(*config.RankTableStream)
-	if !ok {
-		hwlog.RunLog.Errorf("failed to assert element to *config.RankTableStream, jobId=%s", c.jobId)
-		return true
-	}
+}
+
+func sendRankTable(stream config.Config_SubscribeRankTableServer, data *config.RankTableStream) {
 	for i := 0; i < retryTimes; i++ {
 		err := stream.Send(data)
 		if err == nil {
 			hwlog.RunLog.Infof("send ranktable success, jobId=%s", data.JobId)
-			break
+			return
 		}
 		hwlog.RunLog.Errorf("send ranktable failed, jobId=%s, error= %v", data.JobId, err)
-		time.Sleep(time.Second)
+		if i < retryTimes-1 {
+			time.Sleep(time.Second)
+		}
 	}
-	return true
 }
 
-// SaveData save data to work queue
-func (c *ConfigPublisher) SaveData(jobId, data string) {
+// SaveData save data to rankTableChan
+func (c *ConfigPublisher) SaveData(jobId, data string) (saved bool) {
+	saved = true
+	defer func() {
+		if r := recover(); r != nil {
+			saved = false
+			hwlog.RunLog.Errorf("panic occured when saving rank table, err: %v", r)
+		}
+	}()
+	if len(c.rankTableChan) >= chanBufferSize {
+		hwlog.RunLog.Warnf("rankTableChan is full, do not send rank table")
+		return false
+	}
 	rankTable := &config.RankTableStream{
 		JobId:     jobId,
 		RankTable: data,
 	}
-	c.rankTableQue.Add(rankTable)
+	c.rankTableChan <- rankTable
+	return saved
 }
 
 func (c *ConfigPublisher) stop() {
@@ -100,5 +119,5 @@ func (c *ConfigPublisher) stop() {
 	if c.ctxCancelFunc != nil {
 		c.ctxCancelFunc()
 	}
-	c.rankTableQue.ShutDown()
+	close(c.rankTableChan)
 }

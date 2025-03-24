@@ -1,4 +1,16 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
 
 // Package busconfig business configuration service for grpc client
 package busconfig
@@ -37,27 +49,27 @@ func TestRankTableChange(t *testing.T) {
 		convey.Convey("01-publisher not exist, should save cache and not save work queue", func() {
 			service := fakeService()
 			resent, err := service.rankTableChange(job1, rankTable)
-			convey.So(err, convey.ShouldNotBeNil)
 			convey.So(resent, convey.ShouldBeTrue)
+			convey.So(err, convey.ShouldResemble, errors.New("job not registered"))
 		})
-		convey.Convey("02-publisher exist, should save cache and work queue", func() {
+		convey.Convey("02-publisher exist, should save channel", func() {
 			service := fakeService()
-			service.configPublisher[job1] = NewConfigPublisher(job1, context.Background())
+			service.addPublisher(job1)
 			resent, err := service.rankTableChange(job1, rankTable)
 			convey.So(err, convey.ShouldBeNil)
 			convey.So(resent, convey.ShouldBeFalse)
-			publisher, _ := service.configPublisher[job1]
-			element, isShutdown := publisher.rankTableQue.Get()
-			convey.So(isShutdown, convey.ShouldBeFalse)
-			convey.So(element.(*config.RankTableStream).RankTable, convey.ShouldEqual, rankTable)
-			publisher.rankTableQue.ShutDown()
+			publisher, _ := service.getPublisher(job1)
+			data, ok := <-publisher.rankTableChan
+			convey.So(ok, convey.ShouldBeTrue)
+			convey.So(data.RankTable, convey.ShouldEqual, rankTable)
+			close(publisher.rankTableChan)
 		})
 	})
 }
 
 // TestRegister for test Register
 func TestRegister(t *testing.T) {
-	convey.Convey("test rankTableChange", t, func() {
+	convey.Convey("test Register", t, func() {
 		service := fakeService()
 		service.configPublisher[job1] = NewConfigPublisher(job1, context.Background())
 		convey.Convey("01-publisher not exist, should register", func() {
@@ -89,7 +101,7 @@ func TestSubscribeRankTable(t *testing.T) {
 		})
 		convey.Convey("02-subscribe rank table service success, should return nil", func() {
 			service := fakeService()
-			service.configPublisher[job1] = NewConfigPublisher(job1, context.Background())
+			service.addPublisher(job1)
 			err := service.SubscribeRankTable(req, &mockConfigSubscribeRankTableServer{})
 			convey.So(err, convey.ShouldBeNil)
 		})
