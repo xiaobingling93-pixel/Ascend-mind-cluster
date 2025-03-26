@@ -315,11 +315,11 @@ func mergeCodeAndRemoveUnhealthy(advanceDeviceCm constant.AdvanceDeviceFaultCm) 
 	for deviceName, faults := range advanceDeviceCm.FaultDeviceList {
 		if isNotHandleFaultsWithFaultType(faults, constant.CardUnhealthy) {
 			advanceDeviceCm.CardUnHealthy = util.DeleteStringSliceItem(advanceDeviceCm.CardUnHealthy, deviceName)
-			hwlog.RunLog.Warnf("remove device %s from CardUnHealthy", deviceName)
+			hwlog.RunLog.Debugf("remove device %s from CardUnHealthy", deviceName)
 		}
 		if isNotHandleFaultsWithFaultType(faults, constant.CardNetworkUnhealthy) {
 			advanceDeviceCm.NetworkUnhealthy = util.DeleteStringSliceItem(advanceDeviceCm.NetworkUnhealthy, deviceName)
-			hwlog.RunLog.Warnf("remove device %s from NetworkUnhealthy", deviceName)
+			hwlog.RunLog.Debugf("remove device %s from NetworkUnhealthy", deviceName)
 		}
 		if len(faults) == 0 {
 			continue
