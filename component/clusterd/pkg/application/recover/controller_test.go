@@ -693,7 +693,6 @@ func TestListenSendChannel(t *testing.T) {
 	})
 }
 
-// mockSubscribeProcessManageSignalServer 是一个模拟的 gRPC 流对象
 type mockSubscribeProcessManageSignalServer struct {
 	pb.Recover_SubscribeProcessManageSignalServer
 }
@@ -1005,9 +1004,10 @@ func TestHandleWaitReportStopComplete(t *testing.T) {
 
 func testReportChanNil(ctl *EventController) {
 	convey.Convey("When reportChan is nil", func() {
-		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan", func() (context.Context, chan *pb.StopCompleteRequest) {
-			return context.Background(), nil
-		})
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return context.Background(), nil
+			})
 		defer patches.Reset()
 
 		event, respCode, err := ctl.handleWaitReportStopComplete()
@@ -1021,9 +1021,10 @@ func testContextCanceled(ctl *EventController) {
 	convey.Convey("When context is canceled", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan", func() (context.Context, chan *pb.StopCompleteRequest) {
-			return ctx, make(chan *pb.StopCompleteRequest)
-		})
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return ctx, make(chan *pb.StopCompleteRequest)
+			})
 		defer patches.Reset()
 
 		event, respCode, err := ctl.handleWaitReportStopComplete()
@@ -1037,9 +1038,10 @@ func testProcessNotReady(ctl *EventController) {
 	convey.Convey("When receiving a report with ProcessNotReady status", func() {
 		reportChan := make(chan *pb.StopCompleteRequest, 1)
 		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: common.ProcessNotReady}}
-		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan", func() (context.Context, chan *pb.StopCompleteRequest) {
-			return context.Background(), reportChan
-		})
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return context.Background(), reportChan
+			})
 		defer patches.Reset()
 
 		event, respCode, err := ctl.handleWaitReportStopComplete()
@@ -1053,9 +1055,10 @@ func testValidReport(ctl *EventController) {
 	convey.Convey("When receiving a valid report", func() {
 		reportChan := make(chan *pb.StopCompleteRequest, 1)
 		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: int32(common.OK)}}
-		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan", func() (context.Context, chan *pb.StopCompleteRequest) {
-			return context.Background(), reportChan
-		})
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return context.Background(), reportChan
+			})
 		defer patches.Reset()
 
 		event, respCode, err := ctl.handleWaitReportStopComplete()
@@ -1107,16 +1110,12 @@ func testNormalFaultsExist(ctl *EventController) {
 	convey.Convey("When normal faults exist", func() {
 		patches := gomonkey.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
 			return []string{"uce-fault"}, []string{"normal-fault"}
-		})
-		defer patches.Reset()
-
-		patches.ApplyPrivateMethod(ctl, "annotationWithRetryStrategy", func() bool {
+		}).ApplyPrivateMethod(ctl, "annotationWithRetryStrategy", func() bool {
 			return true
-		})
-
-		patches.ApplyPrivateMethod(ctl, "getCtxAndEventChan", func() (context.Context, chan interface{}) {
+		}).ApplyPrivateMethod(ctl, "getCtxAndEventChan", func() (context.Context, chan interface{}) {
 			return context.Background(), make(chan interface{})
 		})
+		defer patches.Reset()
 
 		event, respCode, err := ctl.handleWaitFlushFinish()
 		convey.So(event, convey.ShouldEqual, common.FaultFlushFinishedEvent)
@@ -1129,9 +1128,10 @@ func testContextDone(ctl *EventController) {
 	convey.Convey("When context is done", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndEventChan", func() (context.Context, chan interface{}) {
-			return ctx, make(chan interface{})
-		})
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndEventChan",
+			func() (context.Context, chan interface{}) {
+				return ctx, make(chan interface{})
+			})
 		defer patches.Reset()
 
 		patches.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
@@ -1710,9 +1710,10 @@ func testPlatformModeSuccess(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		patches.ApplyPrivateMethod(ctl, "updateCacheFaultAndPod", func() ([]*pb.FaultRank, []string, error) {
-			return []*pb.FaultRank{{RankId: "rank1"}}, []string{"rank1"}, nil
-		})
+		patches.ApplyPrivateMethod(ctl, "updateCacheFaultAndPod",
+			func() ([]*pb.FaultRank, []string, error) {
+				return []*pb.FaultRank{{RankId: "rank1"}}, []string{"rank1"}, nil
+			})
 
 		patches.ApplyFunc(common.WriteResetInfoToCM,
 			func(jobName, namespace string, ranks []string, operation string) (*v1.ConfigMap, error) {

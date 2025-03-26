@@ -4,12 +4,21 @@
 package relationfault
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/pkg/errors"
 	"github.com/smartystreets/goconvey/convey"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/faultdomain"
+	"clusterd/pkg/domain/job"
+	"clusterd/pkg/interface/kube"
 )
 
 const (
@@ -27,6 +36,7 @@ const (
 	faultCode0004   = "0x0004"
 	triggerCode0001 = "0x0001"
 	triggerCode0002 = "0x0002"
+	timeOutInterval = 1000
 )
 
 func TestNoTriggerNetworkFault(t *testing.T) {
@@ -294,4 +304,487 @@ func TestGetPodStrategiesMapsByJobId(t *testing.T) {
 		})
 	})
 
+}
+
+func TestProcess(t *testing.T) {
+	convey.Convey("Test Process", t, func() {
+		processor := &relationFaultProcessor{}
+
+		testInvalidInfoType(processor)
+		testValidInfoType(processor)
+	})
+}
+
+func testInvalidInfoType(processor *relationFaultProcessor) {
+	convey.Convey("When info type is invalid", func() {
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		info := "invalid-info-type"
+		result := processor.Process(info)
+		convey.So(result, convey.ShouldEqual, info)
+	})
+}
+
+func testValidInfoType(processor *relationFaultProcessor) {
+	convey.Convey("When info type is valid", func() {
+		content := constant.AllConfigmapContent{
+			DeviceCm: map[string]*constant.DeviceInfo{},
+			SwitchCm: map[string]*constant.SwitchInfo{},
+			NodeCm:   map[string]*constant.NodeInfo{},
+		}
+
+		patches := gomonkey.ApplyMethod(processor, "InitFaultJobs", func(_ *relationFaultProcessor) {})
+		defer patches.Reset()
+
+		processor.faultJobs = map[string]*FaultJob{"test": &FaultJob{}}
+
+		result := processor.Process(content)
+		convey.So(result, convey.ShouldBeNil)
+		convey.So(processor.deviceInfoCm, convey.ShouldResemble, content.DeviceCm)
+		convey.So(processor.switchInfoCm, convey.ShouldResemble, content.SwitchCm)
+		convey.So(processor.nodeInfoCm, convey.ShouldResemble, content.NodeCm)
+	})
+}
+
+func TestFaultJobMethods(t *testing.T) {
+	convey.Convey("Test FaultJob methods", t, func() {
+		fJob := &FaultJob{
+			AllFaultCode:        sets.NewString(),
+			ProcessingFaultCode: sets.NewString(),
+			RelationFaults:      []*constant.FaultInfo{},
+			PodNames:            make(map[string]string),
+			PodStrategiesMaps:   make(map[string]string),
+		}
+
+		testInitFaultJobAttr(fJob)
+		testPreStartProcess(fJob)
+		testPreStopProcess(fJob)
+		testInitByDeviceFault(fJob)
+	})
+}
+
+func testInitFaultJobAttr(fJob *FaultJob) {
+	convey.Convey("When initializing FaultJob attributes", func() {
+		fJob.initFaultJobAttr()
+		convey.So(fJob.FaultStrategy, convey.ShouldResemble, constant.FaultStrategy{})
+		convey.So(fJob.TriggerFault, convey.ShouldBeNil)
+		convey.So(fJob.AllFaultCode, convey.ShouldNotBeNil)
+		convey.So(fJob.SeparateNodes, convey.ShouldNotBeNil)
+		convey.So(fJob.PodNames, convey.ShouldNotBeNil)
+		convey.So(fJob.ProcessingFaultCode, convey.ShouldNotBeNil)
+		convey.So(fJob.PodStrategiesMaps, convey.ShouldNotBeNil)
+	})
+}
+
+func testPreStartProcess(fJob *FaultJob) {
+	convey.Convey("When running preStartProcess", func() {
+		fJob.AllFaultCode.Insert("fault1")
+		fJob.RelationFaults = []*constant.FaultInfo{
+			{FaultUid: "fault1"},
+			{FaultUid: "fault2"},
+		}
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+		patches.ApplyFunc(util.ObjToString, func(obj interface{}) string {
+			return "test-fault-info"
+		})
+
+		fJob.preStartProcess()
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 1)
+		convey.So(fJob.RelationFaults[0].FaultUid, convey.ShouldEqual, "fault1")
+	})
+}
+
+func testPreStopProcess(fJob *FaultJob) {
+	convey.Convey("When running preStopProcess", func() {
+		fJob.RelationFaults = []*constant.FaultInfo{
+			{FaultUid: "fault1", ExecutedStrategy: constant.SeparateFaultStrategy},
+			{FaultUid: "fault2", FaultTime: time.Now().UnixMilli() - 10000, DealMaxTime: 1},
+		}
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		fJob.preStopProcess()
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 0)
+	})
+}
+
+func TestProcessFaultStrategies(t *testing.T) {
+	convey.Convey("Test processFaultStrategies", t, func() {
+		fJob := &FaultJob{
+			FaultStrategy: constant.FaultStrategy{
+				DeviceLvList: map[string][]constant.DeviceStrategy{
+					"node1": {{Strategy: "strategy1"}},
+				},
+				NodeLvList: map[string]string{},
+			},
+			PodNames:          map[string]string{"node1": "pod1"},
+			PodStrategiesMaps: map[string]string{},
+			NameSpace:         "test-namespace",
+		}
+
+		testDeepCopyError(fJob)
+		testPatchPodLabelError(fJob)
+		testSuccess(fJob)
+	})
+}
+
+func testDeepCopyError(fJob *FaultJob) {
+	convey.Convey("When deep copy fails", func() {
+		patches := gomonkey.ApplyFunc(util.DeepCopy, func(dst, src interface{}) error {
+			return errors.New("deep copy error")
+		})
+		defer patches.Reset()
+		patches.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+
+		fJob.processFaultStrategies()
+		convey.So(fJob.PodStrategiesMaps, convey.ShouldBeEmpty)
+	})
+}
+
+func testPatchPodLabelError(fJob *FaultJob) {
+	convey.Convey("When patch pod label fails", func() {
+		patches := gomonkey.ApplyFunc(util.DeepCopy, func(dst, src interface{}) error {
+			return nil
+		})
+		defer patches.Reset()
+		patches.ApplyFunc(kube.RetryPatchPodLabels, func(podName, namespace string, retryTimes int, labels map[string]string) error {
+			return errors.New("patch pod label error")
+		})
+		patches.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+
+		fJob.processFaultStrategies()
+		convey.So(fJob.PodStrategiesMaps["pod1"], convey.ShouldEqual, "strategy1")
+	})
+}
+
+func testSuccess(fJob *FaultJob) {
+	convey.Convey("When all operations succeed", func() {
+		patches := gomonkey.ApplyFunc(util.DeepCopy, func(dst, src interface{}) error {
+			return nil
+		})
+		defer patches.Reset()
+		patches.ApplyFunc(kube.RetryPatchPodLabels, func(podName, namespace string, retryTimes int, labels map[string]string) error {
+			return nil
+		})
+		patches.ApplyFunc(hwlog.RunLog.Debugf, func(format string, args ...interface{}) {})
+
+		fJob.processFaultStrategies()
+		convey.So(fJob.PodStrategiesMaps["pod1"], convey.ShouldEqual, "strategy1")
+	})
+}
+
+func testInitByDeviceFault(fJob *FaultJob) {
+	convey.Convey("When initializing by device fault", func() {
+		cardName := "server-type-device1"
+		nodeFaultInfo := constant.AdvanceDeviceFaultCm{
+			ServerType: "server-type",
+			FaultDeviceList: map[string][]constant.DeviceFault{
+				cardName: {
+					{
+						NPUName: "npu1",
+						FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+							"fault1": {FaultLevel: "level1"},
+						},
+					},
+				},
+			},
+			CardUnHealthy: []string{cardName},
+		}
+		serverList := constant.ServerHccl{
+			ServerName: "node1",
+			DeviceList: []constant.Device{
+				{DeviceID: "device1", RankID: "rank1"},
+			},
+		}
+
+		fJob.initByDeviceFault(nodeFaultInfo, serverList)
+	})
+}
+
+func TestInitFaultInfoByDeviceFault(t *testing.T) {
+	convey.Convey("Test initFaultInfoByDeviceFault", t, func() {
+		fJob := &FaultJob{
+			AllFaultCode:        sets.NewString(),
+			ProcessingFaultCode: sets.NewString(),
+			RelationFaults:      []*constant.FaultInfo{},
+		}
+
+		testAssociateFault(fJob)
+		testNonAssociateFault(fJob)
+		testCardUnhealthy(fJob)
+	})
+}
+
+func testAssociateFault(fJob *FaultJob) {
+	convey.Convey("When fault is associate fault and card is healthy", func() {
+		associateFault := "fault1"
+		deviceName := "device1"
+		nodeName := "node1"
+		faultList := []constant.DeviceFault{
+			{
+				NPUName: deviceName,
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+					associateFault: {FaultLevel: "level1"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyFunc(isAssociateFault, func(faultCode string) bool {
+			return faultCode == associateFault
+		})
+		defer patches.Reset()
+
+		fJob.initFaultInfoByDeviceFault(faultList, nodeName, "", false)
+		convey.So(fJob.AllFaultCode.Has(nodeName+"-"+deviceName+"-"+associateFault), convey.ShouldBeTrue)
+	})
+}
+
+func testNonAssociateFault(fJob *FaultJob) {
+	convey.Convey("When fault is not associate fault", func() {
+		faultList := []constant.DeviceFault{
+			{
+				NPUName: "npu1",
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+					"fault1": {FaultLevel: "level1"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyFunc(isAssociateFault, func(faultCode string) bool {
+			return false
+		})
+		defer patches.Reset()
+
+		fJob.initFaultInfoByDeviceFault(faultList, "node1", "rank1", false)
+		convey.So(fJob.AllFaultCode.Has("node1-npu1-fault1"), convey.ShouldBeFalse)
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 0)
+	})
+}
+
+func testCardUnhealthy(fJob *FaultJob) {
+	convey.Convey("When card is unhealthy", func() {
+		faultList := []constant.DeviceFault{
+			{
+				NPUName: "npu1",
+				FaultTimeAndLevelMap: map[string]constant.FaultTimeAndLevel{
+					"fault1": {FaultLevel: "level1"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyFunc(isAssociateFault, func(faultCode string) bool {
+			return faultCode == "fault1"
+		})
+		defer patches.Reset()
+
+		fJob.initFaultInfoByDeviceFault(faultList, "node1", "rank1", true)
+		convey.So(fJob.AllFaultCode.Has("node1-npu1-fault1"), convey.ShouldBeFalse)
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 0)
+	})
+}
+
+func TestInitBySwitchFault(t *testing.T) {
+	convey.Convey("Test initBySwitchFault", t, func() {
+		fJob := &FaultJob{
+			AllFaultCode:        sets.NewString(),
+			ProcessingFaultCode: sets.NewString(),
+			RelationFaults:      []*constant.FaultInfo{},
+			SeparateNodes:       sets.NewString(),
+		}
+
+		testNilSwitchInfo(fJob)
+		testUnhealthyNode(fJob)
+		testSwitchAssociateFault(fJob)
+		testUnmarshalError(fJob)
+	})
+}
+
+func testNilSwitchInfo(fJob *FaultJob) {
+	convey.Convey("When switch info is nil", func() {
+		fJob.initBySwitchFault(nil, constant.ServerHccl{ServerName: "node1"})
+		convey.So(fJob.SeparateNodes.Has("node1"), convey.ShouldBeFalse)
+	})
+}
+
+func testUnhealthyNode(fJob *FaultJob) {
+	convey.Convey("When node is unhealthy", func() {
+		switchInfo := &constant.SwitchInfo{
+			SwitchFaultInfo: constant.SwitchFaultInfo{NodeStatus: constant.UnHealthyState},
+		}
+		fJob.initBySwitchFault(switchInfo, constant.ServerHccl{ServerName: "node1"})
+		convey.So(fJob.SeparateNodes.Has("node1"), convey.ShouldBeTrue)
+	})
+}
+
+func testSwitchAssociateFault(fJob *FaultJob) {
+	convey.Convey("When switch fault is associate fault", func() {
+		switchInfo := &constant.SwitchInfo{
+			SwitchFaultInfo: constant.SwitchFaultInfo{
+				NodeStatus: constant.HealthyState,
+				FaultCode:  []string{`{"AssembledFaultCode":"fault1"}`},
+				FaultLevel: "level1",
+			}}
+
+		patches := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v interface{}) error {
+			if _, ok := v.(*constant.SimpleSwitchFaultInfo); ok {
+				*v.(*constant.SimpleSwitchFaultInfo) = constant.SimpleSwitchFaultInfo{
+					AssembledFaultCode: "fault1",
+				}
+			}
+
+			return nil
+		})
+		defer patches.Reset()
+
+		patches.ApplyFunc(isAssociateFault, func(faultCode string) bool {
+			return faultCode == "fault1"
+		})
+
+		fJob.initBySwitchFault(switchInfo, constant.ServerHccl{ServerName: "node1"})
+		convey.So(fJob.AllFaultCode.Has("node1-AllCardId-fault1"), convey.ShouldBeTrue)
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 1)
+	})
+}
+
+func testUnmarshalError(fJob *FaultJob) {
+	convey.Convey("When unmarshal switch fault info fails", func() {
+		switchInfo := &constant.SwitchInfo{
+			SwitchFaultInfo: constant.SwitchFaultInfo{
+				NodeStatus: constant.HealthyState,
+				FaultCode:  []string{`{"AssembledFaultCode":"fault1"}`},
+			},
+		}
+
+		patches := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v interface{}) error {
+			return errors.New("unmarshal error")
+		})
+		defer patches.Reset()
+		patches.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+
+		fJob.initBySwitchFault(switchInfo, constant.ServerHccl{ServerName: "node1"})
+		convey.So(fJob.AllFaultCode.Has("node1-AllCardId-fault1"), convey.ShouldBeFalse)
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 0)
+	})
+}
+
+func TestValidateFaultDurationConfig(t *testing.T) {
+	convey.Convey("Test validateFaultDurationConfig", t, func() {
+		testEmptyFaultCode()
+		testInvalidTimeOutInterval()
+		testValidConfig()
+	})
+}
+
+func testEmptyFaultCode() {
+	convey.Convey("When fault code is empty", func() {
+		faultConfig := constant.FaultDuration{
+			FaultCode:       "",
+			TimeOutInterval: timeOutInterval,
+		}
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Error, func(args ...interface{}) {})
+		defer patches.Reset()
+
+		result := validateFaultDurationConfig(faultConfig)
+		convey.So(result, convey.ShouldBeFalse)
+	})
+}
+
+func testInvalidTimeOutInterval() {
+	convey.Convey("When time out interval is invalid", func() {
+		faultConfig := constant.FaultDuration{
+			FaultCode:       "fault1",
+			TimeOutInterval: -1,
+		}
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Error, func(args ...interface{}) {})
+		defer patches.Reset()
+
+		result := validateFaultDurationConfig(faultConfig)
+		convey.So(result, convey.ShouldBeFalse)
+	})
+}
+
+func testValidConfig() {
+	convey.Convey("When fault config is valid", func() {
+		faultConfig := constant.FaultDuration{
+			FaultCode:       "fault1",
+			TimeOutInterval: timeOutInterval,
+		}
+
+		result := validateFaultDurationConfig(faultConfig)
+		convey.So(result, convey.ShouldBeTrue)
+	})
+}
+
+func TestInitFaultJobs(t *testing.T) {
+	convey.Convey("Test InitFaultJobs", t, func() {
+		processor := &relationFaultProcessor{
+			deviceInfoCm: map[string]*constant.DeviceInfo{},
+			switchInfoCm: map[string]*constant.SwitchInfo{},
+			faultJobs:    make(map[string]*FaultJob),
+		}
+
+		testEmptyServerList(processor)
+		testInitFaultJob(processor)
+	})
+}
+
+func testEmptyServerList(processor *relationFaultProcessor) {
+	convey.Convey("When server list is empty", func() {
+		patches := gomonkey.ApplyFunc(faultdomain.GetAdvanceDeviceCmForNodeMap,
+			func(deviceInfoCm map[string]*constant.DeviceInfo) map[string]constant.AdvanceDeviceFaultCm {
+				return map[string]constant.AdvanceDeviceFaultCm{"node1": {SuperPodID: 1}}
+			})
+		defer patches.Reset()
+
+		patches.ApplyFunc(job.GetJobServerInfoMap, func() constant.JobServerInfoMap {
+			return constant.JobServerInfoMap{
+				InfoMap: map[string]map[string]constant.ServerHccl{
+					"job1": {},
+				},
+			}
+		})
+		patches.ApplyFunc(hwlog.RunLog.Debugf, func(format string, args ...interface{}) {})
+
+		processor.InitFaultJobs()
+		convey.So(processor.faultJobs, convey.ShouldBeEmpty)
+	})
+}
+
+func testInitFaultJob(processor *relationFaultProcessor) {
+	convey.Convey("When initializing fault job", func() {
+		patches := gomonkey.ApplyFunc(faultdomain.GetAdvanceDeviceCmForNodeMap,
+			func(deviceInfoCm map[string]*constant.DeviceInfo) map[string]constant.AdvanceDeviceFaultCm {
+				return map[string]constant.AdvanceDeviceFaultCm{"node1": {SuperPodID: 1}}
+			})
+		defer patches.Reset()
+
+		patches.ApplyFunc(job.GetJobServerInfoMap, func() constant.JobServerInfoMap {
+			return constant.JobServerInfoMap{
+				InfoMap: map[string]map[string]constant.ServerHccl{
+					"job1": {
+						"node1": {
+							ServerName:   "node1",
+							PodID:        "pod1",
+							PodNameSpace: "namespace1",
+						},
+					},
+				},
+			}
+		})
+		patches.ApplyFunc(hwlog.RunLog.Debugf, func(format string, args ...interface{}) {})
+		patches.ApplyFunc(util.ObjToString, func(obj interface{}) string {
+			return "test-fault-job"
+		})
+
+		processor.InitFaultJobs()
+		convey.So(processor.faultJobs, convey.ShouldNotBeEmpty)
+		convey.So(processor.faultJobs["job1"].IsA3Job, convey.ShouldBeTrue)
+		convey.So(processor.faultJobs["job1"].PodNames["node1"], convey.ShouldEqual, "pod1")
+	})
 }

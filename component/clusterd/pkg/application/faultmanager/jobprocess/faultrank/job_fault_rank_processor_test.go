@@ -15,6 +15,7 @@ import (
 	"clusterd/pkg/application/faultmanager/cmprocess/uce"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
+	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/interface/kube"
 )
 
@@ -151,5 +152,152 @@ func TestGetHealthState(t *testing.T) {
 			status := getHealthState(nil, nil, nil)
 			convey.So(status == constant.HealthyState, convey.ShouldBeTrue)
 		})
+	})
+}
+
+func TestFindFaultRankForJob(t *testing.T) {
+	convey.Convey("Test findFaultRankForJob", t, func() {
+		processor := &jobRankFaultInfoProcessor{}
+
+		patches := gomonkey.ApplyFunc(pod.GetPodRankAndPodUid, func(jobId, rankId string) (string, string) {
+			return "pod-rank", "pod-uid"
+		})
+		defer patches.Reset()
+
+		testNoDevicesOnNode(processor)
+		testUceInManagementPlane(processor)
+		testUceInBusinessPlane(processor)
+	})
+}
+
+func testNoDevicesOnNode(processor *jobRankFaultInfoProcessor) {
+	convey.Convey("When no devices on node", func() {
+		nodeDeviceInfoMap := map[string]constant.AdvanceDeviceFaultCm{
+			"node1": {
+				ServerType:      "server-type",
+				FaultDeviceList: map[string][]constant.DeviceFault{},
+			},
+		}
+		serverList := map[string]constant.ServerHccl{
+			"node1": {
+				DeviceList: []constant.Device{},
+			},
+		}
+
+		faultRanks := processor.findFaultRankForJob(nodeDeviceInfoMap, "node1", serverList, "job1")
+		convey.So(faultRanks, convey.ShouldBeEmpty)
+	})
+}
+
+func testUceInManagementPlane(processor *jobRankFaultInfoProcessor) {
+	convey.Convey("When UCE fault in management plane", func() {
+		nodeDeviceInfoMap := map[string]constant.AdvanceDeviceFaultCm{
+			"node1": {
+				ServerType: "server-type",
+				FaultDeviceList: map[string][]constant.DeviceFault{
+					"server-type-device1": {
+						{FaultCode: constant.UceFaultCode, FaultLevel: constant.RestartBusiness},
+					},
+				},
+			},
+		}
+		serverList := map[string]constant.ServerHccl{
+			"node1": {
+				DeviceList: []constant.Device{
+					{DeviceID: "device1", RankID: "rank1"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyPrivateMethod(processor, "canDoStepRetry",
+			func(_ *jobRankFaultInfoProcessor, jobId, nodeName, deviceName string) bool {
+				return true
+			})
+		defer patches.Reset()
+
+		faultRanks := processor.findFaultRankForJob(nodeDeviceInfoMap, "node1", serverList, "job1")
+		convey.So(faultRanks, convey.ShouldHaveLength, 1)
+		convey.So(faultRanks[0].FaultCode, convey.ShouldEqual, constant.UceFaultCode)
+		convey.So(faultRanks[0].DoStepRetry, convey.ShouldBeTrue)
+	})
+}
+
+func testUceInBusinessPlane(processor *jobRankFaultInfoProcessor) {
+	convey.Convey("When UCE fault in business plane", func() {
+		nodeDeviceInfoMap := map[string]constant.AdvanceDeviceFaultCm{
+			"node1": {
+				ServerType:      "server-type",
+				FaultDeviceList: map[string][]constant.DeviceFault{},
+			},
+		}
+		serverList := map[string]constant.ServerHccl{
+			"node1": {
+				DeviceList: []constant.Device{
+					{DeviceID: "device1", RankID: "rank1"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyPrivateMethod(processor, "canDoStepRetry",
+			func(_ *jobRankFaultInfoProcessor, jobId, nodeName, deviceName string) bool {
+				return true
+			})
+		defer patches.Reset()
+
+		patches.ApplyPrivateMethod(processor, "uceInBusinessPlane",
+			func(_ *jobRankFaultInfoProcessor, jobId, nodeName, deviceName string) bool {
+				return true
+			})
+
+		faultRanks := processor.findFaultRankForJob(nodeDeviceInfoMap, "node1", serverList, "job1")
+		convey.So(faultRanks, convey.ShouldHaveLength, 1)
+		convey.So(faultRanks[0].FaultCode, convey.ShouldEqual, constant.UceFaultCode)
+		convey.So(faultRanks[0].DoStepRetry, convey.ShouldBeTrue)
+	})
+}
+
+func TestGetJobFaultRankInfosFilterLevel(t *testing.T) {
+	convey.Convey("Test GetJobFaultRankInfosFilterLevel", t, func() {
+		processor := &jobRankFaultInfoProcessor{}
+
+		testNilJobFaultRankInfos(processor)
+		testFilterFaultLevel(processor)
+	})
+}
+
+func testNilJobFaultRankInfos(processor *jobRankFaultInfoProcessor) {
+	convey.Convey("When jobFaultRankInfos is nil", func() {
+		patches := gomonkey.ApplyMethod(processor, "GetJobFaultRankInfos",
+			func(_ *jobRankFaultInfoProcessor) map[string]constant.JobFaultInfo {
+				return nil
+			})
+		defer patches.Reset()
+
+		result := processor.GetJobFaultRankInfosFilterLevel("RestartBusiness")
+		convey.So(result, convey.ShouldBeNil)
+	})
+}
+
+func testFilterFaultLevel(processor *jobRankFaultInfoProcessor) {
+	convey.Convey("When filtering fault level", func() {
+		jobFaultRankInfos := map[string]constant.JobFaultInfo{
+			"job1": {
+				FaultList: []constant.FaultRank{
+					{FaultLevel: "RestartBusiness"},
+					{FaultLevel: "NoRestart"},
+				},
+			},
+		}
+
+		patches := gomonkey.ApplyMethod(processor, "GetJobFaultRankInfos",
+			func(_ *jobRankFaultInfoProcessor) map[string]constant.JobFaultInfo {
+				return jobFaultRankInfos
+			})
+		defer patches.Reset()
+
+		result := processor.GetJobFaultRankInfosFilterLevel("RestartBusiness")
+		convey.So(result, convey.ShouldNotBeNil)
+		convey.So(result["job1"].FaultList, convey.ShouldHaveLength, 1)
+		convey.So(result["job1"].FaultList[0].FaultLevel, convey.ShouldEqual, "NoRestart")
 	})
 }
