@@ -1,16 +1,76 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
-// Package api structs for common const define
+// Package api common const
 package api
 
-// label
+// Env
 const (
-	// NPUChipMemoryKey key of npu chip memory in node labels
-	NPUChipMemoryKey = "mind-cluster/npu-chip-memory"
+	NodeNameEnv = "NODE_NAME"
+
+	// PtWorldSizeEnv the total number of npu used for the task for PyTorch
+	PtWorldSizeEnv = "WORLD_SIZE"
+	// PtLocalWorldSizeEnv number of npu used per pod for PyTorch
+	PtLocalWorldSizeEnv = "LOCAL_WORLD_SIZE"
+	// PtLocalRankEnv logic id List of npu used by pod for PyTorch
+	PtLocalRankEnv = "LOCAL_RANK"
+
+	// TfWorkerSizeEnv the total number of npu used for the task for TensorFlow
+	TfWorkerSizeEnv = "CM_WORKER_SIZE"
+	// TfLocalWorkerEnv number of npu used per pod for TensorFlow
+	TfLocalWorkerEnv = "CM_LOCAL_WORKER"
+
+	// MsWorkerNumEnv the total number of npu used for the task for MindSpore
+	MsWorkerNumEnv = "MS_WORKER_NUM"
+	// MsLocalWorkerEnv number of npu used per pod for MindSpore
+	MsLocalWorkerEnv = "MS_LOCAL_WORKER"
 )
 
-// annotation
+// NPU
 const (
-	// PodUsedHardwareTypeKey key of pod used hardware type in pod annotation
-	PodUsedHardwareTypeKey = "mind-cluster/hardware-type"
+	ResourceNamePrefix = "huawei.com/"
+)
+
+// NameSpace
+const (
+	DLNamespace = "mindx-dl"
+	ClusterNS   = "cluster-system"
+	KubeNS      = "kube-system"
+)
+
+// Node
+const (
+	// ChipNameLabel label value is card type, eg. 910A
+	ChipNameLabel = "node.kubernetes.io/npu.chip.name"
+	// NPUChipMemoryLabel label value is npu chip memory
+	NPUChipMemoryLabel = "mind-cluster/npu-chip-memory"
+
+	// NodeSNAnnotation annotation value is node sn
+	NodeSNAnnotation = "product-serial-number"
+	// BaseDevInfoAnno annotation value is device base info
+	BaseDevInfoAnno = "baseDeviceInfos"
+)
+
+// Pod
+const (
+	// PodUsedHardwareTypeAnno annotation value is the hardware type that real used in pod
+	PodUsedHardwareTypeAnno = "mind-cluster/hardware-type"
+	// PodRealUseAscendNPUAnno annotation value is the npu that real used in pod
+	PodRealUseAscendNPUAnno = "huawei.com/AscendReal"
+)
+
+// ConfigMap
+const (
+	// DeviceInfoCMDataKey device-info-cm data key, record device info
+	DeviceInfoCMDataKey = "DeviceInfoCfg"
+	// SwitchInfoCMDataKey device-info-cm data key, record switch info
+	SwitchInfoCMDataKey = "SwitchInfoCfg"
+	// NodeInfoCMDataKey node-info-cm data key, record node info
+	NodeInfoCMDataKey = "NodeInfo"
+	// PubFaultCMDataKey public fault cm data key, record public fault info
+	PubFaultCMDataKey = "PublicFault"
+
+	// CIMCMLabelKey cm label key, who uses these cms
+	CIMCMLabelKey = "mx-consumer-cim"
+	// PubFaultCMLabelKey public fault cm label key
+	PubFaultCMLabelKey = "mc-consumer-publicfault"
 )

@@ -200,7 +200,7 @@ func (hdm *HwDevManager) getNewNodeLabel(node *v1.Node) (map[string]string, erro
 		if err != nil {
 			hwlog.RunLog.Warnf("failed to get node on-chip-memory info, err: %s", err)
 		} else {
-			newLabelMap[api.NPUChipMemoryKey] = fmt.Sprintf("%dG", hbmInfo.MemorySize/memoryRadix)
+			newLabelMap[api.NPUChipMemoryLabel] = fmt.Sprintf("%dG", hbmInfo.MemorySize/memoryRadix)
 		}
 	}
 

@@ -239,7 +239,7 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 	}
 	if r.isMindIEEPJob {
 		hwlog.RunLog.Debugf("pod(%s/%s) belong mindIEEP job: %v", pod.Namespace, pod.Name)
-		server.Hardware = pod.Annotations[api.PodUsedHardwareTypeKey]
+		server.Hardware = pod.Annotations[api.PodUsedHardwareTypeAnno]
 	}
 	rankFactor := len(instance.Devices)
 

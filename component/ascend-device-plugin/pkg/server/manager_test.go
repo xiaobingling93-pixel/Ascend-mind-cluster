@@ -250,7 +250,7 @@ func TestGetNewNodeLabel(t *testing.T) {
 		defer mockIsContainAll300IDuo.Reset()
 		labelMap, err := hdm.getNewNodeLabel(testNode)
 		convey.So(labelMap, convey.ShouldResemble, map[string]string{common.InferCardKey: common.A300IDuoLabel,
-			common.ChipNameLabel: "testName", api.NPUChipMemoryKey: "0G"})
+			common.ChipNameLabel: "testName", api.NPUChipMemoryLabel: "0G"})
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
