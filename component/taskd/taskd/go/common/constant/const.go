@@ -48,8 +48,6 @@ const (
 )
 
 const (
-	// DefaultBufferSizeInBytes default buffer size in bytes
-	DefaultBufferSizeInBytes = 2 * 1024
 	// SizeLimitPerProfilingFile the size of each profiling
 	SizeLimitPerProfilingFile = 10 * 1024 * 1024
 	// BytesPerMB default bytes per in 1 MB
@@ -84,6 +82,10 @@ const (
 const (
 	// TaskBufferSize is the buffer size for each rank
 	TaskBufferSize = 20
+	// LargeBufferSizeInBytes is the buffer size used in communication is on
+	LargeBufferSizeInBytes = 2048 * 1024
+	// NormalBufferSizeInBytes is the buffer size used in common scenario
+	NormalBufferSizeInBytes = 2 * 1024
 )
 
 const (

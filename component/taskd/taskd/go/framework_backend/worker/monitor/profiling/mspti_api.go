@@ -142,19 +142,6 @@ package profiling
 		return result;
 	}
 
-	static char* serialize_msptiActivityHccl(msptiActivity **pRecord) {
-		msptiActivityHccl* activity = (msptiActivityHccl*)(*pRecord);
-		char* result = (char*)malloc(500);
-		if (result == NULL) {
-			return NULL;
-		}
-		printf("%s/n" , "this is a test!");
-
-		snprintf(result, 300, "{\"Kind\":%d,\"Name\":\"%s\" }",activity->kind,activity->name);
-		printf("%s/n" , result);
-		return result;
-	}
-
     static char* serialize_msptiActivityKernel(msptiActivity **pRecord) {
 		msptiActivityKernel* activity = (msptiActivityKernel*)(*pRecord);
 		char* result = (char*)malloc(300);
@@ -284,9 +271,9 @@ func FlushAllActivity() error {
 //
 //export goBufferRequested
 func goBufferRequested(buffer **C.uint8_t, size *C.size_t, maxNumRecords *C.size_t) {
-	bufSize := constant.DefaultBufferSizeInBytes
+	bufSize := defaultBufferSizeInBytes
+	hwlog.RunLog.Debugf("request callbask got buffer size:%d", bufSize)
 	maxRecords := 0
-
 	*buffer = (*C.uint8_t)(C.malloc(C.size_t(bufSize)))
 	*size = C.size_t(bufSize)
 	*maxNumRecords = C.size_t(maxRecords)
@@ -300,6 +287,15 @@ func goBufferCompleted(buffer *C.uint8_t, size C.size_t, validSize C.size_t) {
 }
 
 func dealBufferCompleted(buffer *C.uint8_t, size C.size_t, validSize C.size_t) {
+	defer func() {
+		hwlog.RunLog.Debugf("the buffer free status is: %v", buffer == nil)
+		if buffer != nil {
+			hwlog.RunLog.Debugf("will free current buffer, the buffer address is %v", buffer)
+			// free address
+			C.free(unsafe.Pointer(buffer))
+			buffer = nil
+		}
+	}()
 	if validSize > 0 {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
@@ -325,12 +321,6 @@ func dealBufferCompleted(buffer *C.uint8_t, size C.size_t, validSize C.size_t) {
 		}
 	}
 	hwlog.RunLog.Debugf("the buffer free status is: %v", buffer == nil)
-	if buffer != nil {
-		hwlog.RunLog.Debugf("will free current buffer, the buffer address is %v", buffer)
-		// free address
-		C.free(unsafe.Pointer(buffer))
-		buffer = nil
-	}
 }
 
 func handleActivityRecord(pRecord *C.msptiActivity) {
@@ -350,8 +340,8 @@ func handleActivityRecord(pRecord *C.msptiActivity) {
 // handleMarkerRecord if the record is marker, deal with it, push it into a cache array with mutex lock
 func handleMarkerRecord(pRecord *C.msptiActivity) {
 	cString := C.serialize_msptiActivityMark(&pRecord)
-	defer C.free_serialized_data(cString)
 	jsonStr := C.GoString(cString)
+	C.free_serialized_data(cString)
 	hwlog.RunLog.Debugf("got a marker kind string: %s", jsonStr)
 	var mark MsptiActivityMark
 	err := json.Unmarshal([]byte(jsonStr), &mark)
@@ -365,8 +355,8 @@ func handleMarkerRecord(pRecord *C.msptiActivity) {
 
 func handleApiRecord(pRecord *C.msptiActivity) {
 	cString := C.serialize_msptiActivityApi(&pRecord)
-	defer C.free_serialized_data(cString)
 	jsonStr := C.GoString(cString)
+	C.free_serialized_data(cString)
 	var api MsptiActivityApi
 	err := json.Unmarshal([]byte(jsonStr), &api)
 	if err != nil {
@@ -379,8 +369,8 @@ func handleApiRecord(pRecord *C.msptiActivity) {
 
 func handleKernelRecord(pRecord *C.msptiActivity) {
 	cString := C.serialize_msptiActivityKernel(&pRecord)
-	defer C.free_serialized_data(cString)
 	jsonStr := C.GoString(cString)
+	C.free_serialized_data(cString)
 	var kernel MsptiActivityKernel
 	err := json.Unmarshal([]byte(jsonStr), &kernel)
 	if err != nil {

@@ -42,6 +42,9 @@ var SavePathTimeStamp int
 // diskUsageUpperlimitMB is the  ProfilingBaseDir total upper limit containing all  jobs
 var diskUsageUpperLimitMB = constant.DefaultDiskUpperLimitInMB
 
+// defaultBufferSizeInBytes default buffer size in bytes
+var defaultBufferSizeInBytes = constant.NormalBufferSizeInBytes
+
 // SetDiskUsageUpperLimitMB is the ProfilingBaseDir total upper limit containing all jobs
 func SetDiskUsageUpperLimitMB(upperLimitInMB int) {
 	diskUsageUpperLimitMB = upperLimitInMB
@@ -53,7 +56,6 @@ func SaveProfilingDataIntoFile(rank int) error {
 		hwlog.RunLog.Debug("Profiling Records is all empty, will do nothing")
 		return nil
 	}
-
 	savePath, err := getCurrentSavePath(rank)
 	if err != nil {
 		hwlog.RunLog.Errorf("failed to get profiling saving path, err: %s", err.Error())
