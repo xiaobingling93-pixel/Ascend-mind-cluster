@@ -563,6 +563,9 @@ func (r *ASJobReconciler) writeRanktableToCm(jobName, namespace string, uid type
 	if !ok {
 		return fmt.Errorf("ranktable generaotor not found for job %s", jobName)
 	}
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
 	cm.Data[configmapKey], err = rtg.ToString()
 	if err != nil {
 		return err

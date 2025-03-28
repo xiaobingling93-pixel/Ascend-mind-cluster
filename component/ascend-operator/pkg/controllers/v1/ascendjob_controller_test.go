@@ -16,6 +16,7 @@ import (
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/kubeflow/common/pkg/controller.v1/common"
 	"github.com/kubeflow/training-operator/pkg/common/util"
+	"github.com/smartystreets/goconvey/convey"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,8 +28,11 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
+	"ascend-operator/pkg/ranktable"
+	"ascend-operator/pkg/ranktable/generator"
 	_ "ascend-operator/pkg/testtool"
 	"ascend-operator/pkg/utils"
 )
@@ -278,4 +282,46 @@ func TestIsVcjobOrDeploy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteRanktableToCm(t *testing.T) {
+	convey.Convey("TestWriteRanktableToCm", t, func() {
+		r := newCommonReconciler()
+		convey.Convey("01-ranktable generaotor not found should return error", func() {
+			err := r.writeRanktableToCm("job", "default", "111")
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-ranktable generaotor not found should return error", func() {
+			r.rtGenerators = map[types.UID]generator.RankTableGenerator{
+				"111": ranktable.NewGenerator(&mindxdlv1.AscendJob{})}
+			err := r.writeRanktableToCm("job", "default", "111")
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+func TestDecorateVcjob(t *testing.T) {
+	convey.Convey("TestDecorateVcjob", t, func() {
+		vcjob := &v1alpha1.Job{
+			Spec: v1alpha1.JobSpec{
+				Tasks: []v1alpha1.TaskSpec{{Name: "task1", Replicas: 1}},
+			},
+		}
+		job := decorateVcjob(vcjob)
+		convey.So(len(job.Spec.ReplicaSpecs), convey.ShouldEqual, 1)
+	})
+}
+
+func TestDeleteJob(t *testing.T) {
+	convey.Convey("TestDeleteJob", t, func() {
+		r := newCommonReconciler()
+		convey.Convey("01-nil job should return error", func() {
+			err := r.DeleteJob(nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("02-delete job should return nil", func() {
+			err := r.DeleteJob(newCommonAscendJob())
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
 }
