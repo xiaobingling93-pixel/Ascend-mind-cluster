@@ -1145,10 +1145,10 @@ func TestGetCMFromCache(t *testing.T) {
 	})
 }
 
-// TestWriteCMToFile test write cm to file
-func TestWriteCMToFile(t *testing.T) {
+// TestWriteCMToFileCase1 test write cm to file
+func TestWriteCMToFileCase1(t *testing.T) {
 	ascend910HotResetManager := newHotResetTools()
-	convey.Convey("test writeCMToFile", t, func() {
+	convey.Convey("test writeCMToFile case1", t, func() {
 		convey.Convey("write cm to file failed when cm has not reset.json", func() {
 			cm := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1189,6 +1189,37 @@ func TestWriteCMToFile(t *testing.T) {
 	})
 }
 
+// TestWriteCMToFileCase2 test write cm to file
+func TestWriteCMToFileCase2(t *testing.T) {
+	ascend910HotResetManager := newHotResetTools()
+	convey.Convey("test writeCMToFile case2", t, func() {
+		convey.Convey("write cm to file failed when cm has not profilingSwitch", func() {
+			cm := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "data-trace-test1",
+				},
+				Data: map[string]string{"xxx": "yyy"},
+			}
+			err := ascend910HotResetManager.writeCMToFile(cm)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("write cm to file success when dir is exist", func() {
+			cm := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "data-trace-test1",
+				},
+				Data: map[string]string{common.DataTraceCmProfilingSwitchKey: "xxx"},
+			}
+			patch := gomonkey.ApplyFuncReturn(common.WriteToFile, nil)
+			defer patch.Reset()
+			err := ascend910HotResetManager.writeCMToFile(cm)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
 // TestHandleConfigMapEvent for test handleConfigMapEvent
 func TestHandleConfigMapEvent(t *testing.T) {
 	ascend910HotResetManager := newHotResetTools()
@@ -1200,10 +1231,10 @@ func TestHandleConfigMapEvent(t *testing.T) {
 	})
 }
 
-// TestHandleCMAddEvent test of handleCMAddEvent
-func TestHandleCMAddEvent(t *testing.T) {
+// TestHandleCMAddEventCase1 test of handleCMAddEvent
+func TestHandleCMAddEventCase1(t *testing.T) {
 	ascend910HotResetManager := newHotResetTools()
-	convey.Convey("test handleCMAddEvent", t, func() {
+	convey.Convey("test handleCMAddEvent case1", t, func() {
 		convey.Convey("cm not found will do nothing", func() {
 			mokeEvent := kubeclient.Event{
 				Resource: kubeclient.CMResource,
@@ -1228,8 +1259,8 @@ func TestHandleCMAddEvent(t *testing.T) {
 			_ string) (*v1.ConfigMap, error) {
 			return &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "reset-config-test",
+					Name:      "reset-config-test",
+					Namespace: "default",
 				},
 				Data: map[string]string{common.ResetInfoCMDataKey: "YYY"},
 			}, nil
@@ -1238,6 +1269,46 @@ func TestHandleCMAddEvent(t *testing.T) {
 
 		patch2 := gomonkey.ApplyPrivateMethod(new(HotResetTools), "writeCMToFile", func(_ *HotResetTools,
 			_ *v1.ConfigMap) error {
+			return nil
+		})
+		defer patch2.Reset()
+
+		convey.Convey("os stat return error", func() {
+			ascend910HotResetManager.handleCMUpdateEvent(mokeEvent)
+		})
+		convey.Convey("cm obj will return false", func() {
+			patch3 := gomonkey.ApplyFuncReturn(os.Stat, nil, nil)
+			defer patch3.Reset()
+
+			ascend910HotResetManager.handleCMUpdateEvent(mokeEvent)
+		})
+	})
+}
+
+// TestHandleCMAddEventCase2 test of handleCMAddEvent
+func TestHandleCMAddEventCase2(t *testing.T) {
+	ascend910HotResetManager := newHotResetTools()
+	convey.Convey("test handleCMAddEvent case2", t, func() {
+		mokeEvent := kubeclient.Event{
+			Resource: kubeclient.CMResource,
+			Key:      "default/data-trace-test",
+			Type:     kubeclient.EventTypeAdd,
+		}
+		ascend910HotResetManager.queue.Add(mokeEvent)
+		patch1 := gomonkey.ApplyMethod(new(HotResetTools), "GetCMFromCache", func(_ *HotResetTools,
+			_ string) (*v1.ConfigMap, error) {
+			return &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "data-trace-test",
+					Namespace: "default",
+				},
+				Data: map[string]string{common.DataTraceCmProfilingSwitchKey: "YYY"},
+			}, nil
+		})
+		defer patch1.Reset()
+
+		patch2 := gomonkey.ApplyPrivateMethod(new(HotResetTools), "writeCmToFileSystem", func(_ *HotResetTools,
+			_ *v1.ConfigMap, _ string, _ string, _ interface{}) error {
 			return nil
 		})
 		defer patch2.Reset()

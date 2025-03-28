@@ -247,11 +247,11 @@ func getContainerValidSpec(containerObj containerd.Container, ctx context.Contex
 	}
 	if spec.Linux == nil || spec.Linux.Resources == nil || len(spec.Linux.Resources.Devices) > maxDevicesNum {
 		hwlog.RunLog.Errorf("devices in container is too much (%v) or empty", maxDevicesNum)
-		return nil, err
+		return nil, fmt.Errorf("devices in container is too much (%v)", maxDevicesNum)
 	}
 	if spec.Process == nil || len(spec.Process.Env) > maxEnvNum {
 		hwlog.RunLog.Errorf("env in container is too much (%v) or empty", maxEnvNum)
-		return nil, err
+		return nil, fmt.Errorf("env in container is too much (%v)", maxEnvNum)
 	}
 	return spec, nil
 }

@@ -764,3 +764,17 @@ func TestCompareStringSetMap(t *testing.T) {
 		}
 	})
 }
+
+// TestGetSuperDeviceID for test getSuperDeviceID
+func TestGetSuperDeviceID(t *testing.T) {
+	convey.Convey("test getSuperDeviceID", t, func() {
+		deviceId := 2
+		allDevices := []NpuDevice{
+			{PhyID: 0, SuperDeviceID: 1},
+		}
+		suberDeviceId := getSuperDeviceID(0, allDevices)
+		convey.So(suberDeviceId, convey.ShouldEqual, 1)
+		suberDeviceId = getSuperDeviceID(deviceId, allDevices)
+		convey.So(suberDeviceId, convey.ShouldEqual, SdIdAbnormal)
+	})
+}

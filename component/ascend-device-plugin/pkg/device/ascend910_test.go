@@ -1962,24 +1962,29 @@ func TestRunProcessTask(t *testing.T) {
 			func(*HwAscend910Manager, string, *common.TaskResetInfo, map[string][]*common.NpuDevice) { return })
 	defer mockFunc.Reset()
 	convey.Convey("test runProcessTask", t, func() {
+		resetInfo := &common.TaskResetInfo{RankList: make([]*common.TaskDevInfo, 0)}
 		convey.Convey("01-policy level is 2, call restartRequestProcess, should return nil", func() {
 			manager := createFake910Manager()
-			err := manager.runProcessTask(taskName, common.RestartRequestErrorLevel, nil, nil)
+			manager.hotResetManager = &HotResetTools{}
+			err := manager.runProcessTask(taskName, common.RestartRequestErrorLevel, resetInfo, nil)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("02-policy level is 3, call restartProcess, should return nil", func() {
 			manager := createFake910Manager()
-			err := manager.runProcessTask(taskName, common.RestartErrorLevel, nil, nil)
+			manager.hotResetManager = &HotResetTools{}
+			err := manager.runProcessTask(taskName, common.RestartErrorLevel, resetInfo, nil)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("03-policy level is 5, call resetProcess, should return nil", func() {
 			manager := createFake910Manager()
-			err := manager.runProcessTask(taskName, common.ResetErrorLevel, nil, nil)
+			manager.hotResetManager = &HotResetTools{}
+			err := manager.runProcessTask(taskName, common.ResetErrorLevel, resetInfo, nil)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("04-policy level is 6, call resetProcess, should return nil", func() {
 			manager := createFake910Manager()
-			err := manager.runProcessTask(taskName, common.IsolateErrorLevel, nil, nil)
+			manager.hotResetManager = &HotResetTools{}
+			err := manager.runProcessTask(taskName, common.IsolateErrorLevel, resetInfo, nil)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})

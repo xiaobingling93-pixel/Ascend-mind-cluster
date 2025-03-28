@@ -18,11 +18,17 @@ package device
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"Ascend-device-plugin/pkg/common"
 	"Ascend-device-plugin/pkg/kubeclient"
 )
 
@@ -246,5 +252,55 @@ func TestDeduplicate(t *testing.T) {
 		}
 		ret := deduplicate(devs)
 		convey.So(ret, convey.ShouldResemble, target)
+	})
+}
+
+// TestExcludeArray test function excludeArray
+func TestExcludeArray(t *testing.T) {
+	convey.Convey("test excludeArray", t, func() {
+		curArr := []ResetDevice{
+			{PhyID: 0}, {PhyID: 1},
+		}
+		delArr := []ResetDevice{
+			{PhyID: 1},
+		}
+		ret := excludeArray(curArr, delArr)
+		convey.So(ret, convey.ShouldResemble, []ResetDevice{{PhyID: 0}})
+	})
+}
+
+func TestInitResetInfoMgr(t *testing.T) {
+	convey.Convey("test InitResetInfoMgr", t, func() {
+		convey.Convey("01-get node error, mgr resetInfo should be empty", func() {
+			patch := gomonkey.ApplyGlobalVar(&once, sync.Once{}).ApplyGlobalVar(&mgr, &ResetInfoMgr{})
+			defer patch.Reset()
+			mockNode := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetNode",
+				func(_ *kubeclient.ClientK8s) (*v1.Node, error) {
+					return nil, fmt.Errorf("failed to get node")
+				})
+			defer mockNode.Reset()
+			InitResetInfoMgr(&kubeclient.ClientK8s{})
+			convey.So(mgr.resetInfo, convey.ShouldNotBeNil)
+			convey.So(mgr.resetInfo.ManualResetDevs, convey.ShouldBeEmpty)
+		})
+		convey.Convey("02-node annotations exist, mgr resetInfo should not be empty", func() {
+			patch := gomonkey.ApplyGlobalVar(&once, sync.Once{}).ApplyGlobalVar(&mgr, &ResetInfoMgr{})
+			defer patch.Reset()
+			resetInfo := ResetInfo{
+				ManualResetDevs: []ResetDevice{{PhyID: id1}, {PhyID: id2}},
+			}
+			data, err := json.Marshal(resetInfo)
+			convey.So(err, convey.ShouldBeNil)
+			mockNode := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "GetNode",
+				func(_ *kubeclient.ClientK8s) (*v1.Node, error) {
+					return &v1.Node{ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{common.ResetInfoAnnotationKey: string(data)}},
+					}, nil
+				})
+			defer mockNode.Reset()
+			InitResetInfoMgr(&kubeclient.ClientK8s{})
+			convey.So(mgr.resetInfo, convey.ShouldNotBeNil)
+			convey.So(mgr.resetInfo, convey.ShouldResemble, &resetInfo)
+		})
 	})
 }

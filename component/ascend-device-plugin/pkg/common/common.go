@@ -16,12 +16,10 @@
 package common
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -640,25 +638,6 @@ func GetJobNameOfPod(pod *v1.Pod) string {
 		}
 	}
 	return taskName
-}
-
-// RandomInt64 return a random int64 number
-func RandomInt64(min, max int64) int64 {
-	randomBytes := make([]byte, 16)
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		return 0
-	}
-	randomNum := new(big.Int).SetBytes(randomBytes)
-
-	bigMax := big.NewInt(max)
-	bigMin := big.NewInt(min)
-	diff := new(big.Int).Sub(bigMax, bigMin)
-
-	randomNum.Mod(randomNum, diff)
-	randomNum.Add(randomNum, bigMin)
-
-	return randomNum.Int64()
 }
 
 // GetSyncMapLen get sync map length

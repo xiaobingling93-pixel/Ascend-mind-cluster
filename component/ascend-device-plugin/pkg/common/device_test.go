@@ -289,3 +289,13 @@ func TestDeepEqualSwitchFaultInfo(t *testing.T) {
 		})
 	})
 }
+
+// TestSetSwitchFaultCode for test SetSwitchFaultCode
+func TestSetSwitchFaultCode(t *testing.T) {
+	convey.Convey("test SetSwitchFaultCode", t, func() {
+		patch := gomonkey.ApplyGlobalVar(&currentSwitchFault, make([]SwitchFaultEvent, 0, GeneralMapSize))
+		defer patch.Reset()
+		SetSwitchFaultCode(nil)
+		convey.So(GetSwitchFaultCode(), convey.ShouldBeNil)
+	})
+}
