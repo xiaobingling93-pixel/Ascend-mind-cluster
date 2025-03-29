@@ -76,6 +76,42 @@ func TestPodGroupCollector(t *testing.T) {
 	})
 }
 
+func TestPodIsControllerOrCoordinator(t *testing.T) {
+	convey.Convey("test PodIsControllerOrCoordinator", t, func() {
+		convey.Convey("when pod is controller or coordinator", func() {
+			demoPod := getDemoPod(podName1, podNameSpace1, podUid1)
+			demoPod.ObjectMeta.Labels = map[string]string{
+				constant.MindIeAppTypeLabelKey: constant.ControllerAppType,
+			}
+			result := checkPodIsControllerOrCoordinator(demoPod)
+			convey.So(result, convey.ShouldBeTrue)
+			demoPod.ObjectMeta.Labels = map[string]string{
+				constant.MindIeAppTypeLabelKey: constant.CoordinatorAppType,
+			}
+			result = checkPodIsControllerOrCoordinator(demoPod)
+			convey.So(result, convey.ShouldBeTrue)
+		})
+		convey.Convey("when pod is neither controller nor coordinator", func() {
+			demoPod := getDemoPod(podName1, podNameSpace1, podUid1)
+			demoPod.ObjectMeta.Labels = map[string]string{
+				constant.MindIeAppTypeLabelKey: constant.ServerAppType,
+			}
+			result := checkPodIsControllerOrCoordinator(demoPod)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+		convey.Convey("when pod has no app type label", func() {
+			demoPod := getDemoPod(podName1, podNameSpace1, podUid1)
+			result := checkPodIsControllerOrCoordinator(demoPod)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+		convey.Convey("when object is not a pod", func() {
+			nonPod := "not a pod"
+			result := checkPodIsControllerOrCoordinator(nonPod)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+	})
+}
+
 func getDemoPodGroup(jobName, nameSpace, jobUid string) *v1beta1.PodGroup {
 	podGroupInfo := &v1beta1.PodGroup{}
 	podGroupInfo.Name = jobName

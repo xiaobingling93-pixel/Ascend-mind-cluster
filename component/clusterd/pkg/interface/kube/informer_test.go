@@ -132,3 +132,31 @@ func TestInitClusterDevice(t *testing.T) {
 		convey.So(calledSaveNode, convey.ShouldBeFalse)
 	})
 }
+
+func TestConfigMapIsEpRankTableInfo(t *testing.T) {
+	convey.Convey("test ConfigMapIsEpRankTableInfo", t, func() {
+		convey.Convey("when object is not a ConfigMap", func() {
+			obj := "not a configmap"
+			result := checkConfigMapIsEpRankTableInfo(obj)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+		convey.Convey("when ConfigMap name has the correct prefix", func() {
+			cm := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: constant.MindIeRanktablePrefix + "example",
+				},
+			}
+			result := checkConfigMapIsEpRankTableInfo(cm)
+			convey.So(result, convey.ShouldBeTrue)
+		})
+		convey.Convey("when ConfigMap name does not have the correct prefix", func() {
+			cm := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "wrong-prefix-example",
+				},
+			}
+			result := checkConfigMapIsEpRankTableInfo(cm)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+	})
+}

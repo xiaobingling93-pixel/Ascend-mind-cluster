@@ -223,3 +223,77 @@ func TestGetShouldUpdateJobKey(t *testing.T) {
 		})
 	})
 }
+
+func TestNamespaceByJobIdAndAppType(t *testing.T) {
+	convey.Convey("test NamespaceByJobIdAndAppType", t, func() {
+		jobSummaryMap = sync.Map{}
+		convey.Convey("when jobId and appType match", func() {
+			jobInfo := getDemoJob(jobName1, jobNameSpace, jobUid1)
+			jobInfo.MindIeJobId = jobUid1
+			jobInfo.MindIeAppType = constant.ControllerAppType
+			SaveJobCache(jobUid1, jobInfo)
+			defer DeleteJobCache(jobUid1)
+			namespace, err := GetNamespaceByJobIdAndAppType(jobUid1, constant.ControllerAppType)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(namespace, convey.ShouldEqual, jobNameSpace)
+		})
+		convey.Convey("when jobId and appType do not match", func() {
+			namespace, err := GetNamespaceByJobIdAndAppType(jobUid1, constant.ControllerAppType)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(namespace, convey.ShouldEqual, "")
+		})
+	})
+}
+
+func TestPdDeploymentMode(t *testing.T) {
+	convey.Convey("test PdDeploymentMode", t, func() {
+		jobSummaryMap = sync.Map{}
+		convey.Convey("when there is a server job with single node", func() {
+			jobInfo := getDemoJob(jobName1, jobNameSpace, jobUid1)
+			jobInfo.MindIeJobId = jobUid1
+			jobInfo.MindIeAppType = constant.ServerAppType
+			jobInfo.Replicas = 1
+			SaveJobCache(jobUid1, jobInfo)
+			defer DeleteJobCache(jobUid1)
+			mode, err := GetPdDeploymentMode(jobUid1, jobNameSpace, constant.ServerAppType)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(mode, convey.ShouldEqual, constant.SingleNodePdDeployMode)
+		})
+		convey.Convey("when there is a server job with cross node", func() {
+			jobInfo := getDemoJob(jobName1, jobNameSpace, jobUid1)
+			jobInfo.MindIeJobId = jobUid1
+			jobInfo.MindIeAppType = constant.ServerAppType
+			SaveJobCache(jobUid1, jobInfo)
+			defer DeleteJobCache(jobUid1)
+			mode, err := GetPdDeploymentMode(jobUid1, jobNameSpace, constant.ServerAppType)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(mode, convey.ShouldEqual, constant.CrossNodePdDeployMode)
+		})
+		convey.Convey("when there is no server job", func() {
+			mode, err := GetPdDeploymentMode(jobUid1, jobNameSpace, constant.ControllerAppType)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(mode, convey.ShouldEqual, "")
+		})
+	})
+}
+
+func TestInstanceJobKey(t *testing.T) {
+	convey.Convey("test InstanceJobKey", t, func() {
+		jobSummaryMap = sync.Map{}
+		convey.Convey("when jobId, namespace, and appType match", func() {
+			jobInfo := getDemoJob(jobName1, jobNameSpace, jobUid1)
+			jobInfo.MindIeJobId = jobUid1
+			jobInfo.MindIeAppType = constant.ControllerAppType
+			SaveJobCache(jobUid1, jobInfo)
+			defer DeleteJobCache(jobUid1)
+			jobKey, err := GetInstanceJobKey(jobUid1, jobNameSpace, constant.ControllerAppType)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(jobKey, convey.ShouldEqual, jobUid1)
+		})
+		convey.Convey("when jobId, namespace, and appType do not match", func() {
+			jobKey, err := GetInstanceJobKey(jobUid1, jobNameSpace, constant.ControllerAppType)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(jobKey, convey.ShouldEqual, "")
+		})
+	})
+}
