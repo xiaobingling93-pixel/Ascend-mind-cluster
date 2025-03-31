@@ -10,13 +10,16 @@ package v1
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/go-logr/logr"
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/kubeflow/common/pkg/controller.v1/common"
 	"github.com/kubeflow/training-operator/pkg/common/util"
 	"github.com/smartystreets/goconvey/convey"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -26,8 +29,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	configv1alpha1 "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	mindxdlv1 "ascend-operator/pkg/api/v1"
@@ -41,8 +58,10 @@ func newCommonReconciler() *ASJobReconciler {
 	rc := &ASJobReconciler{
 		Client:        &fakeClient{},
 		recorder:      &fakeRecorder{},
+		apiReader:     &fakeReader{},
 		versions:      make(map[types.UID]int32),
 		backoffLimits: make(map[types.UID]int32),
+		rtGenerators:  map[types.UID]generator.RankTableGenerator{},
 	}
 	rc.JobController = common.JobController{
 		Controller:          rc,
@@ -59,6 +78,16 @@ func newCommonReconciler() *ASJobReconciler {
 const (
 	spBlock = "32"
 )
+
+type fakeReader struct{}
+
+func (f fakeReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	return nil
+}
+
+func (f fakeReader) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return nil
+}
 
 func newCommonPodInfo() *podInfo {
 	return &podInfo{
@@ -322,6 +351,265 @@ func TestDeleteJob(t *testing.T) {
 		convey.Convey("02-delete job should return nil", func() {
 			err := r.DeleteJob(newCommonAscendJob())
 			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+type fakeManager struct{}
+
+func (f fakeManager) SetFields(i interface{}) error {
+	return nil
+}
+
+func (f fakeManager) GetConfig() *rest.Config {
+	return &rest.Config{}
+}
+
+func (f fakeManager) GetScheme() *runtime.Scheme {
+	return nil
+}
+
+func (f fakeManager) GetClient() client.Client {
+	return &fakeClient{}
+}
+
+func (f fakeManager) GetFieldIndexer() client.FieldIndexer {
+	return nil
+}
+
+func (f fakeManager) GetCache() cache.Cache {
+	return nil
+}
+
+func (f fakeManager) GetEventRecorderFor(name string) record.EventRecorder {
+	return &fakeRecorder{}
+}
+
+func (f fakeManager) GetRESTMapper() meta.RESTMapper {
+	return &meta.DefaultRESTMapper{}
+}
+
+func (f fakeManager) GetAPIReader() client.Reader {
+	return nil
+}
+
+func (f fakeManager) Start(ctx context.Context) error {
+	return nil
+}
+
+func (f fakeManager) Add(runnable manager.Runnable) error {
+	return nil
+}
+
+func (f fakeManager) Elected() <-chan struct{} {
+	return nil
+}
+
+func (f fakeManager) AddMetricsExtraHandler(path string, handler http.Handler) error {
+	return nil
+}
+
+func (f fakeManager) AddHealthzCheck(name string, check healthz.Checker) error {
+	return nil
+}
+
+func (f fakeManager) AddReadyzCheck(name string, check healthz.Checker) error {
+	return nil
+}
+
+func (f fakeManager) GetWebhookServer() *webhook.Server {
+	return nil
+}
+
+func (f fakeManager) GetLogger() logr.Logger {
+	return logr.Logger{}
+}
+
+func (f fakeManager) GetControllerOptions() configv1alpha1.ControllerConfigurationSpec {
+	return configv1alpha1.ControllerConfigurationSpec{}
+}
+
+type fakeController struct{}
+
+func (f fakeController) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (f fakeController) Watch(src source.Source, eventhandler handler.EventHandler, predicates ...predicate.Predicate) error {
+	return nil
+}
+
+func (f fakeController) Start(ctx context.Context) error {
+	return nil
+}
+
+func (f fakeController) GetLogger() logr.Logger {
+	return logr.Logger{}
+}
+
+func TestSetupWithManager(t *testing.T) {
+	convey.Convey("TestSetupWithManager", t, func() {
+		mgr := &fakeManager{}
+		patch := gomonkey.ApplyFunc(controller.New, func(name string, mgr manager.Manager,
+			options controller.Options) (controller.Controller, error) {
+			return &fakeController{}, nil
+		})
+		defer patch.Reset()
+		convey.Convey("01-New controller failed should return error", func() {
+			r := NewReconciler(mgr, true)
+			err := r.SetupWithManager(mgr)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		patch1 := gomonkey.ApplyPrivateMethod(new(ASJobReconciler), "watchAscendJobRelatedResource",
+			func(*ASJobReconciler, controller.Controller, ctrl.Manager) error { return nil })
+		defer patch1.Reset()
+		convey.Convey("02-New controller success should return nil", func() {
+			r := NewReconciler(mgr, true)
+			err := r.SetupWithManager(mgr)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+func TestGetJobFromInformerCache(t *testing.T) {
+	convey.Convey("TestGetJobFromInformerCache", t, func() {
+		r := newCommonReconciler()
+		obj, err := r.GetJobFromInformerCache("default", "fake-job")
+		convey.So(obj, convey.ShouldNotBeNil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestGetJobFromAPIClient(t *testing.T) {
+	convey.Convey("TestGetJobFromAPIClient", t, func() {
+		r := newCommonReconciler()
+		obj, err := r.GetJobFromAPIClient("default", "fake-job")
+		convey.So(obj, convey.ShouldNotBeNil)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestSetFaultRetryTimesToBackoffLimits(t *testing.T) {
+	convey.Convey("TestSetFaultRetryTimesToBackoffLimits", t, func() {
+		r := newCommonReconciler()
+		job := newCommonAscendJob()
+		convey.Convey("01-job without labels should return nil", func() {
+			err := r.setFaultRetryTimesToBackoffLimits(job)
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("02-job with invalid labels should return error", func() {
+			job.Labels = map[string]string{labelFaultRetryTimes: "xxx"}
+			err := r.setFaultRetryTimesToBackoffLimits(job)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("03-job with valid labels should return nil", func() {
+			job.Labels = map[string]string{labelFaultRetryTimes: "3"}
+			err := r.setFaultRetryTimesToBackoffLimits(job)
+			convey.So(err, convey.ShouldBeNil)
+			expected := 3
+			convey.So(r.backoffLimits[job.UID], convey.ShouldEqual, expected)
+		})
+	})
+}
+
+func TestOnOwnerDeleteFunc(t *testing.T) {
+	convey.Convey("TestOnOwnerDeleteFunc", t, func() {
+		r := newCommonReconciler()
+		job := newCommonAscendJob()
+		fn := r.onOwnerDeleteFunc()
+		res := fn(event.DeleteEvent{Object: job})
+		convey.So(res, convey.ShouldEqual, true)
+	})
+}
+
+func TestOnPodDeleteFunc(t *testing.T) {
+	convey.Convey("TestOnPodDeleteFunc", t, func() {
+		r := newCommonReconciler()
+		job := newCommonAscendJob()
+		r.versions[job.UID] = 1
+		fn := r.onPodDeleteFunc()
+		trueValue := true
+		pod := &corev1.Pod{}
+		pod.Labels = make(map[string]string)
+		convey.Convey("01-pod without replica-type label should return false", func() {
+			res := fn(event.DeleteEvent{Object: pod})
+			convey.So(res, convey.ShouldEqual, false)
+		})
+		pod.Labels[commonv1.ReplicaTypeLabel] = "master"
+		convey.Convey("02-pod with version label should return false", func() {
+			res := fn(event.DeleteEvent{Object: pod})
+			convey.So(res, convey.ShouldEqual, false)
+		})
+		convey.Convey("03-pod with invalid version labels should return false", func() {
+			pod.Labels[podVersionLabel] = "xx"
+			res := fn(event.DeleteEvent{Object: pod})
+			convey.So(res, convey.ShouldEqual, false)
+		})
+		pod.Labels[podVersionLabel] = "1"
+		convey.Convey("04-pod without controller ref should return true", func() {
+			res := fn(event.DeleteEvent{Object: pod})
+			convey.So(res, convey.ShouldEqual, true)
+		})
+		convey.Convey("05-pod with valid version labels should return true", func() {
+			pod.OwnerReferences = []metav1.OwnerReference{metav1.OwnerReference{
+				APIVersion: mindxdlv1.GroupVersion.String(),
+				Kind:       mindxdlv1.Kind,
+				Name:       "fake-job",
+				UID:        job.UID,
+				Controller: &trueValue,
+			}}
+			pod.Labels[podVersionLabel] = "1"
+			res := fn(event.DeleteEvent{Object: pod})
+			convey.So(res, convey.ShouldEqual, true)
+			expected := 2
+			convey.So(r.versions[job.UID], convey.ShouldEqual, expected)
+		})
+	})
+}
+
+func TestOnOwnerCreateFunc(t *testing.T) {
+	convey.Convey("TestOnOwnerCreateFunc", t, func() {
+		r := newCommonReconciler()
+		fn := r.onOwnerCreateFunc()
+		convey.Convey("01-not support kind object should return false", func() {
+			res := fn(event.CreateEvent{Object: &corev1.Pod{}})
+			convey.So(res, convey.ShouldEqual, true)
+		})
+		convey.Convey("02-vcjob without needed label should return false", func() {
+			res := fn(event.CreateEvent{Object: &v1alpha1.Job{}})
+			convey.So(res, convey.ShouldEqual, false)
+		})
+		convey.Convey("03-vcjob with needed label should return true", func() {
+			vcjob := &v1alpha1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{atlasTaskKey: ""},
+				},
+			}
+			res := fn(event.CreateEvent{Object: vcjob})
+			convey.So(res, convey.ShouldEqual, true)
+		})
+		convey.Convey("04-deployment without needed label should return false", func() {
+			res := fn(event.CreateEvent{Object: &appsv1.Deployment{}})
+			convey.So(res, convey.ShouldEqual, false)
+		})
+		convey.Convey("05-deployment with needed label should return true", func() {
+			res := fn(event.CreateEvent{Object: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{atlasTaskKey: ""},
+				},
+			}})
+			convey.So(res, convey.ShouldEqual, true)
+		})
+		convey.Convey("06-ascend job without labels should return true", func() {
+			job := newCommonAscendJob()
+			res := fn(event.CreateEvent{Object: job})
+			convey.So(res, convey.ShouldEqual, true)
+		})
+		convey.Convey("07-ascend job without invalid fault-retry-times labels should return false", func() {
+			job := newCommonAscendJob()
+			job.Labels = map[string]string{labelFaultRetryTimes: "xx"}
+			res := fn(event.CreateEvent{Object: job})
+			convey.So(res, convey.ShouldEqual, false)
 		})
 	})
 }
