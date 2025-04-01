@@ -166,7 +166,7 @@ func (rm *RankTableManager) pushGlobalRankTable(message *GenerateGlobalRankTable
 	}
 	_, err := rm.HandlerRankTable(jobId, globalRankTableInfo)
 	if err != nil {
-		hwlog.RunLog.Errorf("push global rank table to rgpc failed, jobId: %s, will retry", jobId)
+		hwlog.RunLog.Errorf("push global rank table to grpc failed, jobId: %s, will retry", jobId)
 		rm.rankTableQueue.AddRateLimited(message)
 		return
 	}
