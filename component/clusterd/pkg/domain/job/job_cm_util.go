@@ -10,6 +10,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/interface/kube"
@@ -31,7 +32,6 @@ const (
 	cmCutNumKey       = "total"
 	jobStatus         = "job_status"
 	addTime           = "time"
-	atlasRing         = "ring-controller.atlas"
 	val910            = "ascend-910"
 	ptFramework       = "pytorch"
 	torIpTag          = "sharedTorIp"
@@ -119,7 +119,7 @@ func preDeleteCM(jobInfo constant.JobInfo, hccls []string) bool {
 		}
 		err := kube.CreateOrUpdateConfigMap(cmName, jobInfo.NameSpace, data, getDefaultLabel())
 		if err != nil {
-			hwlog.RunLog.Errorf("delete configmap failed, err: %v", err)
+			hwlog.RunLog.Errorf("create or update configmap failed, err: %v", err)
 			result = false
 			continue
 		}
@@ -148,7 +148,7 @@ func deleteCm(jobInfo constant.JobInfo) bool {
 
 func getDefaultLabel() map[string]string {
 	label := make(map[string]string)
-	label[atlasRing] = val910
+	label[api.AtlasTaskLabel] = val910
 	label[configmapLabel] = "true"
 	return label
 }

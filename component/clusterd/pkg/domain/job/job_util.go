@@ -95,7 +95,6 @@ func InitCmAndCache(podGroup v1beta1.PodGroup) {
 	}
 }
 
-// GetJobBasicInfoByPodGroup get job basic info by podGroup
 func getJobBasicInfoByPodGroup(pgInfo v1beta1.PodGroup) constant.JobInfo {
 	var jobInfo constant.JobInfo
 	key, name := podgroup.GetJobKeyAndNameByPG(&pgInfo)

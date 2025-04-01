@@ -88,7 +88,7 @@ func PodHasAllocated(pod *corev1.Pod) bool {
 	if !podUseNpu(pod) {
 		return true
 	}
-	if _, ok := pod.Annotations[PodDeviceKey]; !ok {
+	if _, ok := pod.Annotations[api.Pod910DeviceAnno]; !ok {
 		hwlog.RunLog.Debugf("Pod %s has not allocated device", pod.Name)
 		return false
 	}
@@ -112,11 +112,6 @@ func podUseNpu(pod *corev1.Pod) bool {
 }
 
 const (
-	// PodDeviceKey Pod annoation Key
-	PodDeviceKey = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
-	// PodRankKey Pod annoation Key
-	PodRankKey = "hccl/rankIndex"
-
 	rankTableDir = "/user/mindx-dl/ranktable"
 
 	// rank table volume name

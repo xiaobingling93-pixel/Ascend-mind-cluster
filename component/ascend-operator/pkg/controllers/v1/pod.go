@@ -42,6 +42,7 @@ import (
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable/generator"
@@ -147,7 +148,7 @@ func (r *ASJobReconciler) reconcilePods(pi *podInfo, pods []*corev1.Pod, jobStat
 
 func (r *ASJobReconciler) updateRandIndex(allocatedPods []*corev1.Pod) {
 	for _, p := range allocatedPods {
-		if _, rankExist := p.Annotations[rankIndexKey]; rankExist {
+		if _, rankExist := p.Annotations[api.PodRankIndexAnno]; rankExist {
 			hwlog.RunLog.Info("rank index exist")
 			return
 		}
@@ -157,7 +158,7 @@ func (r *ASJobReconciler) updateRandIndex(allocatedPods []*corev1.Pod) {
 		if p.Annotations == nil {
 			p.Annotations = make(map[string]string, 1)
 		}
-		p.Annotations[rankIndexKey] = strconv.FormatUint(rankIndex, decimal)
+		p.Annotations[api.PodRankIndexAnno] = strconv.FormatUint(rankIndex, decimal)
 		r.Update(context.TODO(), p)
 		rankIndex++
 	}

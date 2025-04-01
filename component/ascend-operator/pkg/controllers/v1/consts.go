@@ -43,9 +43,7 @@ const (
 	podTemplateSchedulerNameReason = "SettedPodTemplateSchedulerName"
 	// gangSchedulingPodGroupAnnotation is the annotation key used by batch schedulers
 	gangSchedulingPodGroupAnnotation = "scheduling.k8s.io/group-name"
-	// for ascend-volcano-plugin rescheduling
-	rankIndexKey = "hccl/rankIndex"
-	npuCoreName  = "huawei.com/npu-core"
+	npuCoreName                      = "huawei.com/npu-core"
 
 	statusPodIPDownwardAPI = "status.podIP"
 	ascendRealDownwardAPI  = "metadata.annotations['huawei.com/AscendReal']"
@@ -59,8 +57,6 @@ const (
 	deployLabelKey   = "deploy-name"
 	configmapKey     = "hccl.json"
 	configmapVersion = "version"
-	hcclCtrName      = "hccl-controller"
-	atlasTaskKey     = "ring-controller.atlas"
 	// the status of mount chips for non-worker Pods
 	nonWorkerPodMountChipStatus = "nonWorkerPodMountChipStatus"
 )

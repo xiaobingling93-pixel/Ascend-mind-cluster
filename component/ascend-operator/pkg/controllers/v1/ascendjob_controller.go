@@ -57,6 +57,7 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
@@ -300,7 +301,7 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 		switch e.Object.(type) {
 		case *v1alpha1.Job:
 			vcjob := e.Object.(*v1alpha1.Job)
-			if _, ok := vcjob.Labels[atlasTaskKey]; !ok {
+			if _, ok := vcjob.Labels[api.AtlasTaskLabel]; !ok {
 				return false
 			}
 			r.rtGenerators[vcjob.UID] = ranktable.NewGenerator(decorateVcjob(vcjob))
@@ -308,7 +309,7 @@ func (r *ASJobReconciler) onOwnerCreateFunc() func(event.CreateEvent) bool {
 			return true
 		case *appv1.Deployment:
 			deploy := e.Object.(*appv1.Deployment)
-			if _, ok := deploy.Labels[atlasTaskKey]; !ok {
+			if _, ok := deploy.Labels[api.AtlasTaskLabel]; !ok {
 				return false
 			}
 			r.rtGenerators[deploy.UID] = ranktable.NewGenerator(decorateDeploy(deploy))

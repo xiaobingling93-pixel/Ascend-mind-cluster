@@ -34,6 +34,7 @@ import (
 
 	"Ascend-device-plugin/pkg/common"
 	"Ascend-device-plugin/pkg/kubeclient"
+	"ascend-common/api"
 	"ascend-common/devmanager"
 	devcommon "ascend-common/devmanager/common"
 )
@@ -858,7 +859,7 @@ func mockGetAllPodList() *v1.PodList {
 	}
 	annotationSuccess := map[string]string{
 		common.ResetTaskNameKey: "task1",
-		common.RankIndexKey:     "1",
+		api.PodRankIndexAnno:    "1",
 		common.HuaweiAscend910:  "Ascend910-4,Ascend910-5,Ascend910-6,Ascend910-7",
 	}
 	return &v1.PodList{
@@ -1682,7 +1683,7 @@ func mockSetTaskDevInfoCacheFuncData1() []v1.Pod {
 	}
 	annotationSuccess1 := map[string]string{
 		common.HuaweiAscend910: "Ascend910-4,Ascend910-5,Ascend910-6",
-		common.RankIndexKey:    "2",
+		api.PodRankIndexAnno:   "2",
 	}
 	labelSuccess := map[string]string{
 		common.ResetTaskNameKey: "task1",
@@ -1699,7 +1700,7 @@ func mockSetTaskDevInfoCacheFuncData1() []v1.Pod {
 func mockSetTaskDevInfoCacheFuncData2() []v1.Pod {
 	annotationError := map[string]string{
 		common.HuaweiAscend910: "Ascend910-4,Ascend910-5,Ascend910-6",
-		common.RankIndexKey:    "1.2",
+		api.PodRankIndexAnno:   "1.2",
 	}
 	labelSuccess := map[string]string{
 		common.ResetTaskNameKey: "task1",

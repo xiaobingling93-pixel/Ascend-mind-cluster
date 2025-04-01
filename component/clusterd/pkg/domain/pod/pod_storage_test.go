@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 )
 
@@ -76,9 +77,9 @@ func getDemoPod(name, nameSpace, podUid string) *v1.Pod {
 		UID:        types.UID(jobUid1)}
 	p.SetOwnerReferences([]metav1.OwnerReference{owner})
 	annotation := map[string]string{
-		podGroupKey:     pgName1,
-		podRankIndexKey: defaultPodRankIndexKey,
-		podDeviceKey:    defaultPodDeviceKey,
+		podGroupKey:          pgName1,
+		api.PodRankIndexAnno: defaultPodRankIndexKey,
+		api.Pod910DeviceAnno: defaultPodDeviceKey,
 	}
 	p.SetAnnotations(annotation)
 	label := map[string]string{

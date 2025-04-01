@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
+	"ascend-common/api"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
@@ -582,7 +583,7 @@ func TestOnOwnerCreateFunc(t *testing.T) {
 		convey.Convey("03-vcjob with needed label should return true", func() {
 			vcjob := &v1alpha1.Job{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{atlasTaskKey: ""},
+					Labels: map[string]string{api.AtlasTaskLabel: ""},
 				},
 			}
 			res := fn(event.CreateEvent{Object: vcjob})
@@ -595,7 +596,7 @@ func TestOnOwnerCreateFunc(t *testing.T) {
 		convey.Convey("05-deployment with needed label should return true", func() {
 			res := fn(event.CreateEvent{Object: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{atlasTaskKey: ""},
+					Labels: map[string]string{api.AtlasTaskLabel: ""},
 				},
 			}})
 			convey.So(res, convey.ShouldEqual, true)

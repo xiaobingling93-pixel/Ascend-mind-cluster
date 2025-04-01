@@ -13,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 )
@@ -35,7 +36,7 @@ func (r *ASJobReconciler) setHcclRankIndex(job *mindxdlv1.AscendJob, podTemplate
 
 	status := getNonWorkerPodMountChipStatus(job)
 	if !status {
-		podTemplate.Annotations[rankIndexKey] = index
+		podTemplate.Annotations[api.PodRankIndexAnno] = index
 		return nil
 	}
 
@@ -46,7 +47,7 @@ func (r *ASJobReconciler) setHcclRankIndex(job *mindxdlv1.AscendJob, podTemplate
 		rank = rank + 1
 	}
 
-	podTemplate.Annotations[rankIndexKey] = strconv.Itoa(rank)
+	podTemplate.Annotations[api.PodRankIndexAnno] = strconv.Itoa(rank)
 	hwlog.RunLog.Debugf("set rank index<%d> to pod<%s>", rank, podTemplate.Name)
 	return nil
 }

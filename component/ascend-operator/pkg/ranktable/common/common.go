@@ -209,7 +209,7 @@ func (r *BaseGenerator) ToString() (string, error) {
 
 // AddPod is used to add pod to ranktable.
 func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
-	deviceInfo, ok := pod.Annotations[utils.PodDeviceKey]
+	deviceInfo, ok := pod.Annotations[api.Pod910DeviceAnno]
 	if !ok {
 		return nil
 	}
@@ -225,10 +225,10 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 		return fmt.Errorf("pod(%s/%s) ip is empty", pod.Namespace, pod.Name)
 	}
 
-	rankIndex, err := strconv.Atoi(pod.Annotations[utils.PodRankKey])
+	rankIndex, err := strconv.Atoi(pod.Annotations[api.PodRankIndexAnno])
 	if err != nil {
 		hwlog.RunLog.Errorf("parse pod(%s/%s) rankIndex(%s) failed: %v", pod.Namespace, pod.Name,
-			pod.Annotations[utils.PodRankKey], err)
+			pod.Annotations[api.PodRankIndexAnno], err)
 		return err
 	}
 	hwlog.RunLog.Debugf("instance: %v", instance)

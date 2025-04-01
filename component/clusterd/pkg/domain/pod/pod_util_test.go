@@ -140,7 +140,7 @@ func TestInitRankTableByPod(t *testing.T) {
 		convey.Convey("when replicas is 1, podJobMap nodeRank is illegal, completedPodNum should be 0", func() {
 			podJobMap := make(map[string]v1.Pod)
 			podDemo1 := getDemoPod(podName1, podNameSpace1, podUid1)
-			podDemo1.Annotations[podRankIndexKey] = errorPodRankIndexKey
+			podDemo1.Annotations[api.PodRankIndexAnno] = errorPodRankIndexKey
 			podJobMap[podUid1] = *podDemo1
 			rankTable, completedPodNum := InitRankTableByPod(podJobMap, 1)
 			convey.So(completedPodNum, convey.ShouldEqual, 0)
@@ -228,7 +228,7 @@ func TestDeviceAllocateIsCompleted(t *testing.T) {
 					api.ResourceNamePrefix: resource.Quantity{},
 				}
 				podDemo1.Spec.Containers = append(podDemo1.Spec.Containers, container)
-				delete(podDemo1.Annotations, podDeviceKey)
+				delete(podDemo1.Annotations, api.Pod910DeviceAnno)
 				convey.So(DeviceAllocateIsCompleted(*podDemo1), convey.ShouldBeFalse)
 			})
 	})

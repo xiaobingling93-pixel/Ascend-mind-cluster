@@ -17,13 +17,11 @@ import (
 )
 
 const (
-	podDeviceKey    = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
-	podRankIndexKey = "hccl/rankIndex"
-	torIpTag        = "sharedTorIp"
-	podLabelKey     = "app"
-	podGroupKey     = "scheduling.k8s.io/group-name"
-	acJobNameKey    = "job-name"
-	vcJobNameKey    = "volcano.sh/job-name"
+	torIpTag     = "sharedTorIp"
+	podLabelKey  = "app"
+	podGroupKey  = "scheduling.k8s.io/group-name"
+	acJobNameKey = "job-name"
+	vcJobNameKey = "volcano.sh/job-name"
 )
 
 // GetJobKeyByPod get job unique key by pod
@@ -195,7 +193,7 @@ func InitRankTableByPod(podJobMap map[string]v1.Pod, replicas int) (constant.Ran
 }
 
 func getPodDevice(pod v1.Pod) (constant.PodDevice, bool) {
-	deviceInfo, exist := pod.Annotations[podDeviceKey]
+	deviceInfo, exist := pod.Annotations[api.Pod910DeviceAnno]
 	if !exist {
 		return constant.PodDevice{}, shouldAllocated(pod.Spec.Containers)
 	}
@@ -207,9 +205,9 @@ func getPodDevice(pod v1.Pod) (constant.PodDevice, bool) {
 }
 
 func getNodeRank(pod v1.Pod) int {
-	rankIndexStr, rankExist := pod.Annotations[podRankIndexKey]
+	rankIndexStr, rankExist := pod.Annotations[api.PodRankIndexAnno]
 	if !rankExist {
-		hwlog.RunLog.Errorf("get pod annotation %s failed, pod:%s", podRankIndexKey, pod.Name)
+		hwlog.RunLog.Errorf("get pod annotation %s failed, pod:%s", api.PodRankIndexAnno, pod.Name)
 		return -1
 	}
 	intValue, err := strconv.Atoi(rankIndexStr)
@@ -251,7 +249,7 @@ func GetPodDeviceNumByJobId(jobKey string) int {
 func GetPodByRankIndex(jobKey, podRank string) v1.Pod {
 	podJobMap := GetPodByJobId(jobKey)
 	for _, pod := range podJobMap {
-		if pod.Annotations[podRankIndexKey] == podRank {
+		if pod.Annotations[api.PodRankIndexAnno] == podRank {
 			return pod
 		}
 	}
@@ -282,7 +280,7 @@ func DeviceAllocateIsCompleted(p v1.Pod) bool {
 		return true
 	}
 	// pod already been allocated
-	_, exist := p.Annotations[podDeviceKey]
+	_, exist := p.Annotations[api.Pod910DeviceAnno]
 	return exist
 }
 

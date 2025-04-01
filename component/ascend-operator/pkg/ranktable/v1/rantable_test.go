@@ -18,6 +18,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
 
+	"ascend-common/api"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable/common"
 	"ascend-operator/pkg/ranktable/utils"
@@ -94,15 +95,15 @@ func TestGatherServerList(t *testing.T) {
 		pod1.Status.PodIP = "192.168.1.1"
 		pod1.Annotations = make(map[string]string)
 		inst1 := newInstanceString("pod1", "127.0.0.1")
-		pod1.Annotations[utils.PodDeviceKey] = inst1
-		pod1.Annotations[utils.PodRankKey] = "0"
+		pod1.Annotations[api.Pod910DeviceAnno] = inst1
+		pod1.Annotations[api.PodRankIndexAnno] = "0"
 		pod2 := &v1.Pod{}
 		pod2.Status.PodIP = "192.168.1.2"
 		pod2.UID = "222"
 		pod2.Annotations = make(map[string]string)
 		inst2 := newInstanceString("pod2", "127.0.0.2")
-		pod2.Annotations[utils.PodDeviceKey] = inst2
-		pod2.Annotations[utils.PodRankKey] = "1"
+		pod2.Annotations[api.Pod910DeviceAnno] = inst2
+		pod2.Annotations[api.PodRankIndexAnno] = "1"
 		err := gen.AddPod(pod1)
 		convey.So(err, convey.ShouldBeNil)
 		err = gen.AddPod(pod2)
@@ -126,12 +127,12 @@ func TestAddPod(t *testing.T) {
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("02-json unmarshal failed should return error", func() {
-			pod.Annotations = map[string]string{utils.PodDeviceKey: ""}
+			pod.Annotations = map[string]string{api.Pod910DeviceAnno: ""}
 			err := gen.AddPod(pod)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 		pod.Annotations = map[string]string{
-			utils.PodDeviceKey: newInstanceString("pod1", "127.0.0.1")}
+			api.Pod910DeviceAnno: newInstanceString("pod1", "127.0.0.1")}
 		convey.Convey("03-pod without ip should return error", func() {
 			err := gen.AddPod(pod)
 			convey.So(err, convey.ShouldResemble, fmt.Errorf("pod(%s/%s) ip is empty", pod.Namespace, pod.Name))
@@ -141,7 +142,7 @@ func TestAddPod(t *testing.T) {
 			err := gen.AddPod(pod)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
-		pod.Annotations[utils.PodRankKey] = "0"
+		pod.Annotations[api.PodRankIndexAnno] = "0"
 		convey.Convey("05-add pod success should return nil", func() {
 			err := gen.AddPod(pod)
 			convey.So(err, convey.ShouldBeNil)

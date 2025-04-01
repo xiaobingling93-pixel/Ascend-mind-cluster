@@ -17,6 +17,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 	corev1 "k8s.io/api/core/v1"
 
+	"ascend-common/api"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	_ "ascend-operator/pkg/testtool"
 )
@@ -35,7 +36,7 @@ func TestSetPodAnnotation(t *testing.T) {
 			"hccl/rankIndex should equal index", func() {
 			err := rc.setPodAnnotation(job, podTemplate, "worker", "0")
 			convey.So(err, convey.ShouldBeNil)
-			convey.So(podTemplate.Annotations[rankIndexKey], convey.ShouldEqual, "0")
+			convey.So(podTemplate.Annotations[api.PodRankIndexAnno], convey.ShouldEqual, "0")
 		})
 		job.Spec.ReplicaSpecs = map[commonv1.ReplicaType]*commonv1.ReplicaSpec{mindxdlv1.ReplicaTypeWorker: nil}
 		job.SetAnnotations(map[string]string{nonWorkerPodMountChipStatus: "true"})
@@ -43,14 +44,14 @@ func TestSetPodAnnotation(t *testing.T) {
 			" and rtype is master, hccl/rankIndex should equal index", func() {
 			err := rc.setPodAnnotation(job, podTemplate, "master", "1")
 			convey.So(err, convey.ShouldBeNil)
-			convey.So(podTemplate.Annotations[rankIndexKey], convey.ShouldEqual, "1")
+			convey.So(podTemplate.Annotations[api.PodRankIndexAnno], convey.ShouldEqual, "1")
 		})
 		convey.Convey("04-job has chief or master, or job has scheduler with npu, "+
 			"and rtype is worker, hccl/rankIndex should equal index + 1",
 			func() {
 				err := rc.setPodAnnotation(job, podTemplate, "worker", "1")
 				convey.So(err, convey.ShouldBeNil)
-				convey.So(podTemplate.Annotations[rankIndexKey], convey.ShouldEqual, "2")
+				convey.So(podTemplate.Annotations[api.PodRankIndexAnno], convey.ShouldEqual, "2")
 			})
 		convey.Convey("05-index is equal to MaxInt, err is not nil", func() {
 			err := rc.setPodAnnotation(job, podTemplate, "worker", strconv.Itoa(math.MaxInt))

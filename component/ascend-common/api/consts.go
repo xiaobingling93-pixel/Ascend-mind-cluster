@@ -52,6 +52,16 @@ const (
 const (
 	// PodUsedHardwareTypeAnno annotation value is the hardware type that real used in pod
 	PodUsedHardwareTypeAnno = "mind-cluster/hardware-type"
+	// Pod910DeviceAnno annotation value is for generating 910 hccl rank table
+	Pod910DeviceAnno = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
+	// PodRankIndexAnno annotation value is rank index of the pod
+	PodRankIndexAnno = "hccl/rankIndex"
+)
+
+// PodGroup
+const (
+	// AtlasTaskLabel label value task kind, eg. ascend-910, ascend-{xxx}b
+	AtlasTaskLabel = "ring-controller.atlas"
 )
 
 // ConfigMap

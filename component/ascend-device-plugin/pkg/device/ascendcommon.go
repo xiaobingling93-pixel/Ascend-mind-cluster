@@ -756,10 +756,10 @@ func (tool *AscendTools) AddPodAnnotation(podDev *common.PodDeviceInfo, deviceTy
 		annotation[api.ResourceNamePrefix+common.PodRealAlloc] = strings.Join(podDev.RealDevice, common.CommaSepDev)
 	}
 	if tool.name == common.Ascend910 || common.IsContainAll300IDuo() {
-		if _, ok := annotation[common.Pod910DeviceKey]; ok {
-			hwlog.RunLog.Infof("pod %s already has %s annotation", podDev.Pod.Name, common.Pod910DeviceKey)
+		if _, ok := annotation[api.Pod910DeviceAnno]; ok {
+			hwlog.RunLog.Infof("pod %s already has %s annotation", podDev.Pod.Name, api.Pod910DeviceAnno)
 		} else {
-			annotation[common.Pod910DeviceKey] = configuration
+			annotation[api.Pod910DeviceAnno] = configuration
 		}
 	}
 	return tool.client.TryUpdatePodAnnotation(&podDev.Pod, annotation)

@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"ascend-common/api"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
@@ -497,7 +498,7 @@ func TestUpdateRandIndex(t *testing.T) {
 			if emptyPod.Annotations == nil {
 				t.Errorf("fail to create annotation for empty pod")
 			}
-			if _, ok := annotatedPod.Annotations[rankIndexKey]; !ok {
+			if _, ok := annotatedPod.Annotations[api.PodRankIndexAnno]; !ok {
 				t.Errorf("fail to write rank index for annotated pod")
 			}
 		})

@@ -87,8 +87,6 @@ const (
 	Pod2kl = "kltDev"
 	// PodRealAlloc pod annotation key, means pod real mount device
 	PodRealAlloc = "AscendReal"
-	// Pod910DeviceKey pod annotation key, for generate 910 hccl rank table
-	Pod910DeviceKey = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
 	// SuperPodIDKey super node id
 	SuperPodIDKey = "superPodID"
 	// ChipNameLabel label value is card type, eg. 910A
@@ -534,8 +532,6 @@ const (
 	Ascend910A3RingsNum = 16
 	// RingSum indicates the max number of ring
 	RingSum = 2
-	// RankIndexKey for obtain the rank index in the pod
-	RankIndexKey = "hccl/rankIndex"
 	// InferRankIndex indecates the rank index of infer situation (rank index is meaningless in infer situation)
 	InferRankIndex = "-1"
 	// WaitResetEndTime for wait device reset to complete

@@ -15,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/interface/kube"
 )
@@ -157,7 +158,7 @@ func TestDeleteCm(t *testing.T) {
 func TestGetDefaultLabel(t *testing.T) {
 	convey.Convey("test getDefaultLabel. return map have lable", t, func() {
 		labels := getDefaultLabel()
-		convey.So(labels[atlasRing], convey.ShouldEqual, val910)
+		convey.So(labels[api.AtlasTaskLabel], convey.ShouldEqual, val910)
 		convey.So(labels[configmapLabel], convey.ShouldEqual, "true")
 	})
 }

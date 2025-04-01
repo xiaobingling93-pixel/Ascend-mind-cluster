@@ -846,7 +846,7 @@ func (hnm *HwAscend910Manager) setTaskDevInfoCache() error {
 		if taskName == "" {
 			continue
 		}
-		rankIndex, ok := pod.Annotations[common.RankIndexKey]
+		rankIndex, ok := pod.Annotations[api.PodRankIndexAnno]
 		if common.ParamOption.RealCardType == common.Ascend910B && hnm.GetDeviceUsage() == common.Infer {
 			rankIndex = common.InferRankIndex
 		} else {

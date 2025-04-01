@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/utils"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 	_ "ascend-operator/pkg/testtool"
@@ -94,7 +95,7 @@ func TestPodHasAllocated(t *testing.T) {
 			convey.So(res, convey.ShouldEqual, false)
 		})
 		convey.Convey("03-pod with npu request and with  PodDeviceKey should return true", func() {
-			pod.Annotations = map[string]string{PodDeviceKey: "fake-device"}
+			pod.Annotations = map[string]string{api.Pod910DeviceAnno: "fake-device"}
 			res := PodHasAllocated(pod)
 			convey.So(res, convey.ShouldEqual, true)
 		})
