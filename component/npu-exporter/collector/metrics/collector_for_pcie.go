@@ -62,8 +62,6 @@ var (
 var (
 	supportedPcieDevices = map[string]bool{
 		common.Ascend910B: true,
-		// supported by Atlas 200T A3 BOX
-		common.Ascend910A3: true,
 	}
 )
 
@@ -81,7 +79,7 @@ type PcieCollector struct {
 
 // IsSupported check whether the collector is supported
 func (c *PcieCollector) IsSupported(n *colcommon.NpuCollector) bool {
-	// "only 910B or Atlas 200T A3 BOX supports pcie info"
+	// only 910A2 supports pcie info
 	isSupport := supportedPcieDevices[n.Dmgr.GetDevType()]
 	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
 	return isSupport
