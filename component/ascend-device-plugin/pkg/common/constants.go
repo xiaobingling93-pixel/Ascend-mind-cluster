@@ -519,6 +519,8 @@ const (
 	HotResetTrainOffLine = 2
 	// BootStartFinish chip hot reset finish
 	BootStartFinish = 16
+	// SleepMinutesForA3Reset sleep minutes before a3 card reset case hotReset=2
+	SleepMinutesForA3Reset = 5
 )
 
 const (

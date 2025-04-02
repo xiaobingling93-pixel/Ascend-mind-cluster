@@ -398,6 +398,11 @@ func (hnm *HwAscend910Manager) handleResetProcess(classifyDevs map[string][]*com
 	defer func() {
 		inResetDev = -1
 	}()
+	if common.ParamOption.HotReset == common.HotResetTrainOffLine &&
+		common.ParamOption.RealCardType == common.Ascend910A3 {
+		hwlog.RunLog.Infof("sleep before hotReset case hotReset=2, devInfo=%v", devInfo)
+		time.Sleep(common.SleepMinutesForA3Reset * time.Minute)
+	}
 	if err := hnm.execHotReset(devInfo); err != nil {
 		hwlog.RunLog.Errorf("execute hot reset failed, err %v", err)
 		haveErr = true
