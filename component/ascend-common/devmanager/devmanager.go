@@ -499,8 +499,7 @@ func (d *DeviceManager) GetDeviceHbmInfo(logicID int32) (*common.HbmInfo, error)
 	}
 	hbmInfo, err := d.DcMgr.DcGetHbmInfo(cardID, deviceID)
 	if err != nil {
-		hwlog.RunLog.Error(err)
-		return nil, fmt.Errorf("failed to get hbm info by logicID(%d)", logicID)
+		return nil, err
 	}
 
 	return hbmInfo, nil

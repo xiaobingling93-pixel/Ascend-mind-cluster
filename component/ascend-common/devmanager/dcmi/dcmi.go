@@ -1250,8 +1250,7 @@ func FuncDcmiGetDeviceHbmInfo(cardID, deviceID int32) (*common.HbmInfo, error) {
 	var cHbmInfo C.struct_dcmi_hbm_info
 	if retCode := C.dcmi_get_device_hbm_info(C.int(cardID), C.int(deviceID),
 		&cHbmInfo); int32(retCode) != common.Success {
-		return nil, fmt.Errorf("failed to obtain the hbm info based on card_id(%d) "+
-			"and device_id(%d), error code: %d", cardID, deviceID, int32(retCode))
+		return nil, buildDcmiErr(cardID, deviceID, "high bandwidth memory info", retCode)
 	}
 	hbmTemp := int32(cHbmInfo.temp)
 	if hbmTemp < 0 {

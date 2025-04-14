@@ -76,7 +76,7 @@ type OpticalCollector struct {
 // IsSupported judge whether the collector is supported
 func (c *OpticalCollector) IsSupported(n *colcommon.NpuCollector) bool {
 	isSupport := n.Dmgr.IsTrainingCard()
-	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c),
+	logForUnSupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c),
 		"only training card supports network related info")
 	return isSupport
 }

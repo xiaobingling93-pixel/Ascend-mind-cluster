@@ -59,7 +59,7 @@ type NetworkCollector struct {
 // IsSupported check if the collector is supported
 func (c *NetworkCollector) IsSupported(n *colcommon.NpuCollector) bool {
 	isSupport := n.Dmgr.IsTrainingCard()
-	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c),
+	logForUnSupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c),
 		"only training card supports network related info")
 	return isSupport
 }

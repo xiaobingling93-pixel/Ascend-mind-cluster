@@ -81,7 +81,7 @@ type PcieCollector struct {
 func (c *PcieCollector) IsSupported(n *colcommon.NpuCollector) bool {
 	// only 910A2 supports pcie info
 	isSupport := supportedPcieDevices[n.Dmgr.GetDevType()]
-	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
+	logForUnSupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
 	return isSupport
 }
 

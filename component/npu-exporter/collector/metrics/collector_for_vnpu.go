@@ -68,7 +68,7 @@ type VnpuCollector struct {
 // IsSupported check whether the collector is supported
 func (c *VnpuCollector) IsSupported(n *colcommon.NpuCollector) bool {
 	isSupport := supportedVnpuDevices[n.Dmgr.GetDevType()]
-	handleUnsupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
+	logForUnSupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
 	return isSupport
 }
 

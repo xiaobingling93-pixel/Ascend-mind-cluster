@@ -30,7 +30,10 @@ var (
 	descHbmUsedMemory  = colcommon.BuildDesc("npu_chip_info_hbm_used_memory", "the npu hbm used memory")
 	descHbmTotalMemory = colcommon.BuildDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory")
 	descHbmUtilization = colcommon.BuildDesc("npu_chip_info_hbm_utilization", "the npu hbm utilization")
-	descEccEnableFlag  = colcommon.BuildDesc("npu_chip_info_hbm_ecc_enable_flag",
+	descHbmTemperature = colcommon.BuildDesc("npu_chip_info_hbm_temperature", "the npu hbm temperature")
+	descHbmBWUtil      = colcommon.BuildDesc("npu_chip_info_hbm_bandwidth_utilization", "the npu hbm bandwidth util rate")
+
+	descEccEnableFlag = colcommon.BuildDesc("npu_chip_info_hbm_ecc_enable_flag",
 		"whether HBM ecc detection is enabled")
 	descEccSingleBitErrorCnt = colcommon.BuildDesc("npu_chip_info_hbm_ecc_single_bit_error_cnt",
 		"HBM Single Bit Error Count")
@@ -47,6 +50,14 @@ var (
 		"HBM Double Bit Isolated Pages Count")
 )
 
+var (
+	supportedHbmDevices = map[string]bool{
+		common.Ascend910:   true,
+		common.Ascend910B:  true,
+		common.Ascend910A3: true,
+	}
+)
+
 type hbmCache struct {
 	chip      colcommon.HuaWeiAIChip
 	timestamp time.Time
@@ -61,11 +72,21 @@ type HbmCollector struct {
 	colcommon.MetricsCollectorAdapter
 }
 
+// IsSupported check whether the collector is supported
+func (c *HbmCollector) IsSupported(n *colcommon.NpuCollector) bool {
+	isSupport := supportedHbmDevices[n.Dmgr.GetDevType()]
+	logForUnSupportDevice(isSupport, n.Dmgr.GetDevType(), colcommon.GetCacheKey(c), "")
+	return isSupport
+}
+
 // Describe describes all the metrics that will be exposed.
 func (c *HbmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- descHbmUsedMemory
 	ch <- descHbmTotalMemory
 	ch <- descHbmUtilization
+	ch <- descHbmTemperature
+	ch <- descHbmBWUtil
+
 	ch <- descEccEnableFlag
 	ch <- descEccSingleBitErrorCnt
 	ch <- descEccDoubleBitErrorCnt
@@ -124,6 +145,8 @@ func (c *HbmCollector) UpdateTelegraf(fieldsMap map[string]map[string]interface{
 
 		doUpdateTelegraf(fieldMap, descHbmUsedMemory, extInfo.Usage, "")
 		doUpdateTelegraf(fieldMap, descHbmTotalMemory, extInfo.MemorySize, "")
+		doUpdateTelegraf(fieldMap, descHbmTemperature, extInfo.Temp, "")
+		doUpdateTelegraf(fieldMap, descHbmBWUtil, extInfo.BandWidthUtilRate, "")
 
 		eccInfo := extInfo.ECCInfo
 		if eccInfo != nil {
@@ -184,6 +207,8 @@ func (c *HbmCollector) updateHbmInfo(ch chan<- prometheus.Metric, cache hbmCache
 	timestamp := cache.timestamp
 	doUpdateMetric(ch, timestamp, hbmInfo.Usage, cardLabel, descHbmUsedMemory)
 	doUpdateMetric(ch, timestamp, hbmInfo.MemorySize, cardLabel, descHbmTotalMemory)
+	doUpdateMetric(ch, timestamp, hbmInfo.Temp, cardLabel, descHbmTemperature)
+	doUpdateMetric(ch, timestamp, hbmInfo.BandWidthUtilRate, cardLabel, descHbmBWUtil)
 
 	// vnpu not support this metrics
 	vDevActivityInfo := chipWithVnpu.VDevActivityInfo
