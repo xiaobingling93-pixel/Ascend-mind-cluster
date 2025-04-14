@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -226,7 +225,6 @@ func GetJobNPUTasks(vcJob *api.JobInfo) map[api.TaskID]util.NPUTask {
 			NameSpace:  taskInf.Namespace,
 			ReqNPUName: name,
 			ReqNPUNum:  num,
-			Selector:   getTaskSelectors(taskInf),
 			Label:      getTaskLabels(taskInf),
 			VTask:      &util.VTask{},
 			NodeName:   taskInf.NodeName,
@@ -405,35 +403,51 @@ func (sJob *SchedulerJob) initVTasks(vcJob *api.JobInfo) {
 	}
 }
 
-// initNPUJob get job type, used in vJob temporary.
-func (sJob *SchedulerJob) initNPUJob(vcJob *api.JobInfo) {
-	sJob.SetJobType()
-	sJob.SetJobStatusByInf(vcJob)
-	sJob.initVTasks(vcJob)
-	return
-}
-
 func (sJob *SchedulerJob) initByJobInfo(vcJob *api.JobInfo) error {
 	name, num, err := GetVCJobReqNPUTypeFromJobInfo(vcJob)
 	if err != nil {
 		return err
 	}
-	tmpJobReadyTag := true
-	sJob.JobReadyTag = &tmpJobReadyTag
-	sJob.UnscheduledReason = UnscheduledReason{
-		Reason: make(PendingReason),
-		Mutex:  &sync.Mutex{},
+	if sJob.Owner.Kind == ReplicaSetType {
+		num *= int(*sJob.Owner.Replicas)
 	}
+	sJob.initCommonJob(vcJob)
+	sJob.initNPUJob(vcJob, name, num)
+	return nil
+}
+
+func (sJob *SchedulerJob) initNPUJob(vcJob *api.JobInfo, npuName string, npuNum int) {
+	sJob.SchedulerJobAttr.NPUJob = &util.NPUJob{ReqNPUName: npuName, ReqNPUNum: npuNum, Tasks: GetJobNPUTasks(vcJob)}
+	sJob.setJobSubHealthyStrategy()
+	sJob.setSpBlock()
+	sJob.setNPUTaskNumInJob()
+	sJob.setSchedulingTaskNum(vcJob)
+	sJob.initVTasks(vcJob)
+}
+
+// setNPUTaskNumInJob set the NPU task number in one job. for some task has no NPU.
+func (sJob *SchedulerJob) setNPUTaskNumInJob() {
+	taskNum := 0
+	for _, task := range sJob.Tasks {
+		if task.IsNPUTask() {
+			taskNum++
+		}
+	}
+	sJob.NPUTaskNum = taskNum
+}
+
+func (sJob *SchedulerJob) initCommonJob(vcJob *api.JobInfo) {
 	sJob.SchedulerJobAttr.ComJob = util.ComJob{
 		Name: vcJob.UID, NameSpace: vcJob.Namespace,
 		ReferenceName: util.ReferenceNameOfJob(vcJob),
 		Selector:      getJobSelectorFromVcJob(vcJob),
 		Label:         getJobLabelFromVcJob(vcJob),
+		Status:        string(vcJob.PodGroup.Status.Phase),
 		Annotation:    vcJob.PodGroup.Annotations,
 	}
-	if sJob.Owner.Kind == ReplicaSetType {
-		num *= int(*sJob.Owner.Replicas)
-	}
+}
+
+func (sJob *SchedulerJob) setJobSubHealthyStrategy() {
 	subHealthyStrategy, exist := sJob.Label[util.SubHealthyStrategyLabel]
 	if !exist || !util.CheckStrInSlice(subHealthyStrategy,
 		[]string{util.SubHealthyIgnore, util.SubHealthyGraceExit, util.SubHealthyForceExit}) {
@@ -442,25 +456,27 @@ func (sJob *SchedulerJob) initByJobInfo(vcJob *api.JobInfo) error {
 			sJob.Name, subHealthyStrategy)
 	}
 	sJob.SubHealthyStrategy = subHealthyStrategy
-	spBlock := 0
+}
+
+func (sJob *SchedulerJob) setSpBlock() {
 	spBlockStr, ok := sJob.Annotation[util.SuperPodAnnoKey]
-	if ok {
-		if spBlock, err = strconv.Atoi(spBlockStr); err != nil {
-			klog.V(util.LogErrorLev).Infof("get job %s spBlock %s failed %v", vcJob.UID, spBlockStr, err)
-		}
+	if !ok {
+		return
 	}
-	sJob.SchedulerJobAttr.NPUJob = nil
-	sJob.policyHandler = nil
-	sJob.SchedulerJobAttr.NPUJob = &util.NPUJob{ReqNPUName: name, ReqNPUNum: num, Tasks: GetJobNPUTasks(vcJob),
-		VJob: &util.VJob{}, SpBlockNPUNum: spBlock}
-	sJob.NPUTaskNum = sJob.GetNPUTaskNumInJob()
-	sJob.initNPUJob(vcJob)
+	spBlock, err := strconv.Atoi(spBlockStr)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("get job %s spBlock %s failed %v", sJob.Name, spBlockStr, err)
+		return
+	}
+	sJob.SpBlockNPUNum = spBlock
+}
+
+func (sJob *SchedulerJob) setSchedulingTaskNum(vcJob *api.JobInfo) {
 	if vcJob.MinAvailable != int32(len(vcJob.Tasks)) {
 		sJob.SchedulingTaskNum = defaultSchedulingTaskNum
-		return nil
+		return
 	}
 	sJob.SchedulingTaskNum = sJob.GetSchedulingTaskNum()
-	return nil
 }
 
 // UpdateJobPendingMessage update job pending message

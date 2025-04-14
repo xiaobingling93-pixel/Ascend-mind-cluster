@@ -100,38 +100,18 @@ const (
 	NPUHexKilo = 1000
 	// HwPreName pre name
 	HwPreName = "huawei.com/"
-	// NPUCardPreName for NPU card pre-Name.
-	NPUCardPreName = "huawei.com/Ascend"
-	// HuaweiArchArm for arm.
-	HuaweiArchArm = "huawei-arm"
-	// HuaweiArchX86 for x86.
-	HuaweiArchX86 = "huawei-x86"
-
 	// Accelerator for custom tag.
 	Accelerator = "accelerator"
-
-	// CMSelectorKey selector key in scheduler configmap.
-	CMSelectorKey = "selector"
 	// CMInitParamKey init param key in scheduler configmap
 	CMInitParamKey = "init-params"
 	// AcceleratorType for selector.
 	AcceleratorType = "accelerator-type"
-	// CardAcceleratorType for card mode.
-	CardAcceleratorType = "card"
 	// Module910bx16AcceleratorType for module mode.
 	Module910bx16AcceleratorType = "module-910b-16"
 	// Module910bx8AcceleratorType for module mode.
 	Module910bx8AcceleratorType = "module-910b-8"
-	// Card910bx2AcceleratorType for module mode.
-	Card910bx2AcceleratorType = "card-910b-2"
-	// Card910bx2InferAcceleratorType for infer mode.
-	Card910bx2InferAcceleratorType = "card-910b-infer"
 	// ModuleAcceleratorType for module mode.
 	ModuleAcceleratorType = "module"
-	// ChipAcceleratorType for chip mode.
-	ChipAcceleratorType = "chip"
-	// HalfAcceleratorType for half mode
-	HalfAcceleratorType = "half"
 	// ServerType server type value takes Ascend310P-10-dual/Ascend910-32...
 	ServerType = "servertype"
 	// ServerTypeDual dual card
@@ -195,16 +175,12 @@ const (
 	NodeDEnableKey = "nodeDEnable"
 	// NodeDEnableOnValue the value of NodeDEnableKey, which means nodeD has been enabled
 	NodeDEnableOnValue = "on"
-	// NodeDEnableOffValue the value of NodeDEnableKey, which means nodeD has not been enabled
-	NodeDEnableOffValue = "off"
 
 	// PreSeparateFaultCode  PreSeparate fault Code
 	PreSeparateFaultCode = "PreSeparate"
 
 	// SwitchNodeHealtyStatuskey same with noded there will be healthy subhealthy unhealthy status report by switch info
 	SwitchNodeHealtyStatuskey = "NodeStatus"
-	// NpuSubHealthyKey annotation of npu sub-healthy status. true is sub-healthy
-	NpuSubHealthyKey = "subHealthy"
 
 	// DevInfoCMKey mindx-dl-deviceinfo configmap key
 	DevInfoCMKey = "DeviceInfoCfg"
@@ -216,8 +192,6 @@ const (
 	RePropertyCacheName = "re-scheduling"
 	// CmCheckCode Check code key
 	CmCheckCode = "checkCode"
-	// CmName Name of ReSchedulerConfigmap
-	CmName = "vcjob-fault-npu-cm"
 	// JobRecovery keywords for retain
 	JobRecovery = "job-recovery"
 
@@ -240,8 +214,6 @@ const (
 	ClusterNodeInfo = "cluster-info-node-"
 	// ClusterSwitchInfo the name of cluster switch info configmap
 	ClusterSwitchInfo = "cluster-info-switch-"
-	// ClusterD the name of ClusterD deployment
-	ClusterD = "clusterd"
 
 	// Pod910DeviceKey pod annotation key, for generate 910 hccl rank table
 	Pod910DeviceKey = "ascend.kubectl.kubernetes.io/ascend-910-configuration"
@@ -270,9 +242,6 @@ const (
 
 	// SuperPodAnnoKey annotation key of super pod
 	SuperPodAnnoKey = "sp-block"
-	reserveNodesKey = "reserve-nodes"
-	// sizeOfSuperPodKey for super pod size
-	sizeOfSuperPodKey = "super-pod-size"
 	// DistributedInferKey distributed infer
 	DistributedInferKey = "distributed"
 	// DistributedInferLabel true or false
@@ -321,8 +290,6 @@ const (
 	PodGroupUnknown = "Unknown"
 	// PodGroupUnschedulableType the pg Unschedulable Condition
 	PodGroupUnschedulableType = "Unschedulable"
-	// PodDeleteTimes the tag of single pod has been deleted
-	PodDeleteTimes = "pod-delete-times"
 	// EnableFunc enable the function
 	EnableFunc = "on"
 	// SinglePodTag the tag of single pod rescheduling
@@ -343,10 +310,8 @@ const (
 )
 
 const (
-	// TagOfPodPending the limitation on pod pending times
-	TagOfPodPending = "ready"
-	// DefaultPodDeleteTimes default time of pod deleted
-	DefaultPodDeleteTimes = "0"
+	// Rank0 default time of pod deleted
+	Rank0 = "0"
 )
 
 const (
@@ -365,26 +330,6 @@ const (
 	Abstain = 0
 	// Reject indicates  rejects job to be pipelined
 	Reject = -1
-)
-
-const (
-	defaultSuperPodSize = 48
-	defaultReserveNodes = 2
-	// DefaultGraceOverTime time interval for grace delete
-	DefaultGraceOverTime = 900
-	// GraceOverTimeKey for GraceOverTime config by user
-	GraceOverTimeKey   = "grace-over-time"
-	minGraceOverTime   = 2
-	maxGraceOverTime   = 3600
-	keyOfSharedTorNum  = "shared-tor-num"
-	shareTorNum1       = 1
-	shareTorNum2       = 2
-	keyOfNSLBVersion   = "nslb-version"
-	defaultNSLBVersion = "1.0"
-	// NSLB2Version nslb 2.0 version
-	NSLB2Version = "2.0"
-	oldCapacity  = "Capability"
-	newCapacity  = "Capacity"
 )
 
 // VTemplate for vNode resource

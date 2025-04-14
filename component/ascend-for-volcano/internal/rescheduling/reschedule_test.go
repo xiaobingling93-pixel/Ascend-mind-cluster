@@ -355,7 +355,6 @@ func reCreateNPUTask910(name, namespace string, reqResourceNum int) util.NPUTask
 		Name:       namespace + "/" + name,
 		ReqNPUName: "huawei.com/Ascend910",
 		ReqNPUNum:  reqResourceNum,
-		Selector:   nil,
 	}
 }
 

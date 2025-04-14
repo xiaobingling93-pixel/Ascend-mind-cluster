@@ -253,12 +253,11 @@ func NewJobScheduleInfoRecorder() JobScheduleInfoRecorder {
 
 // NewVolcanoFrame new empty volcano frame
 func NewVolcanoFrame() VolcanoFrame {
-	firstSession := true
 	return VolcanoFrame{
 		ConfigParameters: ConfigParameters{
 			StaticParameters: StaticParameters{
 				OnceInit:       &sync.Once{},
-				IsFirstSession: &firstSession,
+				IsFirstSession: util.PtrInit(true),
 			},
 		},
 	}
@@ -279,5 +278,12 @@ func NewClusterCache() ClusterCache {
 		Jobs:         map[api.JobID]SchedulerJob{},
 		Nodes:        map[string]NPUNode{},
 		SuperPodInfo: NewSuperPodInfo(),
+	}
+}
+
+func newUnscheduledReason() UnscheduledReason {
+	return UnscheduledReason{
+		Reason: make(PendingReason),
+		Mutex:  &sync.Mutex{},
 	}
 }

@@ -433,14 +433,13 @@ func buildJobValidTest() []jobValidTest {
 
 func TestJobValid(t *testing.T) {
 	tests := buildJobValidTest()
-	isFirstSession := false
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sHandle := &ScheduleHandler{
 				NPUPlugins:  tt.fields.NPUPlugins,
 				ScheduleEnv: tt.fields.ScheduleEnv,
 			}
-			sHandle.FrameAttr.IsFirstSession = &isFirstSession
+			sHandle.FrameAttr.IsFirstSession = util.PtrInit(false)
 			if got := sHandle.JobValid(tt.args.obj); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("JobValid() = %v, want %v", got, tt.want)
 			}
@@ -926,7 +925,7 @@ func buildValidJobFnTestCases() []validJobFnTest {
 			name: "02 will return true when job is deployment and task is  ready",
 			sJob: SchedulerJob{Owner: OwnerInfo{OwnerReference: metav1.OwnerReference{Kind: ReplicaSetType},
 				Replicas: &fakeTaskNum}, SchedulerJobAttr: util.SchedulerJobAttr{
-				NPUJob: &util.NPUJob{Tasks: map[api.TaskID]util.NPUTask{"test-pod": {}}, VJob: &util.VJob{}}}},
+				NPUJob: &util.NPUJob{Tasks: map[api.TaskID]util.NPUTask{"test-pod": {}}}}},
 			want: false,
 		},
 	}

@@ -94,9 +94,9 @@ func buildTestGetAllDyJobsTestCase() []TestGetAllDyJobsTest {
 			Name: "01-getAllDyJobs will return jobMap when VJob is nil",
 			Jobs: map[api.JobID]plugin.SchedulerJob{
 				"Job01": {SchedulerJobAttr: util.SchedulerJobAttr{
-					NPUJob: &util.NPUJob{VJob: &util.VJob{Type: util.JobTypeDyCut}}}}},
+					NPUJob: &util.NPUJob{ReqNPUName: util.AscendNPUCore}}}},
 			Want: map[api.JobID]plugin.SchedulerJob{"Job01": {SchedulerJobAttr: util.SchedulerJobAttr{
-				NPUJob: &util.NPUJob{VJob: &util.VJob{Type: util.JobTypeDyCut}}}}},
+				NPUJob: &util.NPUJob{ReqNPUName: util.AscendNPUCore}}}},
 		},
 	}
 	return tests
@@ -518,9 +518,9 @@ func buildTestDeleteDyCutErrTasksTestCase() []TestDeleteDyCutErrTasksTest {
 			ssn:  nil,
 			Jobs: map[api.JobID]plugin.SchedulerJob{"Job01": {SchedulerJobAttr: util.SchedulerJobAttr{
 				NPUJob: &util.NPUJob{
+					ReqNPUName: util.AscendNPUCore,
 					Tasks: map[api.TaskID]util.NPUTask{
-						"task01": {VTask: &util.VTask{Status: util.TaskStatusFailed}}},
-					VJob: &util.VJob{Type: util.JobTypeDyCut}}}}},
+						"task01": {VTask: &util.VTask{Status: util.TaskStatusFailed}}}}}}},
 			WantErr: nil,
 		},
 		{
@@ -528,9 +528,9 @@ func buildTestDeleteDyCutErrTasksTestCase() []TestDeleteDyCutErrTasksTest {
 			ssn:  nil,
 			Jobs: map[api.JobID]plugin.SchedulerJob{"Job01": {SchedulerJobAttr: util.SchedulerJobAttr{
 				NPUJob: &util.NPUJob{
+					ReqNPUName: util.AscendNPUCore,
 					Tasks: map[api.TaskID]util.NPUTask{
-						"task01": {VTask: &util.VTask{Status: util.TaskStatusFailed}}},
-					VJob: &util.VJob{Type: util.JobTypeDyCut}}}}},
+						"task01": {VTask: &util.VTask{Status: util.TaskStatusFailed}}}}}}},
 			WantErr: nil,
 		},
 	}

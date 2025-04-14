@@ -35,12 +35,8 @@ const (
 	TorAffinityKey = "tor-affinity"
 	// GlobalTorInfoKey the key of tor share info in configmap
 	GlobalTorInfoKey = "global-tor-info"
-	// LargeModelTag the value of large model
-	LargeModelTag = "large-model-schema"
 	// NormalSchema the value of normal tor affinity
-	NormalSchema = "normal-schema"
-	// NullTag the value means not use tor affinity
-	NullTag            = "null"
+	NormalSchema       = "normal-schema"
 	keyOfSharedTorNum  = "shared-tor-num"
 	shareTorNum1       = 1
 	shareTorNum2       = 2

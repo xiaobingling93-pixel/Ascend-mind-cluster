@@ -259,3 +259,6 @@ func marshalData(data interface{}) []byte {
 	}
 	return dataBuffer
 }
+
+// PtrInit return base type ptr
+func PtrInit[T any](v T) *T { return &v }

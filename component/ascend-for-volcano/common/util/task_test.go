@@ -241,45 +241,6 @@ func TestIsTaskInItsNode(t *testing.T) {
 	}
 }
 
-type SetVTaskTypeTest struct {
-	name   string
-	asTask *NPUTask
-	want   int
-}
-
-func buildSetVTaskTypeTestCase() []SetVTaskTypeTest {
-	tests := []SetVTaskTypeTest{
-		{
-			name:   "01-SetVTaskType will return JobTypeUnknown",
-			asTask: &NPUTask{ReqNPUName: NPU310CardName},
-			want:   JobTypeWhole,
-		},
-		{
-			name:   "02-SetVTaskType will return JobTypeUnknown",
-			asTask: &NPUTask{ReqNPUName: "vir02_1c"},
-			want:   JobTypeStCut,
-		},
-		{
-			name:   "03-SetVTaskType will return JobTypeDyCut",
-			asTask: &NPUTask{ReqNPUName: AscendNPUCore},
-			want:   JobTypeDyCut,
-		},
-	}
-	return tests
-}
-
-func TestSetVTaskType(t *testing.T) {
-	tests := buildSetVTaskTypeTestCase()
-	for _, tt := range tests {
-		tt.asTask.VTask = &VTask{}
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.asTask.setVTaskType(); tt.asTask.Type != tt.want {
-				t.Errorf("SetVTaskType() = %v, want %v", tt.asTask.Type, tt.want)
-			}
-		})
-	}
-}
-
 type GetVTaskUseTemplateTest struct {
 	name    string
 	taskInf *api.TaskInfo
@@ -528,46 +489,6 @@ func TestSetVTaskStatusFromInfo(t *testing.T) {
 	}
 }
 
-func TestReferenceNameOfTask(t *testing.T) {
-	tests := []struct {
-		name string
-		task *api.TaskInfo
-		want string
-	}{
-		{
-			name: "01-ReferenceNameOfTask nil job",
-			task: nil,
-			want: "",
-		},
-		{
-			name: "02-ReferenceNameOfTask nil pod",
-			task: &api.TaskInfo{},
-			want: "",
-		},
-		{
-			name: "03-ReferenceNameOfTask  nil pod ownerreference",
-			task: &api.TaskInfo{Pod: &v1.Pod{}},
-			want: "",
-		},
-		{
-			name: "04-ReferenceNameOfTask podgroup has ownerreference",
-			task: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
-				OwnerReferences: []metav1.OwnerReference{{
-					Name: "test-uid",
-				}},
-			}}},
-			want: "test-uid",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := ReferenceNameOfTask(tt.task); got != tt.want {
-				t.Errorf("ReferenceNameOfTask() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNPUTaskIsVNPUTask(t *testing.T) {
 	tests := []struct {
 		name string
@@ -605,7 +526,6 @@ func TestNPUTaskInitVTask(t *testing.T) {
 		task       *NPUTask
 		taskInfo   *api.TaskInfo
 		taskStatus int
-		taskType   int
 		wantErr    bool
 	}{
 		{
@@ -614,17 +534,14 @@ func TestNPUTaskInitVTask(t *testing.T) {
 			taskInfo: &api.TaskInfo{Pod: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{AscendNPUPodRealUse: Ascend910bName}}}},
 			taskStatus: TaskStatusInit,
-			taskType:   JobTypeWhole,
 			wantErr:    false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.task.InitVTask(tt.taskInfo); (err != nil) != tt.wantErr ||
-				(tt.task.Status != tt.taskStatus) || (tt.task.Type != tt.taskType) {
-				t.Errorf("InitVTask() error = %v, wantErr %v, getTaskStatus:%v, wantTaskStatsu:%v, "+
-					"getTaskType:%v, wantTaskType:%v", err, tt.wantErr, tt.task.Status,
-					tt.taskStatus, tt.task.Type, tt.taskType)
+			if err := tt.task.InitVTask(tt.taskInfo); (err != nil) != tt.wantErr || (tt.task.Status != tt.taskStatus) {
+				t.Errorf("InitVTask() error = %v, wantErr %v, getTaskStatus:%v, wantTaskStatsu:%v",
+					err, tt.wantErr, tt.task.Status, tt.taskStatus)
 			}
 		})
 	}

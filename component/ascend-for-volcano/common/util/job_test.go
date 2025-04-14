@@ -20,7 +20,6 @@ Package util is using for the total variable.
 package util
 
 import (
-	"reflect"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,85 +63,6 @@ func TestIsVJob(t *testing.T) {
 	}
 }
 
-type SetVJobTypeTest struct {
-	name string
-	nJob *NPUJob
-	want int
-}
-
-func buildSetVJobTypeTestCase() []SetVJobTypeTest {
-	return []SetVJobTypeTest{
-		{
-			name: "01-SetJobType JobTypeUnknown status",
-			nJob: &NPUJob{
-				Tasks: map[api.TaskID]NPUTask{},
-				VJob:  &VJob{},
-			},
-			want: JobTypeUnknown,
-		},
-		{
-			name: "02-SetJobType JobTypeWhole status",
-			nJob: &NPUJob{
-				Tasks: map[api.TaskID]NPUTask{"task01": {ReqNPUNum: 1, VTask: &VTask{Type: JobTypeWhole}}},
-				VJob:  &VJob{},
-			},
-			want: JobTypeWhole,
-		},
-		{
-			name: "03-SetJobType ReqNPUNum is zero",
-			nJob: &NPUJob{
-				Tasks: map[api.TaskID]NPUTask{"task01": {ReqNPUNum: 1, VTask: &VTask{Type: JobTypeWhole}},
-					"task00": {ReqNPUNum: 0, VTask: &VTask{Type: JobTypeWhole}}},
-				VJob: &VJob{},
-			},
-			want: JobTypeWhole,
-		},
-	}
-}
-
-func TestSetVJobType(t *testing.T) {
-	tests := buildSetVJobTypeTestCase()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.nJob.SetJobType()
-			if got := tt.nJob.Type; !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Name() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-type testSetVJobStatusByInfTest struct {
-	name  string
-	nJob  *NPUJob
-	vcJob *api.JobInfo
-	want  string
-}
-
-func buildTestSetVJobStatusByInfTest() []testSetVJobStatusByInfTest {
-	tests := []testSetVJobStatusByInfTest{
-		{
-			name:  "01-test SetJobStatusByInf ",
-			nJob:  &NPUJob{VJob: &VJob{}},
-			vcJob: &api.JobInfo{PodGroup: &api.PodGroup{}},
-			want:  "",
-		},
-	}
-	return tests
-}
-
-func TestSetVJobStatusByInf(t *testing.T) {
-	tests := buildTestSetVJobStatusByInfTest()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.nJob.SetJobStatusByInf(tt.vcJob)
-			if got := tt.nJob.Status; got != tt.want {
-				t.Errorf("Name() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNPUJobIsNPUJob(t *testing.T) {
 	type fields struct {
 		ReqNPUName string
@@ -170,43 +90,6 @@ func TestNPUJobIsNPUJob(t *testing.T) {
 			}
 			if got := nJob.IsNPUJob(); got != tt.want {
 				t.Errorf("IsNPUJob() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNPUJobGetNPUTaskNumInJob(t *testing.T) {
-	type fields struct {
-		ReqNPUName string
-		Tasks      map[api.TaskID]NPUTask
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   int
-	}{
-		{
-			name:   "01-GetNPUTaskNumInJob not npu job",
-			fields: fields{ReqNPUName: ""},
-			want:   0,
-		},
-		{
-			name: "02-GetNPUTaskNumInJob npu job",
-			fields: fields{
-				ReqNPUName: AscendNPUCore,
-				Tasks:      map[api.TaskID]NPUTask{"task01": {ReqNPUName: Ascend910bName}},
-			},
-			want: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			nJob := &NPUJob{
-				Tasks:      tt.fields.Tasks,
-				ReqNPUName: tt.fields.ReqNPUName,
-			}
-			if got := nJob.GetNPUTaskNumInJob(); got != tt.want {
-				t.Errorf("GetNPUTaskNumInJob() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -337,4 +220,26 @@ func TestUuidOfJob(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetPluginNameByReq(t *testing.T) {
+	t.Run("01 will return empty string when SchedulerJobAttr is empty", func(t *testing.T) {
+		sJob := SchedulerJobAttr{NPUJob: &NPUJob{}}
+		if got := sJob.GetPluginNameByReq(); got != "" {
+			t.Errorf("GetPluginNameByReq() = %v, want %v", got, "")
+		}
+	})
+	t.Run("02 will return huawei.com/Ascend910 when SchedulerJobAttr require it", func(t *testing.T) {
+		sJob := SchedulerJobAttr{NPUJob: &NPUJob{ReqNPUName: AscendNPUCore}}
+		sJob.Label = map[string]string{JobKindKey: JobKind910Value}
+		if got := sJob.GetPluginNameByReq(); got != NPU910CardName {
+			t.Errorf("GetPluginNameByReq() = %v, want %v", got, NPU910CardName)
+		}
+	})
+	t.Run("02 will return empty string when dynamic job and label is nil", func(t *testing.T) {
+		sJob := SchedulerJobAttr{NPUJob: &NPUJob{ReqNPUName: AscendNPUCore}}
+		if got := sJob.GetPluginNameByReq(); got != "" {
+			t.Errorf("GetPluginNameByReq() = %v, want %v", got, "")
+		}
+	})
 }

@@ -27,46 +27,27 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/api"
 )
 
-// For Job type
-const (
-	// JobTypeWhole whole card  for NPU  Job.
-	JobTypeWhole = iota
-	// JobTypeDyCut Dynamic force cutting NPU vJob.
-	JobTypeDyCut
-	// JobTypeStCut Static force segmentation NPU Job.
-	JobTypeStCut
-	// JobTypeUnknown unknown NPU Job type.
-	JobTypeUnknown
-)
-
-// VJob for dynamic NPU Job.
-type VJob struct {
-	// type: JobTypeWhole, JobTypeDycut, JobTypeStcut.
-	Type   int
-	Status string
-}
-
 // NPUJob only npu vcJob have.
 type NPUJob struct {
 	// the mapKey is taskID, not Name.
-	Tasks             map[api.TaskID]NPUTask
-	NPUTaskNum        int
-	SchedulingTaskNum int
-	ReqNPUName        string
-	ReqNPUNum         int
-	SpBlockNPUNum     int
-	*VJob
+	Tasks              map[api.TaskID]NPUTask
+	NPUTaskNum         int
+	SchedulingTaskNum  int
+	ReqNPUName         string
+	ReqNPUNum          int
+	SpBlockNPUNum      int
+	SubHealthyStrategy string
 }
 
 // ComJob all vcJob has.
 type ComJob struct {
-	Name               api.JobID
-	ReferenceName      string
-	NameSpace          string
-	SubHealthyStrategy string
-	Annotation         map[string]string
-	Selector           map[string]string
-	Label              map[string]string
+	Name          api.JobID
+	ReferenceName string
+	NameSpace     string
+	Status        string
+	Annotation    map[string]string
+	Selector      map[string]string
+	Label         map[string]string
 }
 
 // SchedulerJobAttr vcJob's attribute.
@@ -88,8 +69,6 @@ func (sJob SchedulerJobAttr) GetPluginNameByReq() string {
 		switch label {
 		case JobKind910Value, JobKind910BValue:
 			name = NPU910CardName
-		case JobKind310Value:
-			name = NPU310CardName
 		case JobKind310PValue:
 			name = NPU310PCardName
 		default:
@@ -139,21 +118,6 @@ func (nJob *NPUJob) IsNPUJob() bool {
 	return strings.Contains(nJob.ReqNPUName, HwPreName)
 }
 
-// GetNPUTaskNumInJob get the NPU task number in one job. for some task has no NPU.
-func (nJob *NPUJob) GetNPUTaskNumInJob() int {
-	if nJob == nil || !nJob.IsNPUJob() {
-		return 0
-	}
-	taskNum := 0
-	for _, task := range nJob.Tasks {
-		if task.IsNPUTask() {
-			taskNum++
-		}
-	}
-
-	return taskNum
-}
-
 // GetSchedulingTaskNum get the num of scheduling task
 func (nJob *NPUJob) GetSchedulingTaskNum() int {
 	if nJob == nil || !nJob.IsNPUJob() {
@@ -167,42 +131,6 @@ func (nJob *NPUJob) GetSchedulingTaskNum() int {
 	}
 
 	return schedulingTaskNum
-}
-
-func (nJob *NPUJob) setJobType() {
-	tmpTypes := make(map[int]struct{}, MapInitNum)
-	for _, nTask := range nJob.Tasks {
-		if nTask.ReqNPUNum == 0 {
-			continue
-		}
-		value := nTask.ComputeTaskType()
-		nJob.VJob.Type = value
-		tmpTypes[value] = struct{}{}
-	}
-
-	// all NPU Task type in job must be same.
-	if len(tmpTypes) != 1 {
-		nJob.VJob.Type = JobTypeUnknown
-		return
-	}
-}
-
-// SetJobType set virtual job type
-// must be used after isVJob.
-// for all chips: 910, 310P
-func (nJob *NPUJob) SetJobType() {
-	if nJob == nil {
-		return
-	}
-	nJob.setJobType()
-}
-
-// SetJobStatusByInf set vJob status by podGroup.
-func (nJob *NPUJob) SetJobStatusByInf(vcJob *api.JobInfo) {
-	if nJob == nil {
-		return
-	}
-	nJob.VJob.Status = string(vcJob.PodGroup.Status.Phase)
 }
 
 // ReferenceNameOfJob get name of job

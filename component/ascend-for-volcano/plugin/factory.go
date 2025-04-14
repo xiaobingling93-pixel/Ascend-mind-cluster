@@ -71,26 +71,27 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 		klog.V(util.LogInfoLev).Infof("InitJobsFromSsn failed: %s.", util.ArgumentError)
 		return
 	}
-	oldJobs := sHandle.Jobs
-	sHandle.Jobs = make(map[api.JobID]SchedulerJob, util.MapInitNum)
+	newJobs := make(map[api.JobID]SchedulerJob, util.MapInitNum)
 	for jobID, jobInfo := range ssn.Jobs {
+		// get ownerInfo, deployment job need
 		ownerInfo, err := getOwnerInfo(jobInfo, sHandle.FrameAttr)
 		if err != nil {
 			klog.V(util.LogDebugLev).Infof("%s getOwnerInfo failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
 		}
 		sJob := SchedulerJob{
-			Owner: ownerInfo,
+			Owner:             ownerInfo,
+			SuperPods:         sHandle.Jobs[jobID].SuperPods,
+			JobReadyTag:       util.PtrInit(true),
+			UnscheduledReason: newUnscheduledReason(),
 		}
 		if err := sJob.init(jobInfo, sHandle); err != nil {
 			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
 		}
-		if oldJob, ok := oldJobs[jobID]; ok {
-			sJob.SuperPods = oldJob.SuperPods
-		}
-		sHandle.Jobs[jobID] = sJob
+		newJobs[jobID] = sJob
 	}
+	sHandle.Jobs = newJobs
 	return
 }
 
@@ -123,18 +124,13 @@ func (sHandle *ScheduleHandler) initJobScheduleInfoRecorder() {
 func getOwnerInfo(jobInfo *api.JobInfo, vf VolcanoFrame) (OwnerInfo, error) {
 	owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
 	if owner.Kind != ReplicaSetType {
-		return OwnerInfo{
-			OwnerReference: owner,
-		}, nil
+		return OwnerInfo{OwnerReference: owner}, nil
 	}
 	rs, err := getReplicaSet(vf, jobInfo.Namespace, owner.Name)
 	if err != nil {
 		return OwnerInfo{}, err
 	}
-	return OwnerInfo{
-		OwnerReference: owner,
-		Replicas:       rs.Spec.Replicas,
-	}, nil
+	return OwnerInfo{OwnerReference: owner, Replicas: rs.Spec.Replicas}, nil
 }
 
 func getReplicaSet(vf VolcanoFrame, namespace, name string) (*appsv1.ReplicaSet, error) {

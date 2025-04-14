@@ -203,7 +203,7 @@ func (fJob *FaultJob) ForceDeleteJob(schedulerJob *plugin.SchedulerJob,
 	}
 	var isMasterFault bool
 	for _, fTask := range fJob.FaultTasks {
-		if fTask.IsFaultTask && fTask.NodeRankIndex == util.DefaultPodDeleteTimes {
+		if fTask.IsFaultTask && fTask.NodeRankIndex == util.Rank0 {
 			isMasterFault = true
 		}
 	}
@@ -494,7 +494,7 @@ func (fJob *FaultJob) getRestartInfos() (string, bool) {
 	var reasonList []FaultReasonList
 	var isMasterFault bool
 	for _, fTask := range fJob.FaultTasks {
-		if fTask.IsFaultTask && fTask.NodeRankIndex == util.DefaultPodDeleteTimes {
+		if fTask.IsFaultTask && fTask.NodeRankIndex == util.Rank0 {
 			isMasterFault = true
 		}
 		if fTask.Reason != nil {

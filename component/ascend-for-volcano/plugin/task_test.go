@@ -47,7 +47,7 @@ func buildNPUAllocateFuncTest() []npuAllocateFuncTest {
 	npuTask := util.NPUTask{
 		Name: task.Name, NameSpace: task.Namespace, ReqNPUName: name,
 		ReqNPUNum: num,
-		Selector:  getTaskSelectors(task), Label: getTaskLabels(task), VTask: &util.VTask{Type: util.JobTypeWhole}}
+		Label:     getTaskLabels(task), VTask: &util.VTask{}}
 	tests := []npuAllocateFuncTest{
 		{
 			name:   "01-NPUAllocateFunc task nil test",
@@ -237,7 +237,7 @@ func makeNPUDeallocateFuncTest08(vTask *api.TaskInfo) npuDeallocateFuncTest {
 		NPUJob: &util.NPUJob{
 			Tasks: map[api.TaskID]util.NPUTask{
 				vTask.UID: {ReqNPUName: test.NPU910CardName, ReqNPUNum: 1,
-					VTask: &util.VTask{Type: util.JobTypeWhole}}},
+					VTask: &util.VTask{}}},
 		},
 	}
 	tmpNPUNode := NPUNode{

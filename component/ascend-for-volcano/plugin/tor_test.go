@@ -101,7 +101,6 @@ func fakeNormalJob() SchedulerJob {
 	fakeJob := SchedulerJob{}
 	fakeJob.Name = "test"
 	fakeJob.NPUJob = &util.NPUJob{}
-	fakeJob.VJob = &util.VJob{}
 	fakeJob.Tasks = map[api.TaskID]util.NPUTask{
 		"test-pod":  {NodeName: ""},
 		"test-pod2": {NodeName: "node1"},

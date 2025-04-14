@@ -98,22 +98,6 @@ func (sHandle ScheduleHandler) isTaskNeedNPUAllocated(task *api.TaskInfo) bool {
 		klog.V(util.LogDebugLev).Infof("isTaskNeedNPUAllocated %s not npu task.", task.Name)
 		return false
 	}
-
-	vcJob, ok := sHandle.Jobs[task.Job]
-	if !ok {
-		klog.V(util.LogDebugLev).Infof("isTaskNeedNPUAllocated %s not in npu jobs.", task.Job)
-		return false
-	}
-	nTask, ok := vcJob.Tasks[task.UID]
-	if !ok {
-		klog.V(util.LogDebugLev).Infof("isTaskNeedNPUAllocated %s not in npu tasks.", task.Name)
-		return false
-	}
-	// static cut job no need allocated,it followed by kubelet in device-plugin.
-	if nTask.Type == util.JobTypeStCut {
-		klog.V(util.LogDebugLev).Infof("isTaskNeedNPUAllocated %s is static cut job.", task.Name)
-		return false
-	}
 	return true
 }
 

@@ -55,9 +55,7 @@ type TaskAllocated struct {
 // VTask virtual NPU task struct.
 type VTask struct {
 	// TASK_STATUS_INIT...
-	Status int
-	// type: JobTypeWhole, JobTypeDycut, JobTypeStcut.
-	Type      int
+	Status    int
 	Allocated TaskAllocated
 }
 
@@ -67,8 +65,6 @@ type NPUTask struct {
 	NameSpace  string
 	ReqNPUName string
 	ReqNPUNum  int
-	// Selector the same as job.
-	Selector   map[string]string
 	Annotation map[string]string
 	Label      map[string]string
 	NodeName   string
@@ -220,26 +216,6 @@ func (asTask *NPUTask) IsTaskInItsNode(ssn *framework.Session, nodeName string) 
 	return true
 }
 
-// ComputeTaskType compute the task's type.
-func (asTask *NPUTask) ComputeTaskType() int {
-	taskType := JobTypeUnknown
-	names := strings.Split(asTask.ReqNPUName, "-")
-	if len(names) == 1 {
-		taskType = JobTypeWhole
-	}
-	if strings.HasSuffix(asTask.ReqNPUName, "c") {
-		taskType = JobTypeStCut
-	}
-	if strings.Contains(asTask.ReqNPUName, "npu-core") {
-		taskType = JobTypeDyCut
-	}
-	return taskType
-}
-
-func (asTask *NPUTask) setVTaskType() {
-	asTask.VTask.Type = asTask.ComputeTaskType()
-}
-
 func getVTaskUsePhysicsNamesByInfo(taskInf *api.TaskInfo) []string {
 	value, ok := taskInf.Pod.Annotations[AscendNPUPodRealUse]
 	if !ok {
@@ -326,7 +302,6 @@ func (asTask *NPUTask) setVTaskStatusFromInfo(taskInf *api.TaskInfo) error {
 
 // InitVTask init vNPU task.
 func (asTask *NPUTask) InitVTask(taskInf *api.TaskInfo) error {
-	asTask.setVTaskType()
 	if setErr := asTask.setVTaskStatusFromInfo(taskInf); setErr != nil {
 		return setErr
 	}
@@ -336,7 +311,6 @@ func (asTask *NPUTask) InitVTask(taskInf *api.TaskInfo) error {
 
 // IsVNPUTask Determine whether is the NPU virtual task.
 // Dynamic segmentation: huawei.com/npu-core.
-// static segmentation: huawei.com/Ascend910-Y.
 // no segmentation: huawei.com/Ascend910.
 func (asTask *NPUTask) IsVNPUTask() bool {
 	if asTask == nil {
@@ -354,12 +328,4 @@ func (asTask *NPUTask) IsVNPUTask() bool {
 // no segmentation: huawei.com/Ascend910.
 func (asTask *NPUTask) IsNPUTask() bool {
 	return strings.Contains(asTask.ReqNPUName, HwPreName)
-}
-
-// ReferenceNameOfTask get pod OwnerReferences name
-func ReferenceNameOfTask(task *api.TaskInfo) string {
-	if task != nil && task.Pod != nil && len(task.Pod.OwnerReferences) > 0 {
-		return task.Pod.OwnerReferences[0].Name
-	}
-	return ""
 }

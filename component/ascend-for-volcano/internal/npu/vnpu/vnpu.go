@@ -145,10 +145,7 @@ func (tp *VirtualNPU) getAllNeedRestartDyTasks(env *plugin.ScheduleEnv, ssn *fra
 func (tp *VirtualNPU) getAllDyJobs(env *plugin.ScheduleEnv) map[api.JobID]plugin.SchedulerJob {
 	jobMap := make(map[api.JobID]plugin.SchedulerJob, util.MapInitNum)
 	for jobID, vJob := range env.Jobs {
-		if vJob.VJob == nil {
-			continue
-		}
-		if vJob.VJob.Type == util.JobTypeDyCut {
+		if vJob.ReqNPUName == util.AscendNPUCore {
 			jobMap[jobID] = vJob
 		}
 	}
