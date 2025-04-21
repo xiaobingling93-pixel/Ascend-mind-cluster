@@ -19,6 +19,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -69,7 +70,15 @@ func testMonitorMgrRun() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	haveStopped := false
+	const defaultReportInterval = 5
+	select {
+	case <-common.GetUpdateChan():
+		fmt.Println("clear update chan")
+	default:
+		fmt.Println("update chan already clear")
+	}
 	go func() {
+		common.ParamOption.ReportInterval = defaultReportInterval
 		monitorManager.Run(ctx)
 		haveStopped = true
 	}()
@@ -103,4 +112,35 @@ func testMonitorMgrExecute() {
 	var p1 = gomonkey.ApplyMethodReturn(&control.NodeController{}, "Execute")
 	defer p1.Reset()
 	monitorManager.Execute(testFaultDevInfo)
+}
+
+func TestParseTriggers(t *testing.T) {
+	deviceInfoHandled := false
+	patch := gomonkey.ApplyMethod(&MonitorManager{}, "Execute",
+		func(_ *MonitorManager, faultDevInfo *common.FaultDevInfo) {
+			deviceInfoHandled = true
+			return
+		})
+	defer patch.Reset()
+	convey.Convey("has signal, should update device info", t, func() {
+		select {
+		case common.GetUpdateChan() <- struct{}{}:
+			fmt.Print("send to update chane")
+		default:
+			fmt.Println("update channel is full")
+		}
+		monitorManager.parseTriggers()
+		convey.So(deviceInfoHandled, convey.ShouldBeTrue)
+	})
+	convey.Convey("no signal, should not update device info", t, func() {
+		deviceInfoHandled = false
+		select {
+		case <-common.GetUpdateChan():
+			fmt.Print("clear update chane")
+		default:
+			fmt.Println("update channel is empty")
+		}
+		monitorManager.parseTriggers()
+		convey.So(deviceInfoHandled, convey.ShouldBeFalse)
+	})
 }

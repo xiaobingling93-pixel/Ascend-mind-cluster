@@ -65,6 +65,10 @@ func (m *MonitorManager) Init() error {
 
 // Run working loop
 func (m *MonitorManager) Run(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(common.ParamOption.ReportInterval) * time.Second)
+	defer ticker.Stop()
+	triggerTicker := time.NewTicker(time.Second)
+	defer triggerTicker.Stop()
 	for {
 		select {
 		case _, ok := <-ctx.Done():
@@ -75,10 +79,21 @@ func (m *MonitorManager) Run(ctx context.Context) {
 			hwlog.RunLog.Info("receive stop signal, monitor manager shut down...")
 			m.Stop()
 			return
-		default:
+		case <-triggerTicker.C:
+			m.parseTriggers()
+		case <-ticker.C:
 			m.Execute(m.faultManager.GetFaultDevInfo())
-			time.Sleep(time.Duration(common.ParamOption.ReportInterval) * time.Second)
 		}
+	}
+}
+
+func (m *MonitorManager) parseTriggers() {
+	select {
+	case <-common.GetUpdateChan():
+		hwlog.RunLog.Info("receive update trigger, processing fault report")
+		m.Execute(m.faultManager.GetFaultDevInfo())
+	default:
+		hwlog.RunLog.Debug("No update trigger, skipping execute")
 	}
 }
 

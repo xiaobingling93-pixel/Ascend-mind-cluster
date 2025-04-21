@@ -17,6 +17,7 @@ package kubeclient
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"sync"
 	"time"
@@ -125,6 +126,7 @@ func UpdatePodList(newObj interface{}, operator EventType) {
 	default:
 		hwlog.RunLog.Errorf("operator is undefined, find operater: %s", operator)
 	}
+	common.TriggerUpdate(fmt.Sprintf("pod %v", string(operator)))
 }
 
 func (ki *ClientK8s) refreshPodList() {

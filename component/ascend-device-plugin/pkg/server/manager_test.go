@@ -1383,3 +1383,35 @@ func TestChipHotResetFor300IDuo(t *testing.T) {
 		})
 	}
 }
+
+func TestParseTriggers(t *testing.T) {
+	deviceInfoHandled := false
+	patch := gomonkey.ApplyPrivateMethod(&HwDevManager{}, "handleDeviceInfoUpdate",
+		func(_ *HwDevManager, initTime *time.Time) {
+			deviceInfoHandled = true
+		})
+	defer patch.Reset()
+	convey.Convey("has signal, should update device info", t, func() {
+		hdm := &HwDevManager{}
+		select {
+		case common.GetUpdateChan() <- struct{}{}:
+			fmt.Print("send to update chane")
+		default:
+			fmt.Println("update channel is full")
+		}
+		hdm.parseTriggers(time.Now())
+		convey.So(deviceInfoHandled, convey.ShouldBeTrue)
+	})
+	convey.Convey("no signal, should not update device info", t, func() {
+		hdm := &HwDevManager{}
+		deviceInfoHandled = false
+		select {
+		case <-common.GetUpdateChan():
+			fmt.Print("clear update chane")
+		default:
+			fmt.Println("update channel is empty")
+		}
+		hdm.parseTriggers(time.Now())
+		convey.So(deviceInfoHandled, convey.ShouldBeFalse)
+	})
+}

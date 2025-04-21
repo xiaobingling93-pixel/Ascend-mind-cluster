@@ -1171,6 +1171,9 @@ func DelOnceFrequencyFault() {
 
 // SaveDevFaultInfo save device fault info , subscribe interface call back function
 func SaveDevFaultInfo(devFaultInfo common.DevFaultInfo) {
+	defer func() {
+		TriggerUpdate("A fault has occurred")
+	}()
 	hwlog.RunLog.Infof("receive devFaultInfo: %v, hex code: %v", devFaultInfo,
 		strconv.FormatInt(devFaultInfo.EventID, Hex))
 	if devFaultInfo.EventID == 0 {

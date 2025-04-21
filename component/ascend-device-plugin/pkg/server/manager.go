@@ -398,6 +398,29 @@ func (hdm *HwDevManager) separateNPUIDFromDeviceInfoIntoCache() {
 	}
 }
 
+func (hdm *HwDevManager) handleDeviceInfoUpdate(initTime *time.Time) {
+	common.LockAllDeviceInfo()
+	defer common.UnlockAllDeviceInfo()
+
+	if err := hdm.updateAllInfo(); err != nil {
+		hwlog.RunLog.Error(err)
+		return
+	}
+
+	// complete the fault codes that cannot be reported by the event subscribe interface
+	hdm.mendSubscribeFaultEvents()
+	hdm.updateDeviceUsedInfo(hdm.groupDevice)
+	hdm.notifyToK8s(initTime)
+
+	// if node annotation has reset fail devices but all devices are healthy, clear node annotation
+	hdm.checkNodeResetInfo()
+	hdm.useVolcanoNotify()
+	hdm.chipHotReset()
+	common.DelOnceRecoverFault(hdm.groupDevice)
+	common.DelOnceFrequencyFault()
+	common.Synchronize = true
+}
+
 // ListenDevice ListenDevice coroutine
 func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 	hwlog.RunLog.Info("starting the listen device")
@@ -414,7 +437,13 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 	if common.ParamOption.CheckCachedPods {
 		go hdm.manager.GetKubeClient().PodInformerInspector(ctx)
 	}
+
 	initTime := time.Now()
+	ticker := time.NewTicker(time.Duration(common.ParamOption.ListAndWatchPeriod) * time.Second)
+	defer ticker.Stop()
+	triggerTicker := time.NewTicker(time.Second)
+	defer triggerTicker.Stop()
+
 	for {
 		select {
 		case _, ok := <-ctx.Done():
@@ -423,30 +452,22 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 			}
 			hwlog.RunLog.Info("listen device stop")
 			return
-		default:
-			time.Sleep(time.Duration(common.ParamOption.ListAndWatchPeriod) * time.Second)
-			common.LockAllDeviceInfo()
-			if err := hdm.updateAllInfo(); err != nil {
-				hwlog.RunLog.Error(err)
-				common.UnlockAllDeviceInfo()
-				continue
-			}
-			// complete the fault codes that cannot be reported by the event subscribe interface
-			hdm.mendSubscribeFaultEvents()
-
-			hdm.updateDeviceUsedInfo(hdm.groupDevice)
-			hdm.notifyToK8s(&initTime)
-
-			// if node annotation has reset fail devices but all devices are healthy, clear node annotation
-			hdm.checkNodeResetInfo()
-
-			hdm.useVolcanoNotify()
-			hdm.chipHotReset()
-			common.DelOnceRecoverFault(hdm.groupDevice)
-			common.DelOnceFrequencyFault()
-			common.UnlockAllDeviceInfo()
-			common.Synchronize = true
+		case <-triggerTicker.C:
+			hdm.parseTriggers(initTime)
+		case <-ticker.C:
+			hwlog.RunLog.Debug("Periodic device info update")
+			hdm.handleDeviceInfoUpdate(&initTime)
 		}
+	}
+}
+
+func (hdm *HwDevManager) parseTriggers(initTime time.Time) {
+	select {
+	case <-common.GetUpdateChan():
+		hwlog.RunLog.Info("Received update trigger, processing device info update")
+		hdm.handleDeviceInfoUpdate(&initTime)
+	default:
+		hwlog.RunLog.Debug("No update trigger, skipping device info update")
 	}
 }
 

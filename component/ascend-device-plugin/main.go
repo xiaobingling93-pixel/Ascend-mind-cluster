@@ -36,7 +36,7 @@ const (
 	defaultListWatchPeriod = 5
 
 	// maxListWatchPeriod is the max listening device state's period
-	maxListWatchPeriod = 60
+	maxListWatchPeriod = 1800
 	// minListWatchPeriod is the min listening device state's period
 	minListWatchPeriod = 3
 	maxLogLineLength   = 1024
@@ -59,7 +59,7 @@ var (
 	edgeLogFile = flag.String("edgeLogFile", "/var/alog/AtlasEdge_log/devicePlugin.log",
 		"Log file path in edge scene")
 	listWatchPeriod = flag.Int("listWatchPeriod", defaultListWatchPeriod,
-		"Listen and watch device state's period, unit second, range [3, 60]")
+		"Listen and watch device state's period, unit second, range [3, 1800]")
 	autoStowing = flag.Bool("autoStowing", true, "Whether to automatically stow the fixed device")
 	logLevel    = flag.Int("logLevel", 0,
 		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-critical(default 0)")

@@ -157,6 +157,9 @@ func (sdm *SwitchDevManager) ShutDownSwitch() {
 
 //export goFaultEventHandler
 func goFaultEventHandler(event *C.struct_LqDcmiEvent) {
+	defer func() {
+		common.TriggerUpdate("switch fault occur")
+	}()
 	// faultEventHandler callback function for subscribe mod, which will receive fault code when fault happens
 	faultEvent := convertFaultEvent(event)
 	hwlog.RunLog.Warnf("switch subscribe got fault:%s, faultCode:%v",

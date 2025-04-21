@@ -52,6 +52,8 @@ var (
 		"ascend310":   regexp.MustCompile(`^Ascend310-\d+`),
 		"ascend310P":  regexp.MustCompile(`^Ascend310P-\d+`),
 	}
+	// updateTriggerChan is a channel to trigger device info update
+	updateTriggerChan = make(chan struct{}, 1)
 )
 
 // ServerInfo used for pass parameters
@@ -684,4 +686,19 @@ func CompareStringSetMap(map1, map2 map[string]sets.String) bool {
 		}
 	}
 	return true
+}
+
+// TriggerUpdate send signal to UpdateTriggerChan to trigger device info update
+func TriggerUpdate(msg string) {
+	select {
+	case updateTriggerChan <- struct{}{}:
+		hwlog.RunLog.Infof("update signal send, %s", msg)
+	default:
+		hwlog.RunLog.Debugf("update signal exists, receive %s", msg)
+	}
+}
+
+// GetUpdateChan get update trigger chan
+func GetUpdateChan() chan struct{} {
+	return updateTriggerChan
 }

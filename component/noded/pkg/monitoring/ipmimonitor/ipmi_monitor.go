@@ -101,6 +101,7 @@ func (i *IpmiEventMonitor) UpdateFaultDevList() error {
 	}
 	printFaultEvents(currentAlarmFaultEvents)
 	i.faultManager.SetFaultDevList(GetFaultDevList(currentAlarmFaultEvents))
+	common.TriggerUpdate("fault device list updated")
 	return nil
 }
 
