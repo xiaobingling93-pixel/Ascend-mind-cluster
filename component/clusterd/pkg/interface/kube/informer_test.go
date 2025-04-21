@@ -10,6 +10,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"ascend-common/api"
 	"clusterd/pkg/common/constant"
@@ -158,5 +159,68 @@ func TestConfigMapIsEpRankTableInfo(t *testing.T) {
 			result := checkConfigMapIsEpRankTableInfo(cm)
 			convey.So(result, convey.ShouldBeFalse)
 		})
+	})
+}
+
+func TestAddPodGroupFunc(t *testing.T) {
+	convey.Convey("Test AddPodGroupFunc", t, func() {
+		business := "testBusiness"
+		func1 := func(pg1, pg2 *v1beta1.PodGroup, s string) {}
+		AddPodGroupFunc(business, func1)
+		convey.So(len(podGroupFuncs[business]), convey.ShouldEqual, 1)
+	})
+}
+
+func TestAddPodFunc(t *testing.T) {
+	convey.Convey("Test AddPodFunc", t, func() {
+		business := "testBusiness"
+		func1 := func(p1, p2 *v1.Pod, s string) {}
+		AddPodFunc(business, func1)
+		convey.So(len(podFuncs[business]), convey.ShouldEqual, 1)
+	})
+}
+
+func TestAddNodeFunc(t *testing.T) {
+	convey.Convey("Test AddNodeFunc", t, func() {
+		business := "testBusiness"
+		func1 := func(n1, n2 *v1.Node, s string) {}
+		AddNodeFunc(business, func1)
+		convey.So(len(nodeFuncs[business]), convey.ShouldEqual, 1)
+	})
+}
+
+func TestCheckConfigMapIsSwitchInfo(t *testing.T) {
+	convey.Convey("Test checkConfigMapIsSwitchInfo", t, func() {
+		patch := gomonkey.ApplyFuncReturn(util.IsNSAndNameMatched, true)
+		value := checkConfigMapIsSwitchInfo(nil)
+		convey.ShouldBeTrue(value)
+		patch.Reset()
+
+		patch = gomonkey.ApplyFuncReturn(util.IsNSAndNameMatched, false)
+		value = checkConfigMapIsSwitchInfo(nil)
+		convey.ShouldBeFalse(value)
+		patch.Reset()
+	})
+}
+
+func TestAddCmPubFaultFunc(t *testing.T) {
+	convey.Convey("Test AddCmPubFaultFunc", t, func() {
+		business := "testBusiness"
+		func1 := func(pf1, pf2 *api.PubFaultInfo, s string) {}
+
+		AddCmPubFaultFunc(business, func1)
+
+		convey.So(len(cmPubFaultFuncs[business]), convey.ShouldEqual, 1)
+	})
+}
+
+func TestAddCmRankTableFunc(t *testing.T) {
+	convey.Convey("Test AddCmRankTableFunc", t, func() {
+		business := "testBusiness"
+		func1 := func(i1, i2 interface{}, s string) {}
+
+		AddCmRankTableFunc(business, func1)
+
+		convey.So(len(cmRankTableFuncs[business]), convey.ShouldEqual, 1)
 	})
 }

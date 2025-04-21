@@ -2615,3 +2615,131 @@ func TestEventController_handleFaultRetry_Success(t *testing.T) {
 		convey.So(event, convey.ShouldEqual, common.FinishEvent)
 	})
 }
+
+func TestPGStatusEnqueue(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{JobId: "testJobId"},
+		uuid:    "testUuid",
+	}
+	convey.Convey("Test pgStatusEnqueue method", t, func() {
+		convey.Convey("Test the case where the channel is nil", func() {
+			patcher := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndScheduleResultChan",
+				func() (context.Context, chan bool) {
+					return context.Background(), nil
+				})
+			defer patcher.Reset()
+			ctl.pgStatusEnqueue(true)
+			convey.So(func() { ctl.pgStatusEnqueue(true) }, convey.ShouldNotPanic)
+		})
+		convey.Convey("Test the case of normal enqueue", func() {
+			ch := make(chan bool, 1)
+			patcher := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndScheduleResultChan",
+				func() (context.Context, chan bool) {
+					return context.Background(), ch
+				})
+			defer patcher.Reset()
+			ctl.pgStatusEnqueue(true)
+			result := <-ch
+			convey.So(result, convey.ShouldBeTrue)
+		})
+		convey.Convey("Test the case where the context is canceled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			patcher := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndScheduleResultChan",
+				func() (context.Context, chan bool) {
+					return ctx, make(chan bool)
+				})
+			defer patcher.Reset()
+			ctl.pgStatusEnqueue(true)
+			convey.So(func() { ctl.pgStatusEnqueue(true) }, convey.ShouldNotPanic)
+		})
+		convey.Convey("Test the case of enqueue timeout", func() {
+			patcher := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndScheduleResultChan",
+				func() (context.Context, chan bool) {
+					return context.Background(), make(chan bool)
+				})
+			defer patcher.Reset()
+			ctl.pgStatusEnqueue(true)
+			convey.So(func() { ctl.pgStatusEnqueue(true) }, convey.ShouldNotPanic)
+		})
+	})
+}
+
+func TestSelectEventChan_EventChanNil(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{
+			JobId: "testJobId",
+		},
+		uuid: "testUuid",
+	}
+	convey.Convey("Test the case where the eventChan is nil", t, func() {
+		result := ctl.selectEventChan(context.Background(), nil)
+		convey.So(result, convey.ShouldBeTrue)
+	})
+}
+
+func TestSelectEventChan_ContextCanceled(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{
+			JobId: "testJobId",
+		},
+		uuid: "testUuid",
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	eventChan := make(chan string)
+	convey.Convey("Test the case where the context is canceled", t, func() {
+		result := ctl.selectEventChan(ctx, eventChan)
+		convey.So(result, convey.ShouldBeTrue)
+	})
+}
+
+func TestSelectEventChan_TriggerReturnsError(t *testing.T) {
+	jobInfo := newJobInfoWithStrategy(nil)
+	serviceCtx := context.Background()
+	ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+	eventChan := make(chan string, 1)
+	eventChan <- "testEvent"
+	convey.Convey("Test the case where the eventChan receives an event and trigger returns an error", t, func() {
+		resetPatcher := gomonkey.ApplyPrivateMethod(ctl, "reset", func(_ *EventController) {})
+		defer resetPatcher.Reset()
+		result := ctl.selectEventChan(context.Background(), eventChan)
+		convey.So(result, convey.ShouldBeTrue)
+	})
+}
+
+func TestSelectEventChan_TriggerReturnsNoErrorAndNextEventNotEmpty(t *testing.T) {
+	jobInfo := newJobInfoWithStrategy(nil)
+	serviceCtx := context.Background()
+	ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+	eventChan := make(chan string, 1)
+	eventChan <- common.FaultOccurEvent
+
+	patches := gomonkey.ApplyFuncReturn(common.WriteResetInfoToCM, nil, nil).
+		ApplyPrivateMethod(ctl, "handleNotifyWaitFaultFlushing",
+			func() (string, common.RespCode, error) {
+				return "", common.OK, nil
+			})
+	defer patches.Reset()
+
+	convey.Convey("Test the case where the eventChan receives an event and trigger returns no error and nextEvent is not empty",
+		t, func() {
+			result := ctl.selectEventChan(context.Background(), eventChan)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+}
+
+func TestSelectEventChan_EventChanClosed(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{
+			JobId: "testJobId",
+		},
+		uuid: "testUuid",
+	}
+	eventChan := make(chan string)
+	close(eventChan)
+	convey.Convey("Test the case where the eventChan is closed", t, func() {
+		result := ctl.selectEventChan(context.Background(), eventChan)
+		convey.So(result, convey.ShouldBeTrue)
+	})
+}

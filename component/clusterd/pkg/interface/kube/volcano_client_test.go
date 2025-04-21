@@ -9,8 +9,11 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
 )
 
@@ -37,5 +40,125 @@ func TestNewVCClientK8s(t *testing.T) {
 			convey.So(err, convey.ShouldNotBeNil)
 			convey.So(client, convey.ShouldBeNil)
 		})
+	})
+}
+
+func mockBuildConfigFromFlags(masterUrl, kubeconfigPath string) (*rest.Config, error) {
+	return &rest.Config{
+		Host: "http://example.com",
+	}, nil
+}
+
+func mockNewForConfig(config *rest.Config) (*versioned.Clientset, error) {
+	return &versioned.Clientset{}, nil
+}
+
+func mockGetPodGroup(name, namespace string) (*v1beta1.PodGroup, error) {
+	return &v1beta1.PodGroup{}, nil
+}
+
+func mockUpdatePodGroup(pg *v1beta1.PodGroup) (*v1beta1.PodGroup, error) {
+	return &v1beta1.PodGroup{}, nil
+}
+
+func mockPatchPodGroup(name, namespace string, pt types.PatchType,
+	data []byte, opts v1.PatchOptions) (*v1beta1.PodGroup, error) {
+	return &v1beta1.PodGroup{}, nil
+}
+
+func TestInitClientVolcano(t *testing.T) {
+	convey.Convey("Test InitClientVolcano", t, func() {
+		patcher1 := gomonkey.ApplyFunc(clientcmd.BuildConfigFromFlags, mockBuildConfigFromFlags)
+		defer patcher1.Reset()
+
+		patcher2 := gomonkey.ApplyFunc(versioned.NewForConfig, mockNewForConfig)
+		defer patcher2.Reset()
+
+		client, err := InitClientVolcano()
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(client, convey.ShouldNotBeNil)
+	})
+}
+
+func TestGetClientVolcano(t *testing.T) {
+	convey.Convey("Test GetClientVolcano", t, func() {
+		patcher1 := gomonkey.ApplyFunc(clientcmd.BuildConfigFromFlags, mockBuildConfigFromFlags)
+		defer patcher1.Reset()
+
+		patcher2 := gomonkey.ApplyFunc(versioned.NewForConfig, mockNewForConfig)
+		defer patcher2.Reset()
+
+		_, err := InitClientVolcano()
+		convey.So(err, convey.ShouldBeNil)
+
+		client := GetClientVolcano()
+		convey.So(client, convey.ShouldNotBeNil)
+	})
+}
+
+func TestRetryGetPodGroup(t *testing.T) {
+	convey.Convey("Test RetryGetPodGroup", t, func() {
+		name := "testName"
+		namespace := "testNamespace"
+		retryTimes := 3
+
+		patcher := gomonkey.ApplyFunc(GetPodGroup, mockGetPodGroup)
+		defer patcher.Reset()
+
+		pg, err := RetryGetPodGroup(name, namespace, retryTimes)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(pg, convey.ShouldNotBeNil)
+	})
+}
+
+func TestRetryUpdatePodGroup(t *testing.T) {
+	convey.Convey("Test RetryUpdatePodGroup", t, func() {
+		pg := &v1beta1.PodGroup{}
+		retryTimes := 3
+
+		patcher := gomonkey.ApplyFunc(UpdatePodGroup, mockUpdatePodGroup)
+		defer patcher.Reset()
+
+		pgResult, err := RetryUpdatePodGroup(pg, retryTimes)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(pgResult, convey.ShouldNotBeNil)
+	})
+}
+
+func TestRetryPatchPodGroupAnnotations(t *testing.T) {
+	convey.Convey("Test RetryPatchPodGroupAnnotations", t, func() {
+		pgName := "testPgName"
+		pgNamespace := "testPgNamespace"
+		retryTimes := 1
+		annotations := map[string]string{"key": "value"}
+
+		patcher := gomonkey.ApplyFunc(patchPodGroupAnnotation,
+			func(_, _ string, _ map[string]string) (*v1beta1.PodGroup, error) {
+				return &v1beta1.PodGroup{}, nil
+			})
+		defer patcher.Reset()
+
+		pg, err := RetryPatchPodGroupAnnotations(pgName, pgNamespace, retryTimes, annotations)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(pg, convey.ShouldNotBeNil)
+	})
+}
+
+func TestRetryPatchPodGroupLabel(t *testing.T) {
+	convey.Convey("Test RetryPatchPodGroupLabel", t, func() {
+		pgName := "testPgName"
+		nameSpace := "testNameSpace"
+		retryTimes := 3
+		labels := map[string]string{"key": "value"}
+
+		patcher := gomonkey.ApplyFunc(patchPodGroupLabel,
+			func(_, _ string, _ map[string]string) (*v1beta1.PodGroup, error) {
+				return &v1beta1.PodGroup{}, nil
+			})
+		defer patcher.Reset()
+
+		pg, err := RetryPatchPodGroupLabel(pgName, nameSpace, retryTimes, labels)
+		convey.So(err, convey.ShouldBeNil)
+		convey.So(pg, convey.ShouldNotBeNil)
 	})
 }
