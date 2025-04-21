@@ -313,7 +313,7 @@ func getValidMainBoardInfo(dcMgr dcmi.DcDriverInterface) (uint32, error) {
 		for devID := int32(0); devID < devNum; devID++ {
 			mainBoardId, err := dcMgr.DcGetDeviceMainBoardInfo(cardID, devID)
 			if err != nil {
-				hwlog.RunLog.Warn(err)
+				hwlog.RunLog.Debug(err)
 				continue
 			}
 			if !common.IsValidMainBoardInfo(mainBoardId) {

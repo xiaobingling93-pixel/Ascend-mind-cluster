@@ -27,7 +27,8 @@ import (
 )
 
 // StartContainerInfoCollect start collect container info
-func StartContainerInfoCollect(ctx context.Context, cancelFunc context.CancelFunc, group *sync.WaitGroup, n *NpuCollector) {
+func StartContainerInfoCollect(ctx context.Context, cancelFunc context.CancelFunc, group *sync.WaitGroup,
+	n *NpuCollector) {
 	group.Add(1)
 
 	go func() {

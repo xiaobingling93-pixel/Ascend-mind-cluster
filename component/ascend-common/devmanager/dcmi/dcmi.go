@@ -545,6 +545,34 @@ const (
 )
 
 var faultEventCallFunc func(common.DevFaultInfo) = nil
+var (
+	dcmiErrMap = map[int32]string{
+		-8001:  "The input parameter is incorrect",
+		-8002:  "Permission error",
+		-8003:  "The memory interface operation failed",
+		-8004:  "The security function failed to be executed",
+		-8005:  "Internal errors",
+		-8006:  "Response timed out",
+		-8007:  "Invalid deviceID",
+		-8008:  "The device does not exist",
+		-8009:  "ioctl returns failed",
+		-8010:  "The message failed to be sent",
+		-8011:  "Message reception failed",
+		-8012:  "Not ready yet,please try again",
+		-8013:  "This API is not supported in containers",
+		-8014:  "The file operation failed",
+		-8015:  "Reset failed",
+		-8016:  "Reset cancels",
+		-8017:  "Upgrading",
+		-8020:  "Device resources are occupied",
+		-8022:  "Partition consistency check,inconsistent partitions were found",
+		-8023:  "The configuration information does not exist",
+		-8255:  "Device ID/function is not supported",
+		-99997: "dcmi shutdown failed",
+		-99998: "The called function is missing,please upgrade the driver",
+		-99999: "dcmi libdcmi.so failed to load",
+	}
+)
 
 // DcManager for manager dcmi interface
 type DcManager struct{}
@@ -2073,5 +2101,10 @@ func (d *DcManager) DcGetDeviceMainBoardInfo(cardID, deviceID int32) (uint32, er
 	return uint32(cMainBoardId), nil
 }
 func buildDcmiErr(cardID, deviceID int32, msg string, errCode C.int) error {
-	return fmt.Errorf("cardID(%d),deviceID(%d):  get %s info failed,error code : %v", cardID, deviceID, msg, errCode)
+	errDesc, ok := dcmiErrMap[int32(errCode)]
+	if !ok {
+		errDesc = "unknown error code"
+	}
+	return fmt.Errorf("cardID(%d),deviceID(%d):get %s info failed,error code: %v,error desc: %v",
+		cardID, deviceID, msg, errCode, errDesc)
 }
