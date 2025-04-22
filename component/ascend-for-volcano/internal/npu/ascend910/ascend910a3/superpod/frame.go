@@ -191,7 +191,7 @@ func (tp *module910SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.
 		nodes = tp.selectNodesWithLeastResourceForSingle(nodes)
 	}
 
-	if tp.NPUTaskNum > len(nodes) {
+	if tp.NPUTaskNum > len(nodes) && tp.SchedulingTaskNum == len(tp.Tasks) {
 		*job.JobReadyTag = false
 		return fmt.Errorf("select node failed by not enough node")
 	}
@@ -774,7 +774,8 @@ func (tp *module910SuperPod) selectFromSuperPodsWithSoftStrategy(unReadyID []str
 		return
 	}
 	recorder := &vPodIdRecorder{unReadyId: unReadyID, leftIndex: *totalCount - 1, rightIndex: tp.NPUTaskNum / tp.spBlock}
-	klog.V(util.LogInfoLev).Infof("select from super pods which is less than sp block, totalNodes: %d", needNode)
+	klog.V(util.LogWarningLev).Infof("select from super pods which is less than sp block, totalNodes: %d", needNode)
+	klog.V(util.LogWarningLev).Infof("job <%s> will scheduling as soft stategy", tp.Name)
 	for i := tp.spBlock - 1; i >= 0; i-- {
 		for j := 0; j < len(spi.firstLevel[0]); j++ {
 			if needNode <= 0 {
