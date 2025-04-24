@@ -5,6 +5,7 @@ package epranktable
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/api/core/v1"
@@ -110,30 +111,28 @@ func parseMindIeRankTableCM(obj interface{}) (*A2RankTable, error) {
 	return &a2RankTable, nil
 }
 
-// GetServerIdAndIp get server id and ip
-func GetServerIdAndIp(nameSpace, jobId, appType string) (string, string, error) {
+func getPdDeployModeServers(nameSpace, jobId, appType string) ([]*PdDeployModeServer, error) {
 	serverJobKey, err := job.GetInstanceJobKey(jobId, nameSpace, appType)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	podMap := pod.GetPodByJobId(serverJobKey)
-	// later modifications are needed, as the controller may have multiple pods
-	if len(podMap) == 0 || len(podMap) > 1 {
-		return "", "", fmt.Errorf(appType + " server pod num is not 1")
+
+	if len(podMap) == 0 {
+		return nil, fmt.Errorf("%s server pod num is 0", appType)
 	}
 
-	var serverPod v1.Pod
+	var servers []*PdDeployModeServer
 	for _, item := range podMap {
-		serverPod = item
-		break
+		if item.Status.HostIP == "" || item.Status.PodIP == "" {
+			return nil, fmt.Errorf("%s server pod is not scheduled", appType)
+		}
+		servers = append(servers, &PdDeployModeServer{
+			ServerID:    item.Status.HostIP,
+			ContainerIP: item.Status.PodIP,
+		})
 	}
-	// 如果pod还未被调度
-	if serverPod.Spec.NodeName == "" {
-		return "", "", fmt.Errorf(appType + " server pod is not scheduled")
-	}
-	serverId := serverPod.Status.HostIP
-	serverIp := serverPod.Status.PodIP
-	return serverId, serverIp, nil
+	return servers, nil
 }
 
 // GetA2RankTableList get completed a2 rank table list
@@ -167,7 +166,7 @@ func GetA2RankTableList(message *GenerateGlobalRankTableMessage) ([]*A2RankTable
 func GenerateServerGroup0Or1(message *GenerateGlobalRankTableMessage, appType string) (*ServerGroup, error) {
 	jobId := message.JobId
 	nameSpace := message.Namespace
-	serverId, serverIp, err := GetServerIdAndIp(nameSpace, jobId, appType)
+	servers, err := getPdDeployModeServers(nameSpace, jobId, appType)
 	if err != nil {
 		hwlog.RunLog.Errorf("get %s server id and ip failed, err: %v", appType, err)
 		return nil, err
@@ -178,13 +177,8 @@ func GenerateServerGroup0Or1(message *GenerateGlobalRankTableMessage, appType st
 	}
 	serverGroup := &ServerGroup{
 		GroupId:     groupId,
-		ServerCount: constant.ServerCountGroupId0Or1,
-		ServerList: []*PdDeployModeServer{
-			{
-				ServerID:    serverId,
-				ContainerIP: serverIp,
-			},
-		},
+		ServerCount: strconv.Itoa(len(servers)),
+		ServerList:  servers,
 	}
 	return serverGroup, nil
 }

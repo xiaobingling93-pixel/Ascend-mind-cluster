@@ -100,7 +100,7 @@ func TestParseMindIeRankTableCM(t *testing.T) {
 func TestGetServerIdAndIp(t *testing.T) {
 	convey.Convey("test GetServerIdAndIp", t, func() {
 		convey.Convey("when GetInstanceJobKey fails", func() {
-			_, _, err := GetServerIdAndIp(namespace, jobId, appType)
+			_, err := getPdDeployModeServers(namespace, jobId, appType)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 		mockGetInstanceJobKey := gomonkey.ApplyFunc(job.GetInstanceJobKey, func(_, _, _ string) (string, error) {
@@ -108,8 +108,8 @@ func TestGetServerIdAndIp(t *testing.T) {
 		})
 		convey.Convey("when GetPodByJobId fails", func() {
 			defer mockGetInstanceJobKey.Reset()
-			_, _, err := GetServerIdAndIp(namespace, jobId, appType)
-			convey.So(err, convey.ShouldResemble, fmt.Errorf(appType+" server pod num is not 1"))
+			_, err := getPdDeployModeServers(namespace, jobId, appType)
+			convey.So(err, convey.ShouldResemble, fmt.Errorf(appType+" server pod num is 0"))
 		})
 		convey.Convey("when pod is not scheduled", func() {
 			defer mockGetInstanceJobKey.Reset()
@@ -122,7 +122,7 @@ func TestGetServerIdAndIp(t *testing.T) {
 				return podMap
 			})
 			defer mockGetPodByJobId.Reset()
-			_, _, err := GetServerIdAndIp(namespace, jobId, appType)
+			_, err := getPdDeployModeServers(namespace, jobId, appType)
 			convey.So(err, convey.ShouldResemble, fmt.Errorf(appType+" server pod is not scheduled"))
 		})
 		convey.Convey("when pod is scheduled", func() {
@@ -141,10 +141,10 @@ func TestGetServerIdAndIp(t *testing.T) {
 				}
 			})
 			defer mockGetPodByJobId.Reset()
-			id, ip, err := GetServerIdAndIp(namespace, jobId, appType)
+			servers, err := getPdDeployModeServers(namespace, jobId, appType)
 			convey.So(err, convey.ShouldBeNil)
-			convey.So(id, convey.ShouldEqual, serverId)
-			convey.So(ip, convey.ShouldEqual, serverIp)
+			convey.So(servers[0].ServerID, convey.ShouldEqual, serverId)
+			convey.So(servers[0].ContainerIP, convey.ShouldEqual, serverIp)
 		})
 	})
 }
@@ -188,18 +188,23 @@ func TestGetA2RankTableList(t *testing.T) {
 func TestGenerateServerGroup0Or1(t *testing.T) {
 	convey.Convey("test GenerateServerGroup0Or1", t, func() {
 		convey.Convey("when GetServerIdAndIp fails", func() {
-			mockGetServerIdAndIp := gomonkey.ApplyFunc(GetServerIdAndIp,
-				func(_, _, _ string) (string, string, error) {
-					return "", "", fmt.Errorf("error")
+			mockGetServerIdAndIp := gomonkey.ApplyFunc(getPdDeployModeServers,
+				func(_, _, _ string) ([]*PdDeployModeServer, error) {
+					return nil, fmt.Errorf("error")
 				})
 			defer mockGetServerIdAndIp.Reset()
 			_, err := GenerateServerGroup0Or1(message, appType)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 		convey.Convey("when group is 0 and 1 ", func() {
-			mockGetServerIdAndIp := gomonkey.ApplyFunc(GetServerIdAndIp,
-				func(_, _, _ string) (string, string, error) {
-					return serverId, serverIp, nil
+			mockGetServerIdAndIp := gomonkey.ApplyFunc(getPdDeployModeServers,
+				func(_, _, _ string) ([]*PdDeployModeServer, error) {
+					return []*PdDeployModeServer{
+						{
+							ServerID:    serverId,
+							ContainerIP: serverIp,
+						},
+					}, nil
 				})
 			defer mockGetServerIdAndIp.Reset()
 			group, err := GenerateServerGroup0Or1(message, constant.CoordinatorAppType)
