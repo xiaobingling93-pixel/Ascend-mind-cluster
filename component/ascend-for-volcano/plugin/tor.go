@@ -22,9 +22,11 @@ package plugin
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
@@ -35,37 +37,75 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 )
 
-// InitTorNodeInfo init tor node if basic tor node configmap exits
+// InitTorNodeInfo initializes Tor node information if the basic Tor node configmap exists
 func (sHandle *ScheduleHandler) InitTorNodeInfo(ssn *framework.Session) {
-	if sHandle == nil || ssn == nil {
-		klog.V(util.LogErrorLev).Infof("InitTorNodeInfo failed, err: %s", util.ArgumentError)
+	if err := sHandle.validateInitParams(ssn); err != nil {
+		klog.V(util.LogErrorLev).Infof("InitTorNodeInfo validation failed: %v", err)
 		return
 	}
 	sHandle.Tors = nil
-	cm, err := k8s.GetTorNodeWithOneMinuteDelay(ssn.KubeClient(), util.DevInfoNameSpace, TorNodeCMName)
+	cm, err := sHandle.getTorConfigMap(ssn)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			klog.V(util.LogWarningLev).Infof("Get Tor-Node configmap failed, err: %s", util.SafePrint(err))
-		}
+		return
+	}
+	torList, err := sHandle.initTorListFromConfigMap(cm)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("Failed to initialize Tor list: %v", err)
 		return
 	}
 
+	sHandle.Tors = torList
+}
+
+// validateInitParams checks if required parameters are valid
+func (sHandle *ScheduleHandler) validateInitParams(ssn *framework.Session) error {
+	if sHandle == nil || ssn == nil {
+		return fmt.Errorf("invalid parameters: %s", util.ArgumentError)
+	}
+	return nil
+}
+
+// getTorConfigMap retrieves Tor configmap from Kubernetes
+func (sHandle *ScheduleHandler) getTorConfigMap(ssn *framework.Session) (*v1.ConfigMap, error) {
+	cm, err := k8s.GetTorNodeWithOneMinuteDelay(ssn.KubeClient(), util.DevInfoNameSpace, TorNodeCMName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			klog.V(util.LogWarningLev).Infof("Failed to get Tor configmap: %v", err)
+		}
+		return nil, err
+	}
+	return cm, nil
+}
+
+// initTorListFromConfigMap initializes TorList from configmap data
+func (sHandle *ScheduleHandler) initTorListFromConfigMap(cm *v1.ConfigMap) (*TorList, error) {
 	torList := &TorList{
-		torIpMap:   map[string]string{},
-		torMaps:    map[string]*Tor{},
-		serverMaps: map[string]*Server{},
+		torIpMap:   make(map[string]string),
+		torMaps:    make(map[string]*Tor),
+		serverMaps: make(map[string]*Server),
 	}
-	if err = json.Unmarshal([]byte(cm.Data[TorInfoCMKey]), torList); err != nil {
-		klog.V(util.LogErrorLev).Infof("Unmarshal tor node from cache failed %s", util.SafePrint(err))
-		return
+
+	if err := json.Unmarshal([]byte(cm.Data[TorInfoCMKey]), torList); err != nil {
+		return nil, fmt.Errorf("unmarshal Tor config failed: %w", err)
 	}
+
+	if err := sHandle.configureTorList(torList, cm); err != nil {
+		return nil, err
+	}
+
+	return torList, nil
+}
+
+// configureTorList configures TorList with additional settings
+func (sHandle *ScheduleHandler) configureTorList(torList *TorList, cm *v1.ConfigMap) error {
+	if len(torList.Tors) == 0 {
+		klog.V(util.LogDebugLev).Info("Empty Tor configmap, skipping initialization")
+		return fmt.Errorf("empty Tor configuration")
+	}
+
 	if level, ok := cm.Data[TorLevelCMKey]; ok {
 		torList.TorLevel = level
-		klog.V(util.LogInfoLev).Infof("basic tor level is %s", level)
-	}
-	if len(torList.Tors) == 0 {
-		klog.V(util.LogDebugLev).Infof("basic tor node configmap is nil, stop tor node init")
-		return
+		klog.V(util.LogInfoLev).Infof("Initialized Tor level: %s", level)
 	}
 
 	torList.nslbVersion = sHandle.FrameAttr.NslbVersion
@@ -74,12 +114,12 @@ func (sHandle *ScheduleHandler) InitTorNodeInfo(ssn *framework.Session) {
 	torList.initNodeNameByNodeIp(sHandle.Nodes)
 	torList.syncBySsnJobs(sHandle.Jobs)
 	torList.initTorMaps()
+
 	if torList.nslbVersion == NSLB2Version {
 		torList.initTorShareStatus(sHandle.Jobs)
 	}
 
-	// refresh every ssn
-	sHandle.Tors = torList
+	return nil
 }
 
 // TorList tor info about nodes
