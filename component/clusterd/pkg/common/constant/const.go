@@ -89,8 +89,6 @@ const (
 const (
 	// MaxUuidRandomLength max uuid random length
 	MaxUuidRandomLength = 32
-	// StateTimeoutSecond state time out second
-	StateTimeoutSecond = 600
 	// CheckPGRunningRetryTimes check pg change running state retry times
 	CheckPGRunningRetryTimes = 54
 	// SleepSecondBeforeCheckPGRunning check pg state interval

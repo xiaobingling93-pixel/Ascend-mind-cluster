@@ -26,7 +26,7 @@
     -r--------  1 root root      480 Nov 14 07:10 Dockerfile
     -r-x------  1 root root 36550304 Nov 14 07:10 noded
     -r--------  1 root root      434 Nov 14 07:10 NodeDConfiguration.json
-    -r--------  1 root root     2883 Nov 14 07:10 noded-v6.0.RC1.yaml
+    -r--------  1 root root     2883 Nov 14 07:10 noded-v6.0.0.yaml
     -r--------  1 root root      273 Nov 14 07:10 pingmesh-config.yaml
     ```
 

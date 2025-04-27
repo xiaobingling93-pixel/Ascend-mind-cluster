@@ -33,11 +33,11 @@
 
 1.  拉取源码放在/usr1目录下
 
-2.  修改组件版本配置文件service_config.ini中mindxdlversion字段值为所需编译版本，默认值如下，
+2.  修改组件版本配置文件service_config.ini中mind-cluster-version字段值为所需编译版本，默认值如下
 
-        mindxdlversion=6.0.RC3
+        mind-cluster-version=6.0.0
 
-3.  执行以下命令，进入/usr1/mind-culster/build目录，选择构建脚本执行
+3.  执行以下命令，进入/usr1/mind-cluster/build目录，选择构建脚本执行
 
     **cd /usr1/mind-cluster/build**
 
@@ -52,7 +52,7 @@
 
 # 组件安装
 
-1.  请参考昇腾社区《MindCluster用户指南》
+1.  进入昇腾社区MindCluster产品界面，点击“查看文档”，再次点击页面上方横向导航栏“集群调度”，进入《MindCluster集群调度用户指南》。在安装和使用前，用户需要提前了解集群调度组件的特性，并根据具体特性选择安装相应的组件。
     
         入口地址：https://www.hiascend.com/software/mindx-dl
     
@@ -77,5 +77,7 @@
 | 版本         | 发布日期      | 修改说明         |
 |------------|-----------|----------------------|
 | v6.0.0     | 2024-12-15 | 配套MindX 6.0.0版本   |
+| v7.0.RC1     | 2025-04-27 | 配套MindX 7.0.RC1版本   |
+
 # 版本配套说明
-版本配套详情请参考：[版本配套详情](https://www.hiascend.com/developer/download/commercial)
+版本配套详情请参考：[版本配套详情](https://www.hiascend.com/developer/download/community)

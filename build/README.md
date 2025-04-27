@@ -5,15 +5,15 @@
 
 # 编译
 
-1.  拉取mindxdl整体源码放在/usr1目录下
+1.  拉取mind-cluster整体源码放在/usr1目录下
 
-2.  修改组件版本配置文件service_config.ini中mindxdlversion字段值为所需编译版本，默认值如下，
+2.  修改组件版本配置文件service_config.ini中mind-cluster-version字段值为所需编译版本，默认值如下
 
-        mindxdlversion=6.0.RC3
+        mind-cluster-version=6.0.0
 
-3.  执行以下命令，进入/usr1/mindxdl/build目录，选择构建脚本执行
+3.  执行以下命令，进入/usr1/mind-cluster/build目录，选择构建脚本执行
 
-    **cd /usr1/mindxdl/build**
+    **cd /usr1/mind-cluster/build**
 
         dos2unix *.sh && chmod +x *.sh
         
