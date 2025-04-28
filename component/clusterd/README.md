@@ -24,8 +24,11 @@
     ```
     Ascend-mindxdl-clusterd_xx_linux-xx.zip
     clusterd
-    clusterd-v6.0.xx.yaml
+    clusterd-v6.0.0.yaml
     Dockerfile
+    faultDuration.json
+    publicFaultConfiguration.json
+    relationFaultCustomization.json
     ```
 
     **说明：**
