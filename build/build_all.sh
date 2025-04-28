@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Perform build mindxdl all component
-# Copyright @ Huawei Technologies CO., Ltd. 2024-2024. All rights reserved
+# Perform build mind-cluster all component
+# Copyright @ Huawei Technologies CO., Ltd. 2024-2025. All rights reserved
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,8 +15,19 @@
 
 set -e
 GOPATH=$1
+NEW_GOPATH="/usr1/gopath"
 
-cp -rf /usr1/mindxdl/component/* ${GOPATH}/
+if [ -z "$GOPATH" ]; then
+    export GOPATH="$NEW_GOPATH"
+    rm -rf "$NEW_GOPATH"
+    mkdir -p "$NEW_GOPATH"
+    echo "GOPATH has been set to $GOPATH"
+fi
+
+CUR_DIR=$(dirname "$(readlink -f "$0")")
+TOP_DIR=$(realpath "${CUR_DIR}"/..)
+
+cp -rf "$TOP_DIR"/component/* ${GOPATH}/
 if [[ ! -d /opt/buildtools/volcano_opensource ]]; then
     mkdir -p /opt/buildtools/volcano_opensource/volcano_1.9/
     cd /opt/buildtools/volcano_opensource/volcano_1.9/
@@ -39,14 +50,14 @@ if [[ ! -d ${GOPATH}/ascend-docker-runtime/opensource/makeself ]]; then
     tar -zxvf makeself/makeself-2.4.2.tar.gz
 fi
 
-cd /usr1/mindxdl/component
+cd "$TOP_DIR"/component
 CUR_DIR=$(dirname $(readlink -f $0))
-mindx_dl=$(ls -l "$CUR_DIR" |awk '/^d/ {print $NF}')
-cd /usr1/mindxdl/build
-cp -rf /usr1/mindxdl/build/service_config.ini $GOPATH/service_config.ini
+mind_cluster=$(ls -l "$CUR_DIR" |awk '/^d/ {print $NF}')
+cd "$TOP_DIR"/build
+cp -rf "$TOP_DIR"/build/service_config.ini $GOPATH/service_config.ini
 dos2unix *.sh && chmod +x *
 
-for component in $mindx_dl
+for component in $mind_cluster
 do
   {
     if [[ $component = "ascend-common" ]]; then
@@ -58,3 +69,22 @@ done
 wait
 echo "all component has built"
 
+for component in $mind_cluster
+do
+  {
+    if [[ $component = "ascend-common" ]]; then
+      continue
+    fi
+    if [[ $component = "ascend-for-volcano" ]]; then
+      cd "$TOP_DIR"/component/"$component"
+      rm -rf ./output
+      mv "$GOPATH"/output/ ./
+      zip -r ./output/Ascend-mindxdl-volcano_linux.zip ./output/*
+      continue
+    fi
+    cd "$TOP_DIR"/component/"$component"
+    rm -rf ./output
+    mv "$GOPATH"/"$component"/output/ ./
+    zip -r ./output/Ascend-mindxdl-"$component"_linux.zip ./output/*
+  }
+done

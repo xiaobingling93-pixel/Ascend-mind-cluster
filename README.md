@@ -31,23 +31,23 @@
 
 # 编译
 
-1.  拉取源码放在/usr1目录下
+1.  拉取mind-cluster整体源码，例如放在/home目录下。
 
-2.  修改组件版本配置文件service_config.ini中mind-cluster-version字段值为所需编译版本，默认值如下
+2.  修改组件版本配置文件service_config.ini中mind-cluster-version字段值为所需编译版本，默认值如下：
 
         mind-cluster-version=6.0.0
 
-3.  执行以下命令，进入/usr1/mind-cluster/build目录，选择构建脚本执行
+3.  执行以下命令，进入/home/mind-cluster/build目录，选择构建脚本执行：
 
-    **cd /usr1/mind-cluster/build**
+    **cd /home/mind-cluster/build**
 
         dos2unix *.sh && chmod +x *.sh
         
         ./build_all.sh $GOPATH
 
-4.  执行完成后进入$GOPATH/目录在各组件“output“目录下生成编译完成的文件,
-    其中ascend-for-volcano组件编译完成文件在output目录中。
-5.  此处使用的go版本为1.21
+4.  执行完成后进入/home/mind-cluster，在各组件“output”目录下生成编译完成的文件。
+
+5.  此处使用的go版本为1.21。
 
 
 # 组件安装

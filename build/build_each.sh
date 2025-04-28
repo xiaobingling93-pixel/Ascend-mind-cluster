@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Perform build mindxdl each component
-# Copyright @ Huawei Technologies CO., Ltd. 2024-2024. All rights reserved
+# Perform build mind-cluster each component
+# Copyright @ Huawei Technologies CO., Ltd. 2024-2025. All rights reserved
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -54,7 +54,6 @@ case "$servicename" in
     mkdir -p ${GOPATH}/output/volcano-v1.7.0 && cp -rf ${GOPATH}/src/volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/output/* ${GOPATH}/output/volcano-v1.7.0/
     ls -la ${GOPATH}/output/volcano-v1.7.0/
     rm -rf ${GOPATH}/src/volcano.sh/volcano
-
 
   ;;
   ascend-docker-runtime)
