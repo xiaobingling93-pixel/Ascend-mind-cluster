@@ -36,8 +36,9 @@ import (
 )
 
 const (
-	fileMode = 0644
-	dirMode  = 0755
+	fileMode    = 0644
+	dirMode     = 0755
+	maxFileSize = 1024 * 1024 * 1024
 )
 
 func TestSaveProfilingDataIntoFileEmptyRecords(t *testing.T) {
@@ -451,6 +452,10 @@ func createTestFile(t *testing.T, dir string, filename string) {
 }
 
 func createTestFiles(t *testing.T, dir string, size int, count int) {
+	if size > maxFileSize {
+		t.Errorf("file size overlimit, %d", size)
+		return
+	}
 	for i := 0; i < count; i++ {
 		filePath := filepath.Join(dir, strconv.Itoa(i))
 		err := os.WriteFile(filePath, make([]byte, size), fileMode)

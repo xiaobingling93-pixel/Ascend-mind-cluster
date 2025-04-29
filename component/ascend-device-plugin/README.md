@@ -40,30 +40,33 @@
             
         ./build_edge.sh
 
-3.  执行以下命令，查看**output**生成的软件列表。
+   3.  执行以下命令，查看**output**生成的软件列表。
 
-    **ll** _/home/mind-cluster/component/_**ascend-device-plugin/output**
+       **ll** _/home/mind-cluster/component/_**ascend-device-plugin/output**
 
-    ```
-    drwxr-xr-x  2 root root     4096 Jan 18 17:04 ./
-    drwxr-xr-x 12 root root     4096 Jan 18 17:04 ../
-    -r-x------  1 root root 36058664 Jan 18 17:04 device-plugin
-    -r--------  1 root root     2478 Jan 18 17:04 device-plugin-310P-1usoc-v5.0.RC3.yaml
-    -r--------  1 root root     3756 Jan 18 17:04 device-plugin-310P-1usoc-volcano-v5.0.RC3.yaml
-    -r--------  1 root root     2478 Jan 18 17:04 device-plugin-310P-v5.0.RC3.yaml
-    -r--------  1 root root     3756 Jan 18 17:04 device-plugin-310P-volcano-v5.0.RC3.yaml
-    -r--------  1 root root     2131 Jan 18 17:04 device-plugin-310-v5.0.RC3.yaml
-    -r--------  1 root root     3431 Jan 18 17:04 device-plugin-310-volcano-v5.0.RC3.yaml
-    -r--------  1 root root     2130 Jan 18 17:04 device-plugin-910-v5.0.RC3.yaml
-    -r--------  1 root root     3447 Jan 18 17:04 device-plugin-volcano-v5.0.RC3.yaml
-    -r--------  1 root root      654 Jan 18 17:04 Dockerfile
-    -r--------  1 root root     1199 Jan 18 17:04 Dockerfile-310P-1usoc
-    -r--------  1 root root     1537 Jan 18 17:04 run_for_310P_1usoc.sh
-    ```
+       ```
+       drwxr-xr-x 2 root root     4096  4月 29 09:28 ./
+       drwxr-xr-x 6 root root     4096  4月 29 09:28 ../
+       -r-x------ 1 root root 59349656  4月 29 09:28 device-plugin*
+       -r-------- 1 root root     5555  4月 29 09:28 device-plugin-310P-1usoc-v6.0.0.yaml
+       -r-------- 1 root root     5555  4月 29 09:28 device-plugin-310P-1usoc-volcano-v6.0.0.yaml
+       -r-------- 1 root root     4962  4月 29 09:28 device-plugin-310P-v6.0.0.yaml
+       -r-------- 1 root root     5090  4月 29 09:28 device-plugin-310P-volcano-v6.0.0.yaml
+       -r-------- 1 root root     4566  4月 29 09:28 device-plugin-310-v6.0.0.yaml
+       -r-------- 1 root root     4588  4月 29 09:28 device-plugin-310-volcano-v6.0.0.yaml
+       -r-------- 1 root root     5024  4月 29 09:28 device-plugin-910-v6.0.0.yaml
+       -r-------- 1 root root     5644  4月 29 09:28 device-plugin-volcano-v6.0.0.yaml
+       -r-------- 1 root root      786  4月 29 09:28 Dockerfile
+       -r-------- 1 root root     1074  4月 29 09:28 Dockerfile-310P-1usoc
+       -r-------- 1 root root     4158  4月 29 09:28 faultCode.json
+       -r-------- 1 root root     1256  4月 29 09:28 faultCustomization.json
+       -r-------- 1 root root     2347  4月 29 09:28 run_for_310P_1usoc.sh
+       -r-------- 1 root root     1017  4月 29 09:28 SwitchFaultCode.json
+       ```
 
-    >![](doc/figures/icon-note.gif) **说明：** 
-    1、“ascend-device-plugin/build“目录下的**ascendplugin-910.yaml**文件在“ascend-device-plugin/output/“下生成的对应文件为**device-plugin-910-v5.0.RC3.yaml**，作用是更新版本号。
-    2、边侧场景编译仅生成device-plugin二进制文件
+    >   ![](doc/figures/icon-note.gif) **说明：** 
+       1、“ascend-device-plugin/build“目录下的**ascendplugin-910.yaml**文件在“ascend-device-plugin/output/“下生成的对应文件为**device-plugin-910-v6.0.0.yaml**，作用是更新版本号。
+       2、边侧场景编译仅生成device-plugin二进制文件
 
 
 # 说明
