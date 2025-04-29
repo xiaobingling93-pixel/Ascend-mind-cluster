@@ -52,6 +52,7 @@ func main() {
 			fmt.Println("defer changeFileMode function failed")
 		}
 	}()
+
 	hwlog.RunLog.Infof("%v ascend docker hook starting, try to setup container", logPrefixWords)
 	if !mindxcheckutils.StringChecker(strings.Join(os.Args, " "), 0,
 		process.MaxCommandLength, mindxcheckutils.DefaultWhiteList+" ") {
