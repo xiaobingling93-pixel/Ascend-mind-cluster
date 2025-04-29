@@ -24,7 +24,7 @@
     drwxr-xr-x 2 root root     4096 Jan 29 19:12 ./
     drwxr-xr-x 9 root root     4096 Jan 29 19:09 ../
     -r-x------ 1 root root 43524664 Jan 29 19:09 ascend-operator
-    -r-------- 1 root root   372080 Jan 29 19:09 ascend-operator-v5.0.RC1.yaml
+    -r-------- 1 root root   372080 Jan 29 19:09 ascend-operator-v6.0.0.yaml
     -r-------- 1 root root      482 Jan 29 19:12 Dockerfile
     ```
 
