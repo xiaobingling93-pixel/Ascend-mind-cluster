@@ -100,6 +100,20 @@ func TestAddAndGetFaultPublisher(t *testing.T) {
 	})
 }
 
+// TestPreemptPublisher for test preemptPublisher
+func TestPreemptPublisher(t *testing.T) {
+	convey.Convey("test preemptPublisher", t, func() {
+		service := fakeFaultService()
+		service.addPublisher(fakeJobID1)
+		publisher, _ := service.getPublisher(fakeJobID1)
+		convey.Convey("01-publisher already exist, should preempt old publisher", func() {
+			newPublisher := service.preemptPublisher(fakeJobID1)
+			convey.So(newPublisher, convey.ShouldNotBeNil)
+			convey.So(newPublisher.GetCreateTime().After(publisher.GetCreateTime()), convey.ShouldBeTrue)
+		})
+	})
+}
+
 type mockConfigSubscribeFaultMsgServer struct {
 	grpc.ServerStream
 }

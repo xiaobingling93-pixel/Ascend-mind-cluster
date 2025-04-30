@@ -160,6 +160,21 @@ func TestAddPublisher(t *testing.T) {
 	})
 }
 
+// TestPreemptPublisher for test preemptPublisher
+func TestPreemptPublisher(t *testing.T) {
+	convey.Convey("test preemptPublisher", t, func() {
+		service := fakeService()
+		publisher := NewConfigPublisher[*config.RankTableStream](job1,
+			context.Background(), constant.RankTableDataType, nil)
+		service.configPublisher[job1] = publisher
+		convey.Convey("01-publisher already exist, should preempt old publisher", func() {
+			newPublisher := service.preemptPublisher(job1)
+			convey.So(newPublisher, convey.ShouldNotBeNil)
+			convey.So(newPublisher.createTime.After(publisher.createTime), convey.ShouldBeTrue)
+		})
+	})
+}
+
 type mockConfigSubscribeRankTableServer struct {
 	grpc.ServerStream
 }

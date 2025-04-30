@@ -122,13 +122,14 @@ func TestSaveData(t *testing.T) {
 func TestStop(t *testing.T) {
 	convey.Convey("test stop", t, func() {
 		publisher := fakePublisher()
-		close(publisher.sendChan)
+		publisher.Stop()
 		stopFunc := func() {
 			publisher.sendChan <- &config.RankTableStream{
 				JobId:     job1,
 				RankTable: rankTable,
 			}
 		}
+		publisher.Stop()
 		convey.So(stopFunc, convey.ShouldPanic)
 	})
 }
@@ -150,5 +151,12 @@ func TestSetAndGetData(t *testing.T) {
 		publisher.SetSentData(data)
 		convey.So(publisher.GetSentData(), convey.ShouldResemble,
 			&config.RankTableStream{JobId: job1, RankTable: rankTable})
+	})
+}
+
+func TestGetCreateTime(t *testing.T) {
+	publisher := fakePublisher()
+	convey.Convey("test getCreateTime", t, func() {
+		convey.So(publisher.GetCreateTime().Before(time.Now()), convey.ShouldBeTrue)
 	})
 }
