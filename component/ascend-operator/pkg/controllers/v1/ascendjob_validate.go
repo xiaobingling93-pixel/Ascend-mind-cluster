@@ -36,6 +36,13 @@ func (r *ASJobReconciler) validateJob(job *mindxdlv1.AscendJob) *validateError {
 		}
 	}()
 
+	if scaleError := r.scaler.ValidJob(job); scaleError != nil {
+		return &validateError{
+			reason:  "invalid scaling config",
+			message: scaleError.Error(),
+		}
+	}
+
 	if err = r.validateBasicInfo(job); err != nil {
 		return err
 	}

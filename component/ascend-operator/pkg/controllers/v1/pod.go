@@ -1,5 +1,5 @@
 /*
-Copyright(C) 2023. Huawei Technologies Co.,Ltd. All rights reserved.
+Copyright(C) 2023-2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -316,6 +316,11 @@ func (r *ASJobReconciler) createPods(pods []*podInfo, replicas map[commonv1.Repl
 	if len(pods) == 0 {
 		return nil
 	}
+	job := pods[0].job
+	if !r.scaler.CanCreatePod(job) {
+		return fmt.Errorf("job %s/%s can't create pod, try later", job.Namespace, job.Name)
+	}
+
 	appendMutex := sync.RWMutex{}
 	var createErr []error
 	appendErr := func(err error) {

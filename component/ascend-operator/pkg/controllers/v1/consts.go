@@ -19,6 +19,8 @@ Package v1 is using for reconcile AscendJob.
 */
 package v1
 
+import "time"
+
 const (
 	// jobRestartingReason is added in an ascendjob when it is restart.
 	jobRestartingReason = "jobRestarting"
@@ -124,4 +126,11 @@ const (
 	NPU310PCardName = "huawei.com/Ascend310P"
 	// NPU910CardName represents the name for 910 npu resource.
 	NPU910CardName = "huawei.com/Ascend910"
+)
+
+const (
+	workQueueBaseDelay = 5 * time.Millisecond
+	workQueueMaxDelay  = 20 * time.Second
+	workQueueQps       = 10
+	workQueueBurst     = 100
 )

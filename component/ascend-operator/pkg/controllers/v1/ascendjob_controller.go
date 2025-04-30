@@ -1,5 +1,5 @@
 /*
-Copyright(C) 2023. Huawei Technologies Co.,Ltd. All rights reserved.
+Copyright(C) 2023-2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	"github.com/kubeflow/common/pkg/controller.v1/common"
 	"github.com/kubeflow/common/pkg/controller.v1/control"
 	"github.com/kubeflow/common/pkg/util"
+	"golang.org/x/time/rate"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -56,10 +58,12 @@ import (
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
+	"volcano.sh/apis/pkg/client/informers/externalversions"
 
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
+	"ascend-operator/pkg/controllers/scaling"
 	"ascend-operator/pkg/ranktable"
 	"ascend-operator/pkg/ranktable/generator"
 )
@@ -79,9 +83,12 @@ func NewReconciler(mgr manager.Manager, enableGangScheduling bool) *ASJobReconci
 	cfg := mgr.GetConfig()
 	kubeClientSet := kubernetes.NewForConfigOrDie(cfg)
 	volcanoClientSet := versioned.NewForConfigOrDie(cfg)
+	volInformerFactory := externalversions.NewSharedInformerFactory(volcanoClientSet, 0)
+	pgLister := volInformerFactory.Scheduling().V1beta1().PodGroups().Lister()
+	volInformerFactory.Start(wait.NeverStop)
 	sharedInformers := informers.NewSharedInformerFactory(kubeClientSet, 0)
 	priorityClassInformer := sharedInformers.Scheduling().V1beta1().PriorityClasses()
-
+	r.scaler = scaling.New(kubeClientSet, pgLister)
 	r.JobController = common.JobController{
 		Controller:                  r,
 		Config:                      common.JobControllerConfiguration{EnableGangScheduling: enableGangScheduling},
@@ -107,6 +114,7 @@ type ASJobReconciler struct {
 	Scheme        *runtime.Scheme
 	recorder      record.EventRecorder
 	apiReader     client.Reader
+	scaler        *scaling.Controller
 	versions      map[types.UID]int32
 	backoffLimits map[types.UID]int32
 	rtGenerators  map[types.UID]generator.RankTableGenerator
@@ -200,6 +208,10 @@ func (r *ASJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	c, err := controller.New(r.ControllerName(), mgr, controller.Options{
 		Reconciler: r,
+		RateLimiter: workqueue.NewMaxOfRateLimiter(
+			workqueue.NewItemExponentialFailureRateLimiter(workQueueBaseDelay, workQueueMaxDelay),
+			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(workQueueQps), workQueueBurst)},
+		),
 	})
 	if err != nil {
 		return err
