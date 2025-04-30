@@ -45,9 +45,9 @@ func getMockFaultMsgForTest() *fault.FaultMsgSignal {
 	return &fault.FaultMsgSignal{
 		JobId:      fakeJobID1,
 		SignalType: constant.SignalTypeFault,
-		FaultNode:  []string{"node0", "node1", "node2"},
 		NodeFaultInfo: []*fault.NodeFaultInfo{
 			{
+				NodeName:   "node0",
 				NodeIP:     "0",
 				FaultLevel: constant.UnHealthyState,
 				FaultDevice: []*fault.DeviceFaultInfo{
@@ -55,6 +55,7 @@ func getMockFaultMsgForTest() *fault.FaultMsgSignal {
 				},
 			},
 			{
+				NodeName:   "node1",
 				NodeIP:     "1",
 				FaultLevel: constant.UnHealthyState,
 				FaultDevice: []*fault.DeviceFaultInfo{
@@ -64,6 +65,7 @@ func getMockFaultMsgForTest() *fault.FaultMsgSignal {
 				},
 			},
 			{
+				NodeName:   "node2",
 				NodeIP:     "2",
 				FaultLevel: constant.SubHealthyState,
 				FaultDevice: []*fault.DeviceFaultInfo{
@@ -107,8 +109,8 @@ func getMockFaultMsgForTest1() *fault.FaultMsgSignal {
 	return &fault.FaultMsgSignal{
 		JobId:      fakeJobID1,
 		SignalType: constant.SignalTypeFault,
-		FaultNode:  []string{"node1"},
 		NodeFaultInfo: []*fault.NodeFaultInfo{{
+			NodeName:   "node1",
 			NodeIP:     "1",
 			FaultLevel: constant.UnHealthyState,
 			FaultDevice: []*fault.DeviceFaultInfo{

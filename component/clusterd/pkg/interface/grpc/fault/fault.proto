@@ -17,15 +17,15 @@ message FaultMsgSignal {
   string uuid = 1;
   string jobId = 2;
   string signalType = 3;
-  repeated string faultNode = 4;
-  repeated NodeFaultInfo nodeFaultInfo = 5;
+  repeated NodeFaultInfo nodeFaultInfo = 4;
 }
 
 message NodeFaultInfo {
-  string nodeIP = 1;
-  string nodeSN = 2;
-  string faultLevel = 3;
-  repeated DeviceFaultInfo faultDevice = 4;
+  string nodeName = 1;
+  string nodeIP = 2;
+  string nodeSN = 3;
+  string faultLevel = 4;
+  repeated DeviceFaultInfo faultDevice = 5;
 }
 
 message DeviceFaultInfo {

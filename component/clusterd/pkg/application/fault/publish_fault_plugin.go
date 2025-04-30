@@ -136,14 +136,12 @@ func faultDeviceToSortedFaultMsgSignal(targetJobId string, faultList []constant.
 		nodeInfo := getNodeFaultInfo(nodeFaultList)
 		if nodeInfo != nil {
 			msg.NodeFaultInfo = append(msg.NodeFaultInfo, nodeInfo)
-			msg.FaultNode = append(msg.FaultNode, nodeFaultList[0].ServerName)
 		}
 	}
 	msg.SignalType = constant.SignalTypeFault
-	if len(msg.FaultNode) == 0 {
+	if len(msg.NodeFaultInfo) == 0 {
 		return &fault.FaultMsgSignal{JobId: targetJobId, SignalType: constant.SignalTypeNormal}
 	}
-	sort.Strings(msg.FaultNode)
 	sort.Slice(msg.NodeFaultInfo, func(i, j int) bool {
 		return msg.NodeFaultInfo[i].NodeIP < msg.NodeFaultInfo[j].NodeIP
 	})
@@ -160,8 +158,9 @@ func getNodeFaultInfo(faultList []constant.FaultDevice) *fault.NodeFaultInfo {
 		deviceFaultMap[key] = append(deviceFaultMap[key], faultInfo)
 	}
 	info := &fault.NodeFaultInfo{
-		NodeIP: faultList[0].ServerId,
-		NodeSN: faultList[0].ServerSN,
+		NodeName: faultList[0].ServerName,
+		NodeIP:   faultList[0].ServerId,
+		NodeSN:   faultList[0].ServerSN,
 	}
 	maxLevel := constant.HealthyLevel
 	for _, deviceFaultList := range deviceFaultMap {
