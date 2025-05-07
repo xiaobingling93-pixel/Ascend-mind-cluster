@@ -306,11 +306,15 @@ func (tp *module910SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*a
 			unReadyID = append(unReadyID, id)
 		}
 	}
-	if spi.countVSuperPod < len(unReadyID) && tp.Label[superPodAffinity] != softRequire {
+
+	isSoftRequire := tp.Label[superPodAffinity] == softRequire
+	isSuperPodRescheduling := tp.SchedulingTaskNum < len(tp.Tasks) && tp.SchedulingTaskNum > util.NPUIndex1
+
+	if spi.countVSuperPod < len(unReadyID) && (!isSoftRequire || (isSoftRequire && isSuperPodRescheduling)) {
 		return nil, fmt.Errorf("select super pod failed, required %d, total %d", len(unReadyID), spi.countVSuperPod)
 	}
 	util.SortByNumericValue(unReadyID)
-	tp.selectNodes(unReadyID, &spi, selectNodes)
+	tp.selectNodes(unReadyID, &spi, selectNodes, len(vSuperPodID))
 
 	return selectNodes, nil
 }
@@ -711,13 +715,13 @@ func (tp *module910SuperPod) classifySuperPod(totalNodes map[int32]superPod) sup
 }
 
 func (tp *module910SuperPod) selectNodes(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode) {
+	selectNodes map[string][]plugin.SuperNode, maxId int) {
 	totalCount := len(unReadyID)
 
 	tp.selectFromSmallerSuperPods(unReadyID, spi, selectNodes, &totalCount)
 	tp.selectFromBiggerSuperPods(unReadyID, spi, selectNodes, &totalCount)
 	tp.selectFromSuperPodsWithReserve(unReadyID, spi, selectNodes, &totalCount)
-	tp.selectFromSuperPodsWithSoftStrategy(unReadyID, spi, selectNodes, &totalCount)
+	tp.selectFromSuperPodsWithSoftStrategy(unReadyID, spi, selectNodes, &totalCount, maxId)
 }
 
 func (tp *module910SuperPod) selectFromSmallerSuperPods(unReadyID []string, spi *superPodInfo,
@@ -764,7 +768,7 @@ func (tp *module910SuperPod) selectFromSuperPodsWithReserve(unReadyID []string, 
 }
 
 func (tp *module910SuperPod) selectFromSuperPodsWithSoftStrategy(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
+	selectNodes map[string][]plugin.SuperNode, totalCount *int, maxId int) {
 	selectNodeNum := 0
 	for _, spNodes := range selectNodes {
 		selectNodeNum += len(spNodes)
@@ -773,10 +777,20 @@ func (tp *module910SuperPod) selectFromSuperPodsWithSoftStrategy(unReadyID []str
 	if needNode <= 0 {
 		return
 	}
-	recorder := &vPodIdRecorder{unReadyId: unReadyID, leftIndex: *totalCount - 1, rightIndex: tp.NPUTaskNum / tp.spBlock}
+	recorder := &vPodIdRecorder{unReadyId: unReadyID, leftIndex: *totalCount - 1, rightIndex: maxId}
 	klog.V(util.LogWarningLev).Infof("select from super pods which is less than sp block, totalNodes: %d", needNode)
 	klog.V(util.LogWarningLev).Infof("job <%s> will scheduling as soft stategy", tp.Name)
-	for i := tp.spBlock - 1; i >= 0; i-- {
+	// select super pod which is less than sp block and more than reserve nodes
+	for i := tp.spBlock - 1; i >= 0 && i >= tp.FrameAttr.ReservePodSize; i-- {
+		for j := 0; j < len(spi.firstLevel[0]); j++ {
+			if needNode <= 0 {
+				return
+			}
+			tp.selectNodesForSoftStrategy(recorder, &needNode, spi.firstLevel[i][j], selectNodes)
+		}
+	}
+	// select super pod which is less than reserve nodes
+	for i := 0; i < tp.spBlock && i < tp.FrameAttr.ReservePodSize; i++ {
 		for j := 0; j < len(spi.firstLevel[0]); j++ {
 			if needNode <= 0 {
 				return

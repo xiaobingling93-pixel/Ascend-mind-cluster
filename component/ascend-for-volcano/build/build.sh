@@ -69,7 +69,7 @@ function replace_code() {
     SEARCH_STRING="Ignore"
     if ! grep -q "$SEARCH_STRING" "$REPLACE_FILE";then
       sed -i "s/switch action {/switch action { case \"Ignore\" : return nil/g" "$REPLACE_FILE"
-      fi
+    fi
 }
 
 function build() {
@@ -126,11 +126,35 @@ function replace_node_predicate() {
     sed -i "s/return predicateErr/return \[\]\*api.Status{}, predicateErr/g" "$REPLACE_FILE"
 }
 
+function replace_node_score() {
+    REPLACE_FILE="${GOPATH}/src/volcano.sh/volcano/pkg/scheduler/actions/allocate/allocate.go"
+    if [[ "$BASE_VER" == "v1.7.0" ]];then
+          sed -i '
+          /case len(candidateNodes) == 1:/ {
+              N
+              N
+              s/case len(candidateNodes) == 1:.*\n.*\n.*/            default:/
+          }' "$REPLACE_FILE"
+      return
+    fi
+    if [[ "$BASE_VER" == "v1.9.0" ]];then
+          sed -i '
+          /case len(nodes) == 1:/ {
+              N
+              N
+              s/case len(nodes) == 1:.*\n.*\n.*/            default:/
+          }' "$REPLACE_FILE"
+       return
+    fi
+    echo "volcano version is $BASE_VER, will not change allocate.go codes"
+}
+
 function main() {
   clean
   copy_yaml
   replace_code
   replace_node_predicate
+  replace_node_score
   build
 }
 
