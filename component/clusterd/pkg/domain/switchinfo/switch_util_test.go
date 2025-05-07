@@ -16,6 +16,7 @@ import (
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
 )
 
 const (
@@ -44,7 +45,7 @@ func TestParseSwitchInfoCM(t *testing.T) {
 		_, err = ParseSwitchInfoCM(&config)
 		convey.So(err, convey.ShouldNotBeNil)
 		swit := constant.SwitchFaultInfo{
-			FaultCode:  []string{},
+			FaultInfo:  []constant.SimpleSwitchFaultInfo{},
 			FaultLevel: "FaultLevel",
 			UpdateTime: 0,
 			NodeStatus: "Healthy",
@@ -68,7 +69,7 @@ func TestDeepCopy(t *testing.T) {
 		FaultLevel := "NotHandle"
 		info := constant.SwitchInfo{
 			SwitchFaultInfo: constant.SwitchFaultInfo{
-				FaultCode:  []string{},
+				FaultInfo:  []constant.SimpleSwitchFaultInfo{},
 				FaultLevel: FaultLevel,
 				UpdateTime: time.Now().Unix(),
 				NodeStatus: "Healthy",
@@ -99,12 +100,27 @@ func TestGetSafeData(t *testing.T) {
 	})
 }
 
+func TestGetReportSwitchInfo(t *testing.T) {
+	convey.Convey("Test getReportSwitchInfo", t, func() {
+		switchInof := constant.SimpleSwitchFaultInfo{AssembledFaultCode: "code1"}
+		data, err := json.Marshal(switchInof)
+		convey.So(err, convey.ShouldBeNil)
+		map1 := map[string]*constant.SwitchInfoFromCM{"job1": {SwitchFaultInfoFromCm: constant.SwitchFaultInfoFromCm{
+			FaultCode: []string{string(data)}}}}
+		map2 := map[string]*constant.SwitchInfo{"job1": {SwitchFaultInfo: constant.SwitchFaultInfo{
+			FaultInfo: []constant.SimpleSwitchFaultInfo{switchInof}}}}
+		map3 := getReportSwitchInfo(map2)
+		convey.So(util.ObjToString(map3) == util.ObjToString(map1), convey.ShouldBeTrue)
+	})
+
+}
+
 // TestBusinessDataIsNotEqual Test business data is not equal
 func TestBusinessDataIsNotEqual(t *testing.T) {
 	convey.Convey("Test Get Safe Datas", t, func() {
 		oldSwitch := constant.SwitchInfo{
 			SwitchFaultInfo: constant.SwitchFaultInfo{
-				FaultCode:  []string{},
+				FaultInfo:  []constant.SimpleSwitchFaultInfo{},
 				FaultLevel: "FaultLevel",
 				NodeStatus: "Unhealthy",
 			},
@@ -115,5 +131,24 @@ func TestBusinessDataIsNotEqual(t *testing.T) {
 		oldSwitch.NodeStatus = "Healthy"
 		notSame = constant.SwitchInfoBusinessDataIsNotEqual(&oldSwitch, &newSwitch)
 		convey.So(notSame, convey.ShouldBeTrue)
+	})
+}
+
+// TestParseSimpleSwitchFaultInfo test parse simpleSwitchFaultInfo
+func TestParseSimpleSwitchFaultInfo(t *testing.T) {
+	convey.Convey("Test  parseSimpleSwitchFaultInfo", t, func() {
+		convey.Convey("parse failed, should return empty struct and error", func() {
+			dataList := []string{"EventType", "AssembledFaultCode"}
+			faultInfo, err := parseSimpleSwitchFaultInfo(dataList, "cm")
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(faultInfo, convey.ShouldResemble, []constant.SimpleSwitchFaultInfo{})
+		})
+		convey.Convey("parse success", func() {
+			dataList := []string{`{"AssembledFaultCode":"code1"}`}
+			faultInfo, err := parseSimpleSwitchFaultInfo(dataList, "cm")
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(faultInfo, convey.ShouldResemble,
+				[]constant.SimpleSwitchFaultInfo{{AssembledFaultCode: "code1"}})
+		})
 	})
 }

@@ -393,23 +393,18 @@ func (fJob *FaultJob) initBySwitchFault(switchInfo *constant.SwitchInfo, serverL
 		fJob.SeparateNodes.Insert(serverList.ServerName)
 		return
 	}
-	for _, fCode := range switchInfo.FaultCode {
-		var tmpSwitchFaultInfo constant.SimpleSwitchFaultInfo
-		if err := json.Unmarshal([]byte(fCode), &tmpSwitchFaultInfo); err != nil {
-			hwlog.RunLog.Errorf("unmarshal switch faultinfo failed:%v", err)
-			continue
-		}
-		if isAssociateFault(tmpSwitchFaultInfo.AssembledFaultCode) {
+	for _, faultInfo := range switchInfo.FaultInfo {
+		if isAssociateFault(faultInfo.AssembledFaultCode) {
 			tmpFaultInfo := constant.FaultInfo{
 				NodeName:    serverList.ServerName,
 				NPUName:     constant.AllCardId,
 				FaultType:   constant.SwitchFaultType,
-				FaultCode:   tmpSwitchFaultInfo.AssembledFaultCode,
+				FaultCode:   faultInfo.AssembledFaultCode,
 				FaultTime:   time.Now().UnixMilli(),
-				DealMaxTime: getFaultCodeDelMaxTime(tmpSwitchFaultInfo.AssembledFaultCode),
+				DealMaxTime: getFaultCodeDelMaxTime(faultInfo.AssembledFaultCode),
 				FaultLevel:  switchInfo.FaultLevel,
 				FaultUid: serverList.ServerName + "-" +
-					constant.AllCardId + "-" + tmpSwitchFaultInfo.AssembledFaultCode,
+					constant.AllCardId + "-" + faultInfo.AssembledFaultCode,
 			}
 			fJob.AllFaultCode.Insert(tmpFaultInfo.FaultUid)
 			fJob.addFaultInfoByCodeType(&tmpFaultInfo)

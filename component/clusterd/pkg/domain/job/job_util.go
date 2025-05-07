@@ -216,6 +216,7 @@ func buildJobServerInfoMap(jobInfo constant.JobInfo) map[string]constant.ServerH
 			PodID:        server.PodID,
 			PodNameSpace: server.PodNameSpace,
 			ServerName:   server.ServerName,
+			ServerSN:     server.ServerSN,
 		}
 		for _, dev := range server.DeviceList {
 			copyDev := constant.Device{

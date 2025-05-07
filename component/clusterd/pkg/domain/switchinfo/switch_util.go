@@ -24,7 +24,7 @@ func ParseSwitchInfoCM(obj interface{}) (*constant.SwitchInfo, error) {
 	if !ok {
 		return &constant.SwitchInfo{}, fmt.Errorf("not configmap")
 	}
-	switchInfoCM := constant.SwitchFaultInfo{}
+	switchInfoCM := constant.SwitchFaultInfoFromCm{}
 	data, ok := switchCm.Data[api.SwitchInfoCMDataKey]
 	if !ok {
 		return &constant.SwitchInfo{},
@@ -34,11 +34,14 @@ func ParseSwitchInfoCM(obj interface{}) (*constant.SwitchInfo, error) {
 	if unmarshalErr := json.Unmarshal([]byte(data), &switchInfoCM); unmarshalErr != nil {
 		return &constant.SwitchInfo{}, fmt.Errorf("unmarshal failed: %v, configmap name: %s", unmarshalErr, switchCm.Name)
 	}
-
+	faultInfo, err := parseSimpleSwitchFaultInfo(switchInfoCM.FaultCode, switchCm.Name)
+	if err != nil {
+		return &constant.SwitchInfo{}, err
+	}
 	nodeName := strings.TrimPrefix(switchCm.Name, constant.DeviceInfoPrefix)
 	node := constant.SwitchInfo{
 		SwitchFaultInfo: constant.SwitchFaultInfo{
-			FaultCode:  switchInfoCM.FaultCode,
+			FaultInfo:  faultInfo,
 			FaultLevel: switchInfoCM.FaultLevel,
 			UpdateTime: switchInfoCM.UpdateTime,
 			NodeStatus: switchInfoCM.NodeStatus,
@@ -46,6 +49,19 @@ func ParseSwitchInfoCM(obj interface{}) (*constant.SwitchInfo, error) {
 		CmName: constant.SwitchInfoPrefix + nodeName,
 	}
 	return &node, nil
+}
+
+func parseSimpleSwitchFaultInfo(dataList []string, cm string) ([]constant.SimpleSwitchFaultInfo, error) {
+	faultInfos := make([]constant.SimpleSwitchFaultInfo, 0, len(dataList))
+	for _, data := range dataList {
+		faultInfo := constant.SimpleSwitchFaultInfo{}
+		unmarshalErr := json.Unmarshal([]byte(data), &faultInfo)
+		if unmarshalErr != nil {
+			return faultInfos, fmt.Errorf("unmarshal failed: %v, configmap name: %s", unmarshalErr, cm)
+		}
+		faultInfos = append(faultInfos, faultInfo)
+	}
+	return faultInfos, nil
 }
 
 // DeepCopy deep copy NodeInfo
@@ -72,19 +88,44 @@ func GetSafeData(switchInfos map[string]*constant.SwitchInfo) []string {
 		return []string{}
 	}
 	if len(switchInfos) <= safeSwitchSize {
-		return []string{util.ObjToString(switchInfos)}
+		return []string{util.ObjToString(getReportSwitchInfo(switchInfos))}
 	}
 	SwitchSlice := make([]string, 0, len(switchInfos)/safeSwitchSize+1)
 	childSwitchInfos := make(map[string]*constant.SwitchInfo, safeSwitchSize)
 	for cmName, switchInfo := range switchInfos {
 		childSwitchInfos[cmName] = switchInfo
 		if len(childSwitchInfos)%safeSwitchSize == 0 {
-			SwitchSlice = append(SwitchSlice, util.ObjToString(childSwitchInfos))
+			SwitchSlice = append(SwitchSlice, util.ObjToString(getReportSwitchInfo(childSwitchInfos)))
 			childSwitchInfos = make(map[string]*constant.SwitchInfo, safeSwitchSize)
 		}
 	}
 	if len(childSwitchInfos) != 0 {
-		SwitchSlice = append(SwitchSlice, util.ObjToString(childSwitchInfos))
+		SwitchSlice = append(SwitchSlice, util.ObjToString(getReportSwitchInfo(childSwitchInfos)))
 	}
 	return SwitchSlice
+}
+
+func getReportSwitchInfo(switchInfoMap map[string]*constant.SwitchInfo) map[string]*constant.SwitchInfoFromCM {
+	reportSwitchInfo := make(map[string]*constant.SwitchInfoFromCM, len(switchInfoMap))
+	for k, v := range switchInfoMap {
+		reportFaultCodes := make([]string, 0, len(v.FaultInfo))
+		for _, faultInfo := range v.FaultInfo {
+			faultBytes, err := json.Marshal(faultInfo)
+			if err != nil {
+				hwlog.RunLog.Warnf("failed to convert fault:%v, err: %v", faultInfo, err)
+				continue
+			}
+			reportFaultCodes = append(reportFaultCodes, string(faultBytes))
+		}
+		reportSwitchInfo[k] = &constant.SwitchInfoFromCM{
+			SwitchFaultInfoFromCm: constant.SwitchFaultInfoFromCm{
+				FaultCode:  reportFaultCodes,
+				FaultLevel: v.FaultLevel,
+				UpdateTime: v.UpdateTime,
+				NodeStatus: v.NodeStatus,
+			},
+			CmName: v.CmName,
+		}
+	}
+	return reportSwitchInfo
 }

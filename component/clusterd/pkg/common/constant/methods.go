@@ -273,7 +273,7 @@ func SwitchInfoBusinessDataIsNotEqual(oldSwitch, newSwitch *SwitchInfo) bool {
 		return true
 	}
 	if newSwitch.FaultLevel != oldSwitch.FaultLevel || newSwitch.NodeStatus != oldSwitch.NodeStatus ||
-		len(newSwitch.FaultCode) != len(oldSwitch.FaultCode) {
+		len(newSwitch.FaultInfo) != len(oldSwitch.FaultInfo) {
 		return true
 	}
 	hwlog.RunLog.Debug("oldSwitch is equal to newSwitch")

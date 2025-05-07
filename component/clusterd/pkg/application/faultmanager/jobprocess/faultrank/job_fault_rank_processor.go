@@ -201,7 +201,7 @@ func (processor *jobRankFaultInfoProcessor) findNodeDeviceAndSwitchFault(
 		faultDeviceList = append(faultDeviceList, getFaultDeviceInfoBySwitchInfo(&server, switchInfo)...)
 		if ok && switchInfo.NodeStatus == constant.UnHealthyState {
 			hwlog.RunLog.Debugf("node %s switch is unhealthy", nodeName)
-			faultCode := strings.Join(switchInfo.FaultCode, constant.Comma)
+			faultCode := strings.Join(getFaultCodeBySwitchInfo(switchInfo), constant.Comma)
 			faultList = append(faultList, serverHcclToFaultRank(server, jobId, faultCode)...)
 		}
 		nodeInfo, ok := nodeInfos[constant.NodeInfoPrefix+nodeName]
@@ -260,9 +260,9 @@ func getFaultDeviceInfoBySwitchInfo(server *constant.ServerHccl,
 		return nil
 	}
 	faultList := make([]constant.FaultDevice, 0)
-	for _, faultCode := range switchInfo.SwitchFaultInfo.FaultCode {
-		faultList = append(faultList, convertToFaultDevice(server, faultCode, switchInfo.SwitchFaultInfo.FaultLevel,
-			constant.EmptyDeviceId, constant.FaultTypeSwitch))
+	for _, faultInfo := range switchInfo.SwitchFaultInfo.FaultInfo {
+		faultList = append(faultList, convertToFaultDevice(server, faultInfo.AssembledFaultCode,
+			switchInfo.SwitchFaultInfo.FaultLevel, constant.EmptyDeviceId, constant.FaultTypeSwitch))
 	}
 	return faultList
 }
@@ -289,6 +289,17 @@ func getFaultCodeByNodeInfo(nodeInfo *constant.NodeInfo) []string {
 		faultCodes = append(faultCodes, faultDev.FaultCode...)
 	}
 	return util.RemoveSliceDuplicateElement(faultCodes)
+}
+
+func getFaultCodeBySwitchInfo(switchInfo *constant.SwitchInfo) []string {
+	if switchInfo == nil {
+		return nil
+	}
+	faultCodes := make([]string, 0)
+	for _, faultInfo := range switchInfo.FaultInfo {
+		faultCodes = append(faultCodes, faultInfo.AssembledFaultCode)
+	}
+	return faultCodes
 }
 
 func serverHcclToFaultRank(server constant.ServerHccl, jobId, faultCode string) []constant.FaultRank {

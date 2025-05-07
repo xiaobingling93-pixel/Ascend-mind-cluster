@@ -360,7 +360,8 @@ func testGetFaultDeviceInfoBySwitchInfo(server *constant.ServerHccl, nodeSN stri
 	convey.Convey("Test getFaultDeviceInfoBySwitchInfo", func() {
 		switchInfo := &constant.SwitchInfo{
 			SwitchFaultInfo: constant.SwitchFaultInfo{
-				FaultCode:  []string{"code1", "code2"},
+				FaultInfo: []constant.SimpleSwitchFaultInfo{{AssembledFaultCode: "code1"},
+					{AssembledFaultCode: "code2"}},
 				FaultLevel: constant.PreSeparateFaultLevelStr,
 			},
 		}
@@ -386,5 +387,17 @@ func TestGetFaultCodeByNodeInfo(t *testing.T) {
 		}
 		codeList := getFaultCodeByNodeInfo(nodeInfo)
 		convey.So(codeList, convey.ShouldResemble, []string{"code1", "code2", "code3"})
+	})
+}
+
+func TestGetFaultCodeBySwitchInfo(t *testing.T) {
+	convey.Convey("Test getFaultCodeBySwitchInfo", t, func() {
+		switchInfo := &constant.SwitchInfo{
+			SwitchFaultInfo: constant.SwitchFaultInfo{FaultInfo: []constant.SimpleSwitchFaultInfo{
+				{AssembledFaultCode: "code1"}, {AssembledFaultCode: "code2"},
+			}},
+		}
+		codeList := getFaultCodeBySwitchInfo(switchInfo)
+		convey.So(codeList, convey.ShouldResemble, []string{"code1", "code2"})
 	})
 }

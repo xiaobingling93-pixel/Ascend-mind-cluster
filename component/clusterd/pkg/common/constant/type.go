@@ -64,6 +64,19 @@ type SwitchInfo struct {
 
 // SwitchFaultInfo switch info detail
 type SwitchFaultInfo struct {
+	FaultInfo  []SimpleSwitchFaultInfo
+	FaultLevel string
+	UpdateTime int64
+	NodeStatus string
+}
+
+type SwitchInfoFromCM struct {
+	SwitchFaultInfoFromCm
+	CmName string
+}
+
+// SwitchFaultInfoFromCm switch info detail from cm
+type SwitchFaultInfoFromCm struct {
 	FaultCode  []string
 	FaultLevel string
 	UpdateTime int64

@@ -4,7 +4,6 @@
 package relationfault
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -598,7 +597,6 @@ func TestInitBySwitchFault(t *testing.T) {
 		testNilSwitchInfo(fJob)
 		testUnhealthyNode(fJob)
 		testSwitchAssociateFault(fJob)
-		testUnmarshalError(fJob)
 	})
 }
 
@@ -624,49 +622,18 @@ func testSwitchAssociateFault(fJob *FaultJob) {
 		switchInfo := &constant.SwitchInfo{
 			SwitchFaultInfo: constant.SwitchFaultInfo{
 				NodeStatus: constant.HealthyState,
-				FaultCode:  []string{`{"AssembledFaultCode":"fault1"}`},
+				FaultInfo:  []constant.SimpleSwitchFaultInfo{{AssembledFaultCode: "fault1"}},
 				FaultLevel: "level1",
 			}}
 
-		patches := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v interface{}) error {
-			if _, ok := v.(*constant.SimpleSwitchFaultInfo); ok {
-				*v.(*constant.SimpleSwitchFaultInfo) = constant.SimpleSwitchFaultInfo{
-					AssembledFaultCode: "fault1",
-				}
-			}
-
-			return nil
-		})
-		defer patches.Reset()
-
-		patches.ApplyFunc(isAssociateFault, func(faultCode string) bool {
+		patches := gomonkey.ApplyFunc(isAssociateFault, func(faultCode string) bool {
 			return faultCode == "fault1"
-		})
-
-		fJob.initBySwitchFault(switchInfo, constant.ServerHccl{ServerName: "node1"})
-		convey.So(fJob.AllFaultCode.Has("node1-AllCardId-fault1"), convey.ShouldBeTrue)
-		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 1)
-	})
-}
-
-func testUnmarshalError(fJob *FaultJob) {
-	convey.Convey("When unmarshal switch fault info fails", func() {
-		switchInfo := &constant.SwitchInfo{
-			SwitchFaultInfo: constant.SwitchFaultInfo{
-				NodeStatus: constant.HealthyState,
-				FaultCode:  []string{`{"AssembledFaultCode":"fault1"}`},
-			},
-		}
-
-		patches := gomonkey.ApplyFunc(json.Unmarshal, func(data []byte, v interface{}) error {
-			return errors.New("unmarshal error")
-		})
+		}).ApplyGlobalVar(&relationFaultTypeMap, sets.NewString("fault1"))
 		defer patches.Reset()
-		patches.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
 
 		fJob.initBySwitchFault(switchInfo, constant.ServerHccl{ServerName: "node1"})
-		convey.So(fJob.AllFaultCode.Has("node1-AllCardId-fault1"), convey.ShouldBeFalse)
-		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 0)
+		convey.So(fJob.AllFaultCode.Has("node1-"+constant.AllCardId+"-fault1"), convey.ShouldBeTrue)
+		convey.So(fJob.RelationFaults, convey.ShouldHaveLength, 1)
 	})
 }
 
