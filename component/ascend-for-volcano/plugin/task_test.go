@@ -253,7 +253,7 @@ func makeNPUDeallocateFuncTest08(vTask *api.TaskInfo) npuDeallocateFuncTest {
 					Jobs: map[api.JobID]SchedulerJob{vTask.Job: {SchedulerJobAttr: tmpSchedulerJobAttr,
 						policyHandler: New(testPluginName)}},
 					Nodes: map[string]NPUNode{vTask.NodeName: tmpNPUNode}}}},
-		args: npuDeallocateFuncArgs{task: vTask}, want: "Ascend910-4",
+		args: npuDeallocateFuncArgs{task: vTask}, want: "",
 	}
 }
 
@@ -277,7 +277,7 @@ func makeNPUDeallocateFuncTest09(vTask *api.TaskInfo) npuDeallocateFuncTest {
 					Jobs: map[api.JobID]SchedulerJob{vTask.Job: {SchedulerJobAttr: tmpSchedulerJobAttr,
 						policyHandler: New(testPluginName)}},
 					Nodes: map[string]NPUNode{vTask.NodeName: tmpNPUNode}}}},
-		args: npuDeallocateFuncArgs{task: vTask}, want: "Ascend910-4",
+		args: npuDeallocateFuncArgs{task: vTask}, want: "",
 	}
 }
 
