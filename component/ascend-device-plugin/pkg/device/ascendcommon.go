@@ -85,6 +85,7 @@ type AscendTools struct {
 	lastSwitchFaultInfo       common.SwitchFaultInfo
 	lastUsedChipsByProcess    sets.String
 	lastUsedChipsContainerMap map[string]sets.String
+	notSupportVnpu            bool
 }
 
 // DevManager interface for manager device
@@ -648,8 +649,14 @@ func (tool *AscendTools) getDavinCiDev(logicID int32) (common.DavinCiDev, error)
 }
 
 func (tool *AscendTools) getVirtualDevice(logicID int32) (npuCommon.VirtualDevInfo, error) {
+	if tool.notSupportVnpu {
+		return npuCommon.VirtualDevInfo{}, nil
+	}
 	virtualDevInfos, err := tool.dmgr.GetVirtualDeviceInfo(logicID)
 	if err != nil {
+		if strings.Contains(err.Error(), strconv.Itoa(common.DeviceNotSupport)) {
+			tool.notSupportVnpu = true
+		}
 		return npuCommon.VirtualDevInfo{}, fmt.Errorf("query virtual device info failure: %s", err)
 	}
 	return virtualDevInfos, nil

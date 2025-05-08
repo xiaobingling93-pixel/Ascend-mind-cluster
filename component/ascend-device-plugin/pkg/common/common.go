@@ -702,3 +702,14 @@ func TriggerUpdate(msg string) {
 func GetUpdateChan() chan struct{} {
 	return updateTriggerChan
 }
+
+func GetBaseNPUInfo(allInfo NpuAllInfo) map[string]*NpuBaseInfo {
+	ipMap := make(map[string]*NpuBaseInfo, len(allInfo.AllDevs))
+	for _, dev := range allInfo.AllDevs {
+		ipMap[dev.DeviceName] = &NpuBaseInfo{
+			IP:            dev.IP,
+			SuperDeviceID: dev.SuperDeviceID,
+		}
+	}
+	return ipMap
+}

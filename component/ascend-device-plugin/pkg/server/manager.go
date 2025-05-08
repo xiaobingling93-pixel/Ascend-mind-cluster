@@ -56,6 +56,7 @@ type HwDevManager struct {
 	manager          device.DevManager
 	RunMode          string
 	WorkMode         string
+	baseNPUInfo      map[string]*common.NpuBaseInfo
 }
 
 // NewHwDevManager function is used to new a dev manager.
@@ -167,6 +168,7 @@ func (hdm *HwDevManager) updateNode() error {
 		hwlog.RunLog.Errorf("failed to marshal device ip map, err: %v", err)
 		return err
 	}
+	hdm.baseNPUInfo = hdm.getNpuBaseInfo()
 	newNode.Annotations[api.BaseDevInfoAnno] = string(mashaledNpuInfo)
 	newNode.Annotations[common.SuperPodIDKey] = strconv.Itoa(int(hdm.getSuperPodInfo().SuperPodId))
 	for i := 0; i < common.RetryUpdateCount; i++ {
@@ -457,8 +459,60 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 		case <-ticker.C:
 			hwlog.RunLog.Debug("Periodic device info update")
 			hdm.handleDeviceInfoUpdate(&initTime)
+			hdm.updateNodeAnnotations()
 		}
 	}
+}
+
+func (hdm *HwDevManager) updateNodeAnnotations() {
+	allInfo, err := hdm.manager.GetNPUs()
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to get npu info, err: %v", err)
+		return
+	}
+
+	curBaseInfo := common.GetBaseNPUInfo(allInfo)
+	baseInfoChange, newBaseInfo := hdm.compareBaseNPUInfo(curBaseInfo)
+	if !baseInfoChange {
+		return
+	}
+	hwlog.RunLog.Info("base npu info changed, update node annotation")
+	mashaledNpuInfo, err := json.Marshal(newBaseInfo)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to marshal device ip map, err: %v", err)
+		return
+	}
+
+	for i := 0; i < common.RetryUpdateCount; i++ {
+		if err = hdm.manager.GetKubeClient().AddAnnotation(api.BaseDevInfoAnno, string(mashaledNpuInfo)); err == nil {
+			hwlog.RunLog.Info("update node annotations success")
+			hdm.baseNPUInfo = newBaseInfo
+			return
+		}
+		hwlog.RunLog.Warnf("failed to patch new label to node, err: %s, retry count: %d", err.Error(), i+1)
+		time.Sleep(time.Second)
+	}
+}
+
+func (hdm *HwDevManager) compareBaseNPUInfo(curBaseInfo map[string]*common.NpuBaseInfo) (bool, map[string]*common.NpuBaseInfo) {
+	var baseInfoChange bool
+	newInfo := make(map[string]*common.NpuBaseInfo, len(hdm.baseNPUInfo))
+	for key, pre := range hdm.baseNPUInfo {
+		newItem := &common.NpuBaseInfo{
+			IP:            pre.IP,
+			SuperDeviceID: pre.SuperDeviceID,
+		}
+		if cur, ok := curBaseInfo[key]; ok {
+			if pre.IP != cur.IP || pre.SuperDeviceID != cur.SuperDeviceID {
+				baseInfoChange = true
+				newItem.IP = cur.IP
+				newItem.SuperDeviceID = cur.SuperDeviceID
+			}
+		}
+		newInfo[key] = newItem
+	}
+
+	return baseInfoChange, newInfo
 }
 
 func (hdm *HwDevManager) parseTriggers(initTime time.Time) {

@@ -801,3 +801,15 @@ func verifyUpdateTrigger() bool {
 		return false
 	}
 }
+
+func TestGetBaseNPUInfo(t *testing.T) {
+	convey.Convey("test getBaseNPUInfo", t, func() {
+		allInfo := NpuAllInfo{AllDevs: []NpuDevice{
+			{DeviceName: "Ascend910-0", IP: "127.0.0.1", SuperDeviceID: 0},
+		}}
+		baseInfo := GetBaseNPUInfo(allInfo)
+		convey.So(baseInfo, convey.ShouldResemble, map[string]*NpuBaseInfo{
+			"Ascend910-0": {IP: "127.0.0.1", SuperDeviceID: 0},
+		})
+	})
+}

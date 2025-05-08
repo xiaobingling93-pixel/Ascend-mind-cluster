@@ -1415,3 +1415,92 @@ func TestParseTriggers(t *testing.T) {
 		convey.So(deviceInfoHandled, convey.ShouldBeFalse)
 	})
 }
+
+func TestUpdateNodeAnnotations(t *testing.T) {
+	convey.Convey("TestUpdateNodeAnnotations", t, func() {
+		hdm := &HwDevManager{
+			manager: device.NewHwAscend910Manager(),
+		}
+		convey.Convey("01-get npu info failed will do nothing", func() {
+			patch := gomonkey.ApplyMethodReturn(hdm.manager, "GetNPUs", nil,
+				errors.New("get npus failed"))
+			defer patch.Reset()
+			hdm.updateNodeAnnotations()
+			convey.So(hdm.baseNPUInfo, convey.ShouldBeNil)
+		})
+		patch := gomonkey.ApplyMethodReturn(hdm.manager, "GetNPUs", common.NpuAllInfo{
+			AllDevs: []common.NpuDevice{{DeviceName: "Ascend910-0", IP: "127.0.1.1"}}}, nil)
+		defer patch.Reset()
+		convey.Convey("02-npu info not change will do nothing", func() {
+			preBaseInfo := map[string]*common.NpuBaseInfo{
+				"Ascend910-0": {IP: "127.0.1.1"}}
+			hdm.baseNPUInfo = preBaseInfo
+			hdm.updateNodeAnnotations()
+			convey.So(hdm.baseNPUInfo, convey.ShouldResemble, preBaseInfo)
+		})
+		preBaseInfo := map[string]*common.NpuBaseInfo{"Ascend910-0": {IP: "127.0.0.1"}}
+		hdm.baseNPUInfo = preBaseInfo
+		client := &kubeclient.ClientK8s{}
+		patch2 := gomonkey.ApplyMethodReturn(hdm.manager, "GetKubeClient", client)
+		defer patch2.Reset()
+		convey.Convey("03-update node annotations failed will not refresh cache", func() {
+			patch3 := gomonkey.ApplyMethodReturn(client, "AddAnnotation", errors.New("patch node failed"))
+			defer patch3.Reset()
+			hdm.updateNodeAnnotations()
+			convey.So(hdm.baseNPUInfo, convey.ShouldResemble, preBaseInfo)
+		})
+		convey.Convey("04-update node annotations succeed will refresh cache", func() {
+			patch3 := gomonkey.ApplyMethodReturn(client, "AddAnnotation", nil)
+			defer patch3.Reset()
+			hdm.updateNodeAnnotations()
+			convey.So(hdm.baseNPUInfo, convey.ShouldResemble, map[string]*common.NpuBaseInfo{
+				"Ascend910-0": {IP: "127.0.1.1"}})
+		})
+	})
+}
+
+func TestCompareBaseNPUInfo(t *testing.T) {
+	convey.Convey("TestCompareBaseNPUInfo", t, func() {
+		hdm := &HwDevManager{}
+		cur := map[string]*common.NpuBaseInfo{
+			"Ascend910-0": {
+				IP:            "127.0.0.1",
+				SuperDeviceID: 0,
+			}}
+		convey.Convey("01-pre info is empty should return false and newInfo should be empty", func() {
+			res, newInfo := hdm.compareBaseNPUInfo(cur)
+			convey.So(res, convey.ShouldBeFalse)
+			convey.So(newInfo, convey.ShouldBeEmpty)
+		})
+		convey.Convey("02-cur info has no same key in pre info should return false", func() {
+			hdm.baseNPUInfo = map[string]*common.NpuBaseInfo{
+				"Ascend910-1": {
+					IP:            "127.0.0.1",
+					SuperDeviceID: 0,
+				}}
+			res, newInfo := hdm.compareBaseNPUInfo(cur)
+			convey.So(res, convey.ShouldBeFalse)
+			convey.So(newInfo, convey.ShouldResemble, hdm.baseNPUInfo)
+		})
+		convey.Convey("03-cur info has different ip for same key should return true", func() {
+			hdm.baseNPUInfo = map[string]*common.NpuBaseInfo{
+				"Ascend910-0": {
+					IP:            "127.0.1.1",
+					SuperDeviceID: 0,
+				}}
+			res, newInfo := hdm.compareBaseNPUInfo(cur)
+			convey.So(res, convey.ShouldBeTrue)
+			convey.So(newInfo, convey.ShouldResemble, cur)
+		})
+		convey.Convey("04-pre info has same ip and sdid for same key should return false", func() {
+			hdm.baseNPUInfo = map[string]*common.NpuBaseInfo{
+				"Ascend910-0": {
+					IP:            "127.0.0.1",
+					SuperDeviceID: 0,
+				}}
+			res, newInfo := hdm.compareBaseNPUInfo(cur)
+			convey.So(res, convey.ShouldBeFalse)
+			convey.So(newInfo, convey.ShouldResemble, hdm.baseNPUInfo)
+		})
+	})
+}
