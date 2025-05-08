@@ -218,6 +218,11 @@ function install()
         exit 1
     fi
 
+    if [[ ! ${INSTALL_PATH} =~ ^/ ]]; then
+        echo "[ERROR]: install path: ${INSTALL_PATH} is a relative path, please use absolute path"
+        exit 1
+    fi
+
     check_path "${INSTALL_PATH}"
     if [[ $? != 0 ]]; then
         log "[ERROR]" "install failed, ${INSTALL_PATH} is invalid"
