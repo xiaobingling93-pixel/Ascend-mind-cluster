@@ -184,7 +184,7 @@ static bool CheckWhiteList(const char* fileName)
         return false;
     }
     bool fileExists = false;
-    const char mountWhiteList[WHITE_LIST_NUM][PATH_MAX] = {{"/usr/local/Ascend/driver/lib64"},
+    static const char mountWhiteList[WHITE_LIST_NUM][PATH_MAX] = {{"/usr/local/Ascend/driver/lib64"},
         {"/usr/local/Ascend/driver/include"}, {"/usr/local/dcmi"}, {"/usr/local/bin/npu-smi"},
         {"/home/data/miniD/driver/lib64"}, {"/usr/local/sbin/npu-smi"},
         {"/usr/local/Ascend/driver/tools"}, {"/etc/hdcBasic.cfg"}, {"/etc/sys_version.conf"},
@@ -329,8 +329,10 @@ static int ParseOneCmdArg(struct CmdArgs *args, char indicator, const char *valu
     bool isOK;
     if (i == 0) {
         isOK = LinkCheckCmdArgParser(value);
-    } else {
+    } else if (i < NUM_OF_CMD_ARGS) {
         isOK = g_cmdArgParsers[i].parser(args, value);
+    } else {
+        isOK = false;
     }
 
     if (!isOK) {
@@ -456,29 +458,35 @@ int Process(int argc, char **argv)
     }
     int c;
     int ret;
-    struct CmdArgs args = {0};
+    struct CmdArgs *args = calloc(1, sizeof(struct CmdArgs));
+    if (args == NULL) {
+        Logger("calloc failed!", LEVEL_ERROR, SCREEN_YES);
+        return -1;
+    }
 
     Logger("runc start prestart-hook ...", LEVEL_INFO, SCREEN_YES);
     while ((c = getopt_long(argc, argv, "l:p:r:o:f:i", g_cmdOpts, NULL)) != -1) {
-        ret = ParseOneCmdArg(&args, (char)c, optarg);
+        ret = ParseOneCmdArg(args, (char)c, optarg);
         if (ret < 0) {
             Logger("failed to parse cmd args.", LEVEL_ERROR, SCREEN_YES);
             return -1;
         }
     }
     Logger("verify parameters valid and parse runtime options", LEVEL_INFO, SCREEN_YES);
-    if (!IsCmdArgsValid(&args)) {
+    if (!IsCmdArgsValid(args)) {
         Logger("information not completed or valid.", LEVEL_ERROR, SCREEN_YES);
         return -1;
     }
 
-    ParseRuntimeOptions(args.options);
+    ParseRuntimeOptions(args->options);
     Logger("setup container config ...", LEVEL_INFO, SCREEN_YES);
-    ret = SetupContainer(&args);
+    ret = SetupContainer(args);
     if (ret < 0) {
         Logger("failed to setup container.", LEVEL_ERROR, SCREEN_YES);
         return ret;
     }
+    free(args);
+    args = NULL;
     Logger("prestart-hook setup container successful.", LEVEL_INFO, SCREEN_YES);
     return 0;
 }

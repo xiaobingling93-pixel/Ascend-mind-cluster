@@ -196,17 +196,19 @@ static bool CheckLimitId(const int idValue)
 static bool GetAndCheckID(const char *argv[], int *cardId,
                           int *deviceId, int *vDeviceId)
 {
+    const int decimal = 10;
     errno = 0;
-    *cardId = atoi(argv[PARAMS_SECOND]);
-    if ((errno != 0) || !CheckLimitId(*cardId)) {
+    char *endPtr = NULL;
+    *cardId = strtol(argv[PARAMS_SECOND], &endPtr, decimal);
+    if ((errno != 0) || *endPtr != '\0' || !CheckLimitId(*cardId)) {
         return false;
     }
-    *deviceId = atoi(argv[PARAMS_THIRD]);
-    if ((errno != 0) || !CheckLimitId(*deviceId)) {
+    *deviceId = strtol(argv[PARAMS_THIRD], &endPtr, decimal);
+    if ((errno != 0) || *endPtr != '\0' || !CheckLimitId(*deviceId)) {
         return false;
     }
-    *vDeviceId = atoi(argv[PARAMS_FOURTH]);
-    if ((errno != 0) || !CheckLimitId(*vDeviceId)) {
+    *vDeviceId = strtol(argv[PARAMS_FOURTH], &endPtr, decimal);
+    if ((errno != 0) || *endPtr != '\0' || !CheckLimitId(*vDeviceId)) {
         return false;
     }
     return true;

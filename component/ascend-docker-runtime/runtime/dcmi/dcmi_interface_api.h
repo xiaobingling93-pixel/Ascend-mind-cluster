@@ -88,8 +88,8 @@ int (*g_dcmiCreateVdeviceFunc)(int cardId, int deviceId,
                                struct DcmiCreateVdevResStru *vdev,
                                struct DcmiCreateVdevOut *out);
 static int DcmiCreateVdevice(int cardId, int deviceId,
-                      struct DcmiCreateVdevResStru *vdev,
-                      struct DcmiCreateVdevOut *out)
+                             struct DcmiCreateVdevResStru *vdev,
+                             struct DcmiCreateVdevOut *out)
 {
     CALL_FUNC(g_dcmiCreateVdeviceFunc, cardId, deviceId, vdev, out);
 }
