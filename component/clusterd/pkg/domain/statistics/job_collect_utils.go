@@ -104,7 +104,12 @@ func (j *JobStcMgr) parseCMData(cmData *v1.ConfigMap) bool {
 func (j *JobStcMgr) GetAllJobStatistic() (constant.CurrJobStatistic, int64) {
 	j.mutex.RLock()
 	defer j.mutex.RUnlock()
-	return j.data, j.version
+	res := constant.CurrJobStatistic{}
+	err := util.DeepCopy(&res, &j.data)
+	if err != nil {
+		hwlog.RunLog.Errorf("deep copy failed: %v", err)
+	}
+	return res, j.version
 }
 
 // UpdateJobStatistic update new job statistic from jobInfo
