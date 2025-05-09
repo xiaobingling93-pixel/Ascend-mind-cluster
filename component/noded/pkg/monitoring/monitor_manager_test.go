@@ -129,6 +129,9 @@ func TestParseTriggers(t *testing.T) {
 		default:
 			fmt.Println("update channel is full")
 		}
+		if monitorManager == nil {
+			t.Error("monitorManager is nil")
+		}
 		monitorManager.parseTriggers()
 		convey.So(deviceInfoHandled, convey.ShouldBeTrue)
 	})
@@ -139,6 +142,9 @@ func TestParseTriggers(t *testing.T) {
 			fmt.Print("clear update chane")
 		default:
 			fmt.Println("update channel is empty")
+		}
+		if monitorManager == nil {
+			t.Error("monitorManager is nil")
 		}
 		monitorManager.parseTriggers()
 		convey.So(deviceInfoHandled, convey.ShouldBeFalse)
