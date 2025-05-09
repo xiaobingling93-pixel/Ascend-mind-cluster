@@ -503,10 +503,9 @@ func (hdm *HwDevManager) compareBaseNPUInfo(curBaseInfo map[string]*common.NpuBa
 			SuperDeviceID: pre.SuperDeviceID,
 		}
 		if cur, ok := curBaseInfo[key]; ok {
-			if pre.IP != cur.IP || pre.SuperDeviceID != cur.SuperDeviceID {
+			if pre.IP != cur.IP {
 				baseInfoChange = true
 				newItem.IP = cur.IP
-				newItem.SuperDeviceID = cur.SuperDeviceID
 			}
 		}
 		newInfo[key] = newItem
