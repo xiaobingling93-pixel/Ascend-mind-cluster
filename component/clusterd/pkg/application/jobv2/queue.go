@@ -133,13 +133,13 @@ func Handler(ctx context.Context) {
 			switch operator {
 			case queueOperatorAdd:
 				addJob(jobUniqueKey)
-				jobStcMessage(jobUniqueKey, constant.JobInfoAdd)
+				jobStcMessage(jobUniqueKey, constant.PGAdd)
 			case queueOperatorUpdate:
 				updateJob(jobUniqueKey)
-				jobStcMessage(jobUniqueKey, constant.JobInfoUpdate)
+				jobStcMessage(jobUniqueKey, constant.PGUpdate)
 			case queueOperatorPreDelete:
 				preDeleteJob(jobUniqueKey)
-				jobStcMessage(jobUniqueKey, constant.JobInfoPreDelete)
+				jobStcMessage(jobUniqueKey, constant.PGDelete)
 			case queueOperatorDelete:
 				jobStcMessage(jobUniqueKey, constant.JobInfoDelete)
 				deleteJob(jobUniqueKey)
@@ -153,7 +153,7 @@ func Handler(ctx context.Context) {
 // jobStcMessage notify to job statistic
 func jobStcMessage(jobKey string, operator string) {
 	notifyMsg := constant.JobNotifyMsg{Operator: operator, JobKey: jobKey}
-	statistics.GlobalJobCollectMgr.JobNotifyChan <- notifyMsg
+	statistics.GlobalJobCollectMgr.JobNotify <- notifyMsg
 }
 
 // podGroupMessage set job operator with pogGroup

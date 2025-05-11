@@ -137,10 +137,17 @@ const (
 
 // jobStc notify msg
 const (
-	JobInfoAdd       = "JobInfoAdd"
-	JobInfoUpdate    = "JobInfoUpdate"
-	JobInfoPreDelete = "JobPreDelete"
-	JobInfoDelete    = "JobDelete"
+	PGAdd         = "PGAdd"
+	PGUpdate      = "PGUpdate"
+	PGDelete      = "PGDelete"
+	JobInfoDelete = "JobInfoDelete"
+
+	ACJobCreate = "ACJobCreate"
+	ACJobUpdate = "ACJobUpdate"
+	ACJobDelete = "ACJobDelete"
+
+	VCJobCreate = "VCJobCreate"
+	VCJobDelete = "VCJobDelete"
 )
 
 const (

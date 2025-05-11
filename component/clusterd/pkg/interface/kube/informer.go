@@ -9,15 +9,18 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/apis/pkg/client/informers/externalversions"
 
 	"ascend-common/api"
+	ascendv1 "ascend-common/api/ascend-operator/apis/batch/v1"
+	ascendexternalversions "ascend-common/api/ascend-operator/client/informers/externalversions"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -33,6 +36,8 @@ var (
 	cmNodeFuncs      = map[string][]func(*constant.NodeInfo, *constant.NodeInfo, string){}
 	cmSwitchFuncs    = map[string][]func(*constant.SwitchInfo, *constant.SwitchInfo, string){}
 	cmPubFaultFuncs  = map[string][]func(*api.PubFaultInfo, *api.PubFaultInfo, string){}
+	acJobFuncs       = map[string][]func(*ascendv1.AscendJob, *ascendv1.AscendJob, string){}
+	vcJobFuncs       = map[string][]func(*v1alpha1.Job, *v1alpha1.Job, string){}
 	podGroupFuncs    = map[string][]func(*v1beta1.PodGroup, *v1beta1.PodGroup, string){}
 	podFuncs         = map[string][]func(*v1.Pod, *v1.Pod, string){}
 	nodeFuncs        = map[string][]func(*v1.Node, *v1.Node, string){}
@@ -61,10 +66,30 @@ func CleanFuncs() {
 	cmNodeFuncs = map[string][]func(*constant.NodeInfo, *constant.NodeInfo, string){}
 	cmSwitchFuncs = map[string][]func(*constant.SwitchInfo, *constant.SwitchInfo, string){}
 	cmPubFaultFuncs = map[string][]func(*api.PubFaultInfo, *api.PubFaultInfo, string){}
+	acJobFuncs = map[string][]func(*ascendv1.AscendJob, *ascendv1.AscendJob, string){}
+	vcJobFuncs = map[string][]func(*v1alpha1.Job, *v1alpha1.Job, string){}
 	podGroupFuncs = map[string][]func(*v1beta1.PodGroup, *v1beta1.PodGroup, string){}
 	podFuncs = map[string][]func(*v1.Pod, *v1.Pod, string){}
 	nodeFuncs = map[string][]func(*v1.Node, *v1.Node, string){}
 	cmRankTableFuncs = map[string][]func(interface{}, interface{}, string){}
+}
+
+// AddACJobFunc add acJob func
+func AddACJobFunc(business string, func1 ...func(*ascendv1.AscendJob, *ascendv1.AscendJob, string)) {
+	if _, ok := acJobFuncs[business]; !ok {
+		acJobFuncs[business] = []func(*ascendv1.AscendJob, *ascendv1.AscendJob, string){}
+	}
+
+	acJobFuncs[business] = append(acJobFuncs[business], func1...)
+}
+
+// AddVCJobFunc add vcJob func
+func AddVCJobFunc(business string, func1 ...func(*v1alpha1.Job, *v1alpha1.Job, string)) {
+	if _, ok := vcJobFuncs[business]; !ok {
+		vcJobFuncs[business] = []func(*v1alpha1.Job, *v1alpha1.Job, string){}
+	}
+
+	vcJobFuncs[business] = append(vcJobFuncs[business], func1...)
 }
 
 // AddPodGroupFunc add podGroup func
@@ -551,6 +576,108 @@ func cmPubFaultHandler(oldObj, newObj interface{}, operator string) {
 		}
 		for _, cmFunc := range cmFuncs {
 			cmFunc(oldPubFaultForBusiness, newPubFaultForBusiness, operator)
+		}
+		index++
+	}
+}
+
+// InitACJobInformer is to init acJob informer
+func InitACJobInformer() {
+	opClient := GetOperatorClient().ClientSet
+	factory := ascendexternalversions.NewSharedInformerFactory(opClient, 0)
+	acJobInformer := factory.Batch().V1().Jobs()
+
+	acJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			acJobHandler(nil, obj, constant.AddOperator)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if !reflect.DeepEqual(oldObj, newObj) {
+				acJobHandler(oldObj, newObj, constant.UpdateOperator)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			acJobHandler(nil, obj, constant.DeleteOperator)
+		},
+	})
+	factory.Start(wait.NeverStop)
+	factory.WaitForCacheSync(wait.NeverStop)
+}
+
+func acJobHandler(oldObj interface{}, newObj interface{}, operator string) {
+	newJob, ok := newObj.(*ascendv1.AscendJob)
+	if !ok {
+		return
+	}
+	var oldJob *ascendv1.AscendJob
+	if oldObj != nil {
+		oldJob, ok = oldObj.(*ascendv1.AscendJob)
+		if !ok {
+			return
+		}
+	}
+	index := 0
+	for _, ascendJobFunc := range acJobFuncs {
+		// different businesses use different data sources
+		oldJobForBusiness := oldJob
+		newJobForBusiness := newJob
+		if oldJob != nil && newJob != nil && index > 0 {
+			oldJob = oldJob.DeepCopy()
+			newJob = newJob.DeepCopy()
+		}
+		for _, ajFunc := range ascendJobFunc {
+			ajFunc(oldJobForBusiness, newJobForBusiness, operator)
+		}
+		index++
+	}
+}
+
+// InitVCJobInformer is to init vcJob informer
+func InitVCJobInformer() {
+	vcClient := GetClientVolcano().ClientSet
+	factory := externalversions.NewSharedInformerFactory(vcClient, 0)
+	vcJobInformer := factory.Batch().V1alpha1().Jobs()
+
+	vcJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			vcJobHandler(nil, obj, constant.AddOperator)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if !reflect.DeepEqual(oldObj, newObj) {
+				vcJobHandler(oldObj, newObj, constant.UpdateOperator)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			vcJobHandler(nil, obj, constant.DeleteOperator)
+		},
+	})
+	factory.Start(wait.NeverStop)
+	factory.WaitForCacheSync(wait.NeverStop)
+}
+
+func vcJobHandler(oldObj interface{}, newObj interface{}, operator string) {
+	newVCjob, ok := newObj.(*v1alpha1.Job)
+	if !ok {
+		return
+	}
+	var oldVCjob *v1alpha1.Job
+	if oldObj != nil {
+		oldVCjob, ok = oldObj.(*v1alpha1.Job)
+		if !ok {
+			return
+		}
+	}
+	index := 0
+	for _, vcJobFunc := range vcJobFuncs {
+		// different businesses use different data sources
+		oldVCjobForBusiness := oldVCjob
+		newVCjobForBusiness := newVCjob
+		if oldVCjob != nil && newVCjob != nil && index > 0 {
+			oldVCjob = oldVCjob.DeepCopy()
+			newVCjob = newVCjob.DeepCopy()
+		}
+		for _, pgFunc := range vcJobFunc {
+			pgFunc(oldVCjobForBusiness, newVCjobForBusiness, operator)
 		}
 		index++
 	}

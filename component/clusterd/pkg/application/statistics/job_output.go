@@ -49,7 +49,7 @@ func (c *OutputMgr) JobOutput(ctx context.Context) {
 				continue
 			}
 			lastVersion = version
-			cmData := c.BuildCmData(curJobStatistic)
+			cmData := c.buildCmData(curJobStatistic)
 			err := kube.UpdateOrCreateConfigMap(statistics.JobStcCMName, api.DLNamespace, cmData, nil)
 			if err != nil {
 				hwlog.RunLog.Errorf("update or create cm err:%v", err)
@@ -58,8 +58,8 @@ func (c *OutputMgr) JobOutput(ctx context.Context) {
 	}
 }
 
-// BuildCmData build cm data
-func (c *OutputMgr) BuildCmData(curJobStatistic constant.CurrJobStatistic) map[string]string {
+// buildCmData build cm data
+func (c *OutputMgr) buildCmData(curJobStatistic constant.CurrJobStatistic) map[string]string {
 	tmpSlice := make([]constant.JobStatistic, 0, len(curJobStatistic.JobStatistic))
 	cmData := make(map[string]string)
 	for _, jobStc := range curJobStatistic.JobStatistic {

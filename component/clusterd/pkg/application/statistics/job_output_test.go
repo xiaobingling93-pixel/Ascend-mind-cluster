@@ -26,7 +26,7 @@ func TestBuildCmData(t *testing.T) {
 		},
 	}
 
-	cmData := mgr.BuildCmData(curJobStatistic)
+	cmData := mgr.buildCmData(curJobStatistic)
 
 	assert.Equal(t, "2", cmData[statistics.TotalJobsCmKey])
 	assert.Contains(t, cmData[statistics.JobDataCmKey], `{"id":"job1"}`)

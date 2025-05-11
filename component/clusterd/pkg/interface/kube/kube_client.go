@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/apis/pkg/client/clientset/versioned"
 
@@ -149,4 +150,21 @@ func CheckVolcanoExist(vcClient *versioned.Clientset) bool {
 		return false
 	}
 	return true
+}
+
+// GetJobEvent get job event
+func GetJobEvent(namespace, name, jobType string) (*v1.EventList, error) {
+	fieldSelector := fields.AndSelectors(
+		fields.OneTermEqualSelector("involvedObject.name", name),
+		fields.OneTermEqualSelector("involvedObject.namespace", namespace),
+		fields.OneTermEqualSelector("involvedObject.kind", jobType),
+	).String()
+	events, err := k8sClient.ClientSet.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	})
+	if err != nil {
+		hwlog.RunLog.Errorf("get events faild: %s", err)
+		return nil, err
+	}
+	return events, nil
 }

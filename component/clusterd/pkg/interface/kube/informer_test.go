@@ -4,15 +4,20 @@
 package kube
 
 import (
+	"reflect"
 	"testing"
-
+	
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+	"volcano.sh/apis/pkg/client/informers/externalversions"
 
 	"ascend-common/api"
+	ascendv1 "ascend-common/api/ascend-operator/apis/batch/v1"
+	ascendexternalversions "ascend-common/api/ascend-operator/client/informers/externalversions"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/node"
@@ -68,6 +73,40 @@ func TestAddCmNodeFunc(t *testing.T) {
 		convey.Convey("add two different business func", func() {
 			AddCmNodeFunc(constant.Statistics, func(info *constant.NodeInfo, info2 *constant.NodeInfo, s string) {})
 			convey.So(len(cmNodeFuncs), convey.ShouldEqual, testTwoNodeFunc)
+		})
+	})
+}
+
+func TestAddVCJobFunc(t *testing.T) {
+	convey.Convey("TestAddVCJobFunc", t, func() {
+		convey.Convey("add one job func", func() {
+			AddVCJobFunc(constant.Statistics, func(info *v1alpha1.Job, info2 *v1alpha1.Job, s string) {})
+			convey.So(len(vcJobFuncs[constant.Statistics]), convey.ShouldEqual, 1)
+		})
+		convey.Convey("add two job func", func() {
+			AddVCJobFunc(constant.Statistics, func(info *v1alpha1.Job, info2 *v1alpha1.Job, s string) {})
+			convey.So(len(vcJobFuncs[constant.Statistics]), convey.ShouldEqual, testTwoNodeFunc)
+		})
+		convey.Convey("add two different business func", func() {
+			AddVCJobFunc(constant.Job, func(info *v1alpha1.Job, info2 *v1alpha1.Job, s string) {})
+			convey.So(len(vcJobFuncs), convey.ShouldEqual, testTwoNodeFunc)
+		})
+	})
+}
+
+func TestAddACJobFunc(t *testing.T) {
+	convey.Convey("TestAddACJobFunc", t, func() {
+		convey.Convey("add one job func", func() {
+			AddACJobFunc(constant.Statistics, func(info *ascendv1.AscendJob, info2 *ascendv1.AscendJob, s string) {})
+			convey.So(len(acJobFuncs[constant.Statistics]), convey.ShouldEqual, 1)
+		})
+		convey.Convey("add two job func", func() {
+			AddACJobFunc(constant.Statistics, func(info *ascendv1.AscendJob, info2 *ascendv1.AscendJob, s string) {})
+			convey.So(len(acJobFuncs[constant.Statistics]), convey.ShouldEqual, testTwoNodeFunc)
+		})
+		convey.Convey("add two different business func", func() {
+			AddACJobFunc(constant.Job, func(info *ascendv1.AscendJob, info2 *ascendv1.AscendJob, s string) {})
+			convey.So(len(acJobFuncs), convey.ShouldEqual, testTwoNodeFunc)
 		})
 	})
 }
@@ -223,4 +262,48 @@ func TestAddCmRankTableFunc(t *testing.T) {
 
 		convey.So(len(cmRankTableFuncs[business]), convey.ShouldEqual, 1)
 	})
+}
+
+func TestInitVCJobInformer(t *testing.T) {
+	convey.Convey("Test InitVCJobInformer", t, func() {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		_, err := InitClientVolcano()
+		if err != nil {
+			return
+		}
+		called := false
+		patches.ApplyFunc(externalversions.SharedInformerFactory.Start, func(stopCh <-chan struct{}) {
+			called = true
+		})
+		patches.ApplyFunc(externalversions.SharedInformerFactory.WaitForCacheSync,
+			func(stopCh <-chan struct{}) map[reflect.Type]bool {
+				return make(map[reflect.Type]bool)
+			})
+		InitVCJobInformer()
+		convey.So(called, convey.ShouldEqual, true)
+	})
+
+}
+
+func TestInitACJobInformer(t *testing.T) {
+	convey.Convey("Test InitVCJobInformer", t, func() {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		_, err := InitClientVolcano()
+		if err != nil {
+			return
+		}
+		called := false
+		patches.ApplyFunc(ascendexternalversions.SharedInformerFactory.Start, func(stopCh <-chan struct{}) {
+			called = true
+		})
+		patches.ApplyFunc(ascendexternalversions.SharedInformerFactory.WaitForCacheSync,
+			func(stopCh <-chan struct{}) map[reflect.Type]bool {
+				return make(map[reflect.Type]bool)
+			})
+		InitACJobInformer()
+		convey.So(called, convey.ShouldEqual, true)
+	})
+
 }

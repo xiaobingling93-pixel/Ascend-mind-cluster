@@ -69,6 +69,8 @@ func startInformer(ctx context.Context) {
 	kube.InitCMInformer()
 	kube.InitPubFaultCMInformer()
 	kube.InitPodAndNodeInformer()
+	kube.InitACJobInformer()
+	kube.InitVCJobInformer()
 	kube.InitPodGroupInformer()
 	go pingmesh.TickerCheckSuperPodDevice(ctx)
 	// specific functions requires after informer
@@ -91,6 +93,8 @@ func dealPubFault(ctx context.Context) {
 func addJobFunc() {
 	kube.AddPodGroupFunc(constant.Job, jobv2.PodGroupCollector)
 	kube.AddPodFunc(constant.Job, jobv2.PodCollector)
+	kube.AddACJobFunc(constant.Statistics, statistics.ACJobInfoCollector)
+	kube.AddVCJobFunc(constant.Statistics, statistics.VCJobInfoCollector)
 }
 
 func addEpRankTableFunc() {
@@ -178,6 +182,9 @@ func initK8sServer() error {
 	}
 	if !kube.CheckVolcanoExist(vcK8sClient.ClientSet) {
 		return fmt.Errorf("volcano not exist, please deploy volcano")
+	}
+	if _, err := kube.InitOperatorClient(); err != nil {
+		return fmt.Errorf("new operator client config err: %v", err)
 	}
 	return nil
 }

@@ -118,9 +118,11 @@ type JobStatistic struct {
 	PodLastRunningTime  int64  `json:"podLastRunTime,omitempty"`
 	PodLastFaultTime    int64  `json:"podLastFaultTime,omitempty"`
 	PodFaultTimes       int64  `json:"podFaultTimes,omitempty"`
+	ScheduleProcess     string `json:"-"`
+	ScheduleFailReason  string `json:"-"`
 	Status              string `json:"-"`
 	Name                string `json:"-"`
-	NameSpace           string `json:"-"`
+	Namespace           string `json:"-"`
 }
 
 // JobInfo : normal job info

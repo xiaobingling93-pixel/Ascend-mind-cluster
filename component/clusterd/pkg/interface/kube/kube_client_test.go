@@ -25,6 +25,8 @@ const (
 	testValue1  = "value1"
 	testValue2  = "value2"
 	testValue3  = "value3"
+	testName    = "test-name"
+	testJobType = "test-job-type"
 )
 
 var (
@@ -277,5 +279,22 @@ func TestRetryPatchPodLabels(t *testing.T) {
 		defer p1.Reset()
 		err := RetryPatchPodLabels(testPodName, testNS, 1, nil)
 		convey.So(err, convey.ShouldResemble, testErr)
+	})
+}
+
+func TestGetJobEvent(t *testing.T) {
+	convey.Convey("get event error", t, func() {
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().Events(v1.NamespaceAll),
+			"List", nil, testErr)
+		defer p1.Reset()
+		_, err := GetJobEvent(testNS, testName, testJobType)
+		convey.So(err, convey.ShouldResemble, testErr)
+	})
+	convey.Convey("get event ok", t, func() {
+		p1 := gomonkey.ApplyMethodReturn(GetClientK8s().ClientSet.CoreV1().Events(v1.NamespaceAll),
+			"List", nil, nil)
+		defer p1.Reset()
+		_, err := GetJobEvent(testNS, testName, testJobType)
+		convey.So(err, convey.ShouldBeNil)
 	})
 }

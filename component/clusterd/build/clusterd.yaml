@@ -36,6 +36,12 @@ rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get"]
+  - apiGroups: [ "mindxdl.gitee.com" ]
+    resources: [ "ascendjobs" ]
+    verbs: [ "list", "watch", "get"]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "list" ]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
