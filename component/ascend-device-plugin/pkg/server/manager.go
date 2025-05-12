@@ -444,6 +444,8 @@ func (hdm *HwDevManager) ListenDevice(ctx context.Context) {
 	}
 	go hdm.updateNodeAnnotations(ctx)
 
+	// report device fault to k8s event
+	go hdm.manager.WriteFaultToEvent(ctx)
 	initTime := time.Now()
 	ticker := time.NewTicker(time.Duration(common.ParamOption.ListAndWatchPeriod) * time.Second)
 	defer ticker.Stop()

@@ -6,7 +6,7 @@ package kube
 import (
 	"reflect"
 	"testing"
-	
+
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"

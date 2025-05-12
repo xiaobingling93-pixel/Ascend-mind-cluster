@@ -891,3 +891,12 @@ const (
 	// MaxPodEventRetryTimes max try time for pod add event while cache none
 	MaxPodEventRetryTimes = 4
 )
+
+const (
+	// WriteEventRateLimit upper limit rate of write fault to k8s event per minute
+	WriteEventRateLimit = 10
+	// FaultCallBackRateLimit  upper limit rate of call back receive fault from driver per minute
+	FaultCallBackRateLimit = 1000
+	// WriteEventChanLenLimit upper limit of length of cache event
+	WriteEventChanLenLimit = 100
+)
