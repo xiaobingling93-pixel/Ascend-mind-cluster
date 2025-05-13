@@ -60,31 +60,31 @@ unsigned int aicoreCnt;
 };
 
 // dcmi
-int (*g_dcmiInitFunc)(void);
+static int (*g_dcmiInitFunc)(void);
 static int DcmiInit(void)
 {
     CALL_FUNC(g_dcmiInitFunc);
 }
 
-int (*g_dcmiGetCardNumListFunc)(int *cardNum, int *cardList, int listLength);
+static int (*g_dcmiGetCardNumListFunc)(int *cardNum, int *cardList, int listLength);
 static int DcmiGetCardNumList(int *cardNum, int *cardList, int listLength)
 {
     CALL_FUNC(g_dcmiGetCardNumListFunc, cardNum, cardList, listLength);
 }
 
-int (*g_dcmiGetDeviceNumInCardFunc)(int cardId, int *deviceNum);
+static int (*g_dcmiGetDeviceNumInCardFunc)(int cardId, int *deviceNum);
 static int DcmiGetDeviceNumInCard(int cardId, int *deviceNum)
 {
     CALL_FUNC(g_dcmiGetDeviceNumInCardFunc, cardId, deviceNum);
 }
 
-int (*g_dcmiGetDeviceLogicIdFunc)(int *deviceLogicId, int cardId, int deviceId);
+static int (*g_dcmiGetDeviceLogicIdFunc)(int *deviceLogicId, int cardId, int deviceId);
 static int DcmiGetDeviceLogicId(int *deviceLogicId, int cardId, int deviceId)
 {
     CALL_FUNC(g_dcmiGetDeviceLogicIdFunc, deviceLogicId, cardId, deviceId);
 }
 
-int (*g_dcmiCreateVdeviceFunc)(int cardId, int deviceId,
+static int (*g_dcmiCreateVdeviceFunc)(int cardId, int deviceId,
                                struct DcmiCreateVdevResStru *vdev,
                                struct DcmiCreateVdevOut *out);
 static int DcmiCreateVdevice(int cardId, int deviceId,
@@ -94,25 +94,25 @@ static int DcmiCreateVdevice(int cardId, int deviceId,
     CALL_FUNC(g_dcmiCreateVdeviceFunc, cardId, deviceId, vdev, out);
 }
 
-int (*g_dcmiSetDestroyVdeviceFunc)(int cardId, int deviceId, unsigned int vDevid);
+static int (*g_dcmiSetDestroyVdeviceFunc)(int cardId, int deviceId, unsigned int vDevid);
 static int DcmiSetDestroyVdevice(int cardId, int deviceId, unsigned int vDevid)
 {
     CALL_FUNC(g_dcmiSetDestroyVdeviceFunc, cardId, deviceId, vDevid);
 }
 
-int (*g_dcmiGetDeviceLogicidFromPhyidFunc)(unsigned int phyid, unsigned int *logicid);
+static int (*g_dcmiGetDeviceLogicidFromPhyidFunc)(unsigned int phyid, unsigned int *logicid);
 static int DcmiGetDeviceLogicidFromPhyid(unsigned int phyid, unsigned int *logicid)
 {
     CALL_FUNC(g_dcmiGetDeviceLogicidFromPhyidFunc, phyid, logicid);
 }
 
-int (*g_dcmiGetProductTypeFunc)(int cardId, int deviceId, char *productTypeStr, int bufSize);
+static int (*g_dcmiGetProductTypeFunc)(int cardId, int deviceId, char *productTypeStr, int bufSize);
 static int DcmiGetProductType(int cardId, int deviceId, char *productTypeStr, int bufSize)
 {
     CALL_FUNC(g_dcmiGetProductTypeFunc, cardId, deviceId, productTypeStr, bufSize);
 }
 
-int (*g_dcmiGetDeviceChipInfoFunc)(int cardId, int deviceId, struct DcmiChipInfo *chipInfo);
+static int (*g_dcmiGetDeviceChipInfoFunc)(int cardId, int deviceId, struct DcmiChipInfo *chipInfo);
 static int DcmiGetDeviceChipInfo(int cardId, int deviceId, struct DcmiChipInfo *chipInfo)
 {
     CALL_FUNC(g_dcmiGetDeviceChipInfoFunc, cardId, deviceId, chipInfo);

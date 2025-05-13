@@ -184,7 +184,7 @@ static bool CheckWhiteList(const char* fileName)
         return false;
     }
     bool fileExists = false;
-    static const char mountWhiteList[WHITE_LIST_NUM][PATH_MAX] = {{"/usr/local/Ascend/driver/lib64"},
+    static const char MOUNT_WHITE_LIST[WHITE_LIST_NUM][PATH_MAX] = {{"/usr/local/Ascend/driver/lib64"},
         {"/usr/local/Ascend/driver/include"}, {"/usr/local/dcmi"}, {"/usr/local/bin/npu-smi"},
         {"/home/data/miniD/driver/lib64"}, {"/usr/local/sbin/npu-smi"},
         {"/usr/local/Ascend/driver/tools"}, {"/etc/hdcBasic.cfg"}, {"/etc/sys_version.conf"},
@@ -200,7 +200,7 @@ static bool CheckWhiteList(const char* fileName)
         };
 
     for (size_t iLoop = 0; iLoop < WHITE_LIST_NUM; iLoop++) {
-        if (strcmp(mountWhiteList[iLoop], fileName) == 0) {
+        if (strcmp(MOUNT_WHITE_LIST[iLoop], fileName) == 0) {
             fileExists = true;
             break;
         }
@@ -469,12 +469,16 @@ int Process(int argc, char **argv)
         ret = ParseOneCmdArg(args, (char)c, optarg);
         if (ret < 0) {
             Logger("failed to parse cmd args.", LEVEL_ERROR, SCREEN_YES);
+            free(args);
+            args = NULL;
             return -1;
         }
     }
     Logger("verify parameters valid and parse runtime options", LEVEL_INFO, SCREEN_YES);
     if (!IsCmdArgsValid(args)) {
         Logger("information not completed or valid.", LEVEL_ERROR, SCREEN_YES);
+        free(args);
+        args = NULL;
         return -1;
     }
 
@@ -483,6 +487,8 @@ int Process(int argc, char **argv)
     ret = SetupContainer(args);
     if (ret < 0) {
         Logger("failed to setup container.", LEVEL_ERROR, SCREEN_YES);
+        free(args);
+        args = NULL;
         return ret;
     }
     free(args);
