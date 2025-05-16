@@ -249,19 +249,25 @@ func SliceByteEqual(slice1, slice2 []byte) {
 
 func TestTriggerUpdate(t *testing.T) {
 	convey.Convey("trigger update success", t, func() {
-		verifyUpdateTrigger()
+		verifyUpdateTrigger(t)
 		TriggerUpdate("test trigger update")
-		convey.So(verifyUpdateTrigger(), convey.ShouldBeTrue)
+		convey.So(verifyUpdateTrigger(t), convey.ShouldBeTrue)
 	})
 	convey.Convey("not trigger update", t, func() {
-		verifyUpdateTrigger()
+		verifyUpdateTrigger(t)
+		if updateTriggerChan == nil {
+			t.Error("updateTriggerChan is nil")
+		}
 		updateTriggerChan <- struct{}{}
 		TriggerUpdate("test trigger update")
-		convey.So(verifyUpdateTrigger(), convey.ShouldBeTrue)
+		convey.So(verifyUpdateTrigger(t), convey.ShouldBeTrue)
 	})
 }
 
-func verifyUpdateTrigger() bool {
+func verifyUpdateTrigger(t *testing.T) bool {
+	if updateTriggerChan == nil {
+		t.Error("updateTriggerChan is nil")
+	}
 	select {
 	case <-updateTriggerChan:
 		return true
