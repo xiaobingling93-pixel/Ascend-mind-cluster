@@ -28,7 +28,7 @@ extern "C" {
 #endif
 #endif /* __cplusplus */
 
-void *g_dcmiHandle;
+static void *g_dcmiHandle;
 #define SO_NOT_FOUND  (-99999)
 #define FUNCTION_NOT_FOUND  (-99998)
 #define SUCCESS  (0)
@@ -85,8 +85,8 @@ static int DcmiGetDeviceLogicId(int *deviceLogicId, int cardId, int deviceId)
 }
 
 static int (*g_dcmiCreateVdeviceFunc)(int cardId, int deviceId,
-                               struct DcmiCreateVdevResStru *vdev,
-                               struct DcmiCreateVdevOut *out);
+                                      struct DcmiCreateVdevResStru *vdev,
+                                      struct DcmiCreateVdevOut *out);
 static int DcmiCreateVdevice(int cardId, int deviceId,
                              struct DcmiCreateVdevResStru *vdev,
                              struct DcmiCreateVdevOut *out)
