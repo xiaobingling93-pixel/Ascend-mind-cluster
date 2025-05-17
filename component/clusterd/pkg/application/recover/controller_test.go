@@ -1831,7 +1831,7 @@ func testNonPlatformModeSuccess(ctl *EventController) {
 	})
 }
 
-func TestHandleWaitRestartAllProcess_PlatFormModeTrue(t *testing.T) {
+func TestHandleWaitRestartAllProcessPlatFormModeTrue(t *testing.T) {
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{
 			RecoverConfig: common.RecoverConfig{
@@ -1859,7 +1859,7 @@ func TestHandleWaitRestartAllProcess_PlatFormModeTrue(t *testing.T) {
 	}
 }
 
-func TestHandleWaitRestartAllProcess_Timeout(t *testing.T) {
+func TestHandleWaitRestartAllProcessTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numInt2)*time.Minute)
 	defer cancel()
 
@@ -1897,7 +1897,7 @@ func TestHandleWaitRestartAllProcess_Timeout(t *testing.T) {
 	}
 }
 
-func TestHandleWaitRestartAllProcess_CtxDone(t *testing.T) {
+func TestHandleWaitRestartAllProcessCtxDone(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{
@@ -1931,7 +1931,7 @@ func TestHandleWaitRestartAllProcess_CtxDone(t *testing.T) {
 	}
 }
 
-func TestSelectSendChannel_SendChanNil(t *testing.T) {
+func TestSelectSendChannelSendChanNil(t *testing.T) {
 	convey.Convey("Test selectSendChannel when sendChan is nil", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -1944,7 +1944,7 @@ func TestSelectSendChannel_SendChanNil(t *testing.T) {
 	})
 }
 
-func TestSelectSendChannel_ContextDone(t *testing.T) {
+func TestSelectSendChannelContextDone(t *testing.T) {
 	convey.Convey("Test selectSendChannel when context is done", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -1960,7 +1960,7 @@ func TestSelectSendChannel_ContextDone(t *testing.T) {
 	})
 }
 
-func TestSelectSendChannel_ReceiveNonKeepAliveSignal(t *testing.T) {
+func TestSelectSendChannelReceiveNonKeepAliveSignal(t *testing.T) {
 	convey.Convey("Test selectSendChannel when receive non-keepalive signal from sendChan", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -1989,7 +1989,7 @@ func TestSelectSendChannel_ReceiveNonKeepAliveSignal(t *testing.T) {
 	})
 }
 
-func TestSelectSendChannel_ReceiveKeepAliveSignal(t *testing.T) {
+func TestSelectSendChannelReceiveKeepAliveSignal(t *testing.T) {
 	convey.Convey("Test selectSendChannel when receive keepalive signal from sendChan", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2013,7 +2013,7 @@ func TestSelectSendChannel_ReceiveKeepAliveSignal(t *testing.T) {
 	})
 }
 
-func TestSelectSendChannel_SendChanClosed(t *testing.T) {
+func TestSelectSendChannelSendChanClosed(t *testing.T) {
 	convey.Convey("Test selectSendChannel when sendChan is closed", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2029,7 +2029,7 @@ func TestSelectSendChannel_SendChanClosed(t *testing.T) {
 	})
 }
 
-func TestEventController_chooseForRetryFail(t *testing.T) {
+func TestEventControllerChooseForRetryFail(t *testing.T) {
 	convey.Convey("Test chooseForRetryFail", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2054,7 +2054,7 @@ func TestEventController_chooseForRetryFail(t *testing.T) {
 	})
 }
 
-func TestEventController_chooseForRecoverFail(t *testing.T) {
+func TestEventControllerChooseForRecoverFail(t *testing.T) {
 	convey.Convey("Test chooseForRecoverFail", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2074,7 +2074,7 @@ func TestEventController_chooseForRecoverFail(t *testing.T) {
 	})
 }
 
-func TestEventController_agentSupportStrategy(t *testing.T) {
+func TestEventControllerAgentSupportStrategy(t *testing.T) {
 	convey.Convey("Test agentSupportStrategy", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2091,7 +2091,7 @@ func TestEventController_agentSupportStrategy(t *testing.T) {
 	})
 }
 
-func TestEventController_extractRecoverResult_NoStrategy(t *testing.T) {
+func TestEventControllerExtractRecoverResult_NoStrategy(t *testing.T) {
 	convey.Convey("Test extractRecoverResult when no strategy is decided", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2111,7 +2111,7 @@ func TestEventController_extractRecoverResult_NoStrategy(t *testing.T) {
 	})
 }
 
-func TestEventController_extractRecoverResult_ExitStrategy(t *testing.T) {
+func TestEventControllerExtractRecoverResult_ExitStrategy(t *testing.T) {
 	convey.Convey("Test extractRecoverResult with ExitStrategy", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2133,7 +2133,7 @@ func TestEventController_extractRecoverResult_ExitStrategy(t *testing.T) {
 	})
 }
 
-func TestEventController_extractRecoverResult_NormalStrategy(t *testing.T) {
+func TestEventControllerExtractRecoverResult_NormalStrategy(t *testing.T) {
 	convey.Convey("Test extractRecoverResult with normal strategy", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2164,7 +2164,7 @@ func TestEventController_extractRecoverResult_NormalStrategy(t *testing.T) {
 	})
 }
 
-func TestEventController_removeAgentStrategy(t *testing.T) {
+func TestEventControllerRemoveAgentStrategy(t *testing.T) {
 	convey.Convey("Test removeAgentStrategy", t, func() {
 		ctl := &EventController{
 			agentReportStrategies: []string{constant.ProcessRecoverStrategy,
@@ -2176,7 +2176,7 @@ func TestEventController_removeAgentStrategy(t *testing.T) {
 	})
 }
 
-func TestEventController_updateFixResult_Success(t *testing.T) {
+func TestEventControllerUpdateFixResult_Success(t *testing.T) {
 	convey.Convey("Test updateFixResult success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2199,7 +2199,7 @@ func TestEventController_updateFixResult_Success(t *testing.T) {
 	})
 }
 
-func TestEventController_updateFixResult_Failure(t *testing.T) {
+func TestEventControllerUpdateFixResult_Failure(t *testing.T) {
 	convey.Convey("Test updateFixResult failure", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2218,7 +2218,7 @@ func TestEventController_updateFixResult_Failure(t *testing.T) {
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_RetrySuccess(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_RetrySuccess(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with RetryStrategy success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2246,7 +2246,7 @@ func TestEventController_handleCheckRecoverResult_RetrySuccess(t *testing.T) {
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_RetryFailedRecoverable(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_RetryFailedRecoverable(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with RetryStrategy failed and recoverable", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2275,7 +2275,7 @@ func TestEventController_handleCheckRecoverResult_RetryFailedRecoverable(t *test
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_RetryFailedUnrecoverable(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_RetryFailedUnrecoverable(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with RetryStrategy failed and unrecoverable", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2312,7 +2312,7 @@ func TestEventController_handleCheckRecoverResult_RetryFailedUnrecoverable(t *te
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_RecoverSuccess(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_RecoverSuccess(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with RecoverStrategy success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2341,7 +2341,7 @@ func TestEventController_handleCheckRecoverResult_RecoverSuccess(t *testing.T) {
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_RecoverFailed(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_RecoverFailed(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with RecoverStrategy failed", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2370,7 +2370,7 @@ func TestEventController_handleCheckRecoverResult_RecoverFailed(t *testing.T) {
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_DumpOrExitStrategySuccess(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_DumpOrExitStrategySuccess(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with Dump or Exit Strategy success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2399,7 +2399,7 @@ func TestEventController_handleCheckRecoverResult_DumpOrExitStrategySuccess(t *t
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_ExitStrategySuccess(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_ExitStrategySuccess(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with Exit Strategy success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2428,7 +2428,7 @@ func TestEventController_handleCheckRecoverResult_ExitStrategySuccess(t *testing
 	})
 }
 
-func TestEventController_handleCheckRecoverResult_DumpStrategyFailed(t *testing.T) {
+func TestEventControllerHandleCheckRecoverResult_DumpStrategyFailed(t *testing.T) {
 	convey.Convey("Test handleCheckRecoverResult with Dump Strategy failed", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2457,7 +2457,7 @@ func TestEventController_handleCheckRecoverResult_DumpStrategyFailed(t *testing.
 	})
 }
 
-func TestEventController_handleKillPod_JobNotExist(t *testing.T) {
+func TestEventControllerHandleKillPod_JobNotExist(t *testing.T) {
 	convey.Convey("Test handleKillPod when job does not exist", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2476,7 +2476,7 @@ func TestEventController_handleKillPod_JobNotExist(t *testing.T) {
 	})
 }
 
-func TestEventController_handleKillPod_WriteCMError(t *testing.T) {
+func TestEventControllerHandleKillPod_WriteCMError(t *testing.T) {
 	convey.Convey("Test handleKillPod when write CM fails", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2507,7 +2507,7 @@ func TestEventController_handleKillPod_WriteCMError(t *testing.T) {
 	})
 }
 
-func TestEventController_handleKillPod_Success(t *testing.T) {
+func TestEventControllerHandleKillPod_Success(t *testing.T) {
 	convey.Convey("Test handleKillPod success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2541,7 +2541,7 @@ func TestEventController_handleKillPod_Success(t *testing.T) {
 	})
 }
 
-func TestEventController_handleFaultRetry_ChangePauseError(t *testing.T) {
+func TestEventControllerHandleFaultRetry_ChangePauseError(t *testing.T) {
 	convey.Convey("Test handleFaultRetry when change pause mode fails", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2562,7 +2562,7 @@ func TestEventController_handleFaultRetry_ChangePauseError(t *testing.T) {
 	})
 }
 
-func TestEventController_handleFaultRetry_ChangeEnableError(t *testing.T) {
+func TestEventControllerHandleFaultRetry_ChangeEnableError(t *testing.T) {
 	convey.Convey("Test handleFaultRetry when change enable mode fails", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2590,7 +2590,7 @@ func TestEventController_handleFaultRetry_ChangeEnableError(t *testing.T) {
 	})
 }
 
-func TestEventController_handleFaultRetry_Success(t *testing.T) {
+func TestEventControllerHandleFaultRetry_Success(t *testing.T) {
 	convey.Convey("Test handleFaultRetry success", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
@@ -2665,7 +2665,7 @@ func TestPGStatusEnqueue(t *testing.T) {
 	})
 }
 
-func TestSelectEventChan_EventChanNil(t *testing.T) {
+func TestSelectEventChanEventChanNil(t *testing.T) {
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{
 			JobId: "testJobId",
@@ -2678,7 +2678,7 @@ func TestSelectEventChan_EventChanNil(t *testing.T) {
 	})
 }
 
-func TestSelectEventChan_ContextCanceled(t *testing.T) {
+func TestSelectEventChanContextCanceled(t *testing.T) {
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{
 			JobId: "testJobId",
@@ -2694,7 +2694,7 @@ func TestSelectEventChan_ContextCanceled(t *testing.T) {
 	})
 }
 
-func TestSelectEventChan_TriggerReturnsError(t *testing.T) {
+func TestSelectEventChanTriggerReturnsError(t *testing.T) {
 	jobInfo := newJobInfoWithStrategy(nil)
 	serviceCtx := context.Background()
 	ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
@@ -2708,7 +2708,7 @@ func TestSelectEventChan_TriggerReturnsError(t *testing.T) {
 	})
 }
 
-func TestSelectEventChan_TriggerReturnsNoErrorAndNextEventNotEmpty(t *testing.T) {
+func TestSelectEventChanTriggerReturnsNoErrorAndNextEventNotEmpty(t *testing.T) {
 	jobInfo := newJobInfoWithStrategy(nil)
 	serviceCtx := context.Background()
 	ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
@@ -2722,14 +2722,15 @@ func TestSelectEventChan_TriggerReturnsNoErrorAndNextEventNotEmpty(t *testing.T)
 			})
 	defer patches.Reset()
 
-	convey.Convey("Test the case where the eventChan receives an event and trigger returns no error and nextEvent is not empty",
+	convey.Convey("Test the case where the eventChan receives an event and trigger "+
+		"returns no error and nextEvent is not empty",
 		t, func() {
 			result := ctl.selectEventChan(context.Background(), eventChan)
 			convey.So(result, convey.ShouldBeFalse)
 		})
 }
 
-func TestSelectEventChan_EventChanClosed(t *testing.T) {
+func TestSelectEventChanEventChanClosed(t *testing.T) {
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{
 			JobId: "testJobId",

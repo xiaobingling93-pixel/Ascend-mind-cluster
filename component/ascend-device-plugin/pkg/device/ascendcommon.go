@@ -53,7 +53,8 @@ var (
 	useIpv4                = true
 	re                     = regexp.MustCompile(`"fault_time":\d+,`)
 	allFaultInfo           = make(chan npuCommon.DevFaultInfo, common.WriteEventChanLenLimit)
-	limiter                = rate.NewLimiter(rate.Every(time.Minute/common.WriteEventRateLimit), common.WriteEventRateLimit)
+	limiter                = rate.NewLimiter(
+		rate.Every(time.Minute/common.WriteEventRateLimit), common.WriteEventRateLimit)
 )
 
 const (
@@ -1252,6 +1253,7 @@ func (tool *AscendTools) SetResetFailedTimes(deviceLogicId int32, count int) {
 	tool.resetFailedTimesMap[deviceLogicId] = count
 }
 
+// WriteFaultToEvent write fault to event
 func (tool *AscendTools) WriteFaultToEvent(ctx context.Context) {
 	for {
 		select {

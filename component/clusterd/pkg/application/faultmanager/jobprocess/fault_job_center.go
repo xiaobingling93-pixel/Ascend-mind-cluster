@@ -14,9 +14,6 @@ import (
 	"clusterd/pkg/common/constant"
 )
 
-// FaultJobCenter process fault about job
-var FaultJobCenter *faultJobProcessCenter
-
 type faultJobProcessCenter struct {
 	processorList        []constant.FaultProcessor
 	subscribeChannelList []*subscriber
@@ -27,6 +24,9 @@ type subscriber struct {
 	ch  chan map[string]constant.JobFaultInfo
 	src string
 }
+
+// FaultJobCenter process fault about job
+var FaultJobCenter *faultJobProcessCenter
 
 func init() {
 	FaultJobCenter = &faultJobProcessCenter{

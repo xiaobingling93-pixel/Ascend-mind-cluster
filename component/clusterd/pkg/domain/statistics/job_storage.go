@@ -11,6 +11,7 @@ import (
 	"ascend-common/common-utils/hwlog"
 )
 
+// Manager is statistics manager for job
 type Manager struct {
 	jobMap      map[string]v1.Object
 	jobMapMutex sync.RWMutex

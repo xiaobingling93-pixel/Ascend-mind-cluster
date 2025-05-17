@@ -25,6 +25,8 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
+const jobCreateInt = 5
+
 func TestLoadConfigMapToCache(t *testing.T) {
 	t.Run("cm successful load, Data length is 1", func(t *testing.T) {
 		patches := gomonkey.NewPatches()
@@ -356,8 +358,8 @@ func TestInitStcJob(t *testing.T) {
 
 func TestGetIntValue(t *testing.T) {
 	t.Run("get value ok", func(t *testing.T) {
-		val := getIntValue("5%")
-		assert.Equal(t, 5, val)
+		val := getIntValue(jobCreated)
+		assert.Equal(t, jobCreateInt, val)
 	})
 	t.Run("get value failed", func(t *testing.T) {
 		patches := gomonkey.NewPatches()
@@ -365,7 +367,7 @@ func TestGetIntValue(t *testing.T) {
 		patches.ApplyFunc(strconv.Atoi, func(s string) (int, error) {
 			return 0, errors.New("error")
 		})
-		val := getIntValue("5%")
+		val := getIntValue(jobCreated)
 		assert.Equal(t, 0, val)
 	})
 }

@@ -5,7 +5,6 @@ Copyright(C) 2023. Huawei Technologies Co.,Ltd. All rights reserved.
 /*
 Package controllers is using for reconcile AscendJob.
 */
-
 package v1
 
 import (

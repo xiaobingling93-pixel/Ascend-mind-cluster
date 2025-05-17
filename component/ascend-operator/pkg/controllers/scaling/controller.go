@@ -17,7 +17,6 @@ limitations under the License.
 /*
 Package scaling is using for scale AscendJobs.
 */
-
 package scaling
 
 import (

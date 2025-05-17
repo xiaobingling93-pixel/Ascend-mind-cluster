@@ -531,7 +531,7 @@ func TestPreRegistry(t *testing.T) {
 	})
 }
 
-func TestGetJobBaseInfo_Normal(t *testing.T) {
+func TestGetJobBaseInfoNormal(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(podgroup.GetPGFromCacheOrPod,
 		func(jobId string) (string, string, string) {
 			return "testJobName", "testPgName", "testNamespace"
@@ -559,7 +559,7 @@ func TestGetJobBaseInfo_Normal(t *testing.T) {
 	}
 }
 
-func TestGetJobBaseInfo_GetPGFromCacheError(t *testing.T) {
+func TestGetJobBaseInfoGetPGFromCacheError(t *testing.T) {
 	patch := gomonkey.ApplyFunc(podgroup.GetPGFromCacheOrPod,
 		func(jobId string) (string, string, string) {
 			return "", "", ""
@@ -576,7 +576,7 @@ func TestGetJobBaseInfo_GetPGFromCacheError(t *testing.T) {
 	}
 }
 
-func TestGetJobBaseInfo_GetRecoverBaseInfoError(t *testing.T) {
+func TestGetJobBaseInfoGetRecoverBaseInfoError(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(podgroup.GetPGFromCacheOrPod,
 		func(jobId string) (string, string, string) {
 			return "testJobName", "testPgName", "testNamespace"
@@ -599,7 +599,7 @@ func TestGetJobBaseInfo_GetRecoverBaseInfoError(t *testing.T) {
 	}
 }
 
-func TestGetJobBaseInfo_ProcessRecoverEnableOff(t *testing.T) {
+func TestGetJobBaseInfoProcessRecoverEnableOff(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(podgroup.GetPGFromCacheOrPod,
 		func(jobId string) (string, string, string) {
 			return "testJobName", "testPgName", "testNamespace"
@@ -624,7 +624,7 @@ func TestGetJobBaseInfo_ProcessRecoverEnableOff(t *testing.T) {
 	}
 }
 
-func Test_GetFaultReason(t *testing.T) {
+func TestGetFaultReason(t *testing.T) {
 	convey.Convey("Testing getFaultReason", t, func() {
 		faults1 := []*pb.FaultRank{&pb.FaultRank{
 			RankId:    "0",
