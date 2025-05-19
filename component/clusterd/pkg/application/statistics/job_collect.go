@@ -119,8 +119,7 @@ func vcJobMessage(oldJobInfo, newJobInfo *v1alpha1.Job, operator string) {
 	switch operator {
 	case constant.AddOperator:
 		GlobalJobCollectMgr.JobNotify <- constant.JobNotifyMsg{Operator: constant.VCJobCreate, JobKey: jobKey}
-	case constant.UpdateOperator:
-		// nothing to do currently
+	case constant.UpdateOperator: // nothing to do currently
 	case constant.DeleteOperator:
 		GlobalJobCollectMgr.JobNotify <- constant.JobNotifyMsg{Operator: constant.VCJobDelete, JobKey: jobKey}
 	default:

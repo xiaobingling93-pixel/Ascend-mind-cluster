@@ -128,7 +128,11 @@ func TestCheckPublishFault(t *testing.T) {
 	}
 	service := fakeFaultService()
 	service.addPublisher(fakeJobID1)
-	faultPublisher, _ := service.getPublisher(fakeJobID1)
+	faultPublisher, ok := service.getPublisher(fakeJobID1)
+	if !ok {
+		t.Error("get faultPublisher fail")
+		return
+	}
 	faultPublisher.SetSubscribe(true)
 	sendChan := faultPublisher.GetSentChan()
 

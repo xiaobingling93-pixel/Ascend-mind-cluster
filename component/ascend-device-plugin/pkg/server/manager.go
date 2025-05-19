@@ -508,7 +508,7 @@ func (hdm *HwDevManager) doUpdateNodeAnnotations() {
 }
 
 func (hdm *HwDevManager) compareBaseNPUInfo() (bool, map[string]*common.NpuBaseInfo) {
-	var baseInfoChange bool
+	baseInfoChange := false
 	newInfo := make(map[string]*common.NpuBaseInfo, len(hdm.baseNPUInfo))
 	for _, dev := range hdm.allInfo.AllDevs {
 		info, ok := hdm.baseNPUInfo[dev.DeviceName]

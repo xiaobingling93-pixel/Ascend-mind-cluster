@@ -13,7 +13,6 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
@@ -48,7 +47,7 @@ func TestLoadConfigMapToCache(t *testing.T) {
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		patches.ApplyFunc(kube.GetConfigMap, func(name, namespace string) (*v1.ConfigMap, error) {
-			return nil, k8serror.NewNotFound(v1.Resource("configmap"), "cm")
+			return nil, errors.New("cm not found")
 		})
 		JobStcMgrInst.data.JobStatistic = make(map[string]constant.JobStatistic)
 		JobStcMgrInst.LoadConfigMapToCache("ns", "cm")
