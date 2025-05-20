@@ -381,10 +381,12 @@ bool GetFileSubsetAndCheck(const char *basePath, const size_t basePathLen)
     return true;
 }
 
-bool GetAllowLink() {
+bool GetAllowLink(void)
+{
     return g_allowLink;
 }
 
-void SetAllowLink(bool value) {
+void SetAllowLink(bool value)
+{
     g_allowLink = value;
 }
