@@ -1,0 +1,4 @@
+mode: node
+so_dir: /usr/local/fd
+log_level: info
+queue_size: 10
