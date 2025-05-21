@@ -1,0 +1,150 @@
+/*
+Copyright(C)2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package grpc provides some utility functions for grpc
+package grpc
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"ascend-faultdiag-online/pkg/utils/constants"
+	"ascend-faultdiag-online/pkg/utils/grpc/profiling"
+)
+
+const (
+	on  = "on"
+	off = "off"
+)
+
+type Client struct {
+	conn *grpc.ClientConn
+	tc   profiling.TrainingDataTraceClient
+}
+
+func (c *Client) connect(host string) error {
+	if c.conn != nil {
+		return nil
+	}
+	var err error
+	serverAddr := host + constants.GrpcPort
+	c.conn, err = grpc.Dial(
+		serverAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to grpc server: %v", err)
+	}
+	c.tc = profiling.NewTrainingDataTraceClient(c.conn)
+	return nil
+}
+
+func (c *Client) Close() {
+	if c.conn == nil {
+		return
+	}
+	c.conn.Close()
+}
+
+// StartAllProfiling start all the profiling, including heavy&light profiling
+func (c *Client) StartAllProfiling(name, namespace string) error {
+	data := &profiling.DataTypeReq{
+		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
+		ProfilingSwitch: &profiling.ProfilingSwitch{
+			CommunicationOperator: on,
+			Step:                  on,
+			SaveCheckpoint:        on,
+			FP:                    on,
+			DataLoader:            on,
+		},
+	}
+	_, err := c.profilingSwitch(data)
+	return err
+}
+
+// StopAllProfiling stop all the profiling, only occurs the job closes
+func (c *Client) StopAllProfiling(name, namespace string) error {
+	data := &profiling.DataTypeReq{
+		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
+		ProfilingSwitch: &profiling.ProfilingSwitch{
+			CommunicationOperator: off,
+			Step:                  off,
+			SaveCheckpoint:        off,
+			FP:                    off,
+			DataLoader:            off,
+		},
+	}
+	_, err := c.profilingSwitch(data)
+	return err
+}
+
+// StartHeavyProfiling start the heavy profiling, it has big impact on the performance
+func (c *Client) StartHeavyProfiling(name, namespace string) error {
+	data := &profiling.DataTypeReq{
+		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
+		ProfilingSwitch: &profiling.ProfilingSwitch{
+			CommunicationOperator: on,
+			Step:                  on,
+			SaveCheckpoint:        on,
+			FP:                    on,
+			DataLoader:            on,
+		},
+	}
+	_, err := c.profilingSwitch(data)
+	return err
+}
+
+// StopHeavyProfiling stop the heavy profiling, only keep the light profiling
+func (c *Client) StopHeavyProfiling(name, namespace string) error {
+	data := &profiling.DataTypeReq{
+		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
+		ProfilingSwitch: &profiling.ProfilingSwitch{
+			CommunicationOperator: off,
+			Step:                  on,
+			SaveCheckpoint:        on,
+			FP:                    on,
+			DataLoader:            on,
+		},
+	}
+	_, err := c.profilingSwitch(data)
+	return err
+}
+
+// profilingSwitch is a switch for profiling
+func (c *Client) profilingSwitch(data *profiling.DataTypeReq) (*profiling.DataTypeRes, error) {
+	ctx := context.Background()
+	res, err := c.tc.ModifyTrainingDataTraceSwitch(ctx, data)
+	return res, err
+}
+
+var (
+	once   sync.Once
+	client *Client
+)
+
+// GetClient returns a singleton instance of client
+func GetClient(host string) (*Client, error) {
+	var err error
+	once.Do(func() {
+		client = &Client{}
+		err = client.connect(host)
+	})
+	return client, err
+}
