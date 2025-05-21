@@ -39,6 +39,8 @@ var GlobalRankId int
 // diskUsageUpperlimitMB is the  ProfilingBaseDir total upper limit containing all  jobs
 var diskUsageUpperLimitMB = constant.DefaultDiskUpperLimitInMB
 
+const parallelGroupFileName = "parallel_group.json"
+
 // SetDiskUsageUpperLimitMB is the ProfilingBaseDir total upper limit containing all jobs
 func SetDiskUsageUpperLimitMB(upperLimitInMB int) {
 	diskUsageUpperLimitMB = upperLimitInMB
@@ -273,6 +275,9 @@ func deleteOldestFileForEachRank(jobDir string) error {
 	for i := 0; i < len(profileFiles)/constant.NumberOfParts && len(profileFiles) > constant.MinProfilingFileNum; i++ {
 		oldestFilePath := filepath.Join(jobDir, strconv.Itoa(GlobalRankId),
 			profileFiles[i].Name())
+		if profileFiles[i].Name() == parallelGroupFileName {
+			continue
+		}
 		hwlog.RunLog.Infof("oldestFilePath:%s,fileName:%s", oldestFilePath, profileFiles[i].Name())
 		if _, err := os.Stat(oldestFilePath); os.IsNotExist(err) {
 			hwlog.RunLog.Errorf("file %s dose not exist", oldestFilePath)

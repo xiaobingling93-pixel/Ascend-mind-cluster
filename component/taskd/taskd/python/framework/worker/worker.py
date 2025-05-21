@@ -16,7 +16,7 @@
 # ==============================================================================
 from taskd.python.cython_api import cython_api
 from taskd.python.utils.log import run_log
-
+from taskd.python.adaptor.pytorch.group_info import dump_group_info
 
 class Worker:
     """
@@ -38,6 +38,7 @@ class Worker:
         result = init_taskd_func(self.rank, upper_limit_of_disk_in_mb)
         if result == 0:
             run_log.info("Successfully init taskd monitor")
+            dump_group_info(rank)
             return True
         run_log.warning(f"failed to init taskd monitor with ret code:f{result}")
         return False
