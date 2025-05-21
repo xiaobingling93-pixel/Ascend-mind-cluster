@@ -29,6 +29,9 @@ const (
 	// MaxAge the log file last time
 	MaxAge = 7
 
+	// DevA3 is A3 device type
+	DevA3 = "A3"
+
 	// KubeEnvMaxLength k8s env name max length
 	KubeEnvMaxLength = 230
 	// PodNameMaxLength pod name max length

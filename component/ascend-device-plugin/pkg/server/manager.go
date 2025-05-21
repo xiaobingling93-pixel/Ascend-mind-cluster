@@ -48,6 +48,8 @@ var resourceVersion = ""
 const (
 	memoryRadix                  = 1024
 	nodeAnnotationUpdateInterval = 60
+	serverIndexKey               = "serverIndex"
+	serverTypeKey                = "serverType"
 )
 
 // HwDevManager manages huawei device devices.
@@ -148,6 +150,13 @@ func (hdm *HwDevManager) UpdateNode() error {
 	return hdm.updateNode()
 }
 
+func getDevType(cardType string) string {
+	if strings.Contains(cardType, common.DevA3) {
+		return common.DevA3
+	}
+	return ""
+}
+
 func (hdm *HwDevManager) updateNode() error {
 	oldNode, err := hdm.manager.GetKubeClient().GetNode()
 	if err != nil || oldNode == nil {
@@ -174,6 +183,8 @@ func (hdm *HwDevManager) updateNode() error {
 	hdm.baseNPUInfo = hdm.getNpuBaseInfo()
 	newNode.Annotations[api.BaseDevInfoAnno] = string(mashaledNpuInfo)
 	newNode.Annotations[common.SuperPodIDKey] = strconv.Itoa(int(hdm.getSuperPodInfo().SuperPodId))
+	newNode.Annotations[serverIndexKey] = strconv.Itoa(int(hdm.getSuperPodInfo().ServerId))
+	newNode.Annotations[serverTypeKey] = getDevType(common.ParamOption.RealCardType)
 	for i := 0; i < common.RetryUpdateCount; i++ {
 		if _, _, err = hdm.manager.GetKubeClient().PatchNodeState(oldNode, newNode); err == nil {
 			hwlog.RunLog.Info("update node label success")
