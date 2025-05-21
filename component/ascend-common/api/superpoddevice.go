@@ -11,12 +11,15 @@ type NpuBaseInfo struct {
 
 // NodeDevice node device info
 type NodeDevice struct {
-	NodeName  string
-	DeviceMap map[string]string // key: dev phyID, value: superPod device id
+	NodeName   string
+	ServerID   string
+	ServerType string            `json:"-"`
+	DeviceMap  map[string]string // key: dev phyID, value: superPod device id
 }
 
 // SuperPodDevice super node device info, key is superPodID, value is NodeDevice
 type SuperPodDevice struct {
+	Version       string
 	SuperPodID    string
 	NodeDeviceMap map[string]*NodeDevice
 }
