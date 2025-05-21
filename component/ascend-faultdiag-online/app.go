@@ -1,0 +1,59 @@
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+// Package ascendfaultdiagonline is a app collections
+package ascendfaultdiagonline
+
+import (
+	"ascend-common/common-utils/hwlog"
+	api "ascend-faultdiag-online/pkg/api/v1"
+	"ascend-faultdiag-online/pkg/global"
+	"ascend-faultdiag-online/pkg/global/globalctx"
+	"ascend-faultdiag-online/pkg/model/enum"
+	"ascend-faultdiag-online/pkg/service/servicefunc/slownode"
+	"ascend-faultdiag-online/pkg/utils/configmap"
+)
+
+var appFunc = map[string]func(enum.DeployMode){
+	enum.SlowNode: slownode.StartSlowNode,
+	enum.NetFault: nil,
+}
+
+// StartFDOnline
+func StartFDOnline(fdConfigPath string, apps []string, target enum.DeployMode) {
+	hwlog.RunLog.Infof("[FD-OL]received start FD-OL request, fdConfigPath is: %s, enabled apps: %s, and target is: %s",
+		fdConfigPath, apps, target)
+	var err error
+	k8sClient, err := configmap.NewClientK8s()
+	if err != nil {
+		hwlog.RunLog.Errorf("[FD-OL]created k8s client failed: %v", err)
+		return
+	}
+	global.K8sClient = k8sClient
+	Fdctx, err := api.CreateFdCtx(fdConfigPath)
+	if err != nil {
+		hwlog.RunLog.Errorf("[FD-OL]created fd context failed: %v", err)
+		return
+	}
+	api.StartService(Fdctx)
+	globalctx.Fdctx = Fdctx
+	for _, app := range apps {
+		f := appFunc[app]
+		if f == nil {
+			hwlog.RunLog.Errorf("[FD-OL]feature func is not exist by app name: %s", app)
+			continue
+		}
+		go f(target)
+	}
+}
