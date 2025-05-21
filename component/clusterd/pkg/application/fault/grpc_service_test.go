@@ -13,6 +13,7 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/config"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/grpc/fault"
@@ -29,6 +30,7 @@ func fakeFaultService() *FaultServer {
 		serviceCtx:     context.Background(),
 		faultPublisher: make(map[string]*config.ConfigPublisher[*fault.FaultMsgSignal]),
 		lock:           sync.RWMutex{},
+		limiter:        util.NewAdvancedRateLimiter(defaultTokenRate, defaultBurst, defaultMaxQueueLen),
 	}
 }
 
@@ -87,6 +89,30 @@ func TestSubscribeFaultMsgSignal(t *testing.T) {
 		err := service.SubscribeFaultMsgSignal(req, &mockConfigSubscribeFaultMsgServer{})
 		convey.So(err, convey.ShouldBeNil)
 	})
+}
+
+// TestGetFaultMsgSignal test getFaultMsgSignal
+func TestGetFaultMsgSignal(t *testing.T) {
+	convey.Convey("TestGetFaultMsgSignal with fake id", t, func() {
+		service := fakeFaultService()
+		resp, err := service.GetFaultMsgSignal(context.TODO(), &fault.ClientInfo{
+			JobId: "fakejobId",
+			Role:  "",
+		})
+		convey.ShouldBeNil(err)
+		convey.So(resp.Code, convey.ShouldEqual, int32(common.SuccessCode))
+	})
+
+	convey.Convey("TestGetFaultMsgSignal without id", t, func() {
+		service := fakeFaultService()
+		resp, err := service.GetFaultMsgSignal(context.TODO(), &fault.ClientInfo{
+			JobId: "",
+			Role:  "",
+		})
+		convey.ShouldBeNil(err)
+		convey.So(resp.Code, convey.ShouldEqual, int32(common.SuccessCode))
+	})
+
 }
 
 func TestAddAndGetFaultPublisher(t *testing.T) {

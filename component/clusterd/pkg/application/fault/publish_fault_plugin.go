@@ -188,7 +188,7 @@ func getFaultDeviceInfo(faultList []constant.FaultDevice) (*fault.DeviceFaultInf
 	}
 	maxLevel := constant.HealthyLevel
 	for _, faultInfo := range faultList {
-		_, level := getStateLevelByFaultLevel(faultInfo.FaultLevel)
+		_, level := GetStateLevelByFaultLevel(faultInfo.FaultLevel)
 		if level > maxLevel {
 			maxLevel = level
 		}
@@ -204,7 +204,8 @@ func getFaultDeviceInfo(faultList []constant.FaultDevice) (*fault.DeviceFaultInf
 	return info, maxLevel
 }
 
-func getStateLevelByFaultLevel(faultLevel string) (string, int) {
+// GetStateLevelByFaultLevel get state by level
+func GetStateLevelByFaultLevel(faultLevel string) (string, int) {
 	if faultLevel == "" {
 		return constant.HealthyState, constant.HealthyLevel
 	}
@@ -254,7 +255,7 @@ func filterFault(faultDeviceList []constant.FaultDevice) []constant.FaultDevice 
 	}
 	filteredList := make([]constant.FaultDevice, 0, len(faultDeviceList))
 	for _, faultDevice := range faultDeviceList {
-		if _, level := getStateLevelByFaultLevel(faultDevice.FaultLevel); level == constant.HealthyLevel {
+		if _, level := GetStateLevelByFaultLevel(faultDevice.FaultLevel); level == constant.HealthyLevel {
 			hwlog.RunLog.Debugf("fileter fault device %v", faultDevice)
 			continue
 		}

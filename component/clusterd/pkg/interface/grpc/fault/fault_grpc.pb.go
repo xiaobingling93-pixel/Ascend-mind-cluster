@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Fault_Register_FullMethodName                = "/fault.Fault/Register"
 	Fault_SubscribeFaultMsgSignal_FullMethodName = "/fault.Fault/SubscribeFaultMsgSignal"
+	Fault_GetFaultMsgSignal_FullMethodName       = "/fault.Fault/GetFaultMsgSignal"
 )
 
 // FaultClient is the client API for Fault service.
@@ -29,6 +30,7 @@ const (
 type FaultClient interface {
 	Register(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*Status, error)
 	SubscribeFaultMsgSignal(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (Fault_SubscribeFaultMsgSignalClient, error)
+	GetFaultMsgSignal(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*FaultQueryResult, error)
 }
 
 type faultClient struct {
@@ -80,12 +82,22 @@ func (x *faultSubscribeFaultMsgSignalClient) Recv() (*FaultMsgSignal, error) {
 	return m, nil
 }
 
+func (c *faultClient) GetFaultMsgSignal(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*FaultQueryResult, error) {
+	out := new(FaultQueryResult)
+	err := c.cc.Invoke(ctx, Fault_GetFaultMsgSignal_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FaultServer is the server API for Fault service.
 // All implementations must embed UnimplementedFaultServer
 // for forward compatibility
 type FaultServer interface {
 	Register(context.Context, *ClientInfo) (*Status, error)
 	SubscribeFaultMsgSignal(*ClientInfo, Fault_SubscribeFaultMsgSignalServer) error
+	GetFaultMsgSignal(context.Context, *ClientInfo) (*FaultQueryResult, error)
 	mustEmbedUnimplementedFaultServer()
 }
 
@@ -98,6 +110,9 @@ func (UnimplementedFaultServer) Register(context.Context, *ClientInfo) (*Status,
 }
 func (UnimplementedFaultServer) SubscribeFaultMsgSignal(*ClientInfo, Fault_SubscribeFaultMsgSignalServer) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeFaultMsgSignal not implemented")
+}
+func (UnimplementedFaultServer) GetFaultMsgSignal(context.Context, *ClientInfo) (*FaultQueryResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFaultMsgSignal not implemented")
 }
 func (UnimplementedFaultServer) mustEmbedUnimplementedFaultServer() {}
 
@@ -151,6 +166,24 @@ func (x *faultSubscribeFaultMsgSignalServer) Send(m *FaultMsgSignal) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Fault_GetFaultMsgSignal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FaultServer).GetFaultMsgSignal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Fault_GetFaultMsgSignal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FaultServer).GetFaultMsgSignal(ctx, req.(*ClientInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Fault_ServiceDesc is the grpc.ServiceDesc for Fault service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -161,6 +194,10 @@ var Fault_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Register",
 			Handler:    _Fault_Register_Handler,
+		},
+		{
+			MethodName: "GetFaultMsgSignal",
+			Handler:    _Fault_GetFaultMsgSignal_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

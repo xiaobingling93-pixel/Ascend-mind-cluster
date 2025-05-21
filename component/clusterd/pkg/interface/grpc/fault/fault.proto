@@ -3,6 +3,12 @@ syntax = "proto3";
 option go_package = ".;fault";
 package fault;
 
+message FaultQueryResult{
+  int32 code = 1;
+  string info = 2;
+  FaultMsgSignal faultSignal =3;
+}
+
 message Status {
   int32 code = 1;
   string info = 2;
@@ -40,4 +46,5 @@ message DeviceFaultInfo {
 service Fault {
   rpc Register(ClientInfo) returns (Status) {}
   rpc SubscribeFaultMsgSignal(ClientInfo) returns (stream FaultMsgSignal){}
+  rpc GetFaultMsgSignal(ClientInfo) returns(FaultQueryResult){}
 }

@@ -15,15 +15,11 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/config"
-	"clusterd/pkg/application/fault"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/jobv2"
 	"clusterd/pkg/application/node"
 	"clusterd/pkg/application/pingmesh"
-	"clusterd/pkg/application/profiling"
 	"clusterd/pkg/application/publicfault"
-	"clusterd/pkg/application/recover"
 	"clusterd/pkg/application/resource"
 	"clusterd/pkg/application/statistics"
 	"clusterd/pkg/common/constant"
@@ -44,11 +40,10 @@ var (
 	// BuildVersion build version
 	BuildVersion string
 	// BuildName build name
-	BuildName         string
-	version           bool
-	server            *sv.ClusterInfoMgrServer
-	limiter           = rate.NewLimiter(rate.Every(time.Second), constant.QpsLimit)
-	keepAliveInterval = 5
+	BuildName string
+	version   bool
+	server    *sv.ClusterInfoMgrServer
+	limiter   = rate.NewLimiter(rate.Every(time.Second), constant.QpsLimit)
 )
 
 func limitQPS(ctx context.Context, req interface{},
@@ -162,12 +157,7 @@ func initGrpcServer(ctx context.Context) {
 		grpc.MaxConcurrentStreams(constant.MaxGRPCConcurrentStreams),
 		grpc.UnaryInterceptor(limitQPS),
 		grpc.KeepaliveParams(keepAlive)})
-	recoverService := recover.NewFaultRecoverService(keepAliveInterval, ctx)
-	pubFaultSvc := publicfault.NewPubFaultService(ctx)
-	dataTraceSvc := &profiling.SwitchManager{}
-	configSvc := config.NewBusinessConfigServer(ctx)
-	faultSvc := fault.NewFaultServer(ctx)
-	if err := server.Start(recoverService, pubFaultSvc, dataTraceSvc, configSvc, faultSvc); err != nil {
+	if err := server.Start(ctx); err != nil {
 		hwlog.RunLog.Errorf("clusterd grpc server start failed, error: %v", err)
 	}
 }

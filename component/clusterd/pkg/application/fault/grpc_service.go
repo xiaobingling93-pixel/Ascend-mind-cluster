@@ -17,18 +17,32 @@ package fault
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/config"
 	"clusterd/pkg/application/faultmanager"
+	"clusterd/pkg/application/faultmanager/faultclusterprocess"
+	"clusterd/pkg/application/faultmanager/jobprocess/faultrank"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/grpc/fault"
+)
+
+const (
+	jobFaultInfoChanCache = 5
+	defaultTokenRate      = 10
+	defaultBurst          = 10
+	defaultMaxQueueLen    = 50
 )
 
 // FaultServer fault server
@@ -38,6 +52,7 @@ type FaultServer struct {
 	lock           sync.RWMutex
 	fault.UnimplementedFaultServer
 	faultCh chan map[string]constant.JobFaultInfo
+	limiter *util.AdvancedRateLimiter
 }
 
 // NewFaultServer create a fault server
@@ -46,7 +61,8 @@ func NewFaultServer(ctx context.Context) *FaultServer {
 		serviceCtx:     ctx,
 		faultPublisher: make(map[string]*config.ConfigPublisher[*fault.FaultMsgSignal]),
 		lock:           sync.RWMutex{},
-		faultCh:        make(chan map[string]constant.JobFaultInfo, 5),
+		faultCh:        make(chan map[string]constant.JobFaultInfo, jobFaultInfoChanCache),
+		limiter:        util.NewAdvancedRateLimiter(defaultTokenRate, defaultBurst, defaultMaxQueueLen),
 	}
 	if err := faultmanager.RegisterForJobFaultRank(server.faultCh, reflect.TypeOf(server).Name()); err != nil {
 		hwlog.RunLog.Error("RegisterForJobFaultRank fail")
@@ -106,6 +122,52 @@ func (s *FaultServer) SubscribeFaultMsgSignal(request *fault.ClientInfo,
 	hwlog.RunLog.Infof("jobId=%s stop subscribe fault message signal, createTime=%v",
 		request.JobId, faultPublisher.GetCreateTime().UnixNano())
 	return nil
+}
+
+// GetFaultMsgSignal return cluster fault
+func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.ClientInfo) (*fault.FaultQueryResult, error) {
+	hwlog.RunLog.Infof("role: %#v call get faults", request)
+	if !s.limiter.Allow(ctx) {
+		return &fault.FaultQueryResult{
+			Code:        common.RateLimitedCode,
+			Info:        "rate limited, there is too many requests, please retry later",
+			FaultSignal: nil,
+		}, errors.New("rate limited, there is too many requests, please retry later")
+	}
+	jobId := request.GetJobId()
+	if jobId == "" {
+		return s.getClusterFaultInfo(), nil
+	}
+	jobFaultInfo := faultrank.JobFaultRankProcessor.GetJobFaultRankInfos()
+	faultInfo, ok := jobFaultInfo[jobId]
+	if !ok {
+		return &fault.FaultQueryResult{
+			Code:        int32(common.SuccessCode),
+			Info:        fmt.Sprintf("job with jobId: %v not found", jobId),
+			FaultSignal: nil,
+		}, nil
+	}
+	faultMsg := faultDeviceToSortedFaultMsgSignal(jobId, faultInfo.FaultDevice)
+	faultMsg.Uuid = string(uuid.NewUUID())
+	return &fault.FaultQueryResult{
+		Code:        int32(common.SuccessCode),
+		Info:        "all info returned",
+		FaultSignal: faultMsg,
+	}, nil
+}
+
+func (s *FaultServer) getClusterFaultInfo() *fault.FaultQueryResult {
+	faultMsg := faultclusterprocess.ClusterFaultCenter.GatherClusterFaultInfo()
+	sort.Slice(faultMsg.NodeFaultInfo, func(i, j int) bool {
+		return faultMsg.NodeFaultInfo[i].NodeIP < faultMsg.NodeFaultInfo[j].NodeIP
+	})
+	faultMsg.JobId = "-1"
+	faultMsg.Uuid = string(uuid.NewUUID())
+	return &fault.FaultQueryResult{
+		Code:        int32(common.SuccessCode),
+		Info:        "Succeed",
+		FaultSignal: faultMsg,
+	}
 }
 
 func (s *FaultServer) preemptPublisher(jobId string) *config.ConfigPublisher[*fault.FaultMsgSignal] {

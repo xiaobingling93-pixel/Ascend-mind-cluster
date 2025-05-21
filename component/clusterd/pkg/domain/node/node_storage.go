@@ -175,6 +175,18 @@ func GetNodeSNByName(nodeName string) string {
 	return info.nodeSN
 }
 
+// GetNodeIpByName get node ip by name
+func GetNodeIpByName(nodeName string) string {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	info, ok := cache.nodeInfoCache[nodeName]
+	if !ok {
+		hwlog.RunLog.Warnf("node[%s] does not exist in cache", nodeName)
+		return ""
+	}
+	return info.nodeIP
+}
+
 // GetNodeIPAndSNMap get node ip and sn map
 func GetNodeIPAndSNMap() map[string]string {
 	cache.mutex.RLock()

@@ -9,6 +9,8 @@ type RespCode int32
 const (
 	// OK is success
 	OK RespCode = 0
+	// SuccessCode when query is fine
+	SuccessCode RespCode = 200
 
 	/*
 		4xx is client error which is not retryable
@@ -36,6 +38,8 @@ const (
 	InvalidReqParam = 409
 	// InvalidReqRate invalid request rate
 	InvalidReqRate = 410
+	// RateLimitedCode limit rate
+	RateLimitedCode = 429
 	// ClientError common client error
 	ClientError RespCode = 499
 

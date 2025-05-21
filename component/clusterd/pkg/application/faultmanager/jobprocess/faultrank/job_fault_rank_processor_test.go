@@ -365,7 +365,7 @@ func testGetFaultDeviceInfoBySwitchInfo(server *constant.ServerHccl, nodeSN stri
 				FaultLevel: constant.PreSeparateFaultLevelStr,
 			},
 		}
-		faultDeviceList := getFaultDeviceInfoBySwitchInfo(server, switchInfo)
+		faultDeviceList := GetFaultDeviceInfoBySwitchInfo(server, switchInfo)
 		convey.So(faultDeviceList, convey.ShouldResemble, []constant.FaultDevice{
 			{ServerName: nodeName, ServerSN: nodeSN, ServerId: "1", DeviceId: constant.EmptyDeviceId,
 				FaultCode:  "code1",

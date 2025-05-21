@@ -179,6 +179,8 @@ const (
 	NotHandleFaultLevelStr = "NotHandle"
 	// PreSeparateFaultLevelStr PreSeparate Fault Level Str
 	PreSeparateFaultLevelStr = "PreSeparate"
+	// SeparateFaultLevelStr Separate Fault Level Str
+	SeparateFaultLevelStr = "Separate"
 	// PreSeparateFault pre-separate fault
 	PreSeparateFault = "PreSeparateFault"
 )

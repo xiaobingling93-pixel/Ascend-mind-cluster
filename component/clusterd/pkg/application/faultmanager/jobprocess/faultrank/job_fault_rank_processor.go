@@ -198,7 +198,7 @@ func (processor *jobRankFaultInfoProcessor) findNodeDeviceAndSwitchFault(
 		if ok {
 			nodeStatusList = append(nodeStatusList, switchInfo.NodeStatus)
 		}
-		faultDeviceList = append(faultDeviceList, getFaultDeviceInfoBySwitchInfo(&server, switchInfo)...)
+		faultDeviceList = append(faultDeviceList, GetFaultDeviceInfoBySwitchInfo(&server, switchInfo)...)
 		if ok && switchInfo.NodeStatus == constant.UnHealthyState {
 			hwlog.RunLog.Debugf("node %s switch is unhealthy", nodeName)
 			faultCode := strings.Join(getFaultCodeBySwitchInfo(switchInfo), constant.Comma)
@@ -254,7 +254,7 @@ func getFaultDeviceInfoByNodeInfo(server *constant.ServerHccl, nodeInfo *constan
 	return faultList
 }
 
-func getFaultDeviceInfoBySwitchInfo(server *constant.ServerHccl,
+func GetFaultDeviceInfoBySwitchInfo(server *constant.ServerHccl,
 	switchInfo *constant.SwitchInfo) []constant.FaultDevice {
 	if switchInfo == nil {
 		return nil
