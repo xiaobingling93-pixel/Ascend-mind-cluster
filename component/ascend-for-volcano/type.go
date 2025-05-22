@@ -26,6 +26,7 @@ import (
 )
 
 // PluginName use in frame build.
+// The value will be modified during the linking stage. Do not modify it to a constant.
 var PluginName = "volcano-npu_v6.0.0"
 
 type huaweiNPUPlugin struct {
