@@ -124,7 +124,7 @@ func TestReSchedulerPreStartAction(t *testing.T) {
 	reSchedulerCache.FaultNodes = map[string]*FaultNode{fakeNodeName: {}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := reScheduler.PreStartAction(tt.env, tt.ssn); (err != nil) != tt.wantErr {
+			if err := reScheduler.Execute(tt.env, tt.ssn); (err != nil) != tt.wantErr {
 				t.Errorf("PreStartAction() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.ssn == nil {

@@ -60,7 +60,7 @@ func (sHandle *ScheduleHandler) InitNPUSession(ssn *framework.Session) error {
 	sHandle.InitTorNodeInfo(ssn)
 	sHandle.initJobsPlugin()
 	sHandle.initCache()
-	sHandle.initReschedulerFromSsn(ssn)
+	sHandle.startFaultHandler(ssn)
 	sHandle.preStartPlugin(ssn)
 	return nil
 }
@@ -370,12 +370,12 @@ func (sHandle *ScheduleHandler) initCmInformer() {
 	k8s.InitCmInformer(sHandle.FrameAttr.KubeClient, sHandle.FrameAttr.UseClusterD)
 }
 
-// initReschedulerFromSsn initialize re-scheduler
-func (sHandle *ScheduleHandler) initReschedulerFromSsn(ssn *framework.Session) {
+// startFaultHandler initialize re-scheduler
+func (sHandle *ScheduleHandler) startFaultHandler(ssn *framework.Session) {
 	if sHandle.FaultHandle == nil {
 		return
 	}
-	if preErr := sHandle.FaultHandle.PreStartAction(&sHandle.ScheduleEnv, ssn); preErr != nil {
+	if preErr := sHandle.FaultHandle.Execute(&sHandle.ScheduleEnv, ssn); preErr != nil {
 		klog.V(util.LogWarningLev).Infof("PreStartAction failed by %s", preErr)
 		return
 	}

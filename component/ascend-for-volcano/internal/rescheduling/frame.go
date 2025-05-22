@@ -34,21 +34,10 @@ func NewHandler() plugin.FaultHandler {
 	return &ReScheduler{}
 }
 
-// PreStopAction post-processing actions for re-scheduling
-func (reScheduler *ReScheduler) PreStopAction(env *plugin.ScheduleEnv) error {
-	if reScheduler == nil || env == nil {
-		return fmt.Errorf("reSchedule not enabled or nil env: %s", util.ArgumentError)
-	}
-	if err := reScheduler.WriteReSchedulerCacheToEnvCache(env, CmFaultJob); err != nil {
-		return err
-	}
-	return nil
-}
-
-// PreStartAction pre-processing actions for rescheduler handler
-func (reScheduler *ReScheduler) PreStartAction(env *plugin.ScheduleEnv, ssn *framework.Session) error {
-	klog.V(util.LogInfoLev).Infof("Entering reScheduler PreStartAction")
-	defer klog.V(util.LogInfoLev).Infof("Leaving reScheduler PreStartAction")
+// Execute pre-processing actions for rescheduler handler
+func (reScheduler *ReScheduler) Execute(env *plugin.ScheduleEnv, ssn *framework.Session) error {
+	klog.V(util.LogInfoLev).Infof("Entering reScheduler Execute")
+	defer klog.V(util.LogInfoLev).Infof("Leaving reScheduler Execute")
 	if reScheduler == nil || ssn == nil || env == nil {
 		return fmt.Errorf("reScheduler handler not enabled or ssn is nil: %s", util.ArgumentError)
 	}
@@ -73,6 +62,17 @@ func (reScheduler *ReScheduler) PreStartAction(env *plugin.ScheduleEnv, ssn *fra
 	if restartErr := reScheduler.RestartFaultJobs(ssn, *env); restartErr != nil {
 		klog.V(util.LogErrorLev).Infof("RestartFaultJobs: %s", restartErr.Error())
 		return restartErr
+	}
+	return nil
+}
+
+// PreStopAction post-processing actions for re-scheduling
+func (reScheduler *ReScheduler) PreStopAction(env *plugin.ScheduleEnv) error {
+	if reScheduler == nil || env == nil {
+		return fmt.Errorf("reSchedule not enabled or nil env: %s", util.ArgumentError)
+	}
+	if err := reScheduler.WriteReSchedulerCacheToEnvCache(env, CmFaultJob); err != nil {
+		return err
 	}
 	return nil
 }
