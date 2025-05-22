@@ -20,5 +20,6 @@ import (
 )
 
 var (
+	// Fdctx is a global faultDiag context
 	Fdctx *context.FaultDiagContext
 )

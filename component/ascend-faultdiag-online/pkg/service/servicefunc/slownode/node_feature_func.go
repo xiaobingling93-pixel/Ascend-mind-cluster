@@ -85,10 +85,10 @@ func getLocalJobName() string {
 
 func nodeStart(slowNodeCtx *sm.SlowNodeContext) {
 	slowNodeCtx.Start()
-	watchingStartDataParse(slowNodeCtx)
-	watchingStopDataParse(slowNodeCtx)
-	watchingStartSlowNodeAlgo(slowNodeCtx)
-	watchingStopSlowNodeAlgo(slowNodeCtx)
+	go watchingStartDataParse(slowNodeCtx)
+	go watchingStopDataParse(slowNodeCtx)
+	go watchingStartSlowNodeAlgo(slowNodeCtx)
+	go watchingStopSlowNodeAlgo(slowNodeCtx)
 	slowNodeCtx.StartDataParse()
 }
 

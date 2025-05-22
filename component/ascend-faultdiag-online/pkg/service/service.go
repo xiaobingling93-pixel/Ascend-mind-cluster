@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	// RequestTimeOut is a constant of request timeout
 	RequestTimeOut = 5 * time.Second
 )
 

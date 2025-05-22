@@ -315,23 +315,3 @@ func TestNodeReloadFunc(t *testing.T) {
 	// 验证 MockHandler 的调用
 	mockHandler.AssertExpectations(t)
 }
-
-func TestParseAndAddMetric(t *testing.T) {
-	// 创建模拟的 dContext 和 MetricPool
-	// context := diagcontext.NewDiagContext()
-
-	// // 模拟 ClusterSlownodeAlgoResult
-	// clusterResult := slownode.ClusterSlownodeAlgoResult{
-	// 	DegradationLevel:         "0.6",
-	// 	IsSlow:                   1,
-	// 	SlowCalculateRanks:       []int{1, 2, 3},
-	// 	SlowCommunicationDomains: [][]int{{1, 2, 3}, {4, 5}},
-	// 	SlowCommunicationRanks:   []int{4, 5},
-	// 	SlowHostNodes:            []string{"127.0.0.1"},
-	// 	SlowIORanks:              []int{6, 7},
-	// }
-
-	// 调用方法
-	// parseAndAddMetric(clusterResult, context)
-
-}

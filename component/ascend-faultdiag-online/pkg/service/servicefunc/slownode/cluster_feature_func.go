@@ -181,7 +181,7 @@ func getJobId(job *slownode.SlowNodeJob, checkRunning bool) error {
 			if errors.IsNotFound(err) {
 				hwlog.RunLog.Infof(
 					"[FD-OL SLOWNODE]job(name=%s, jobId=%s) queried cm(name=%s, namespace=%s) failed"+
-						", cm is not found. retyr %d/%d",
+						", cm is not found. retry %d/%d",
 					job.JobName, job.JobId, cmName, defaultNamespace, retryCount, maxRetryCount)
 				time.Sleep(time.Duration(1<<uint(retryCount)) * time.Second)
 				continue
@@ -191,7 +191,7 @@ func getJobId(job *slownode.SlowNodeJob, checkRunning bool) error {
 		if checkRunning && cm.Data[keyJobStatus] != isRunning {
 			hwlog.RunLog.Infof(
 				"[FD-OL SLOWNODE]job(name=%s, jobId=%s) queried cm(name=%s, namespace=%s) failed"+
-					", job is not running. retyr %d/%d",
+					", job is not running. retry %d/%d",
 				job.JobName, job.JobId, cmName, defaultNamespace, retryCount, maxRetryCount)
 			time.Sleep(time.Duration(1<<uint(retryCount)) * time.Second)
 			continue
@@ -229,9 +229,9 @@ func clusterStart(slowNodeCtx *sm.SlowNodeContext) {
 			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, err)
 		return
 	}
-	watchingStartSlowNodeAlgo(slowNodeCtx)
-	watchingStopSlowNodeAlgo(slowNodeCtx)
-	clusterWatchingDataParse(slowNodeCtx)
+	go watchingStartSlowNodeAlgo(slowNodeCtx)
+	go watchingStopSlowNodeAlgo(slowNodeCtx)
+	go clusterWatchingDataParse(slowNodeCtx)
 	slowNodeCtx.StartAllProfiling()
 }
 
@@ -321,29 +321,24 @@ func isMatchNodeIPs(jobId string, nodesIP []string) bool {
 // clusterWatchingDataParse is watching the StartDataParseSign, if got the sign,
 // request merging paralle group info to data parse
 func clusterWatchingDataParse(slowNodeCtx *sm.SlowNodeContext) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)",
-		slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
-	hwlog.RunLog.Infof(
-		"%s started watching start data parse(merge paralle group info) signal.", logPrefix)
-	go func() {
-		for {
-			select {
-			case <-slowNodeCtx.StartDataParseSign:
-				hwlog.RunLog.Infof("%s received data parse(merge paralle group info) signal.", logPrefix)
-				if err := startDataParse(slowNodeCtx); err != nil {
-					hwlog.RunLog.Errorf("%s started data parse(merge paralle group info) failed: %v.", logPrefix, err)
-				} else {
-					hwlog.RunLog.Infof(
-						"%s started data parse(merge paralle group info) successfully, exit signal watching process.",
-						logPrefix)
-					return
-				}
-			case <-slowNodeCtx.StopChan:
-				hwlog.RunLog.Infof(
-					"%s stopped, exit start data parse(merge paralle group info) signal watching process ",
-					logPrefix)
-				return
+	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
+	hwlog.RunLog.Infof("%s started watching start data parse(merge paralle group info) signal.", logPrefix)
+	for {
+		select {
+		case <-slowNodeCtx.StartDataParseSign:
+			hwlog.RunLog.Infof("%s received data parse(merge paralle group info) signal.", logPrefix)
+			if err := startDataParse(slowNodeCtx); err != nil {
+				hwlog.RunLog.Errorf("%s started data parse(merge paralle group info) failed: %v.", logPrefix, err)
+				continue
 			}
+			hwlog.RunLog.Infof(
+				"%s started data parse(merge paralle group info) successfully, exit signal watching process.",
+				logPrefix)
+			return
+		case <-slowNodeCtx.StopChan:
+			hwlog.RunLog.Infof("%s stopped, exit start data parse(merge paralle group info) signal watching process ",
+				logPrefix)
+			return
 		}
-	}()
+	}
 }

@@ -74,45 +74,38 @@ func StopSlowNodeAlgo(slowNodeCtx *sm.SlowNodeContext) error {
 }
 
 func watchingStartSlowNodeAlgo(slowNodeCtx *sm.SlowNodeContext) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)",
-		slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
+	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
 	hwlog.RunLog.Infof("%s started to watch the start slow node algo signal.", logPrefix)
-	go func() {
-		for {
-			select {
-			case <-slowNodeCtx.StartSlowNodeAlgoSign:
-				hwlog.RunLog.Infof("%s received slow node algo signal, start slow node algo.", logPrefix)
-				if err := StartSlowNodeAlgo(slowNodeCtx); err != nil {
-					hwlog.RunLog.Errorf("%s started slow node algo failed, waiting redo job, err is: %v.",
-						logPrefix, err)
-					slowNodeCtx.Failed()
-				} else {
-					hwlog.RunLog.Infof("%s started slow node algo successfully, exiting the signal watching process.",
-						logPrefix)
-					// for node: step from 2 to 3
-					// for cluster: step from 1 to 2
-					slowNodeCtx.AddStep()
-					return
-				}
-			case <-slowNodeCtx.StopChan:
-				hwlog.RunLog.Infof("%s stopped, exiting the start slow node algo signal watching process ", logPrefix)
-				return
+	for {
+		select {
+		case <-slowNodeCtx.StartSlowNodeAlgoSign:
+			hwlog.RunLog.Infof("%s received slow node algo signal, start slow node algo.", logPrefix)
+			if err := StartSlowNodeAlgo(slowNodeCtx); err != nil {
+				hwlog.RunLog.Errorf("%s started slow node algo failed, waiting redo job, err is: %v.", logPrefix, err)
+				slowNodeCtx.Failed()
+				continue
 			}
+			hwlog.RunLog.Infof("%s started slow node algo successfully, exiting the signal watching process.",
+				logPrefix)
+			// for node: step from 2 to 3
+			// for cluster: step from 1 to 2
+			slowNodeCtx.AddStep()
+			return
+		case <-slowNodeCtx.StopChan:
+			hwlog.RunLog.Infof("%s stopped, exiting the start slow node algo signal watching process ", logPrefix)
+			return
 		}
-	}()
+	}
 }
 
 func watchingStopSlowNodeAlgo(slowNodeCtx *sm.SlowNodeContext) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobid=%s)",
-		slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
+	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
 	hwlog.RunLog.Infof("%s started to watch the stop slow node algo signal.", logPrefix)
-	go func() {
-		<-slowNodeCtx.StopSlowNodeAlgoSign
-		hwlog.RunLog.Infof("%s received stop slow node algo signal, stop slow node algo.", logPrefix)
-		if err := StopSlowNodeAlgo(slowNodeCtx); err != nil {
-			hwlog.RunLog.Errorf("%s stopped slow node algo failed: %v.", logPrefix, err)
-			return
-		}
-		hwlog.RunLog.Infof("%s stopped slow node algo successfully.", logPrefix)
-	}()
+	<-slowNodeCtx.StopSlowNodeAlgoSign
+	hwlog.RunLog.Infof("%s received stop slow node algo signal, stop slow node algo.", logPrefix)
+	if err := StopSlowNodeAlgo(slowNodeCtx); err != nil {
+		hwlog.RunLog.Errorf("%s stopped slow node algo failed: %v.", logPrefix, err)
+		return
+	}
+	hwlog.RunLog.Infof("%s stopped slow node algo successfully.", logPrefix)
 }

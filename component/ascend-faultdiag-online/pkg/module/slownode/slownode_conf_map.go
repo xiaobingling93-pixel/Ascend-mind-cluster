@@ -27,8 +27,7 @@ import (
 
 // ctxMap is a sync map that stores slow node feature function config.
 type ctxMap struct {
-	// {<jobId>: {*context.FaultDiagContext, *SlowNodeContext}}
-	data sync.Map
+	data sync.Map // {<jobId>: {*context.FaultDiagContext, *SlowNodeContext}}
 }
 
 // Insert inserts a key-value pair into the slowNodeConfMap.
@@ -66,23 +65,26 @@ func (s *ctxMap) Clear() {
 func (c *ctxMap) redo() {
 	for {
 		time.Sleep(redoInterval)
-		hwlog.RunLog.Infof("[FD-OL SLOWNODE]start to redo the failed job")
+		hwlog.RunLog.Infof("[FD-OL SLOWNODE]started to redo the failed job")
 		c.data.Range(func(jobId, ctx any) bool {
 			slowNodeCtx, ok := ctx.(*SlowNodeContext)
 			if !ok {
-				hwlog.RunLog.Errorf("[FD-OL SLOWNODE]redo: job(jobId=%s) is not a slow node context",
-					jobId)
+				hwlog.RunLog.Errorf("[FD-OL SLOWNODE]redo failed: job(jobId=%s) is not a slow node context", jobId)
 				return true
 			}
-			if slowNodeCtx.IsFailed() {
-				go map[enum.DeployMode]func(*SlowNodeContext){
-					enum.Cluster: redoClusterJob,
-					enum.Node:    redoNodeJob,
-				}[slowNodeCtx.Deployment](slowNodeCtx)
-			}
-			return true
+			return redoFailedJob(slowNodeCtx)
 		})
 	}
+}
+
+func redoFailedJob(slowNodeCtx *SlowNodeContext) bool {
+	if slowNodeCtx.IsFailed() {
+		go map[enum.DeployMode]func(*SlowNodeContext){
+			enum.Cluster: redoClusterJob,
+			enum.Node:    redoNodeJob,
+		}[slowNodeCtx.Deployment](slowNodeCtx)
+	}
+	return true
 }
 
 func redoClusterJob(ctx *SlowNodeContext) {
@@ -102,7 +104,7 @@ func redoClusterJob(ctx *SlowNodeContext) {
 }
 
 func redoNodeJob(ctx *SlowNodeContext) {
-	/*process the failed step
+	/* process the failed step
 	step 0 -> initial step, means the job started but not start the data parse
 			so we need to restart the data parse
 	step 1 -> job started data parse, job will not have this step when failed, ignore it

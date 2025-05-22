@@ -68,6 +68,10 @@ const (
 	IsSlow = "IsSlow"
 
 	maxDegradationCount int = 5
+
+	// slow node report
+	slowNodeFaultCode         = "110001010"
+	slowNodeRecoveryFaultCode = "100001011"
 )
 
 var dContext *diagcontext.DiagContext

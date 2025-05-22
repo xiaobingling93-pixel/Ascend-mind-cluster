@@ -21,12 +21,15 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"ascend-faultdiag-online/pkg/utils/constants"
 	"ascend-faultdiag-online/pkg/utils/grpc/profiling"
+	"ascend-faultdiag-online/pkg/utils/grpc/pubfault"
 )
 
 const (
@@ -34,9 +37,11 @@ const (
 	off = "off"
 )
 
+// Client is a grpc client struct
 type Client struct {
 	conn *grpc.ClientConn
 	tc   profiling.TrainingDataTraceClient
+	pf   pubfault.PubFaultClient
 }
 
 func (c *Client) connect(host string) error {
@@ -53,9 +58,11 @@ func (c *Client) connect(host string) error {
 		return fmt.Errorf("failed to connect to grpc server: %v", err)
 	}
 	c.tc = profiling.NewTrainingDataTraceClient(c.conn)
+	c.pf = pubfault.NewPubFaultClient(c.conn)
 	return nil
 }
 
+// Close is a function to close the grpc connection
 func (c *Client) Close() {
 	if c.conn == nil {
 		return
@@ -132,6 +139,31 @@ func (c *Client) profilingSwitch(data *profiling.DataTypeReq) (*profiling.DataTy
 	ctx := context.Background()
 	res, err := c.tc.ModifyTrainingDataTraceSwitch(ctx, data)
 	return res, err
+}
+
+// ReportFault report fault to clusterd
+func (c *Client) ReportFault(faults []*pubfault.Fault) error {
+	req := pubfault.PublicFaultRequest{
+		Id:        string(uuid.NewUUID()),
+		Timestamp: time.Now().UnixMilli(),
+		Version:   "1.0",
+		Resource:  "fd-online",
+		Faults:    faults,
+	}
+
+	_, err := c.SendToPubFaultCenter(&req)
+	return err
+}
+
+// SendToPubFaultCenter send fault to public fault center
+func (c *Client) SendToPubFaultCenter(data *pubfault.PublicFaultRequest) (*pubfault.RespStatus, error) {
+	ctx := context.Background()
+
+	res, err := c.pf.SendPublicFault(ctx, data)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
 }
 
 var (

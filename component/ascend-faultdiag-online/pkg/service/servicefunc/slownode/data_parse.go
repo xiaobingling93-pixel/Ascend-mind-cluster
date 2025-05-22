@@ -78,44 +78,36 @@ func stopDataParse(slowNodeCtx *sm.SlowNodeContext) error {
 }
 
 func watchingStartDataParse(slowNodeCtx *sm.SlowNodeContext) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, namespace=%s)",
-		slowNodeCtx.Job.JobName, slowNodeCtx.Job.Namespace)
+	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
 	hwlog.RunLog.Infof("%s started to watch the start data parse signal.", logPrefix)
-	go func() {
-		for {
-			select {
-			case <-slowNodeCtx.StartDataParseSign:
-				hwlog.RunLog.Infof("%s received data parse signal, start data parse.", logPrefix)
-				if err := startDataParse(slowNodeCtx); err != nil {
-					hwlog.RunLog.Errorf(
-						"%s started data parse failed, waiting the redo job, err is: %v.", logPrefix, err)
-					slowNodeCtx.Failed()
-				} else {
-					hwlog.RunLog.Infof(
-						"%s started data parse successfully, exit signal watching process.", logPrefix)
-					// step from 0 to 1
-					slowNodeCtx.AddStep()
-					return
-				}
-			case <-slowNodeCtx.StopChan:
-				hwlog.RunLog.Infof("%s stopped, exit start data parse signal watching process ", logPrefix)
-				return
+	for {
+		select {
+		case <-slowNodeCtx.StartDataParseSign:
+			hwlog.RunLog.Infof("%s received data parse signal, start data parse.", logPrefix)
+			if err := startDataParse(slowNodeCtx); err != nil {
+				hwlog.RunLog.Errorf("%s started data parse failed, waiting the redo job, err is: %v.", logPrefix, err)
+				slowNodeCtx.Failed()
+				continue
 			}
+			hwlog.RunLog.Infof("%s started data parse successfully, exit signal watching process.", logPrefix)
+			// step from 0 to 1
+			slowNodeCtx.AddStep()
+			return
+		case <-slowNodeCtx.StopChan:
+			hwlog.RunLog.Infof("%s stopped, exit start data parse signal watching process ", logPrefix)
+			return
 		}
-	}()
+	}
 }
 
 func watchingStopDataParse(slowNodeCtx *sm.SlowNodeContext) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, namespace=%s)",
-		slowNodeCtx.Job.JobName, slowNodeCtx.Job.Namespace)
+	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
 	hwlog.RunLog.Infof("%s started to watch the stop data parse signal.", logPrefix)
-	go func() {
-		<-slowNodeCtx.StopDataParseSign
-		hwlog.RunLog.Infof("%s received stop data parse signal, stop data parse.", logPrefix)
-		if err := stopDataParse(slowNodeCtx); err != nil {
-			hwlog.RunLog.Errorf("%s stopped data parse failed: %v.", logPrefix, err)
-			return
-		}
-		hwlog.RunLog.Infof("%s stopped data parse successfully.", logPrefix)
-	}()
+	<-slowNodeCtx.StopDataParseSign
+	hwlog.RunLog.Infof("%s received stop data parse signal, stop data parse.", logPrefix)
+	if err := stopDataParse(slowNodeCtx); err != nil {
+		hwlog.RunLog.Errorf("%s stopped data parse failed: %v.", logPrefix, err)
+		return
+	}
+	hwlog.RunLog.Infof("%s stopped data parse successfully.", logPrefix)
 }

@@ -279,18 +279,6 @@ func (m *DataTypeRes) GetCode() int32 {
 	return 0
 }
 
-// func init() {
-// 	proto.RegisterType((*ProfilingSwitch)(nil), "ProfilingSwitch")
-// 	proto.RegisterType((*DataStatusReq)(nil), "DataStatusReq")
-// 	proto.RegisterType((*DataStatusRes)(nil), "DataStatusRes")
-// 	proto.RegisterType((*DataTypeReq)(nil), "DataTypeReq")
-// 	proto.RegisterType((*DataTypeRes)(nil), "DataTypeRes")
-// }
-
-// func init() {
-// 	proto.RegisterFile("profiling.proto", fileDescriptor_7ca702880ad38c8b)
-// }
-
 var fileDescriptor_7ca702880ad38c8b = []byte{
 	// 332 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x4d, 0x4f, 0xc2, 0x40,

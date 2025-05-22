@@ -21,6 +21,8 @@ import (
 )
 
 var (
-	K8sClient  *configmap.ClientK8s
+	// K8sClient is a global k8s client
+	K8sClient *configmap.ClientK8s
+	// GrpcClient is a global grpc client
 	GrpcClient *grpc.Client
 )

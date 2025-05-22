@@ -26,7 +26,7 @@ const (
 	DLNamespace = "mindx-dl"
 	// SlowNodeFeaturePrefix is prefix of slow node feature config name
 	SlowNodeFeaturePrefix = "ras-feature-slownode"
-	//NodeSlowNodeJobPrefix is the job prefix of slow node job
+	// NodeSlowNodeJobPrefix is the job prefix of slow node job
 	NodeSlowNodeJobPrefix = "slow-node-job"
 	// NodeSlowNodeAlgoResultPrefix is prefix of slow node node algo result name
 	NodeSlowNodeAlgoResultPrefix = "slow-node-algo-result"
@@ -50,22 +50,24 @@ const (
 	MinStepCount = 20
 )
 
-type SlownodeStep int
+// SlowNodeStep is the int type for process step
+type SlowNodeStep int
 
 const (
-	InitialStep SlownodeStep = 0
+	// InitialStep is the first step for all job
+	InitialStep SlowNodeStep = 0
 
 	// ClusterStep1 is start all profiling
-	ClusterStep1 SlownodeStep = 1
+	ClusterStep1 SlowNodeStep = 1
 	// ClusterStep2 is start slow node algo
-	ClusterStep2 SlownodeStep = 2
+	ClusterStep2 SlowNodeStep = 2
 
 	// NodeStep1 is start data parse
-	NodeStep1 SlownodeStep = 1
+	NodeStep1 SlowNodeStep = 1
 	// NodeStep2 is report data profiling result
-	NodeStep2 SlownodeStep = 2
+	NodeStep2 SlowNodeStep = 2
 	// NodeStep3 is start slow node algo
-	NodeStep3 SlownodeStep = 3
+	NodeStep3 SlowNodeStep = 3
 )
 
 const (
@@ -73,7 +75,7 @@ const (
 	IsSlow = "isSlow"
 	// DegradationDiag is the name of degradation diag
 	DegradationDiag = "DegradationDiag"
-	//IsDegradation
+	// IsDegradation is the sign of degradation
 	IsDegradation = 1
 )
 

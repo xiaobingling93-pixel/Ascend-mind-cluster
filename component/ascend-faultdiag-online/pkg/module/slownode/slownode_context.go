@@ -54,7 +54,7 @@ type SlowNodeContext struct {
 
 	// Job is the object data from configmap
 	Job       *slownode.SlowNodeJob
-	step      SlownodeStep
+	step      SlowNodeStep
 	isRunning bool
 	isFailed  bool
 
@@ -108,6 +108,7 @@ func NewSlowNodeContext(
 	return ctx
 }
 
+// InsertNodesIP is a function support insert nodes IP to context
 func (ctx *SlowNodeContext) InsertNodesIP(nodesIP []string) {
 	ctx.WorkerNodesIP = nodesIP
 }
@@ -163,10 +164,11 @@ func (ctx *SlowNodeContext) InitialStep() {
 }
 
 // Step get the step
-func (ctx *SlowNodeContext) Step() SlownodeStep {
+func (ctx *SlowNodeContext) Step() SlowNodeStep {
 	return ctx.step
 }
 
+// IsStartedHeavyProfiling returns a bool whether the heavy profiling starts or not
 func (ctx *SlowNodeContext) IsStartedHeavyProfiling() bool {
 	return ctx.isStartedHeavyProfiling
 }

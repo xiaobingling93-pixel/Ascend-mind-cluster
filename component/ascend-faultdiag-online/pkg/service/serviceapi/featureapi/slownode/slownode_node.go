@@ -21,11 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"ascend-common/common-utils/hwlog"
@@ -127,22 +125,13 @@ func nodeReportProfiling(slowNodeCtx *sm.SlowNodeContext) error {
 
 func writeAlgoResult(nodeResult *slownode.NodeSlowNodeAlgoResult, namespace string) error {
 	cmName := fmt.Sprintf("%s-%s-%s", sm.NodeSlowNodeAlgoResultPrefix, nodeResult.JobId, nodeResult.NodeRank)
-	// query cm first
-	cm, err := global.K8sClient.GetConfigMap(cmName, namespace)
-	if err != nil && errors.IsNotFound(err) {
+	dataBytes, err := json.MarshalIndent(nodeResult, "", "  ")
+	if err != nil {
+		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]json marshal the slow node algo result failed: %v", err)
 		return err
 	}
-	// if no result -> write cm directly
-	// if the IsDegradation changes -> write cm directly
-	if errors.IsNotFound(err) || cm.Data[IsSlow] != strconv.Itoa(nodeResult.IsSlow) {
-		dataBytes, err := json.MarshalIndent(nodeResult, "", "  ")
-		if err != nil {
-			hwlog.RunLog.Errorf("[FD-OL SLOWNODE]json marshal the slow node algo result failed: %v", err)
-			return err
-		}
-		if err = createOrUpdateCM(cmName, namespace, sm.NodeSlowNodeAlgoResultCMKey, dataBytes); err != nil {
-			return err
-		}
+	if err = createOrUpdateCM(cmName, namespace, sm.NodeSlowNodeAlgoResultCMKey, dataBytes); err != nil {
+		return err
 	}
 	return nil
 }

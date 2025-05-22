@@ -23,7 +23,7 @@ import (
 	"ascend-faultdiag-online/pkg/utils/grpc"
 )
 
-// StartSlowNode
+// StartSlowNode is a function to start the slow node detection
 func StartSlowNode(target enum.DeployMode) {
 	switch target {
 	case enum.Cluster:

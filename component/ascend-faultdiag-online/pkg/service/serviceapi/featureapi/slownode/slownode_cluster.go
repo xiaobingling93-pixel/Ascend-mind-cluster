@@ -19,10 +19,16 @@ package slownode
 
 import (
 	"encoding/json"
+	"os"
+	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-faultdiag-online/pkg/global"
 	"ascend-faultdiag-online/pkg/model/feature/slownode"
 	sm "ascend-faultdiag-online/pkg/module/slownode"
+	"ascend-faultdiag-online/pkg/utils"
+	"ascend-faultdiag-online/pkg/utils/grpc"
+	"ascend-faultdiag-online/pkg/utils/grpc/pubfault"
 	"ascend-faultdiag-online/pkg/utils/slicetool"
 )
 
@@ -74,6 +80,7 @@ func clusterProcessProfiling(slowNodeCtx *sm.SlowNodeContext, result *slownode.C
 		hwlog.RunLog.Infof(
 			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) detected node is not degradation, stop heavy profiling",
 			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
+		reportSlowNode(slowNodeCtx, result)
 		slowNodeCtx.StopHeavyProfiling()
 		return
 	}
@@ -95,7 +102,53 @@ func clusterProcessProfiling(slowNodeCtx *sm.SlowNodeContext, result *slownode.C
 		if len(degradation) >= maxDegradationCount {
 			hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s in cluster got degradation",
 				slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId)
+			reportSlowNode(slowNodeCtx, result)
 			slowNodeCtx.StopHeavyProfiling()
 		}
+	}
+}
+
+func reportSlowNode(slowNodeCtx *sm.SlowNodeContext, result *slownode.ClusterSlowNodeAlgoResult) {
+	if global.GrpcClient == nil {
+		client, err := grpc.GetClient(utils.GetClusterIP())
+		if err != nil {
+			hwlog.RunLog.Errorf("[FD-OL SLOWNODE]get grpc client failed: %s", err)
+			return
+		}
+		global.GrpcClient = client
+	}
+	var faultCode = slowNodeRecoveryFaultCode
+	if result.IsSlow == sm.IsDegradation {
+		faultCode = slowNodeFaultCode
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) got hostname failed: %s",
+			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, err)
+	}
+	var deviceIds = make([]int32, len(result.SlowCalculateRanks))
+	for i, v := range result.SlowCalculateRanks {
+		deviceIds[i] = int32(v)
+	}
+	var fault = []*pubfault.Fault{
+		{
+			FaultId:       slowNodeCtx.Job.JobId,
+			FaultType:     "Node",
+			FaultCode:     faultCode,
+			FaultTime:     time.Now().Unix(),
+			Assertion:     "once",
+			FaultLocation: map[string]string{},
+			Influence: []*pubfault.PubFaultInfo{
+				{
+					NodeName:  hostname,
+					DeviceIds: deviceIds,
+				},
+			},
+			Description: "",
+		}}
+	if err := global.GrpcClient.ReportFault(fault); err != nil {
+		hwlog.RunLog.Errorf(
+			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) report slow node detection failed: %s",
+			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, err)
 	}
 }

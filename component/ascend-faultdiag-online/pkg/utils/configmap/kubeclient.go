@@ -112,7 +112,7 @@ func (ck *ClientK8s) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
 	return fmt.Errorf("update config map failed, err is %v", err)
 }
 
-// CreateOrUpdateConfigMap create config map when config map not found or update config map
+// DeleteConfigMap delete a cm by giving cm name and namespace
 func (ck *ClientK8s) DeleteConfigMap(cmName, cmNamespace string) error {
 	err := ck.ClientSet.CoreV1().ConfigMaps(cmNamespace).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -121,7 +121,7 @@ func (ck *ClientK8s) DeleteConfigMap(cmName, cmNamespace string) error {
 	return nil
 }
 
-// GetWorkerNodesIP get all the ips of all the nodes
+// GetWorkerNodesIPByLabel get all the ips of all the nodes
 func (ck *ClientK8s) GetWorkerNodesIPByLabel(labelName, lableValue string) ([]string, error) {
 	nodes, err := ck.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -142,7 +142,7 @@ func (ck *ClientK8s) GetWorkerNodesIPByLabel(labelName, lableValue string) ([]st
 	return ips, nil
 }
 
-// GetLabels
+// GetLabels get all the labels of current node
 func (ck *ClientK8s) GetLabels() (map[string]string, error) {
 	envNodeName := "NODE_NAME"
 	nodeName := os.Getenv(envNodeName)
