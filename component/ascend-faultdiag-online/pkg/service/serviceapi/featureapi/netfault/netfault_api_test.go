@@ -16,11 +16,14 @@
 package netfault
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -203,4 +206,46 @@ func TestControllerReloadFuncError(t *testing.T) {
 
 	// 验证 MockHandler 的调用
 	mockHandler.AssertExpectations(t)
+}
+
+func TestRegisterCallback(t *testing.T) {
+	convey.Convey("Test func registerCallback", t, func() {
+		convey.Convey("should return err when input is nil", func() {
+			err := registerCallback(nil)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("should return err when json marshal failed", func() {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(v any) ([]byte, error) {
+				return nil, errors.New("can not marshal")
+			})
+			defer patch.Reset()
+			handler := &sohandle.SoHandler{}
+			err := registerCallback(handler)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("should return err when ExecuteFunc failed", func() {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(v any) ([]byte, error) {
+				return nil, errors.New("can not marshal")
+			})
+			defer patch.Reset()
+			execFunc := func(input []byte, output []byte) (int, error) {
+				return 0, errors.New("exec func failed")
+			}
+			handler := &sohandle.SoHandler{ExecuteFunc: execFunc}
+			err := registerCallback(handler)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("should return err when ExecuteFunc succeed", func() {
+			patch := gomonkey.ApplyFunc(json.Marshal, func(v any) ([]byte, error) {
+				return nil, errors.New("can not marshal")
+			})
+			defer patch.Reset()
+			execFunc := func(input []byte, output []byte) (int, error) {
+				return 0, nil
+			}
+			handler := &sohandle.SoHandler{ExecuteFunc: execFunc}
+			err := registerCallback(handler)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
 }
