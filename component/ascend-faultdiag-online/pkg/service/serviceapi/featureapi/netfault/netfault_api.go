@@ -69,6 +69,7 @@ const (
 	rootCauseTypeNetPlaneL2 = 6
 	serverIDLeftMove        = 22
 	serverIDMask            = 0x3FF
+	deviceIDMask            = 0xFFFF
 	grpcRetCodeSuccess      = 0
 	splitLen                = 2
 )
@@ -401,20 +402,21 @@ func getInfluence(result *netfault.ClusterResult) []*pubfault.PubFaultInfo {
 		return infoList
 	}
 	info := &pubfault.PubFaultInfo{
-		NodeName:  result.SrcID,
+		NodeName:  strings.ToLower(result.SrcID),
 		DeviceIds: []int32{int32(0)},
 	}
 	infoList[0] = info
-	devIdStr := result.SrcID
-	arr := strings.Split(devIdStr, "-")
-	if len(arr) == splitLen {
-		devIdStr = arr[1]
+	arr := strings.Split(result.SrcID, "-")
+	if len(arr) != splitLen {
+		return infoList
 	}
-	devId, err := strconv.Atoi(devIdStr)
+	sdIdStr := arr[1]
+	sdId, err := strconv.Atoi(sdIdStr)
 	if err != nil {
 		hwlog.RunLog.Debugf("invalid id, err: %v", err)
 		return infoList
 	}
+	devId := sdId & deviceIDMask
 	info.DeviceIds[0] = int32(devId)
 	return infoList
 }
