@@ -145,19 +145,19 @@ const (
 type Command string
 
 const (
-	// Start
+	// Start is the command of start
 	Start Command = "start"
-	// Stop
+	// Stop is the command of stop
 	Stop Command = "stop"
 	// Register a callback function
 	Register Command = "registerCallBack"
-	// Reload
+	// Reload is the command of reload
 	Reload Command = "reload"
 )
 
 const (
-	// SlowNode
+	// SlowNode app value of slow node
 	SlowNode string = "slowNode"
-	// NetFault
+	// NetFault app value of net fault
 	NetFault string = "netFault"
 )

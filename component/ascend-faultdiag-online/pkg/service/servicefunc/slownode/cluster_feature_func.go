@@ -36,6 +36,11 @@ import (
 func ClusterProcessSlowNodeJob(oldData, newData *slownode.SlowNodeJob, operator string) {
 	hwlog.RunLog.Infof("[FD-OL SLOWNODE]got job cm data, oldObj: %+v, newObj: %+v, operator: %s",
 		oldData, newData, operator)
+
+	if newData.JobName == "" {
+		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s): jobName is empty, ignore it.", newData.JobName)
+		return
+	}
 	var delayTime = 2
 	if operator == DeleteOperator {
 		delayTime = 0
@@ -109,12 +114,8 @@ func processDeleteJob(job *slownode.SlowNodeJob) {
 		clusterStop(slowNodeCtx)
 	}
 	slowNodeCtxMap.Delete(job.JobId)
-	// delete cm
-	if err := global.K8sClient.DeleteConfigMap(
-		sm.NodeSlowNodeJobPrefix+"-"+job.JobId, job.Namespace); err != nil {
-		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) deleted cm failed: %s",
-			job.JobName, job.JobId, err)
-	}
+	// delete cmKeys
+	eliminateCM(slowNodeCtx)
 }
 
 // ClusterProcessDataProfilingResult process the data profiling callback from FD-OL in node
@@ -161,9 +162,9 @@ func ClusterProcessSlowNodeAlgoResult(oldData, newData *slownode.NodeSlowNodeAlg
 		return
 	}
 	fileName := newData.NodeRank + slownodeAlgoResultSuffix
-	dir := fmt.Sprintf("%s/%s/%s", sm.ClusterFilePath, newData.JobName, nodeLevelDetectionResult)
+	dir := fmt.Sprintf("%s/%s/%s", sm.ClusterFilePath, newData.JobId, nodeLevelDetectionResult)
 	var data = map[string]any{
-		slownodeAlgoResultPrefix + newData.JobName: map[string]any{
+		slownodeAlgoResultPrefix + newData.JobId: map[string]any{
 			newData.NodeRank: newData,
 		},
 	}
@@ -224,7 +225,7 @@ func getJobIdDelayed(job *slownode.SlowNodeJob, delay int) error {
 
 func clusterStart(slowNodeCtx *sm.SlowNodeContext) {
 	slowNodeCtx.Start()
-	if err := createOrUpdateCM(slowNodeCtx.Job); err != nil {
+	if err := createOrUpdateCM(slowNodeCtx); err != nil {
 		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) create or update cm feaild: %s",
 			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, err)
 		return
@@ -237,7 +238,7 @@ func clusterStart(slowNodeCtx *sm.SlowNodeContext) {
 
 func clusterStop(slowNodeCtx *sm.SlowNodeContext) {
 	slowNodeCtx.Job.SlowNode = SlowNodeOff
-	if err := createOrUpdateCM(slowNodeCtx.Job); err != nil {
+	if err := createOrUpdateCM(slowNodeCtx); err != nil {
 		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) create or update cm feaild: %s",
 			slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, err)
 		return
@@ -247,16 +248,18 @@ func clusterStop(slowNodeCtx *sm.SlowNodeContext) {
 	slowNodeCtx.Stop()
 }
 
-func createOrUpdateCM(job *slownode.SlowNodeJob) error {
-	dataBytes, err := json.MarshalIndent(job, "", "  ")
+func createOrUpdateCM(slowNodeCtx *sm.SlowNodeContext) error {
+	dataBytes, err := json.MarshalIndent(slowNodeCtx.Job, "", "  ")
 	if err != nil {
 		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]json marshal job failed: %v", err)
 		return err
 	}
+	cmName := sm.NodeSlowNodeJobPrefix + "-" + slowNodeCtx.Job.JobId
+	slowNodeCtx.AllCMNAMEs.Store(cmName, struct{}{})
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      sm.NodeSlowNodeJobPrefix + "-" + job.JobId,
-			Namespace: job.Namespace,
+			Name:      cmName,
+			Namespace: slowNodeCtx.Job.Namespace,
 			Labels:    map[string]string{sm.CmConsumer: sm.CmConsumerValue},
 		},
 		Data: map[string]string{

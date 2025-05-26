@@ -45,8 +45,6 @@ type NodeSlowNodeAlgoResult struct {
 	SlowSendRanks []int `json:"slowSendRanks"`
 }
 
-func (r *NodeSlowNodeAlgoResult) GetJobName() string { return r.JobName }
-
 // DataParseResult the data parse result data struct for node/cluster
 type DataParseResult struct {
 	// JobName 任务名称
@@ -101,9 +99,7 @@ type NodeDataProfilingResult struct {
 	ParallelGroupInfo map[string]any `json:"ParallelGroupInfo"`
 }
 
-func (r *NodeDataProfilingResult) GetJobName() string { return r.JobName }
-
-// SlowNodeInputBase slow node input base
+// SlowNodeInputBase is the slow node input base
 type SlowNodeInputBase struct {
 	// JobName 检测任务名称
 	JobName string `json:"jobName,omitempty"`
@@ -125,14 +121,14 @@ type SlowNodeInputBase struct {
 	CardOneNode int `json:"cardOneNode,omitempty"`
 }
 
-// SlowNodeAlgoInput slow node input model
+// SlowNodeAlgoInput is the slow node input model
 type SlowNodeAlgoInput struct {
 	// FilePath 节点/集群根目录
 	FilePath string `json:"filePath,omitempty"`
 	SlowNodeInputBase
 }
 
-// SlowNodeJob slow node job conf
+// SlowNodeJob is the slow node job conf
 type SlowNodeJob struct {
 	SlowNodeInputBase
 	// SlowNode 特性开关，0 关闭，1 开启
@@ -140,8 +136,6 @@ type SlowNodeJob struct {
 	// Namespace
 	Namespace string `json:"jobNamespace"`
 }
-
-func (r *SlowNodeJob) GetJobName() string { return r.JobName }
 
 // DataParseInput is the input model for data parse
 type DataParseInput struct {
@@ -157,7 +151,7 @@ type DataParseInput struct {
 	ParallelGroupPath []string `json:"parallelGroupPath"`
 }
 
-// SlownodeInput is the input model for slow node algo&data parse
+// SlowNodeInput is the input model for slow node algo&data parse
 type SlowNodeInput struct {
 	// EventType is the type of input data, slow node algo or data parse
 	EventType enum.SlowNodeEventType
@@ -176,7 +170,7 @@ type Input struct {
 	// Model is the data which so package will process
 	Model any `json:"model"`
 	// Func is the uintptr of the callback func, using uint replace uintptr
-	//the so package will call this func if there is callback data
+	// the so package will call this func if there is callback data
 	Func uint `json:"func"`
 	// EventType is the enum of execution type, slow node or dataParse
 	EventType enum.SlowNodeEventType `json:"eventType"`

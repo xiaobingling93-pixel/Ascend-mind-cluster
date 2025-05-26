@@ -69,6 +69,7 @@ func NodeProcessSlowNodeJob(oldData, newData *slownode.SlowNodeJob, operator str
 		if slowNodeCtx.IsRunning() {
 			nodeStop(slowNodeCtx)
 		}
+		eliminateCM(slowNodeCtx)
 		slowNodeCtxMap.Delete(newData.JobId)
 	default:
 		return

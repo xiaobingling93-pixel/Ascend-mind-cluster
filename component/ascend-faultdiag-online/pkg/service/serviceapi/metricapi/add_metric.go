@@ -20,24 +20,24 @@ Package metricapi provides API
 package metricapi
 
 import (
-	"ascend-faultdiag-online/pkg/context/contextdata"
-	"ascend-faultdiag-online/pkg/context/diagcontext"
+	"ascend-faultdiag-online/pkg/fdol/api"
+	"ascend-faultdiag-online/pkg/fdol/context/contextdata"
+	"ascend-faultdiag-online/pkg/fdol/context/diagcontext"
+	"ascend-faultdiag-online/pkg/fdol/model"
 	"ascend-faultdiag-online/pkg/model/diagmodel/metricmodel"
 	"ascend-faultdiag-online/pkg/model/enum"
-	"ascend-faultdiag-online/pkg/service/request"
-	"ascend-faultdiag-online/pkg/service/servicecore"
 	"ascend-faultdiag-online/pkg/utils/slicetool"
 )
 
 const apiAddMetric = "add"
 
 // GetAddMetricApi 获取添加指标的api
-func GetAddMetricApi() *servicecore.Api {
-	return servicecore.BuildApi(apiAddMetric, &metricmodel.MetricReqData{}, apiAddMetricFunc, nil)
+func GetAddMetricApi() *api.Api {
+	return api.BuildApi(apiAddMetric, &metricmodel.MetricReqData{}, apiAddMetricFunc, nil)
 }
 
 func apiAddMetricFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *request.Context, model *metricmodel.MetricReqData) error {
+	reqCtx *model.RequestContext, model *metricmodel.MetricReqData) error {
 	for _, metric := range model.Metrics {
 		if slicetool.ValueIn(metric.ValueType, []enum.MetricValueType{enum.FloatMetric, enum.StringMetric}) != nil {
 			ctxData.Framework.Logger.Println("Unknown Metric Type", metric.ValueType)

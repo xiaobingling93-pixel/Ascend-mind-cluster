@@ -17,10 +17,10 @@ package ascendfaultdiagonline
 
 import (
 	"ascend-common/common-utils/hwlog"
-	api "ascend-faultdiag-online/pkg/api/v1"
+	"ascend-faultdiag-online/pkg/fdol/context"
 	"ascend-faultdiag-online/pkg/global"
-	"ascend-faultdiag-online/pkg/global/globalctx"
 	"ascend-faultdiag-online/pkg/model/enum"
+	"ascend-faultdiag-online/pkg/router"
 	"ascend-faultdiag-online/pkg/service/servicefunc/slownode"
 	"ascend-faultdiag-online/pkg/utils/configmap"
 )
@@ -30,7 +30,7 @@ var appFunc = map[string]func(enum.DeployMode){
 	enum.NetFault: nil,
 }
 
-// StartFDOnline
+// StartFDOnline is the start func for fd online
 func StartFDOnline(fdConfigPath string, apps []string, target enum.DeployMode) {
 	hwlog.RunLog.Infof("[FD-OL]received start FD-OL request, fdConfigPath is: %s, enabled apps: %s, and target is: %s",
 		fdConfigPath, apps, target)
@@ -41,13 +41,13 @@ func StartFDOnline(fdConfigPath string, apps []string, target enum.DeployMode) {
 		return
 	}
 	global.K8sClient = k8sClient
-	Fdctx, err := api.CreateFdCtx(fdConfigPath)
+	fdCtx, err := context.NewFaultDiagContext(fdConfigPath)
 	if err != nil {
 		hwlog.RunLog.Errorf("[FD-OL]created fd context failed: %v", err)
 		return
 	}
-	api.StartService(Fdctx)
-	globalctx.Fdctx = Fdctx
+	router.RegisterAPI(fdCtx)
+	fdCtx.StartService()
 	for _, app := range apps {
 		f := appFunc[app]
 		if f == nil {

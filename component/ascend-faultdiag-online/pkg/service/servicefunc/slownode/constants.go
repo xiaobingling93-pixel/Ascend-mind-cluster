@@ -31,7 +31,7 @@ const (
 
 	defaultNamespace = "default"
 	jobSummaryPrefix = "job-summary-"
-	maxRetryCount    = 5
+	maxRetryCount    = 10
 
 	keyJobName = "training.kubeflow.org/job-name"
 

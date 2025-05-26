@@ -20,6 +20,10 @@ import (
 	"fmt"
 
 	core "k8s.io/api/core/v1"
+
+	"ascend-common/common-utils/hwlog"
+	"ascend-faultdiag-online/pkg/global"
+	sm "ascend-faultdiag-online/pkg/module/slownode"
 )
 
 // ParseCMResult is a general func parsing source to result
@@ -38,4 +42,24 @@ func ParseCMResult(source any, cmKey string, result any) error {
 			err, cm.Name, data)
 	}
 	return nil
+}
+
+// eliminateCM is mainly to delete all the cm keys which created by the key after the job was deleted
+func eliminateCM(slowNodeCtx *sm.SlowNodeContext) {
+	slowNodeCtx.AllCMNAMEs.Range(func(key, value any) bool {
+		cmName, ok := key.(string)
+		if !ok {
+			hwlog.RunLog.Errorf(
+				"[FD-OL SLOWNODE]job(name=%s, jobId=%s) deleted cm: %s failed: key is not a string type",
+				slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, cmName)
+		}
+		if err := global.K8sClient.DeleteConfigMap(cmName, slowNodeCtx.Job.Namespace); err != nil {
+			hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) deleted cm: %s failed: %s",
+				slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, cmName, err)
+		} else {
+			hwlog.RunLog.Infof("[FD-OL SLOWNODE]job(name=%s, jobId=%s) deleted cm: %s successfully.",
+				slowNodeCtx.Job.JobName, slowNodeCtx.Job.JobId, cmName)
+		}
+		return true
+	})
 }

@@ -135,13 +135,6 @@ func genericHandler[T slownode.NodeSlowNodeAlgoResult | slownode.NodeDataProfili
 		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]parsed new cm: %v failed: %v", newObj, err)
 		return
 	}
-	if jobNamer, ok := any(newObjTyped).(interface{ GetJobName() string }); ok {
-		if jobNamer.GetJobName() == "" {
-			hwlog.RunLog.Warnf("[FD-OL SLOWNODE]cm data: %+v, operator: %s, job name is empty, ignore it",
-				newObjTyped, operator)
-			return
-		}
-	}
 	for _, f := range handlerFuncs {
 		f(oldObjTyped, newObjTyped, operator)
 	}

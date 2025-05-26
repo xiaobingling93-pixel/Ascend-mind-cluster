@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"ascend-common/common-utils/hwlog"
-	api "ascend-faultdiag-online/pkg/api/v1"
-	"ascend-faultdiag-online/pkg/global/globalctx"
+	"ascend-faultdiag-online/pkg/fdol/context"
 	"ascend-faultdiag-online/pkg/model/enum"
 	"ascend-faultdiag-online/pkg/model/feature/slownode"
 	sm "ascend-faultdiag-online/pkg/module/slownode"
@@ -53,7 +52,7 @@ func requestDataParse(slowNodeCtx *sm.SlowNodeContext, command string) error {
 	hwlog.RunLog.Infof("[FD-OL SLOWNODE]job(name=%s, namespace=%s) %s data parse, confJson: %s",
 		slowNodeCtx.Job.JobName, slowNodeCtx.Job.Namespace, command, string(confJson))
 	apiPath := fmt.Sprintf("feature/slownode/%s/%s", slowNodeCtx.Deployment, command)
-	resp, err := api.Request(globalctx.Fdctx, apiPath, string(confJson))
+	resp, err := context.FdCtx.Request(apiPath, string(confJson))
 	if err != nil {
 		return err
 	}

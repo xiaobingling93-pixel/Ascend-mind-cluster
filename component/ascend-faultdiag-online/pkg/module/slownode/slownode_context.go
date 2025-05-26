@@ -60,13 +60,13 @@ type SlowNodeContext struct {
 
 	// Deployment is the deployment type, cluster or node
 	Deployment enum.DeployMode
-
 	// StopChan is a stop signal for all goroutine
 	StopChan chan struct{}
+	// AllCMNAMEs is a sync map including all the cm names have been created
+	AllCMNAMEs sync.Map
 
 	algoControl
 	dataParseControl
-
 	cluster
 }
 
