@@ -27,6 +27,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -157,6 +158,7 @@ func TestClientK8s(t *testing.T) {
 	convey.Convey("test ClientK8s method 'GetConfigMap'", t, testGetConfigMap)
 	convey.Convey("test ClientK8s method 'UpdateConfigMap'", t, testUpdateConfigMap)
 	convey.Convey("test ClientK8s method 'CreateOrUpdateConfigMap'", t, testCreateOrUpdateCM)
+	convey.Convey("test ClientK8s method 'DeleteConfigMap'", t, testDeleteConfigMap)
 
 	convey.Convey("test ClientK8s method 'AddAnnotation'", t, testAddAnnotation)
 }
@@ -233,5 +235,27 @@ func testCreateOrUpdateCM() {
 		err := testK8sClient.CreateOrUpdateConfigMap(&v1.ConfigMap{})
 		expErr := fmt.Errorf("update config map failed, err is %v", testErr)
 		convey.So(err, convey.ShouldResemble, expErr)
+	})
+}
+
+func testDeleteConfigMap() {
+	if testK8sClient == nil {
+		panic("testK8sClient is nil")
+	}
+	convey.Convey("test method DeleteConfigMap success", func() {
+		err := testK8sClient.CreateOrUpdateConfigMap(&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name-3",
+				Namespace: "test-namespace-3",
+			},
+			Data: nil,
+		})
+		convey.So(err, convey.ShouldBeNil)
+		err = testK8sClient.DeleteConfigMap("test-namespace-3", "test-name-3")
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("test method DeleteConfigMap failed, cm not found", func() {
+		err := testK8sClient.DeleteConfigMap("test-namespace-not-found", "test-name-not-found")
+		convey.So(errors2.IsNotFound(err), convey.ShouldBeTrue)
 	})
 }

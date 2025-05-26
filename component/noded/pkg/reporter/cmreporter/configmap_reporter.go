@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"ascend-common/api"
@@ -51,23 +52,59 @@ func NewConfigMapReporter(client *kubeclient.ClientK8s) *ConfigMapReporter {
 
 // Report send fault device info by config map
 func (c *ConfigMapReporter) Report(faultDevInfo *common.FaultDevInfo) {
+	hwlog.RunLog.Debugf("old fault info: %+v, new fault info: %+v", c.nodeInfoCache.NodeInfo, faultDevInfo)
+	hwlog.RunLog.Debugf("last report time: %s", c.reportTime.Format(time.RFC3339))
 	if common.DeepEqualFaultDevInfo(faultDevInfo, &c.nodeInfoCache.NodeInfo) &&
 		time.Since(c.reportTime) < defaultReportInterval {
-		hwlog.RunLog.Debugf("node fault device info is not changed and report time is not reached, no need to report")
+		hwlog.RunLog.Debugf("node fault info is not changed and report time is not reached, no need to report")
 		return
 	}
-	checkCode := common.MakeDataHash(faultDevInfo)
 	c.nodeInfoCache = common.NodeInfoCM{
 		NodeInfo:  *faultDevInfo,
-		CheckCode: checkCode,
+		CheckCode: common.MakeDataHash(faultDevInfo),
 	}
 
-	data, err := json.Marshal(c.nodeInfoCache)
-	if err != nil {
-		hwlog.RunLog.Errorf("marshal node info cache failed, err is %v", err)
+	if len(faultDevInfo.FaultDevList) == 0 && faultDevInfo.NodeStatus == common.NodeHealthy {
+		hwlog.RunLog.Info("node has no fault and its status is healthy. If node info cm exists, it will be deleted")
+		c.deleteHealthyCM()
+		c.reportTime = time.Now()
 		return
 	}
-	nodeInfoCM := &v1.ConfigMap{
+
+	nodeInfoCM := c.constructNodeInfoCM()
+	if nodeInfoCM == nil {
+		return
+	}
+
+	var initSuc bool
+	for i := 0; i < retryTime; i++ {
+		if err := c.client.CreateOrUpdateConfigMap(nodeInfoCM); err != nil {
+			hwlog.RunLog.Errorf("report node fault info to k8s by configmap failed, error: %v, "+
+				"retry count: %d", err, i+1)
+			time.Sleep(time.Second)
+			continue
+		}
+		initSuc = true
+		break
+	}
+	if !initSuc {
+		hwlog.RunLog.Errorf("report node fault info to k8s by configmap failed, "+
+			"the maximum number of retries (%d) has been reached", retryTime)
+		return
+	}
+	c.reportTime = time.Now()
+	hwlog.RunLog.Infof("report node fault info to k8s by configmap success, time is %s",
+		c.reportTime.Format(time.RFC3339))
+	return
+}
+
+func (c *ConfigMapReporter) constructNodeInfoCM() *v1.ConfigMap {
+	data, err := json.Marshal(c.nodeInfoCache)
+	if err != nil {
+		hwlog.RunLog.Errorf("marshal node info cache failed, error: %v", err)
+		return nil
+	}
+	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.client.NodeInfoName,
 			Namespace: api.DLNamespace,
@@ -78,41 +115,22 @@ func (c *ConfigMapReporter) Report(faultDevInfo *common.FaultDevInfo) {
 			"updateTime":          time.Now().Format(time.RFC3339),
 		},
 	}
+}
 
-	var initSuc bool
-	for i := 0; i < retryTime; i++ {
-		if err := c.client.CreateOrUpdateConfigMap(nodeInfoCM); err != nil {
-			hwlog.RunLog.Errorf("report node fault device info to k8s by configmap failed, error: %v, "+
-				"retry count: %d", err, i+1)
-			time.Sleep(time.Second)
-			continue
+func (c *ConfigMapReporter) deleteHealthyCM() {
+	if err := c.client.DeleteConfigMap(api.DLNamespace, c.client.NodeInfoName); err != nil {
+		// delete non-existent cm will be failed, need filter
+		if !errors.IsNotFound(err) {
+			hwlog.RunLog.Errorf("report node fault info to k8s by configmap failed, delete configmap error,"+
+				"specific err: %v", err)
+			return
 		}
-		initSuc = true
-		break
+		hwlog.RunLog.Debugf("cm[%s] not found, ignore", c.client.NodeInfoName)
 	}
-	if !initSuc {
-		hwlog.RunLog.Errorf("report node fault device info to k8s by configmap failed, "+
-			"the maximum number of retries (%d) has been reached", retryTime)
-		return
-	}
-	c.reportTime = time.Now()
-	hwlog.RunLog.Infof("report node fault device info to k8s by configmap success, time is %s",
-		c.reportTime.Format(time.RFC3339))
 	return
 }
 
 // Init initialize node info config map
 func (c *ConfigMapReporter) Init() error {
-	nodeInfoCM := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.client.NodeInfoName,
-			Namespace: api.DLNamespace,
-		},
-		Data: map[string]string{},
-	}
-	if err := c.client.CreateOrUpdateConfigMap(nodeInfoCM); err != nil {
-		hwlog.RunLog.Errorf("init node info config map failed, err is %v", err)
-		return err
-	}
 	return nil
 }

@@ -87,6 +87,10 @@ func getDataFromCM[T any](cmData *v1.ConfigMap, key string) (T, error) {
 	if !ok {
 		return result, fmt.Errorf("configmap<%s> has no %s", cmData.Name, key)
 	}
+	// if there is no fault, the cm content may be empty
+	if len(data) == 0 {
+		return result, nil
+	}
 	if err := json.Unmarshal([]byte(data), &result); err != nil {
 		klog.V(util.LogInfoLev).Infof("failed to unmarshal data from configmap: %v", util.SafePrint(err))
 		return result, err
@@ -230,7 +234,7 @@ func (cmMgr *ClusterInfoWitchCm) dealClusterDeviceInfo(cm *v1.ConfigMap, operato
 }
 
 func (cmMgr *ClusterInfoWitchCm) dealClusterNodeInfo(cm *v1.ConfigMap, operator string) {
-	if !strings.HasPrefix(cm.Name, util.ClusterNodeInfo) {
+	if cm.Name != util.ClusterNodeInfo {
 		return
 	}
 	nodeInfoMap, err := getDataFromCM[map[string]NodeDNodeInfo](cm, cm.Name)
@@ -239,15 +243,16 @@ func (cmMgr *ClusterInfoWitchCm) dealClusterNodeInfo(cm *v1.ConfigMap, operator 
 		return
 	}
 	cmMgr.nodeInfosFromCm.Lock()
+	defer cmMgr.nodeInfosFromCm.Unlock()
+	cmMgr.nodeInfosFromCm.Nodes = map[string]NodeDNodeInfo{}
+	if operator == util.DeleteOperator {
+		return
+	}
 	for nodeCmName, nodeInfo := range nodeInfoMap {
 		nodeName := strings.TrimPrefix(nodeCmName, util.NodeDCmInfoNamePrefix)
-		if operator == util.AddOperator || operator == util.UpdateOperator {
-			cmMgr.nodeInfosFromCm.Nodes[nodeName] = nodeInfo
-		} else if operator == util.DeleteOperator {
-			delete(cmMgr.nodeInfosFromCm.Nodes, nodeName)
-		}
+		cmMgr.nodeInfosFromCm.Nodes[nodeName] = nodeInfo
 	}
-	cmMgr.nodeInfosFromCm.Unlock()
+	return
 }
 
 func (cmMgr *ClusterInfoWitchCm) dealClusterSwitchInfo(cm *v1.ConfigMap, operator string) {

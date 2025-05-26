@@ -131,6 +131,11 @@ func (ck *ClientK8s) UpdateConfigMap(cm *v1.ConfigMap) (*v1.ConfigMap, error) {
 	return newCM, nil
 }
 
+// DeleteConfigMap delete configmap
+func (ck *ClientK8s) DeleteConfigMap(cmNamespace, cmName string) error {
+	return ck.ClientSet.CoreV1().ConfigMaps(cmNamespace).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
+}
+
 // CreateOrUpdateConfigMap create config map when config map not found or update config map
 func (ck *ClientK8s) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
 	_, err := ck.UpdateConfigMap(cm)

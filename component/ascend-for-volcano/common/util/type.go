@@ -211,7 +211,7 @@ const (
 	// ClusterDeviceInfo the name of cluster device info configmap
 	ClusterDeviceInfo = "cluster-info-device-"
 	// ClusterNodeInfo the name of cluster node info configmap
-	ClusterNodeInfo = "cluster-info-node-"
+	ClusterNodeInfo = "cluster-info-node-cm"
 	// ClusterSwitchInfo the name of cluster switch info configmap
 	ClusterSwitchInfo = "cluster-info-switch-"
 

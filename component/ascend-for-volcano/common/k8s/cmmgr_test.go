@@ -187,6 +187,13 @@ func buildUpdateConfigMapClusterTestCases02() []UpdateConfigMapTestCase {
 			operator:  util.AddOperator,
 			want:      &cmManager,
 		},
+		{
+			name:      "09 obj is empty cluster node info add test",
+			cmManager: &cmManager,
+			obj:       test.FakeConfigmap(util.ClusterNodeInfo, util.MindXDlNameSpace, map[string]string{util.ClusterNodeInfo: ""}),
+			operator:  util.AddOperator,
+			want:      &cmManager,
+		},
 	}
 }
 

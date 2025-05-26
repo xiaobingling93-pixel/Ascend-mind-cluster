@@ -70,7 +70,7 @@ func Report(ctx context.Context) {
 					faultmanager.QueryDeviceInfoToReport()))
 				updateDeviceInfoCm(deviceArr)
 			case constant.NodeProcessType:
-				nodeArr := node.GetSafeData(faultmanager.QueryNodeInfoToReport())
+				nodeArr := node.GetData(faultmanager.QueryNodeInfoToReport())
 				updateNodeInfoCm(nodeArr)
 			case constant.SwitchProcessType:
 				switchArr := switchinfo.GetSafeData(faultmanager.QuerySwitchInfoToReport())
@@ -78,7 +78,7 @@ func Report(ctx context.Context) {
 			case constant.AllProcessType:
 				deviceArr := device.GetSafeData(faultdomain.AdvanceFaultMapToOriginalFaultMap[*constant.DeviceInfo](
 					faultmanager.QueryDeviceInfoToReport()))
-				nodeArr := node.GetSafeData(faultmanager.QueryNodeInfoToReport())
+				nodeArr := node.GetData(faultmanager.QueryNodeInfoToReport())
 				switchArr := switchinfo.GetSafeData(faultmanager.QuerySwitchInfoToReport())
 				updateAllCm(deviceArr, nodeArr, switchArr)
 			default:
@@ -151,16 +151,15 @@ func updateSwitchInfoCm(switchArr []string) {
 }
 
 func updateNodeInfoCm(nodeArr []string) {
-	if currentClusterNodeCmNum < len(nodeArr) {
-		currentClusterNodeCmNum = len(nodeArr)
-	}
-	for i := 0; i < len(nodeArr) || i < currentClusterNodeCmNum; i++ {
-		cmName := constant.ClusterNodeInfo + strconv.Itoa(i)
-		cmContent := ""
-		if i < len(nodeArr) {
-			cmContent = nodeArr[i]
-		}
-		updateConfig(cmName, cmContent)
+	switch len(nodeArr) {
+	case 0:
+		// no fault, update empty str to cm
+		updateConfig(constant.ClusterNodeInfo, "")
+	case 1:
+		// node-info-cm is not divided, there is only one cm
+		updateConfig(constant.ClusterNodeInfo, nodeArr[0])
+	default:
+		return
 	}
 }
 

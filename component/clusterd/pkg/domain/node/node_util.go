@@ -93,3 +93,11 @@ func GetSafeData(nodeInfos map[string]*constant.NodeInfo) []string {
 	}
 	return nodeSlice
 }
+
+// GetData get data from NodeInfo
+func GetData(nodeInfos map[string]*constant.NodeInfo) []string {
+	if len(nodeInfos) == 0 {
+		return []string{}
+	}
+	return []string{util.ObjToString(nodeInfos)}
+}

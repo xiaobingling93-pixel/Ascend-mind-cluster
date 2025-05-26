@@ -186,7 +186,9 @@ func (fNode *FaultNode) setNodeHealthyByNodeD(node *plugin.NPUNode) {
 	// 2. to judge if noded has reported node unhealthy
 	healthyStatus, ok := node.Annotation[util.NodedNodeHealtyStatuskey]
 	if !ok {
-		// if haven't got the healthy status reported by noded, will not set node status to unhealthy
+		// 2 reason:
+		// if haven't got the healthy status reported by noded, will not set node status to unhealthy;
+		// when there are no faults on the node, node info cm does not exist.
 		klog.V(util.LogInfoLev).Infof("failed to obtain node[%s] healthy status from noded configmap", node.Name)
 		return
 	}

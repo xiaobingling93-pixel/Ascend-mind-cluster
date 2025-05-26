@@ -351,7 +351,12 @@ func (n *NPUNode) syncAnnotation(npuNode *api.NodeInfo, nodeInfoOfNodeD k8s.Node
 	// 3. switch info
 	existAnno[util.SwitchNodeHealtyStatuskey] = switchInfo.NodeStatus
 	// 4. noded info. adding noded reported info into NPUNode.Annotation including node healthy status
-	existAnno[util.NodedNodeHealtyStatuskey] = nodeInfoOfNodeD.NodeStatus
+	// when there are no faults on the node, node info cm does not exist
+	if nodeInfoOfNodeD.NodeStatus != "" {
+		existAnno[util.NodedNodeHealtyStatuskey] = nodeInfoOfNodeD.NodeStatus
+	} else {
+		existAnno[util.NodedNodeHealtyStatuskey] = util.NodeHealthyByNodeD
+	}
 	n.Annotation = existAnno
 }
 
