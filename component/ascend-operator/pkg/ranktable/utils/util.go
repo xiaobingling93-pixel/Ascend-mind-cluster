@@ -10,6 +10,7 @@ package utils
 import (
 	"io/fs"
 	"os"
+	"path"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,18 +22,21 @@ import (
 )
 
 const (
-	defaultDirPerm fs.FileMode = 0744
+	defaultDirPerm   fs.FileMode = 0744
+	rankTableRootDir             = "/user/mindx-dl/ranktable"
 )
 
 // GenRankTableDir generate rank table dir
 func GenRankTableDir(job *mindxdlv1.AscendJob) string {
-	ranktableDir := readRankTableDir(job)
-	if ranktableDir == "" {
-		return ranktableDir
+	if !hasRankTableVolume(job) {
+		hwlog.RunLog.Infof("job<%s/%s>ranktable file path is not set", job.Namespace, job.Name)
+		return ""
 	}
+	ranktableDir := path.Join(rankTableRootDir, job.Namespace+"."+job.Name)
+	hwlog.RunLog.Infof("job<%s/%s>ranktable file path is %s", job.Namespace, job.Name, ranktableDir)
 	checkedPath, err := utils.PathStringChecker(ranktableDir)
 	if err != nil {
-		hwlog.RunLog.Errorf("rank table directory is invalid, err: %v", err)
+		hwlog.RunLog.Errorf("rank table directory %s is invalid, err: %v", ranktableDir, err)
 		return ""
 	}
 	if utils.IsExist(ranktableDir) {
@@ -55,29 +59,15 @@ func GenRankTableDir(job *mindxdlv1.AscendJob) string {
 	return checkedPath
 }
 
-func readRankTableDir(job *mindxdlv1.AscendJob) string {
+func hasRankTableVolume(job *mindxdlv1.AscendJob) bool {
 	for _, replSpec := range job.Spec.ReplicaSpecs {
 		for _, volume := range replSpec.Template.Spec.Volumes {
-			if volume.Name != rankTableName {
-				continue
+			if volume.Name == rankTableName {
+				return true
 			}
-			return getVolumePath(volume)
 		}
 	}
-	hwlog.RunLog.Info("ranktable file path is not set")
-	return ""
-}
-
-func getVolumePath(volume corev1.Volume) string {
-	switch {
-	case volume.VolumeSource.HostPath != nil:
-		return volume.VolumeSource.HostPath.Path
-	case volume.VolumeSource.NFS != nil:
-		return volume.VolumeSource.NFS.Path
-	default:
-		hwlog.RunLog.Error("please mount rank table by nfs or hostPath")
-		return ""
-	}
+	return false
 }
 
 // PodHasAllocated check if pod has allocated device
@@ -112,8 +102,6 @@ func podUseNpu(pod *corev1.Pod) bool {
 }
 
 const (
-	rankTableDir = "/user/mindx-dl/ranktable"
-
 	// rank table volume name
 	rankTableName = "ranktable"
 )

@@ -28,7 +28,7 @@ import (
 
 const fakePath = "test-path"
 
-func TestReadRankTableDir(t *testing.T) {
+func TestHasRankTableVolume(t *testing.T) {
 	convey.Convey("TestReadRankTableDir", t, func() {
 		job := &mindxdlv1.AscendJob{}
 		spec := &commonv1.ReplicaSpec{}
@@ -37,27 +37,14 @@ func TestReadRankTableDir(t *testing.T) {
 		convey.Convey("01-job without volume named ranktable should return empty string", func() {
 			volume := newVolume("fake-volume", v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: fakePath}})
 			spec.Template.Spec.Volumes[0] = volume
-			res := readRankTableDir(job)
-			convey.So(res, convey.ShouldEqual, "")
+			res := hasRankTableVolume(job)
+			convey.So(res, convey.ShouldBeFalse)
 		})
-		convey.Convey("02-job without hostPath or NfS volume should return empty string", func() {
+		convey.Convey("02-job with volume named ranktable should return true", func() {
 			volume := newVolume(rankTableName, v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}})
 			spec.Template.Spec.Volumes[0] = volume
-			res := readRankTableDir(job)
-			convey.So(res, convey.ShouldEqual, "")
-		})
-		convey.Convey("03-job with hostPath volume should return path", func() {
-			volume := newVolume(rankTableName, v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: fakePath}})
-			spec.Template.Spec.Volumes[0] = volume
-			res := readRankTableDir(job)
-			convey.So(res, convey.ShouldEqual, fakePath)
-		})
-		convey.Convey("04-job with nfs volume should return path", func() {
-			volume := newVolume(rankTableName, v1.VolumeSource{NFS: &v1.NFSVolumeSource{Path: fakePath}})
-
-			spec.Template.Spec.Volumes[0] = volume
-			res := readRankTableDir(job)
-			convey.So(res, convey.ShouldEqual, fakePath)
+			res := hasRankTableVolume(job)
+			convey.So(res, convey.ShouldBeTrue)
 		})
 	})
 }
@@ -104,7 +91,12 @@ func TestPodHasAllocated(t *testing.T) {
 
 func TestGenRankTableDir(t *testing.T) {
 	convey.Convey("TestGenRankTableDir", t, func() {
-		job := &mindxdlv1.AscendJob{}
+		job := &mindxdlv1.AscendJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-job",
+				Namespace: "default",
+			},
+		}
 		spec := &commonv1.ReplicaSpec{}
 		volume := newVolume(rankTableName, v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: fakePath}})
 		spec.Template.Spec.Volumes = make([]v1.Volume, 1)
