@@ -186,38 +186,40 @@ type PodDevice struct {
 
 // JobServerInfoMap to store job server info
 type JobServerInfoMap struct {
-	InfoMap      map[string]map[string]ServerHccl
-	UceTolerate  map[string]bool
-	ResourceType map[string]string
+	InfoMap       map[string]map[string]ServerHccl
+	RetryTolerate map[string]bool
+	ResourceType  map[string]string
 }
 
-// UceDeviceInfo uce device info
-type UceDeviceInfo struct {
+// RetryDeviceInfo uce device info
+type RetryDeviceInfo struct {
 	// DeviceName has prefix Ascend910
 	DeviceName   string
 	FaultTime    int64
 	RecoverTime  int64
 	CompleteTime int64
+	FaultType    string
 }
 
-// UceNodeInfo uce node info
-type UceNodeInfo struct {
+// RetryNodeInfo uce node info
+type RetryNodeInfo struct {
 	NodeName string
 	// DeviceName->DeviceInfo
-	DeviceInfo map[string]UceDeviceInfo
+	DeviceInfo map[string]RetryDeviceInfo
 }
 
-// UceJobInfo uce job info
-type UceJobInfo struct {
-	// UceNode node->nodeInfo
-	UceNode map[string]UceNodeInfo
-	JobId   string
+// RetryJobInfo uce job info
+type RetryJobInfo struct {
+	// RetryNode node->nodeInfo
+	RetryNode map[string]RetryNodeInfo
+	JobId     string
 }
 
-// ReportInfo train process report uce info
+// ReportInfo train process report retry info
 type ReportInfo struct {
 	RecoverTime  int64
 	CompleteTime int64
+	FaultType    string
 }
 
 // FaultProcessor a interface of fault process
@@ -352,6 +354,7 @@ type ReportRecoverInfo struct {
 	JobId       string
 	Rank        string
 	RecoverTime int64
+	FaultType   string
 }
 
 // PubFaultCache public fault in cache for node

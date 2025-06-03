@@ -51,6 +51,7 @@ type JobBaseInfo struct {
 	JobName   string
 	PgName    string
 	Namespace string
+	Framework string
 	RecoverConfig
 }
 

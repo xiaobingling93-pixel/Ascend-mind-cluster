@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v5.27.0
-// source: pb/recover.proto
+// source: recover.proto
 
 package pb
 
@@ -355,5 +355,5 @@ var Recover_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pb/recover.proto",
+	Metadata: "recover.proto",
 }

@@ -67,4 +67,22 @@ const (
 
 	// NotifyDumpState notify dump
 	NotifyDumpState = "NotifyDumpState"
+
+	// WaitContinueTrainState wait report continue train state
+	WaitContinueTrainState = "WaitContinueTrainState"
+
+	// NotifySwitchNicState notify switch nic
+	NotifySwitchNicState = "NotifySwitchNicState"
+
+	// WaitSwitchNicFinishedState wait switch nic finished
+	WaitSwitchNicFinishedState = "WaitSwitchNicFinishedState"
+
+	// NotifyPauseTrainState notify process controller stop train
+	NotifyPauseTrainState = "NotifyPauseTrainState"
+
+	// WaitReportPauseCompleteState wait report stop complete
+	WaitReportPauseCompleteState = "WaitReportPauseCompleteState"
+
+	// NotifyContinueTrainState notify process continue train
+	NotifyContinueTrainState = "NotifyContinueTrainState"
 )

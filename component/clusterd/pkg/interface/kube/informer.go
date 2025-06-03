@@ -49,12 +49,6 @@ var (
 	cmPingMeshCMFuncs = map[string][]func(constant.ConfigPingMesh, constant.ConfigPingMesh, string){}
 )
 
-// JobService a interface with DeleteJob method
-type JobService interface {
-	// DeleteJob unregistry job
-	DeleteJob(jobId string)
-}
-
 // StopInformer stop informer when loss-leader
 func StopInformer() {
 	if informerCh != nil {

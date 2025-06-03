@@ -21,7 +21,7 @@ from taskd.python.utils.log import run_log
 taskd_worker = None
 
 
-def init_taskd_worker(rank_id: int, upper_limit_of_disk_in_mb: int = 5000) -> bool:
+def init_taskd_worker(rank_id: int, upper_limit_of_disk_in_mb: int = 5000, framework: str = "pt") -> bool:
     """
     init_taskd_worker: to init taskd worker
     rank_id: the global rank id of the process, this should be called after rank is initialized
@@ -39,7 +39,7 @@ def init_taskd_worker(rank_id: int, upper_limit_of_disk_in_mb: int = 5000) -> bo
         if upper_limit_of_disk_in_mb < 0:
             run_log.error(f"upper_limit_of_disk_in_mb {upper_limit_of_disk_in_mb} should not less than 0")
             return False
-        taskd_worker = Worker(rank_id)
+        taskd_worker = Worker(rank_id, framework)
         return taskd_worker.init_monitor(rank_id, upper_limit_of_disk_in_mb)
     except Exception as e:
         run_log.error(f"Failed to initialize worker: {e}")

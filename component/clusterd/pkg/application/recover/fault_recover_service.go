@@ -16,17 +16,16 @@ import (
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
+	"clusterd/pkg/domain/faultdomain"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
 
-var globalFaultBeaconSecond = 2
-
 const (
 	normalFaultValue = "software"
-	uceFaultValue    = "hbm-uce"
+	retryFaultValue  = "retry-fault"
 )
 
 // FaultRecoverService is a service for fault recover
@@ -52,7 +51,7 @@ func NewFaultRecoverService(keepAlive int, ctx context.Context) *FaultRecoverSer
 		hwlog.RunLog.Errorf("RegisterForJobFaultRank fail")
 	}
 	// delete EventController cache added by register interface according delete event of podGroup when job is deleted.
-	kube.AddPodGroupFunc("fault-recover", func(_ *v1beta1.PodGroup, pg *v1beta1.PodGroup, op string) {
+	kube.AddPodGroupFunc(constant.FaultRecover, func(_ *v1beta1.PodGroup, pg *v1beta1.PodGroup, op string) {
 		if op != constant.DeleteOperator {
 			return
 		}
@@ -96,8 +95,11 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 			RankId: info.RankId,
 		}
 		fault.FaultType = constant.NormalFaultType
-		if info.DoStepRetry {
+		if info.DoStepRetry && faultdomain.IsUceFault(info.FaultCode) {
 			fault.FaultType = constant.UceFaultType
+		}
+		if info.DoStepRetry && faultdomain.IsHcclRetryFault(info.FaultCode) {
+			fault.FaultType = constant.HcclFaultType
 		}
 		grpcFormatFaults = append(grpcFormatFaults, fault)
 	}
@@ -180,12 +182,15 @@ func getJobBaseInfo(jobId string) (common.JobBaseInfo, common.RespCode, error) {
 		return common.JobBaseInfo{}, common.ProcessRecoverEnableOff,
 			fmt.Errorf("job(uid=%s) process-recover-enable not open:%v", jobId, err)
 	}
+	pg := podgroup.GetPodGroup(jobId)
+	framework := podgroup.GetModelFramework(&pg)
 	return common.JobBaseInfo{
 		JobId:         jobId,
 		JobName:       jobName,
 		PgName:        pgName,
 		Namespace:     namespace,
 		RecoverConfig: config,
+		Framework:     framework,
 	}, common.OK, nil
 }
 
@@ -374,9 +379,10 @@ func giveSoftFault2FaultCenter(jobId string, faults []*pb.FaultRank) {
 			JobId:       jobId,
 			Rank:        fault.RankId,
 			RecoverTime: t,
+			FaultType:   fault.FaultType,
 		})
 	}
-	faultmanager.CallbackForReportUceInfo(infos)
+	faultmanager.CallbackForReportRetryInfo(infos)
 }
 
 // ReportProcessFault report soft fault ranks to ClusterD
@@ -403,7 +409,7 @@ func (s *FaultRecoverService) ReportProcessFault(ctx context.Context,
 		hwlog.RunLog.Errorf("failed to label soft fault label, err:%v, jobId=%s",
 			err, request.JobId)
 	}
-	if !common.IsUceFault(request.FaultRanks) {
+	if !common.IsRetryFault(request.FaultRanks) {
 		// when config only support dump strategy, in order to be able to dump directly, set healthState to UnHealthy
 		controller.healthState = constant.UnHealthyState
 		controller.addEvent(common.FaultOccurEvent)
@@ -443,8 +449,8 @@ func (s *FaultRecoverService) DeleteJob(jobId string) {
 }
 
 func getFaultReason(faults []*pb.FaultRank) string {
-	if common.IsUceFault(faults) {
-		return uceFaultValue
+	if common.IsRetryFault(faults) {
+		return retryFaultValue
 	}
 	return normalFaultValue
 }

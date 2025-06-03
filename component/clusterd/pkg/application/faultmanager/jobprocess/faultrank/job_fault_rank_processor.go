@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/cmprocess/uce"
+	"clusterd/pkg/application/faultmanager/cmprocess/retry"
 	"clusterd/pkg/application/faultmanager/jobprocess/relationfault"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -86,8 +86,8 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(
 		deviceName := advanceDeviceInfo.DeviceType + "-" + deviceInfo.DeviceID
 		faultList := advanceDeviceInfo.FaultDeviceList[deviceName]
 		podRank, podUid := pod.GetPodRankAndPodUid(jobId, deviceInfo.RankID)
-		uceInManagementPlane := false
-		// scan management plane fault info. management plane may filter uce fault in uceProcessor
+		retryInManagementPlane := false
+		// scan management plane fault info. management plane may filter uce fault in uceProcessor、hcclProcessor
 		for _, fault := range faultList {
 			faultRank := constant.FaultRank{
 				RankId:      deviceInfo.RankID,
@@ -98,23 +98,28 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(
 				DoStepRetry: false,
 				DeviceId:    deviceInfo.DeviceID,
 			}
-			if strings.Contains(fault.FaultCode, constant.UceFaultCode) {
-				// management plane find uce fault
-				uceInManagementPlane = true
+			if faultdomain.IsUceFault(fault.FaultCode) || faultdomain.IsHcclRetryFault(fault.FaultCode) {
+				retryInManagementPlane = true
 				faultRank.DoStepRetry = processor.canDoStepRetry(jobId, nodeName, deviceName)
 			}
 			faultRankList = append(faultRankList, faultRank)
 		}
-		if uceInManagementPlane {
+		if retryInManagementPlane {
 			continue
 		}
 		// business plane find uce fault
-		if processor.uceInBusinessPlane(jobId, nodeName, deviceName) {
+		if retryDevice, ok := processor.retryInBusinessPlane(jobId, nodeName, deviceName); ok {
+			var faultCode string
+			if retryDevice.FaultType == constant.UceFaultType {
+				faultCode = constant.UceFaultCode
+			} else if retryDevice.FaultType == constant.HcclFaultType {
+				faultCode = constant.HcclRetryFaultCode
+			}
 			faultRankList = append(faultRankList, constant.FaultRank{
 				RankId:      deviceInfo.RankID,
 				PodUid:      podUid,
 				PodRank:     podRank,
-				FaultCode:   constant.UceFaultCode,
+				FaultCode:   faultCode,
 				FaultLevel:  constant.RestartBusiness,
 				DoStepRetry: processor.canDoStepRetry(jobId, nodeName, deviceName),
 				DeviceId:    deviceInfo.DeviceID,
@@ -125,29 +130,29 @@ func (processor *jobRankFaultInfoProcessor) findFaultRankForJob(
 }
 
 func (processor *jobRankFaultInfoProcessor) canDoStepRetry(jobId, nodeName, deviceName string) bool {
-	uceDevice, found := uce.UceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
+	device, found := retry.RetryProcessor.GetRetryDeviceFromJob(jobId, nodeName, deviceName)
 	if !found {
 		hwlog.RunLog.Debugf("job %s's uce fault is not on node %s device %s", jobId, nodeName, deviceName)
 		return false
 	}
-	doStepRetry := faultdomain.CanDoStepRetry(&uceDevice)
-	hwlog.RunLog.Debugf("uceDevice %s stepretry %v", util.ObjToString(uceDevice), doStepRetry)
+	doStepRetry := faultdomain.CanDoStepRetry(&device)
+	hwlog.RunLog.Debugf("device %s stepretry %v", util.ObjToString(device), doStepRetry)
 	return doStepRetry
 }
 
-func (processor *jobRankFaultInfoProcessor) uceInBusinessPlane(jobId, nodeName, deviceName string) bool {
-	uceDevice, found := uce.UceProcessor.GetUceDeviceFromJob(jobId, nodeName, deviceName)
-	// business plane didn't find uce fault
+func (processor *jobRankFaultInfoProcessor) retryInBusinessPlane(jobId, nodeName, deviceName string) (constant.RetryDeviceInfo, bool) {
+	retryDevice, found := retry.RetryProcessor.GetRetryDeviceFromJob(jobId, nodeName, deviceName)
+	// business plane didn't find retry fault
 	if !found {
-		hwlog.RunLog.Debugf("business plane didn't find uce fault")
-		return false
+		hwlog.RunLog.Debugf("business plane didn't find retry fault")
+		return constant.RetryDeviceInfo{}, false
 	}
-	// business plane found uce fault
-	result := faultdomain.ValidBusinessRecoverTime(uceDevice.RecoverTime)
+	// business plane found retry fault
+	result := faultdomain.ValidBusinessRecoverTime(retryDevice.RecoverTime)
 	if !result {
-		hwlog.RunLog.Debugf("invalid BusinessRecoverTime %v", uceDevice)
+		hwlog.RunLog.Debugf("invalid BusinessRecoverTime %v", retryDevice)
 	}
-	return result
+	return retryDevice, result
 }
 
 // Process job fault rank info

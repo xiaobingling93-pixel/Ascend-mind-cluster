@@ -60,12 +60,13 @@ const (
 
 // fault code const
 const (
-	UceFaultCode      = "80E01801"
-	AicFaultCode      = "80C98009"
-	AivFaultCode      = "80CB8009"
-	LinkDownFaultCode = "81078603"
-	DevCqeFaultCode   = "8C1F8608"
-	HostCqeFaultCode  = "4C1F8608"
+	UceFaultCode       = "80E01801"
+	AicFaultCode       = "80C98009"
+	AivFaultCode       = "80CB8009"
+	LinkDownFaultCode  = "81078603"
+	DevCqeFaultCode    = "8C1F8608"
+	HostCqeFaultCode   = "4C1F8608"
+	HcclRetryFaultCode = "8C1F860B"
 )
 
 // fault processor const
@@ -247,4 +248,11 @@ const (
 	DefaultGroupId = -1
 	// OneDayHours the hours of one day is 24
 	OneDayHours = 24
+)
+
+const (
+	// HCCLRoutingConvergenceTimeout is the timeout for HCCL routing convergence
+	HCCLRoutingConvergenceTimeout = 3
+	// StepRetryTimeout is the timeout for step retry
+	StepRetryTimeout = 30
 )

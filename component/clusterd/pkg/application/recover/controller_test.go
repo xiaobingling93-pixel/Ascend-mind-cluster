@@ -46,6 +46,10 @@ type sender struct {
 	mockStream
 }
 
+type switchNicSender struct {
+	mockStream
+}
+
 func (s *sender) Send(signal *pb.ProcessManageSignal) error {
 	return nil
 }
@@ -315,7 +319,7 @@ func TestUpdateCacheFaultAndPod(t *testing.T) {
 			convey.So(retFaultrank, convey.ShouldResemble, faultRank)
 			convey.So(retRank, convey.ShouldResemble, ranks)
 			convey.So(ctl.faultPod, convey.ShouldResemble, podMap)
-			convey.So(ctl.cacheUceFault, convey.ShouldBeNil)
+			convey.So(ctl.cacheRetryFault, convey.ShouldBeNil)
 			convey.So(ctl.cacheNormalFault, convey.ShouldResemble, faultRank)
 		})
 	})
@@ -393,8 +397,8 @@ func TestSaveCacheFault(t *testing.T) {
 		ctl.saveCacheFault(faults)
 		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 1)
 		convey.So(ctl.cacheNormalFault[0].RankId, convey.ShouldEqual, "rank1")
-		convey.So(ctl.cacheUceFault, convey.ShouldHaveLength, 1)
-		convey.So(ctl.cacheUceFault[0].RankId, convey.ShouldEqual, "rank2")
+		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 1)
+		convey.So(ctl.cacheRetryFault[0].RankId, convey.ShouldEqual, "rank2")
 	})
 }
 
@@ -408,7 +412,7 @@ func TestReset(t *testing.T) {
 		ctl.latestStrategy = []string{"strategy1"}
 		ctl.faultPod = map[string]string{"rank1": "pod1"}
 		ctl.cacheNormalFault = []*pb.FaultRank{{RankId: "rank1", FaultType: constant.NormalFaultType}}
-		ctl.cacheUceFault = []*pb.FaultRank{{RankId: "rank2", FaultType: constant.UceFaultType}}
+		ctl.cacheRetryFault = []*pb.FaultRank{{RankId: "rank2", FaultType: constant.UceFaultType}}
 		patch := gomonkey.ApplyFuncReturn(common.RetryWriteResetCM,
 			&v1.ConfigMap{Data: make(map[string]string)}, nil)
 		defer patch.Reset()
@@ -418,7 +422,7 @@ func TestReset(t *testing.T) {
 		convey.So(ctl.latestStrategy, convey.ShouldHaveLength, 0)
 		convey.So(ctl.faultPod, convey.ShouldHaveLength, 0)
 		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 0)
-		convey.So(ctl.cacheUceFault, convey.ShouldHaveLength, 0)
+		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 0)
 	})
 }
 
@@ -1170,7 +1174,7 @@ func TestHandleWaitFlushFinish(t *testing.T) {
 
 func testUceFaultsOnly(ctl *EventController) {
 	convey.Convey("When only UCE faults exist and retry strategy is enabled", func() {
-		patches := gomonkey.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
+		patches := gomonkey.ApplyPrivateMethod(ctl, "takeRetryFault2NormalFault", func() ([]string, []string) {
 			return []string{"uce-fault"}, []string{}
 		})
 		defer patches.Reset()
@@ -1192,7 +1196,7 @@ func testUceFaultsOnly(ctl *EventController) {
 
 func testNormalFaultsExist(ctl *EventController) {
 	convey.Convey("When normal faults exist", func() {
-		patches := gomonkey.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
+		patches := gomonkey.ApplyPrivateMethod(ctl, "takeRetryFault2NormalFault", func() ([]string, []string) {
 			return []string{"uce-fault"}, []string{"normal-fault"}
 		}).ApplyPrivateMethod(ctl, "annotationWithRetryStrategy", func() bool {
 			return true
@@ -1218,7 +1222,7 @@ func testContextDone(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		patches.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
+		patches.ApplyPrivateMethod(ctl, "takeRetryFault2NormalFault", func() ([]string, []string) {
 			return []string{}, []string{}
 		})
 
@@ -1242,7 +1246,7 @@ func testTimeout(ctl *EventController) {
 			return context.Background(), make(chan interface{})
 		})
 
-		patches.ApplyPrivateMethod(ctl, "takeUceFault2NormalFault", func() ([]string, []string) {
+		patches.ApplyPrivateMethod(ctl, "takeRetryFault2NormalFault", func() ([]string, []string) {
 			return []string{}, []string{}
 		})
 
@@ -1410,10 +1414,10 @@ func testSuccess(ctl *EventController) {
 }
 
 func TestTakeUceFault2NormalFault(t *testing.T) {
-	convey.Convey("Test takeUceFault2NormalFault", t, func() {
+	convey.Convey("Test takeRetryFault2NormalFault", t, func() {
 		ctl := &EventController{
 			lock: sync.RWMutex{},
-			cacheUceFault: []*pb.FaultRank{
+			cacheRetryFault: []*pb.FaultRank{
 				{RankId: "rank1", FaultType: constant.UceFaultType},
 			},
 			cacheNormalFault: []*pb.FaultRank{
@@ -1437,7 +1441,7 @@ func testRetryStrategyEnabled(ctl *EventController) {
 		})
 		defer patches.Reset()
 
-		uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
+		uceFaults, normalFaults := ctl.takeRetryFault2NormalFault()
 		convey.So(uceFaults, convey.ShouldBeEmpty)
 		convey.So(normalFaults, convey.ShouldResemble, []*pb.FaultRank{
 			{RankId: "rank2", FaultType: constant.NormalFaultType},
@@ -1454,7 +1458,7 @@ func testRetryStrategyDisabled(ctl *EventController) {
 		})
 		defer patches.Reset()
 
-		uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
+		uceFaults, normalFaults := ctl.takeRetryFault2NormalFault()
 		convey.So(uceFaults, convey.ShouldBeEmpty)
 		convey.So(normalFaults, convey.ShouldResemble, []*pb.FaultRank{
 			{RankId: "rank2", FaultType: constant.NormalFaultType},
@@ -1470,7 +1474,7 @@ func testNoRetryStrategySupport(ctl *EventController) {
 		})
 		defer patches.Reset()
 
-		uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
+		uceFaults, normalFaults := ctl.takeRetryFault2NormalFault()
 		convey.So(uceFaults, convey.ShouldBeEmpty)
 		convey.So(normalFaults, convey.ShouldResemble, []*pb.FaultRank{
 			{RankId: "rank2", FaultType: constant.NormalFaultType},
@@ -1480,7 +1484,7 @@ func testNoRetryStrategySupport(ctl *EventController) {
 }
 
 func TestNotifyFaultForUceFaultCase(t *testing.T) {
-	convey.Convey("Test notifyFaultForUceFaultCase", t, func() {
+	convey.Convey("Test notifyFaultForRetryFaultCase", t, func() {
 		ctl := &EventController{
 			jobInfo: common.JobBaseInfo{
 				JobId:         "test-job-id",
@@ -1511,7 +1515,7 @@ func testPlatformModeWriteConfirmFaultError(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		event, respCode, err := ctl.notifyFaultForUceFaultCase(
+		event, respCode, err := ctl.notifyFaultForRetryFaultCase(
 			[]*pb.FaultRank{{RankId: "rank1"}}, []*pb.FaultRank{{RankId: "rank2"}})
 		convey.So(event, convey.ShouldEqual, common.WriteConfirmFaultOrWaitResultFaultTimeoutEvent)
 		convey.So(respCode, convey.ShouldEqual, common.WriteConfirmFaultOrWaitPlatResultFault)
@@ -1527,7 +1531,7 @@ func testPlatformModeNonUceFault(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		patches.ApplyFunc(common.IsUceFault, func(faults []*pb.FaultRank) bool {
+		patches.ApplyFunc(common.IsRetryFault, func(faults []*pb.FaultRank) bool {
 			return false
 		})
 
@@ -1550,7 +1554,7 @@ func testPlatformModeNonUceFault(ctl *EventController) {
 				return &v1.ConfigMap{Data: map[string]string{constant.ResetInfoCMDataKey: "test-data"}}, nil
 			})
 
-		event, respCode, err := ctl.notifyFaultForUceFaultCase(
+		event, respCode, err := ctl.notifyFaultForRetryFaultCase(
 			[]*pb.FaultRank{{RankId: "rank1"}}, []*pb.FaultRank{{RankId: "rank2"}})
 		convey.So(event, convey.ShouldEqual, "")
 		convey.So(respCode, convey.ShouldEqual, common.OK)
@@ -1566,7 +1570,7 @@ func testPlatformModeUceFault(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		patches.ApplyFunc(common.IsUceFault, func(faults []*pb.FaultRank) bool {
+		patches.ApplyFunc(common.IsRetryFault, func(faults []*pb.FaultRank) bool {
 			return true
 		})
 
@@ -1575,7 +1579,7 @@ func testPlatformModeUceFault(ctl *EventController) {
 				return context.Background(), make(chan *pb.ProcessManageSignal, 1)
 			})
 
-		event, respCode, err := ctl.notifyFaultForUceFaultCase(
+		event, respCode, err := ctl.notifyFaultForRetryFaultCase(
 			[]*pb.FaultRank{{RankId: "rank1"}}, []*pb.FaultRank{{RankId: "rank2"}})
 		convey.So(event, convey.ShouldEqual, "")
 		convey.So(respCode, convey.ShouldEqual, common.OK)
@@ -1594,7 +1598,7 @@ func testNonPlatformMode(ctl *EventController) {
 			})
 		defer patches.Reset()
 
-		event, respCode, err := ctl.notifyFaultForUceFaultCase(
+		event, respCode, err := ctl.notifyFaultForRetryFaultCase(
 			[]*pb.FaultRank{{RankId: "rank1"}}, []*pb.FaultRank{{RankId: "rank2"}})
 		convey.So(event, convey.ShouldEqual, "")
 		convey.So(respCode, convey.ShouldEqual, common.OK)
@@ -1617,6 +1621,7 @@ func TestHandleSendResult(t *testing.T) {
 		testChangeStrategyDump(ctl)
 		testChangeStrategyExit(ctl)
 		testUnsupportedStrategy(ctl)
+		testChangeStrategyContinue(ctl)
 	})
 }
 
@@ -1720,6 +1725,22 @@ func testChangeStrategyExit(ctl *EventController) {
 		defer patches.Reset()
 		ctl.handleSendResult(signal, nil)
 		convey.So(addedEvent, convey.ShouldEqual, common.NotifyExitSuccessEvent)
+	})
+}
+
+func testChangeStrategyContinue(ctl *EventController) {
+	convey.Convey("When change strategy is ProcessContinueTrain", func() {
+		signal := &pb.ProcessManageSignal{
+			SignalType:     constant.ChangeStrategySignalType,
+			ChangeStrategy: constant.ProcessContinueTrain,
+		}
+		addedEvent := ""
+		patches := gomonkey.ApplyPrivateMethod(ctl, "addEvent", func(ctl *EventController, event string) {
+			addedEvent = event
+		})
+		defer patches.Reset()
+		ctl.handleSendResult(signal, nil)
+		convey.So(addedEvent, convey.ShouldEqual, common.NotifyContinueSuccessEvent)
 	})
 }
 
@@ -2742,5 +2763,70 @@ func TestSelectEventChanEventChanClosed(t *testing.T) {
 	convey.Convey("Test the case where the eventChan is closed", t, func() {
 		result := ctl.selectEventChan(context.Background(), eventChan)
 		convey.So(result, convey.ShouldBeTrue)
+	})
+}
+
+func TestWaitHCCLRoutingConvergence(t *testing.T) {
+	convey.Convey("Testing WaitHCCLRoutingConvergence ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		res := ctl.waitHCCLRoutingConvergence()
+		convey.So(res, convey.ShouldEqual, true)
+	})
+}
+
+func TestShouldWaitHcclRoutingConvergence(t *testing.T) {
+	convey.Convey("Testing IsWaitHcclRoutingConvergence is true", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cacheRetryFault = []*pb.FaultRank{
+			{FaultType: constant.HcclFaultType},
+		}
+		res := ctl.shouldWaitHcclRoutingConvergence()
+		convey.So(res, convey.ShouldEqual, true)
+	})
+}
+
+func TestHasSameRetryFault(t *testing.T) {
+	convey.Convey("Testing hasSameRetryFault is true", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cacheRetryFault = []*pb.FaultRank{
+			{FaultType: constant.HcclFaultType},
+			{FaultType: constant.HcclFaultType},
+		}
+		res := ctl.hasSameRetryFault()
+		convey.So(res, convey.ShouldEqual, true)
+	})
+
+	convey.Convey("Testing hasSameRetryFault is false", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cacheRetryFault = []*pb.FaultRank{
+			{FaultType: constant.HcclFaultType},
+			{FaultType: constant.UceFaultType},
+		}
+		res := ctl.hasSameRetryFault()
+		convey.So(res, convey.ShouldEqual, false)
+	})
+}
+
+func TestNotifyHCCLRoutingTimeout(t *testing.T) {
+	convey.Convey("Testing notifyHCCLRoutingTimeout ", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		signal := &pb.ProcessManageSignal{
+			FaultRanks: []*pb.FaultRank{
+				{FaultType: constant.HcclFaultType},
+			},
+		}
+		res := ctl.notifyHCCLRoutingTimeout(signal)
+		convey.So(res.Timeout, convey.ShouldEqual, constant.HCCLRoutingConvergenceTimeout+constant.StepRetryTimeout)
 	})
 }

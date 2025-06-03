@@ -30,6 +30,7 @@ var (
 	eventChanLength       = 10
 	saveAndExitActions    = []string{"save_and_exit"}
 	stopTrainActions      = []string{"stop_train"}
+	pauseTrainActions     = []string{"pause_train"}
 	globalFaultActions    = []string{"on_global_rank"}
 	changeStrategyActions = []string{"change_strategy"}
 )
@@ -48,8 +49,10 @@ type EventController struct {
 	platStrategy              string
 	signalChan                chan *pb.ProcessManageSignal
 	cacheNormalFault          []*pb.FaultRank
-	cacheUceFault             []*pb.FaultRank
+	cacheRetryFault           []*pb.FaultRank
 	healthState               string
+	globalSwitchRankIDs       []string
+	globalOps                 []bool
 	controllerContext         context.Context
 	ctxCancelFunc             context.CancelFunc
 	serviceContext            context.Context
@@ -80,8 +83,10 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		reportStatusChan:          make(chan *pb.RecoverStatusRequest, 1),
 		scheduleResultChan:        make(chan bool, 1),
 		cacheNormalFault:          []*pb.FaultRank{},
-		cacheUceFault:             []*pb.FaultRank{},
+		cacheRetryFault:           []*pb.FaultRank{},
 		healthState:               constant.HealthyState,
+		globalSwitchRankIDs:       []string{},
+		globalOps:                 []bool{},
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
@@ -114,19 +119,19 @@ func (ctl *EventController) mergeFaultPod(faultPod map[string]string) {
 
 func (ctl *EventController) saveCacheFault(faults []*pb.FaultRank) {
 	mergedFaults := common.RemoveSliceDuplicateFaults(faults)
-	hwlog.RunLog.Infof("jobId=%s, before append new Fault, normalFaults=%s, uceFaults=%s",
-		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String((ctl.cacheUceFault)))
+	hwlog.RunLog.Infof("jobId=%s, before append new Fault, normalFaults=%s, retryFaults=%s",
+		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String(ctl.cacheRetryFault))
 	for _, fault := range mergedFaults {
 		if fault.FaultType == constant.NormalFaultType {
 			ctl.cacheNormalFault = append(ctl.cacheNormalFault, fault)
 		} else {
-			ctl.cacheUceFault = append(ctl.cacheUceFault, fault)
+			ctl.cacheRetryFault = append(ctl.cacheRetryFault, fault)
 		}
 	}
 	ctl.cacheNormalFault = common.RemoveSliceDuplicateFaults(ctl.cacheNormalFault)
-	ctl.cacheUceFault = common.RemoveSliceDuplicateFaults(ctl.cacheUceFault)
-	hwlog.RunLog.Infof("jobId=%s, after append new Fault, normalFaults=%s, uceFaults=%s",
-		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String((ctl.cacheUceFault)))
+	ctl.cacheRetryFault = common.RemoveSliceDuplicateFaults(ctl.cacheRetryFault)
+	hwlog.RunLog.Infof("jobId=%s, after append new Fault, normalFaults=%s, retryFaults=%s",
+		ctl.jobInfo.JobId, common.Faults2String(ctl.cacheNormalFault), common.Faults2String(ctl.cacheRetryFault))
 }
 
 func (ctl *EventController) reset(stop bool) {
@@ -134,7 +139,7 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.lock.Lock()
 	defer ctl.lock.Unlock()
 	hwlog.RunLog.Infof("jobId=%s's action path = {%s}", ctl.jobInfo.JobId, ctl.state.GetPathGraph())
-	if len(ctl.cacheNormalFault)+len(ctl.cacheUceFault) > 0 {
+	if len(ctl.cacheNormalFault)+len(ctl.cacheRetryFault) > 0 {
 		cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace,
 			nil, constant.ClearOperation)
 		if err != nil {
@@ -165,12 +170,13 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.reportRecoverStrategyChan = make(chan *pb.RecoverStrategyRequest, 1)
 	ctl.reportStatusChan = make(chan *pb.RecoverStatusRequest, 1)
 	ctl.scheduleResultChan = make(chan bool, 1)
-	ctl.cacheUceFault = ctl.cacheUceFault[:0]
+	ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
 	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
 	ctl.healthState = constant.HealthyState
 	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
 	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
-	ctl.platStrategy = ""
+	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
+	ctl.globalOps = ctl.globalOps[:0]
 	ctl.state.Reset()
 	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
 	go ctl.listenEvent()
@@ -432,6 +438,8 @@ func (ctl *EventController) handleSendResult(signal *pb.ProcessManageSignal, err
 		ctl.addEvent(common.NotifyDumpSuccessEvent)
 	} else if signal.ChangeStrategy == constant.ProcessExitStrategyName {
 		ctl.addEvent(common.NotifyExitSuccessEvent)
+	} else if signal.ChangeStrategy == constant.ProcessContinueTrain {
+		ctl.addEvent(common.NotifyContinueSuccessEvent)
 	} else {
 		hwlog.RunLog.Errorf("unsupported strategy=%s, jobId=%s",
 			signal.ChangeStrategy, signal.JobId)
@@ -471,7 +479,6 @@ func (ctl *EventController) listenSendChannel(stream pb.Recover_SubscribeProcess
 	exit := false
 	for {
 		exit = ctl.selectSendChannel(ctx, sendChan, stream)
-
 		if exit {
 			break
 		}
@@ -556,7 +563,7 @@ func (ctl *EventController) handleNotifyStopTrain() (string, common.RespCode, er
 		Actions:        stopTrainActions,
 		ChangeStrategy: "",
 	}
-	signal.FaultRanks = append(ctl.cacheUceFault, ctl.cacheNormalFault...)
+	signal.FaultRanks = append(ctl.cacheRetryFault, ctl.cacheNormalFault...)
 	return ctl.signalEnqueue(signal)
 }
 
@@ -615,8 +622,8 @@ func (ctl *EventController) handleWaitReportStopComplete() (string, common.RespC
 
 func (ctl *EventController) handleWaitFlushFinish() (string, common.RespCode, error) {
 	ctx, _ := ctl.getCtxAndEventChan()
-	uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
-	if len(uceFaults) > 0 && len(normalFaults) == 0 && ctl.annotationWithRetryStrategy() {
+	retryFaults, normalFaults := ctl.takeRetryFault2NormalFault()
+	if len(retryFaults) > 0 && len(normalFaults) == 0 && ctl.annotationWithRetryStrategy() {
 		hwlog.RunLog.Infof("jobId=%s occur uce error, will not sleep for fault flushing",
 			ctl.jobInfo.JobId)
 		return common.FaultFlushFinishedEvent, common.OK, nil
@@ -671,35 +678,39 @@ func (ctl *EventController) writeConfirmFaultAndWaitPlatResultFault(faults []*pb
 	return allFaultRanks, nil
 }
 
-func (ctl *EventController) takeUceFault2NormalFault() ([]*pb.FaultRank, []*pb.FaultRank) {
+func (ctl *EventController) takeRetryFault2NormalFault() ([]*pb.FaultRank, []*pb.FaultRank) {
 	ctl.lock.Lock()
 	defer ctl.lock.Unlock()
 	n := len(ctl.latestRecoverResult)
 	if n > 0 && ctl.latestRecoverResult[n-1].Strategy == constant.ProcessRetryStrategyName {
-		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheUceFault...)
-		ctl.cacheUceFault = ctl.cacheUceFault[:0]
+		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheRetryFault...)
+		ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
 	}
 	if len(ctl.cacheNormalFault) > 0 {
-		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheUceFault...)
-		ctl.cacheUceFault = ctl.cacheUceFault[:0]
+		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheRetryFault...)
+		ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
 	}
 	if !ctl.supportRetryStrategy() {
-		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheUceFault...)
-		ctl.cacheUceFault = ctl.cacheUceFault[:0]
+		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheRetryFault...)
+		ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
 	}
-	return ctl.cacheUceFault, ctl.cacheNormalFault
+	if !ctl.hasSameRetryFault() {
+		ctl.cacheNormalFault = append(ctl.cacheNormalFault, ctl.cacheRetryFault...)
+		ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
+	}
+	return ctl.cacheRetryFault, ctl.cacheNormalFault
 }
 
 func (ctl *EventController) setCacheFault(uceFaults, normalFaults []*pb.FaultRank) {
 	ctl.lock.Lock()
 	defer ctl.lock.Unlock()
-	ctl.cacheUceFault = uceFaults
+	ctl.cacheRetryFault = uceFaults
 	ctl.cacheNormalFault = normalFaults
 }
 
-func (ctl *EventController) notifyFaultForUceFaultCase(uceFaults,
+func (ctl *EventController) notifyFaultForRetryFaultCase(retryFaults,
 	normalFaults []*pb.FaultRank) (string, common.RespCode, error) {
-	hwlog.RunLog.Infof("jobId=%s enter notifyFaultForUceFaultCase function", ctl.jobInfo.JobId)
+	hwlog.RunLog.Infof("jobId=%s enter notifyFaultForRetryFaultCase function", ctl.jobInfo.JobId)
 	signal := &pb.ProcessManageSignal{
 		Uuid:           ctl.uuid,
 		JobId:          ctl.jobInfo.JobId,
@@ -708,18 +719,18 @@ func (ctl *EventController) notifyFaultForUceFaultCase(uceFaults,
 		ChangeStrategy: "",
 	}
 	if ctl.jobInfo.PlatFormMode {
-		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(uceFaults)
+		allFaults, err := ctl.writeConfirmFaultAndWaitPlatResultFault(retryFaults)
 		if err != nil {
 			hwlog.RunLog.Errorf("interacte with plat error, err=%v", err)
 			return common.WriteConfirmFaultOrWaitResultFaultTimeoutEvent,
 				common.WriteConfirmFaultOrWaitPlatResultFault, nil
 		}
 		hwlog.RunLog.Infof("jobId=%s, plat merge faults=%s", ctl.jobInfo.JobId, common.Faults2String(allFaults))
-		if !common.IsUceFault(allFaults) {
-			uceFaults = uceFaults[:0]
+		if !common.IsRetryFault(allFaults) {
+			retryFaults = retryFaults[:0]
 			allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
 			normalFaults = allFaults
-			ctl.setCacheFault(uceFaults, normalFaults)
+			ctl.setCacheFault(retryFaults, normalFaults)
 
 			faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
 			if err != nil {
@@ -737,12 +748,13 @@ func (ctl *EventController) notifyFaultForUceFaultCase(uceFaults,
 			hwlog.RunLog.Infof("write configmap faultList success, %s", cm.Data[constant.ResetInfoCMDataKey])
 		} else {
 			hwlog.RunLog.Infof("jobId=%s, uce error case", ctl.jobInfo.JobId)
-			signal.FaultRanks = uceFaults
+			signal.FaultRanks = retryFaults
 		}
 	} else {
 		hwlog.RunLog.Infof("jobId=%s, uce error case", ctl.jobInfo.JobId)
-		signal.FaultRanks = uceFaults
+		signal.FaultRanks = retryFaults
 	}
+	signal = ctl.notifyHCCLRoutingTimeout(signal)
 	return ctl.signalEnqueue(signal)
 }
 
@@ -802,13 +814,13 @@ func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, 
 	if !job.GetJobIsExists(ctl.jobInfo.JobId) {
 		return "", common.JobNotExist, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
 	}
-	uceFaults, normalFaults := ctl.takeUceFault2NormalFault()
-	// if len(ctl.cacheUceFault) still bigger than 0 after takeUceFault2NormalFault
+	retryFaults, normalFaults := ctl.takeRetryFault2NormalFault()
+	// if len(ctl.cacheRetryFault) still bigger than 0 after takeRetryFault2NormalFault
 	// that means job support retry strategy, and it's first time choose strategy case only have uce fault
-	if len(uceFaults) > 0 {
-		return ctl.notifyFaultForUceFaultCase(uceFaults, normalFaults)
+	if len(retryFaults) > 0 {
+		return ctl.notifyFaultForRetryFaultCase(retryFaults, normalFaults)
 	}
-	return ctl.notifyFaultForNormalFaultCase(uceFaults, normalFaults)
+	return ctl.notifyFaultForNormalFaultCase(retryFaults, normalFaults)
 }
 
 func (ctl *EventController) firstChooseStrategy() string {
@@ -860,7 +872,7 @@ func (ctl *EventController) chooseStrategy() (string, error) {
 		if strategy == constant.ProcessRetryStrategyName &&
 			!ctl.agentSupportStrategy(constant.ProcessRetryStrategyName) {
 			hwlog.RunLog.Warnf("uce repair not enabled by controller, jobId=%s", ctl.jobInfo.JobId)
-			ctl.takeUceFault2NormalFault()
+			ctl.takeRetryFault2NormalFault()
 			allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
 			ctl.setCacheFault(nil, allFaults)
 			faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
@@ -878,6 +890,9 @@ func (ctl *EventController) chooseStrategy() (string, error) {
 		return ctl.chooseForRetryFail(), nil
 	} else if res.Strategy == constant.ProcessRecoverStrategyName {
 		return ctl.chooseForRecoverFail(), nil
+		// In order to correctly switch from the state machine of mindIO to the state machine for failure recovery,
+		// after the switch nic failed, need to notify the dump first. After mindIO fails to return dump,
+		// it goes through the failure recovery state machine again.
 	}
 	return constant.ProcessExitStrategyName, nil
 }
@@ -910,6 +925,13 @@ func (ctl *EventController) handleNotifyDecidedStrategy() (string, common.RespCo
 			signal.ChangeStrategy = ctl.chooseForRecoverFail()
 		}
 	}
+	if signal.ChangeStrategy == constant.ProcessRetryStrategyName && ctl.shouldWaitHcclRoutingConvergence() {
+		hwlog.RunLog.Infof("jobId=%s, should wait hccl routing convergence", ctl.jobInfo.JobId)
+		if !ctl.waitHCCLRoutingConvergence() {
+			return common.WaitHCCLRoutingConvergenceFail, common.HCCLRoutingConvergenceFail, nil
+		}
+	}
+	hwlog.RunLog.Infof("jobId=%s, choose strategy:%s", ctl.jobInfo.JobId, signal.ChangeStrategy)
 	return ctl.signalEnqueue(signal)
 }
 
@@ -1022,7 +1044,7 @@ func (ctl *EventController) handleKillPod() (string, common.RespCode, error) {
 	if !job.GetJobIsExists(ctl.jobInfo.JobId) {
 		return "", common.JobNotExist, fmt.Errorf("jobId=%s not exist", ctl.jobInfo.JobId)
 	}
-	ctl.takeUceFault2NormalFault()
+	ctl.takeRetryFault2NormalFault()
 	_, allFaultRanks, err := ctl.updateCacheFaultAndPod()
 	if err != nil {
 		hwlog.RunLog.Errorf("update cache info fail, jobId=%s err=%v", ctl.jobInfo.JobId, err)
@@ -1326,4 +1348,44 @@ func (ctl *EventController) handleWaitRestartAllProcess() (string, common.RespCo
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	}
+}
+
+func (ctl *EventController) waitHCCLRoutingConvergence() bool {
+	time.Sleep(constant.HCCLRoutingConvergenceTimeout * time.Second)
+	hwlog.RunLog.Info("hccl routing convergence finished")
+	return true
+}
+
+func (ctl *EventController) hasSameRetryFault() bool {
+	var faultType string
+	for i, fault := range ctl.cacheRetryFault {
+		if i == 0 {
+			faultType = fault.FaultType
+			continue
+		}
+		if faultType != fault.FaultType {
+			return false
+		}
+	}
+	return true
+}
+
+func (ctl *EventController) notifyHCCLRoutingTimeout(signal *pb.ProcessManageSignal) *pb.ProcessManageSignal {
+	for _, fault := range signal.FaultRanks {
+		if fault.FaultType == constant.HcclFaultType {
+			signal.Timeout = constant.HCCLRoutingConvergenceTimeout + constant.StepRetryTimeout
+			hwlog.RunLog.Infof("notify hccl routing timeout: %d, jobId=%s", signal.Timeout, ctl.jobInfo.JobId)
+			return signal
+		}
+	}
+	return signal
+}
+
+func (ctl *EventController) shouldWaitHcclRoutingConvergence() bool {
+	for _, fault := range ctl.cacheRetryFault {
+		if fault.FaultType == constant.HcclFaultType {
+			return true
+		}
+	}
+	return false
 }

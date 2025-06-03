@@ -12,6 +12,8 @@ const (
 	Job = "job"
 	// Statistics business type Statistics
 	Statistics = "statistics"
+	// FaultRecover business type FaultRecover
+	FaultRecover = "fault-recover"
 	// AscendDevPrefix name prefix
 	AscendDevPrefix = "Ascend910-"
 	// JobNodeHealthyType is node healthy type

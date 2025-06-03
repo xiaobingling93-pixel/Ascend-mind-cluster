@@ -66,7 +66,9 @@ func (reportInfos *JobReportInfoCollector) GetInfoWithoutJobId(nodeName, deviceN
 	return noReport
 }
 
-func (reportInfos *JobReportInfoCollector) ReportUceInfo(jobId string, rankId string, recoverTime int64) error {
+// ReportRetryInfo report retry info
+func (reportInfos *JobReportInfoCollector) ReportRetryInfo(jobId string, rankId string,
+	recoverTime int64, faultType string) error {
 	jobServerInfoMap := job.GetJobServerInfoMap()
 	nodeName, deviceId, err := faultdomain.GetNodeAndDeviceFromJobIdAndRankId(jobId, rankId, jobServerInfoMap)
 	if err != nil {
@@ -81,6 +83,7 @@ func (reportInfos *JobReportInfoCollector) ReportUceInfo(jobId string, rankId st
 	info := constant.ReportInfo{
 		RecoverTime:  recoverTime,
 		CompleteTime: constant.JobNotRecoverComplete,
+		FaultType:    faultType,
 	}
 	if infoMap == nil {
 		infoMap = make(map[string]map[string]map[string]constant.ReportInfo)
@@ -98,7 +101,7 @@ func (reportInfos *JobReportInfoCollector) ReportUceInfo(jobId string, rankId st
 		infoMap[jobId][nodeName][deviceName] = info
 	}
 	reportInfos.InfoMap = infoMap
-	hwlog.RunLog.Infof("callbackForReportUceInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
+	hwlog.RunLog.Infof("callbackForReportRetryInfo receive report info(%s, %s, %d)", jobId, rankId, recoverTime)
 	hwlog.RunLog.Debugf("Current reportInfo is %s", util.ObjToString(reportInfos.InfoMap))
 	return nil
 }

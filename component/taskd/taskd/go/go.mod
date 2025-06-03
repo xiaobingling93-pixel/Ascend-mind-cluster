@@ -29,6 +29,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace ascend-common => ../../../ascend-common
-
-replace clusterd => ../../../clusterd
+replace (
+	ascend-common => ../../../ascend-common
+	ascend-faultdiag-online => ../../../ascend-faultdiag-online
+	clusterd => ../../../clusterd
+)

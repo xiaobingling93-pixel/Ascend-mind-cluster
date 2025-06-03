@@ -22,7 +22,7 @@ func TestCallbackForReportUceInfo(t *testing.T) {
 	t.Run("TestCallbackForReportUceInfo", func(t *testing.T) {
 		infos := make([]constant.ReportRecoverInfo, 0)
 		infos = append(infos, constant.ReportRecoverInfo{})
-		CallbackForReportUceInfo(infos)
+		CallbackForReportRetryInfo(infos)
 	})
 }
 

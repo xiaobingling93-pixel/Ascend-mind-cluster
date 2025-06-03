@@ -202,16 +202,17 @@ func getHcclSlice(table constant.RankTable) []string {
 // GetJobServerInfoMap could get all job info in once query
 func GetJobServerInfoMap() constant.JobServerInfoMap {
 	allJobServerMap := make(map[string]map[string]constant.ServerHccl)
-	allUceJobFlag := make(map[string]bool)
+	allRetryJobFlag := make(map[string]bool)
 	resourceType := make(map[string]string)
 	for jobKey, jobInfo := range GetAllJobCache() {
 		jobServerMap := buildJobServerInfoMap(jobInfo)
 		allJobServerMap[jobKey] = jobServerMap
-		allUceJobFlag[jobKey] = podgroup.JudgeUceByJobKey(jobKey)
+		allRetryJobFlag[jobKey] = podgroup.JudgeRetryByJobKey(jobKey)
 		resourceType[jobKey] = jobInfo.ResourceType
 	}
 
-	return constant.JobServerInfoMap{InfoMap: allJobServerMap, UceTolerate: allUceJobFlag, ResourceType: resourceType}
+	return constant.JobServerInfoMap{InfoMap: allJobServerMap,
+		RetryTolerate: allRetryJobFlag, ResourceType: resourceType}
 }
 
 func buildJobServerInfoMap(jobInfo constant.JobInfo) map[string]constant.ServerHccl {

@@ -94,3 +94,10 @@ GRPC_KEEPALIVE_TIMEOUT_MS = 'grpc.keepalive_timeout_ms'
 GRPC_KEEPALIVE_PERMIT_WITHOUT_CALLS = 'grpc.keepalive_permit_without_calls'
 GRPC_MAX_PINGS_WITHOUT_DATA = 'grpc.http2.max_pings_without_data'
 GRPC_SSL_TARGET_NAME_OVERRIDE = 'grpc.ssl_target_name_override'
+
+STOP_TRAIN_ABORT = "stop"
+STOP_TRAIN_PAUSE = "pause"
+
+SWITCH_NIC_DEFAULT_TIMEOUT = 600
+SWITCH_NIC_MAX_TIMEOUT = 120 * 60
+HCCL_CONNECT_TIMEOUT = "HCCL_CONNECT_TIMEOUT"

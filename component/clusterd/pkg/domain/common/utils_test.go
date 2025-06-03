@@ -11,6 +11,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -347,13 +348,13 @@ func addTestCaseForLabelNotExist(name, namespace string) {
 }
 
 func TestIsUceFault(t *testing.T) {
-	convey.Convey("Test IsUceFault", t, func() {
+	convey.Convey("Test IsRetryFault", t, func() {
 		convey.Convey("case uce fault", func() {
 			faults := []*pb.FaultRank{
 				&pb.FaultRank{RankId: "0", FaultType: "0"},
 				&pb.FaultRank{RankId: "1", FaultType: "0"},
 			}
-			flag := IsUceFault(faults)
+			flag := IsRetryFault(faults)
 			convey.So(flag, convey.ShouldBeTrue)
 		})
 		convey.Convey("case normal fault", func() {
@@ -361,7 +362,7 @@ func TestIsUceFault(t *testing.T) {
 				&pb.FaultRank{RankId: "0", FaultType: "0"},
 				&pb.FaultRank{RankId: "1", FaultType: "1"},
 			}
-			flag := IsUceFault(faults)
+			flag := IsRetryFault(faults)
 			convey.So(flag, convey.ShouldBeFalse)
 		})
 	})
@@ -537,6 +538,40 @@ func TestSendRetry(t *testing.T) {
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
+}
+
+type mockStream struct {
+}
+
+func (ms *mockStream) Context() context.Context {
+	return context.Background()
+}
+
+func (ms *mockStream) SendMsg(m interface{}) error {
+	return nil
+}
+
+func (ms *mockStream) RecvMsg(m interface{}) error {
+	return nil
+}
+
+func (ms *mockStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (ms *mockStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (ms *mockStream) SetTrailer(md metadata.MD) {
+}
+
+type successSwitchNicSender struct {
+	mockStream
+}
+
+type failSwitchNicSender struct {
+	mockStream
 }
 
 func TestStrategySupported(t *testing.T) {

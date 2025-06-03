@@ -12,7 +12,7 @@ import (
 	"k8s.io/api/core/v1"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager/cmprocess/uce"
+	"clusterd/pkg/application/faultmanager/cmprocess/retry"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
@@ -83,9 +83,9 @@ func TestFaultProcessorImplProcess(t *testing.T) {
 
 func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 	t.Run("TestJobRankFaultInfoProcessorCanDoStepRetry", func(t *testing.T) {
-		patches := gomonkey.ApplyPrivateMethod(uce.UceProcessor, "GetUceDeviceFromJob",
-			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
-				return constant.UceDeviceInfo{
+		patches := gomonkey.ApplyPrivateMethod(retry.RetryProcessor, "GetRetryDeviceFromJob",
+			func(jobId, nodeName, deviceName string) (constant.RetryDeviceInfo, bool) {
+				return constant.RetryDeviceInfo{
 					DeviceName:   "test",
 					FaultTime:    0,
 					RecoverTime:  0,
@@ -102,17 +102,18 @@ func TestJobRankFaultInfoProcessorCanDoStepRetry(t *testing.T) {
 
 func TestUceInBusinessPlane(t *testing.T) {
 	t.Run("TestUceInBusinessPlane", func(t *testing.T) {
-		patches := gomonkey.ApplyPrivateMethod(uce.UceProcessor, "GetUceDeviceFromJob",
-			func(jobId, nodeName, deviceName string) (constant.UceDeviceInfo, bool) {
-				return constant.UceDeviceInfo{
+		patches := gomonkey.ApplyPrivateMethod(retry.RetryProcessor, "GetRetryDeviceFromJob",
+			func(jobId, nodeName, deviceName string) (constant.RetryDeviceInfo, bool) {
+				return constant.RetryDeviceInfo{
 					DeviceName:   "test",
 					FaultTime:    0,
 					RecoverTime:  0,
 					CompleteTime: 0,
+					FaultType:    constant.UceFaultType,
 				}, true
 			})
 		defer patches.Reset()
-		isUceInBusinessPlane := JobFaultRankProcessor.uceInBusinessPlane("jobId", "nodeName", "deviceName")
+		_, isUceInBusinessPlane := JobFaultRankProcessor.retryInBusinessPlane("jobId", "nodeName", "deviceName")
 		if isUceInBusinessPlane {
 			t.Error("TestUceInBusinessPlane")
 		}
@@ -250,9 +251,11 @@ func testUceInBusinessPlane(processor *jobRankFaultInfoProcessor) {
 			})
 		defer patches.Reset()
 
-		patches.ApplyPrivateMethod(processor, "uceInBusinessPlane",
-			func(_ *jobRankFaultInfoProcessor, jobId, nodeName, deviceName string) bool {
-				return true
+		patches.ApplyPrivateMethod(processor, "retryInBusinessPlane",
+			func(_ *jobRankFaultInfoProcessor, jobId, nodeName, deviceName string) (constant.RetryDeviceInfo, bool) {
+				return constant.RetryDeviceInfo{
+					FaultType: constant.UceFaultType,
+				}, true
 			})
 
 		faultRanks := processor.findFaultRankForJob(

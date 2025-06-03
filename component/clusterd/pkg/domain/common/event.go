@@ -22,6 +22,8 @@ const (
 	NotifyDumpSuccessEvent = "notifyDumpStrategySuccess"
 	// NotifyExitSuccessEvent notify exit strategy success
 	NotifyExitSuccessEvent = "notifyExitStrategySuccess"
+	// NotifyContinueSuccessEvent notify process continue strategy success
+	NotifyContinueSuccessEvent = "notifyContinueSuccessEvent"
 
 	// ReceiveReportEvent receive report
 	ReceiveReportEvent = "receiveReport"
@@ -79,4 +81,20 @@ const (
 	WriteConfirmFaultOrWaitResultFaultTimeoutEvent = "writeConfirmFaultOrWaitResultFaultTimeout"
 	// WaitRankTableReadyTimeoutEvent wait rank table ready timeout
 	WaitRankTableReadyTimeoutEvent = "waitRankTableTimeout"
+
+	// WaitHCCLRoutingConvergenceFail wait hccl routing convergence fail
+	WaitHCCLRoutingConvergenceFail = "waitHCCLRoutingConvergenceFail"
+
+	// StartSwitchNic start switch nic
+	StartSwitchNic = "startSwitchNic"
+	// ProcessPauseFailEvent process not ready
+	ProcessPauseFailEvent = "processPauseFail"
+	// ContinueTrainFailEvent continue train fail event
+	ContinueTrainFailEvent = "continueTrainFail"
+	// WaitSwitchNicRecvFaultEvent wait switch nic and receive fault
+	WaitSwitchNicRecvFaultEvent = "waitSwitchNicRecvFault"
+	// SwitchNicFailRecoverEvent switch nic fail recover
+	SwitchNicFailRecoverEvent = "switchNicFailRecover"
+	// SwitchNicFailEvent switch nic fail
+	SwitchNicFailEvent = "switchNicFail"
 )

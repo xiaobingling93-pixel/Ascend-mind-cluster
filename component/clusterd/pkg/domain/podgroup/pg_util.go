@@ -68,8 +68,8 @@ func GetModelFramework(info *v1beta1.PodGroup) string {
 	return ""
 }
 
-// JudgeUceByJobKey judge uce label by jobKey
-func JudgeUceByJobKey(jobKey string) bool {
+// JudgeRetryByJobKey judge uce label by jobKey
+func JudgeRetryByJobKey(jobKey string) bool {
 	podGroup := GetPodGroup(jobKey)
 	flag, exit := podGroup.Labels[constant.ProcessRecoverEnableLabel]
 	if !exit || flag != constant.ProcessRecoverEnable {

@@ -299,7 +299,7 @@ func RemoveSliceDuplicateFaults(faults []*pb.FaultRank) []*pb.FaultRank {
 		if typ, ok := exitMap[fault.RankId]; !ok {
 			exitMap[fault.RankId] = fault.FaultType
 		} else {
-			if typ == constant.UceFaultType {
+			if typ == constant.UceFaultType || typ == constant.HcclFaultType {
 				exitMap[fault.RankId] = fault.FaultType
 			}
 		}
@@ -411,8 +411,8 @@ func FaultPodAllRescheduled(jobId string, oldPodMap map[string]string) bool {
 	return true
 }
 
-// IsUceFault check whether fault type is uce fault
-func IsUceFault(faults []*pb.FaultRank) bool {
+// IsRetryFault check whether fault type is uce fault
+func IsRetryFault(faults []*pb.FaultRank) bool {
 	for _, fault := range faults {
 		if fault.FaultType == constant.NormalFaultType {
 			return false

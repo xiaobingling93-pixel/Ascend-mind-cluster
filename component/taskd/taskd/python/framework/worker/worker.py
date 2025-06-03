@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 from taskd.python.cython_api import cython_api
 from taskd.python.utils.log import run_log
 from taskd.python.adaptor.pytorch.group_info import dump_group_info
@@ -23,8 +24,9 @@ class Worker:
     Worker is a framework of training thread management
     """
 
-    def __init__(self, rank: int):
+    def __init__(self, rank: int, framework: str = "pt"):
         self.rank = rank
+        self.framework = framework
 
     def start(self) -> bool:
         return self._start_up_monitor()

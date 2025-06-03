@@ -91,10 +91,10 @@ func (center *faultProcessCenter) Register(ch chan int, whichToRegister int) {
 	}
 }
 
-// CallbackForReportUceInfo callback function to report uce info
-func CallbackForReportUceInfo(infos []constant.ReportRecoverInfo) {
+// CallbackForReportRetryInfo callback function to report uce info
+func CallbackForReportRetryInfo(infos []constant.ReportRecoverInfo) {
 	for _, info := range infos {
-		collector.ReportInfoCollector.ReportUceInfo(info.JobId, info.Rank, info.RecoverTime)
+		collector.ReportInfoCollector.ReportRetryInfo(info.JobId, info.Rank, info.RecoverTime, info.FaultType)
 	}
 	GlobalFaultProcessCenter.notifyFaultCenterProcess(constant.DeviceProcessType)
 }

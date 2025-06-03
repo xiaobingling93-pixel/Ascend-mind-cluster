@@ -7,6 +7,17 @@ import (
 	"clusterd/pkg/domain/common"
 )
 
+func (ctl *EventController) getExtendPreRules() []common.TransRule {
+	return []common.TransRule{
+		{Src: common.NotifyDecidedStrategyState, Event: common.WaitHCCLRoutingConvergenceFail,
+			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
+	}
+}
+
+func (ctl *EventController) geOMRules() []common.TransRule {
+	return []common.TransRule{}
+}
+
 func (ctl *EventController) getPreRules() []common.TransRule {
 	return []common.TransRule{
 		{Src: common.InitState, Event: common.FaultOccurEvent,
@@ -140,6 +151,7 @@ func (ctl *EventController) getAfterRules() []common.TransRule {
 func (ctl *EventController) getBaseRules() []common.TransRule {
 	var rules []common.TransRule
 	rules = append(rules, ctl.getPreRules()...)
+	rules = append(rules, ctl.getExtendPreRules()...)
 	rules = append(rules, ctl.getFixRules()...)
 	rules = append(rules, ctl.getAfterRules()...)
 	return rules

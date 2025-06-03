@@ -31,6 +31,8 @@ const (
 	ProcessDumpStrategyName = "dump"
 	// ProcessExitStrategyName strategy name of directly exit
 	ProcessExitStrategyName = "exit"
+	// ProcessContinueTrain continue train
+	ProcessContinueTrain = "continue"
 )
 
 const (
@@ -141,6 +143,8 @@ const (
 const (
 	// UceFaultType uce fault type
 	UceFaultType = "0"
+	// HcclFaultType uce fault type
+	HcclFaultType = "2"
 	// NormalFaultType other uce type
 	NormalFaultType = "1"
 	// HotResetPolicy hot reset policy
@@ -216,12 +220,6 @@ const (
 	SwitchFaultType = "switchFault"
 	// DeviceFaultType is deviceFault
 	DeviceFaultType = "deviceFault"
-	// NodeFaultType is nodeFault
-	NodeFaultType = "nodeFault"
-	// TriggerFaultType is TriggerFault
-	TriggerFaultType = "TriggerFault"
-	// RelationFaultType is RelationFaultCodes
-	RelationFaultType = "RelationFaultCodes"
 	// TaskFaultKey is fault-type
 	TaskFaultKey = "fault-type"
 	// Kilo is 1000
@@ -230,4 +228,9 @@ const (
 	FaultCustomizationPath = "/home/hwMindX/relationFaultCustomization.json"
 	// FaultDurationPath fault duration path
 	FaultDurationPath = "/home/hwMindX/faultDuration.json"
+)
+
+const (
+	PtFramework = "pytorch"
+	MsFramework = "mindspore"
 )

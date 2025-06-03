@@ -38,6 +38,14 @@ const (
 	InvalidReqParam = 409
 	// InvalidReqRate invalid request rate
 	InvalidReqRate = 410
+	// NicIsSwitching nic is switching
+	NicIsSwitching RespCode = 411
+	// SwitchNicFail switch nic failed
+	SwitchNicFail = 412
+	// NicParamInvalid nic is invalid
+	NicParamInvalid RespCode = 413
+	// UnRecoverTrainError unrecoverable training errors
+	UnRecoverTrainError = 499
 	// RateLimitedCode limit rate
 	RateLimitedCode = 429
 	// ClientError common client error
@@ -67,6 +75,8 @@ const (
 	WaitPlatStrategyTimeout RespCode = 508
 	// WriteConfirmFaultOrWaitPlatResultFault write confirm fault and wait result fault
 	WriteConfirmFaultOrWaitPlatResultFault RespCode = 509
+	// HCCLRoutingConvergenceFail wait client report timeout
+	HCCLRoutingConvergenceFail RespCode = 510
 	// ServerInnerError server common error
 	ServerInnerError RespCode = 599
 )

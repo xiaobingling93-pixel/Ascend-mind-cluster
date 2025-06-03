@@ -68,7 +68,7 @@ func TestNotifyFaultInfoForJob(t *testing.T) {
 			convey.So(ctl, convey.ShouldNotBeNil)
 			convey.So(ctl.healthState == constant.UnHealthyState, convey.ShouldBeTrue)
 			convey.So(len(ctl.cacheNormalFault) == 1, convey.ShouldBeFalse)
-			convey.So(len(ctl.cacheUceFault) == 1, convey.ShouldBeFalse)
+			convey.So(len(ctl.cacheRetryFault) == 1, convey.ShouldBeFalse)
 		})
 	})
 }
@@ -461,7 +461,7 @@ func TestGiveSoftFault2FaultCenter(t *testing.T) {
 			{RankId: "rank2"},
 		}
 
-		patches := gomonkey.ApplyFunc(faultmanager.CallbackForReportUceInfo,
+		patches := gomonkey.ApplyFunc(faultmanager.CallbackForReportRetryInfo,
 			func(infos []constant.ReportRecoverInfo) {
 				for i := 0; i < len(infos) && i < len(faults); i++ {
 					convey.So(infos[i].JobId, convey.ShouldEqual, jobId)
@@ -643,6 +643,6 @@ func TestGetFaultReason(t *testing.T) {
 		}}
 		convey.So(getFaultReason(faults1), convey.ShouldEqual, normalFaultValue)
 		convey.So(getFaultReason(faults2), convey.ShouldEqual, normalFaultValue)
-		convey.So(getFaultReason(faults3), convey.ShouldEqual, uceFaultValue)
+		convey.So(getFaultReason(faults3), convey.ShouldEqual, retryFaultValue)
 	})
 }

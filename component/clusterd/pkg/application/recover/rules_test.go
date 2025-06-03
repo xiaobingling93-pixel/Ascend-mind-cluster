@@ -28,5 +28,9 @@ func TestGetRules(t *testing.T) {
 			baseRules := ctl.getBaseRules()
 			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
 		})
+		convey.Convey("05-test getExtendPreRules, should return slice", func() {
+			baseRules := ctl.getExtendPreRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
 	})
 }

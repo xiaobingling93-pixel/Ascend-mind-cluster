@@ -37,7 +37,7 @@ func TestJobReportInfoCollectorReportUceInfoSuccess(t *testing.T) {
 			})
 		defer mock.Reset()
 
-		err := ReportInfoCollector.ReportUceInfo(JobId, RankId, time.Now().UnixMilli())
+		err := ReportInfoCollector.ReportRetryInfo(JobId, RankId, time.Now().UnixMilli(), "0")
 		if err != nil {
 			t.Error(err)
 		}
@@ -52,7 +52,7 @@ func TestJobReportInfoCollectorReportUceInfoFail(t *testing.T) {
 			})
 		defer mock.Reset()
 
-		err := ReportInfoCollector.ReportUceInfo(JobId, RankId, time.Now().UnixMilli())
+		err := ReportInfoCollector.ReportRetryInfo(JobId, RankId, time.Now().UnixMilli(), "0")
 		if err == nil {
 			t.Error("report uce info should fail")
 		}
@@ -77,7 +77,7 @@ func TestJobReportInfoCollectorGetInfo(t *testing.T) {
 			mockFaultdomain.Reset()
 			mockJob.Reset()
 		}()
-		err := ReportInfoCollector.ReportUceInfo(JobId, RankId, time.Now().UnixMilli())
+		err := ReportInfoCollector.ReportRetryInfo(JobId, RankId, time.Now().UnixMilli(), "0")
 		if err != nil {
 			t.Error(err)
 		}

@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+// protoc --go_out=. --go-grpc_out=. ./recover.proto
 option go_package = ".;pb";
 
 message Status {
@@ -24,6 +25,7 @@ message ProcessManageSignal {
   repeated string actions = 4;
   repeated FaultRank faultRanks = 5;
   string changeStrategy = 6;
+  int64 timeout = 7;
 }
 
 message StopCompleteRequest {

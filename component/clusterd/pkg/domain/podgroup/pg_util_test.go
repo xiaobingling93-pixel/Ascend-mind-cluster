@@ -80,16 +80,16 @@ func TestGetModelFramework(t *testing.T) {
 }
 
 func TestJudgeUceByJobKey(t *testing.T) {
-	convey.Convey("test JudgeUceByJobKey", t, func() {
+	convey.Convey("test JudgeRetryByJobKey", t, func() {
 		pgDemo1 := getDemoPodGroup(pgName1, pgNameSpace, jobUid1)
 		convey.Convey("when pg is nil, should return false", func() {
-			convey.So(JudgeUceByJobKey(jobUid1), convey.ShouldBeFalse)
+			convey.So(JudgeRetryByJobKey(jobUid1), convey.ShouldBeFalse)
 		})
 		convey.Convey("when pg is exists, process-recover-enable is not exists, should return false",
 			func() {
 				SavePodGroup(pgDemo1)
 				defer DeletePodGroup(pgDemo1)
-				convey.So(JudgeUceByJobKey(jobUid1), convey.ShouldBeFalse)
+				convey.So(JudgeRetryByJobKey(jobUid1), convey.ShouldBeFalse)
 			},
 		)
 		convey.Convey("when pg is exists, process-recover-enable is exists, recover-strategy is not exists, "+
@@ -98,7 +98,7 @@ func TestJudgeUceByJobKey(t *testing.T) {
 				pgDemo1.Labels[constant.ProcessRecoverEnableLabel] = constant.ProcessRecoverEnable
 				SavePodGroup(pgDemo1)
 				defer DeletePodGroup(pgDemo1)
-				convey.So(JudgeUceByJobKey(jobUid1), convey.ShouldBeFalse)
+				convey.So(JudgeRetryByJobKey(jobUid1), convey.ShouldBeFalse)
 			},
 		)
 		convey.Convey("when pg is exists, process-recover-enable is exists, "+
@@ -108,7 +108,7 @@ func TestJudgeUceByJobKey(t *testing.T) {
 				pgDemo1.Annotations[constant.RecoverStrategies] = ""
 				SavePodGroup(pgDemo1)
 				defer DeletePodGroup(pgDemo1)
-				convey.So(JudgeUceByJobKey(jobUid1), convey.ShouldBeFalse)
+				convey.So(JudgeRetryByJobKey(jobUid1), convey.ShouldBeFalse)
 			},
 		)
 		convey.Convey("when pg is exists, process-recover-enable is exists, "+
@@ -118,7 +118,7 @@ func TestJudgeUceByJobKey(t *testing.T) {
 				pgDemo1.Annotations[constant.RecoverStrategies] = constant.ProcessRetryStrategyName
 				SavePodGroup(pgDemo1)
 				defer DeletePodGroup(pgDemo1)
-				convey.So(JudgeUceByJobKey(jobUid1), convey.ShouldBeTrue)
+				convey.So(JudgeRetryByJobKey(jobUid1), convey.ShouldBeTrue)
 			},
 		)
 	})

@@ -397,6 +397,14 @@ func IsUceFault(faultCode string) bool {
 	return false
 }
 
+// IsHcclRetryFault check faultCode is uce
+func IsHcclRetryFault(faultCode string) bool {
+	if strings.Contains(faultCode, constant.HcclRetryFaultCode) {
+		return true
+	}
+	return false
+}
+
 // IsCqeFault check faultCode is cqe fault
 func IsCqeFault(faultCode string) bool {
 	return strings.Contains(faultCode, constant.DevCqeFaultCode) ||
@@ -468,18 +476,18 @@ func GetContainedElementIdx(element string, stringList []string) int {
 	return -1
 }
 
-// CanDoStepRetry check UceDeviceInfo can do step retry
-func CanDoStepRetry(uceDevice *constant.UceDeviceInfo) bool {
-	if uceDevice.RecoverTime == constant.JobNotRecover {
+// CanDoStepRetry check RetryDeviceInfo can do step retry
+func CanDoStepRetry(retryDevice *constant.RetryDeviceInfo) bool {
+	if retryDevice.RecoverTime == constant.JobNotRecover {
 		return false
 	}
-	if time.Now().UnixMilli()-constant.JobReportRecoverTimeout <= uceDevice.RecoverTime {
+	if time.Now().UnixMilli()-constant.JobReportRecoverTimeout <= retryDevice.RecoverTime {
 		return true
 	}
-	if uceDevice.FaultTime == constant.DeviceNotFault {
+	if retryDevice.FaultTime == constant.DeviceNotFault {
 		return false
 	}
-	if uceDevice.FaultTime+constant.JobReportRecoverTimeout >= uceDevice.RecoverTime {
+	if retryDevice.FaultTime+constant.JobReportRecoverTimeout >= retryDevice.RecoverTime {
 		return true
 	}
 	return false
@@ -494,8 +502,8 @@ func ValidBusinessRecoverTime(recoverTime int64) bool {
 	return false
 }
 
-// ValidBusinessUceReportInfo check ReportInfo is valid
-func ValidBusinessUceReportInfo(info *constant.ReportInfo) bool {
+// ValidBusinessRetryReportInfo check ReportInfo is valid
+func ValidBusinessRetryReportInfo(info *constant.ReportInfo) bool {
 	return ValidBusinessRecoverTime(info.RecoverTime)
 }
 

@@ -45,9 +45,10 @@ except ImportError:
 
 
 class ProtoBufData:
-    def __init__(self, fault_ranks: dict, change_strategy: str):
+    def __init__(self, fault_ranks: dict, change_strategy: str, timeout: int):
         self.fault_ranks = fault_ranks
         self.change_strategy = change_strategy
+        self.timeout = timeout
 
 
 class RecoverManager(ABC):
@@ -89,6 +90,7 @@ class DLRecoverManager(RecoverManager):
         self.action_func_map = {
             'save_and_exit': tft_notify_controller_dump,
             'stop_train': tft_notify_controller_stop_train,
+            'pause_train': tft_notify_controller_stop_train,
             'on_global_rank': tft_notify_controller_on_global_rank,
             'change_strategy': tft_notify_controller_change_strategy,
         }
@@ -99,6 +101,21 @@ class DLRecoverManager(RecoverManager):
         self.grpc_channel = None
         self.grpc_stub = None
         self._init_client()
+
+    @staticmethod
+    def _get_hccl_switch_nic_timeout():
+        timeout = os.getenv(constants.HCCL_CONNECT_TIMEOUT)
+        if timeout is None:
+            return constants.SWITCH_NIC_DEFAULT_TIMEOUT
+        try:
+            timeout = int(timeout)
+            if timeout <= 0:
+                run_log.warning("HCCL_CONNECT_TIMEOUT is invalid")
+                return constants.SWITCH_NIC_DEFAULT_TIMEOUT
+            return min(int(timeout * 2.5), constants.SWITCH_NIC_MAX_TIMEOUT)
+        except Exception as err:
+            run_log.warning(f"get HCCL_CONNECT_TIMEOUT failed, {err}")
+            return constants.SWITCH_NIC_DEFAULT_TIMEOUT
 
     def register(self, request: pb.ClientInfo) -> pb.Status:
         info = f"call Register, jobId={request.jobId}"
@@ -208,7 +225,7 @@ class DLRecoverManager(RecoverManager):
         for item in signal.faultRanks:
             fault_rank_dict[int(item.rankId)] = int(item.faultType)
         actions = list(set(signal.actions))
-        pb_data = ProtoBufData(fault_rank_dict, signal.changeStrategy)
+        pb_data = ProtoBufData(fault_rank_dict, signal.changeStrategy, signal.timeout)
         for action in actions:
             self.__do_action(action=action, arg=pb_data)
 
@@ -223,9 +240,16 @@ class DLRecoverManager(RecoverManager):
             if action == 'save_and_exit':
                 func()
             elif action == 'stop_train':
-                func(arg.fault_ranks)
+                func(arg.fault_ranks, constants.STOP_TRAIN_ABORT)
+            elif action == 'pause_train':
+                timeout = self._get_hccl_switch_nic_timeout()
+                run_log.info(f"will switch nic, timeout={timeout}")
+                func(arg.fault_ranks, constants.STOP_TRAIN_PAUSE, timeout)
             elif action == 'on_global_rank':
-                func(arg.fault_ranks)
+                if arg.timeout == 0:
+                    func(arg.fault_ranks)
+                else:
+                    func(arg.fault_ranks, arg.timeout)
             elif action == 'change_strategy':
                 func(arg.change_strategy)
 

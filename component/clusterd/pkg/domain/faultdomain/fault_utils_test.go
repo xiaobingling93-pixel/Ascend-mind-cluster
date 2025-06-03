@@ -322,11 +322,11 @@ func TestValidBusinessUceReportInfo(t *testing.T) {
 			mockNow.Reset()
 			mockUnixMilli.Reset()
 		}()
-		if !ValidBusinessUceReportInfo(reportInfo) {
+		if !ValidBusinessRetryReportInfo(reportInfo) {
 			t.Error("TestValidBusinessUceReportInfo fail")
 		}
 		reportInfo.RecoverTime = 0
-		if ValidBusinessUceReportInfo(reportInfo) {
+		if ValidBusinessRetryReportInfo(reportInfo) {
 			t.Error("TestValidBusinessUceReportInfo fail")
 		}
 	})
@@ -334,7 +334,7 @@ func TestValidBusinessUceReportInfo(t *testing.T) {
 
 // TestCanDoStepRetry check uceDeviceInfo can do step retry
 func TestCanDoStepRetry(t *testing.T) {
-	uceDeviceInfo := &constant.UceDeviceInfo{
+	uceDeviceInfo := &constant.RetryDeviceInfo{
 		DeviceName:   deviceName,
 		FaultTime:    time100Seconds,
 		RecoverTime:  time100Seconds + time1Seconds,
@@ -412,6 +412,11 @@ func TestFaultCodeJudge(t *testing.T) {
 	})
 	t.Run("TestFaultCodeJudgeUceFault", func(t *testing.T) {
 		if got := IsUceFault(constant.UceFaultCode); got == false {
+			t.Error("TestFaultCodeJudgeUceFault fail")
+		}
+	})
+	t.Run("TestFaultCodeJudgeHcclFault", func(t *testing.T) {
+		if got := IsHcclRetryFault(constant.HcclRetryFaultCode); got == false {
 			t.Error("TestFaultCodeJudgeUceFault fail")
 		}
 	})

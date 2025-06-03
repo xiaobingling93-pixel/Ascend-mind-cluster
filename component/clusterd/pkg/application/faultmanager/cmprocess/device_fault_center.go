@@ -5,7 +5,7 @@ package cmprocess
 
 import (
 	"clusterd/pkg/application/faultmanager/cmprocess/publicfault"
-	"clusterd/pkg/application/faultmanager/cmprocess/uce"
+	"clusterd/pkg/application/faultmanager/cmprocess/retry"
 	"clusterd/pkg/application/faultmanager/cmprocess/uceaccompany"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/faultdomain/cmmanager"
@@ -28,6 +28,6 @@ func init() {
 	DeviceCenter.addProcessors([]constant.FaultProcessor{
 		publicfault.PubFaultProcessor,
 		uceaccompany.UceAccompanyProcessor, // this processor filter the uce accompany faults, before processorForUceFault
-		uce.UceProcessor,                   // this processor filter the uce faults.
+		retry.RetryProcessor,               // this processor filter the uce faults.
 	})
 }
