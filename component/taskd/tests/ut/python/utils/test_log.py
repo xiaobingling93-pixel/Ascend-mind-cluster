@@ -109,16 +109,18 @@ class TestCustomRotationHandler(unittest.TestCase):
         with open(self.base_filename, "w") as f:
             f.write("test log")
         handler.doRollover()
+        # sleep to ensure that file creation timestamps are not duplicated
+        time.sleep(0.1)
         with open(self.base_filename, "w") as f:
             f.write("test2 log")
         handler.doRollover()
         # sleep to ensure that file creation timestamps are not duplicated
-        time.sleep(1)
+        time.sleep(0.1)
         with open(self.base_filename, "w") as f:
             f.write("test3 log")
         handler.doRollover()
         backups = [f for f in os.listdir(self.test_dir) if f != "customlog.log"]
-        self.assertEqual(len(backups), 2)
+        self.assertEqual(len(backups), 3)
 
     def test_multiple_rollovers(self):
         """
@@ -137,6 +139,7 @@ class TestCustomRotationHandler(unittest.TestCase):
             with open(self.base_filename, "w") as f:
                 f.write("new log")
             handler.doRollover()
+            time.sleep(0.1)
         backups = [f for f in os.listdir(self.test_dir) if f != "customlog.log"]
         self.assertEqual(len(backups), 2)
         self.assertNotIn("customlog-2023-10-05T12-00-00.000.log", backups)

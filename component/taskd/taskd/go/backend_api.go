@@ -34,6 +34,7 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"taskd/common/constant"
 	"taskd/common/utils"
+	"taskd/framework_backend/manager"
 	"taskd/framework_backend/worker/monitor/profiling"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
@@ -42,6 +43,7 @@ import (
 var ctx context.Context = context.Background()
 var netLifeCtl = make(map[uintptr]*net.NetInstance)
 var rw sync.RWMutex
+var managerInstance = &manager.BaseManager{}
 
 // InitTaskMonitor to init tasdD monitor, should be called by python api,
 // and this python api will be called in user script
@@ -103,6 +105,28 @@ func StartMonitorClient() C.int {
 //export StepOut
 func StepOut() C.int {
 	if profiling.StepOut() {
+		return C.int(1)
+	}
+	return C.int(0)
+}
+
+// InitTaskdManager this function is the entrance for initialize taskd manager, is called by user through python api
+//
+//export InitTaskdManager
+func InitTaskdManager(configStr *C.char) C.int {
+	var config manager.Config
+	if err := json.Unmarshal([]byte(C.GoString(configStr)), &config); err != nil {
+		return C.int(1)
+	}
+	managerInstance = manager.NewTaskDManager(config)
+	return C.int(0)
+}
+
+// StartTaskdManager this function is the entrance for start taskd manager, is called by user through python api
+//
+//export StartTaskdManager
+func StartTaskdManager() C.int {
+	if err := managerInstance.Start(); err != nil {
 		return C.int(1)
 	}
 	return C.int(0)
