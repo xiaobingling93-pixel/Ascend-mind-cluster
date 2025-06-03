@@ -287,13 +287,16 @@ func (tp *module910SuperPod) selectNodesWithLeastResourceForSingle(nodes []*api.
 func (tp *module910SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*api.NodeInfo,
 	sMap map[string]float64) (map[string][]plugin.SuperNode, error) {
 	klog.V(util.LogInfoLev).Infof("input nodes num(%d) for task %s", len(nodes), task.Name)
+	if tp.isMindIEJob() {
+		return tp.selectSuperPodForMindIEJob(task, nodes)
+	}
+
 	totalNodes := tp.getSuperPodTop(nodes)
 	totalRequiredSuperPod := tp.NPUTaskNum / tp.spBlock
 	vSuperPodID := make(map[string]bool, totalRequiredSuperPod)
 	for i := 0; i < totalRequiredSuperPod; i++ {
 		vSuperPodID[strconv.Itoa(i)] = false
 	}
-
 	selectNodes, err := tp.selectNodesForFaultJob(task, totalNodes, vSuperPodID, sMap, nodes)
 	if err != nil {
 		return nil, err
@@ -948,6 +951,7 @@ func (tp *module910SuperPod) UseAnnotation(task *api.TaskInfo, node plugin.NPUNo
 	tp.SetNPUTopologyToPodFn(task, selectedNPU, node)
 	newNode := tp.UpdateNodeInfo(node, selectedNPU)
 	task.Pod.Annotations[superPodRankKey] = tp.nodeVPodId[node.Name]
+	task.Pod.Annotations["super-pod-id"] = strconv.Itoa(int(node.SuperPodID))
 	return newNode
 }
 

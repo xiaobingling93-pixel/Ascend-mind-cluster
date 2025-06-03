@@ -61,6 +61,23 @@ func (r *RankTable) GatherServerList() {
 func (r *RankTable) GatherServerListForHardStrategy() {
 	r.BaseGenerator.GatherServerList()
 	r.SuperPodList = make([]*SuperPod, 0)
+	if r.IsMindIEEPJob {
+		superPodMap := make(map[string]*SuperPod)
+		for _, server := range r.ServerList {
+			if _, ok := superPodMap[server.SuperPodID]; !ok {
+				superPodMap[server.SuperPodID] = &SuperPod{
+					SuperPodID: server.SuperPodID,
+					ServerList: make([]*Server, 0),
+				}
+			}
+			superPodMap[server.SuperPodID].ServerList = append(superPodMap[server.SuperPodID].ServerList,
+				&Server{ServerID: server.ServerID})
+		}
+		for _, superPod := range superPodMap {
+			r.SuperPodList = append(r.SuperPodList, superPod)
+		}
+		return
+	}
 	for id, server := range r.ServerList {
 		vid := utils.GetLogicSuperPodId(id, r.spBlock, len(r.ServerList[0].DeviceList))
 		if len(r.SuperPodList) == vid {

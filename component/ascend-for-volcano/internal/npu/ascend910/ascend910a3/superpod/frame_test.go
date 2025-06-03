@@ -54,6 +54,7 @@ func newNPUNodeWithSuperPodID(nodeName string, superPodID int32) plugin.NPUNode 
 		CommonNode: plugin.CommonNode{
 			Name:       nodeName,
 			SuperPodID: superPodID,
+			Tasks:      map[api.TaskID]*api.TaskInfo{},
 		},
 	}
 }
@@ -103,6 +104,7 @@ const (
 	spBlockNum1     = 1
 	spBlockNum2     = 2
 	npuTaskNum1     = 1
+	npuTaskNum2     = 2
 	npuTaskNum4     = 4
 	superPodId2     = 2
 )

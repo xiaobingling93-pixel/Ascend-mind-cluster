@@ -48,6 +48,7 @@ type CommonNode struct {
 	Capability     map[v1.ResourceName]float64
 	Allocate       map[v1.ResourceName]float64
 	Idle           map[v1.ResourceName]float64
+	Tasks          map[api.TaskID]*api.TaskInfo
 	BaseDeviceInfo string
 	// node annotation and device info + switch info + node info
 	Annotation        map[string]string
@@ -175,6 +176,7 @@ func (n *NPUNode) initNPUNodeByNodeInf(npuNode *api.NodeInfo, deviceInfo k8s.Nod
 	n.Idle = npuNode.Idle.ScalarResources
 	n.Label = npuNode.Node.Labels
 	n.Address = getNPUNodeAddress(npuNode)
+	n.Tasks = npuNode.Tasks
 	n.syncAnnotation(npuNode, nodeInfoOfNodeD, switchInfo)
 	n.updateNPUNodeDeviceInfos(deviceInfo)
 

@@ -45,7 +45,7 @@ type BaseGenerator struct {
 
 	servers        *sync.Map
 	rankTabler     generator.RankTableGenerator
-	isMindIEEPJob  bool
+	IsMindIEEPJob  bool
 	isSoftStrategy bool
 
 	Status      utils.RankTableStatus `json:"status"`
@@ -67,7 +67,7 @@ func NewBaseGenerator(job *mindxdlv1.AscendJob, version string, r generator.Rank
 		Status:         utils.InitialRTStatus,
 		ServerList:     []*Server{},
 		Version:        version,
-		isMindIEEPJob:  mindxdlutils.IsMindIEEPJob(job),
+		IsMindIEEPJob:  mindxdlutils.IsMindIEEPJob(job),
 		isSoftStrategy: mindxdlutils.IsSoftStrategyJob(job),
 	}
 }
@@ -244,9 +244,10 @@ func (r *BaseGenerator) AddPod(pod *corev1.Pod) error {
 		ContainerIP: pod.Status.PodIP,
 		DeviceList:  make([]*Device, 0),
 	}
-	if r.isMindIEEPJob {
+	if r.IsMindIEEPJob {
 		hwlog.RunLog.Debugf("pod(%s/%s) belong mindIEEP", pod.Namespace, pod.Name)
 		server.Hardware = pod.Annotations[api.PodUsedHardwareTypeAnno]
+		server.SuperPodID = pod.Annotations["super-pod-id"]
 	}
 	if r.isSoftStrategy {
 		server.SuperPodRank = pod.Annotations[mindxdlutils.SuperPodRankAnno]

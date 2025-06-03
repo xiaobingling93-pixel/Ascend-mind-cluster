@@ -65,3 +65,12 @@ type vPodIdRecorder struct {
 	leftIndex  int
 	rightIndex int
 }
+
+type ResourceFitPolicy string
+
+const (
+	// idlestResourceFitPolicy
+	idlestResourceFitPolicy ResourceFitPolicy = "idlest"
+	// busiestResourceFitPolicy soft policy
+	busiestResourceFitPolicy ResourceFitPolicy = "busiest"
+)

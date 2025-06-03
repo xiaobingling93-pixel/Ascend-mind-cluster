@@ -14,6 +14,7 @@ type Server struct {
 	ServerID     string    `json:"server_id"` // server id, represented by ip address
 	ContainerIP  string    `json:"container_ip,omitempty"`
 	SuperPodRank string    `json:"-"`
+	SuperPodID   string    `json:"-"`
 }
 
 // Instance is for annotation
