@@ -79,3 +79,18 @@ class AgentReportInfo:
     """
     fault_ranks: list = field(default_factory=list)
     restart_times: int = -1
+
+
+LOCAL_HOST = "127.0.0.1"
+CONFIG_UPSTREAMIP_KEY = "UpstreamAddr"
+CONFIG_LISTENIP_KEY = "ListenAddr"
+CONFIG_UPSTREAMPORT_KEY = "UpstreamPort"
+CONFIG_LISTENPORT_KEY = "ListenPort"
+CONFIG_ROLE_KEY = "Role"
+CONFIG_SERVERRANK_KEY = "ServerRank"
+CONFIG_PROCESSRANK_KEY = "ProcessRank"
+DEFAULT_PROXY_UPSTREAMPORT = "9601"
+DEFAULT_PRXOY_LISTENPORT = "9602"
+DEFAULT_PROXY_ROLE = "Proxy"
+DEFAULT_SERVERRANK = "0"
+DEFAULT_PROCESSRANK = "-1"

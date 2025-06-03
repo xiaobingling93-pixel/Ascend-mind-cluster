@@ -1,0 +1,106 @@
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+// Package proxy for taskd proxy backend
+package proxy
+
+import (
+	"errors"
+
+	"ascend-common/common-utils/hwlog"
+	"taskd/toolkit_backend/net"
+	"taskd/toolkit_backend/net/common"
+)
+
+const (
+	localHost = "127.0.0.1"
+)
+
+var (
+	proxyInstance *proxyClient
+)
+
+type proxyClient struct {
+	networkInstence *net.NetInstance
+	proxyInfo       *proxyInfo
+}
+
+type proxyInfo struct {
+	proxyConfig *common.TaskNetConfig
+}
+
+func newProxyInstance(proxyConfig *common.TaskNetConfig) error {
+	var err error
+	if proxyInstance != nil {
+		return nil
+	}
+	if proxyConfig == nil {
+		return errors.New("proxyConfig is nil")
+	}
+	proxyInstance = &proxyClient{
+		networkInstence: nil,
+		proxyInfo:       &proxyInfo{},
+	}
+	err = proxyInstance.initNetwork(proxyConfig)
+	return err
+}
+
+func (p *proxyClient) validNetConfig(proxyConfig *common.TaskNetConfig) error {
+	if proxyConfig.Pos.ProcessRank != "-1" {
+		hwlog.RunLog.Errorf("proxyClient validNetConfig failed, ProcessRank is not -1")
+		return errors.New("proxyClient validNetConfig failed, ProcessRank is not -1")
+	}
+
+	return nil
+}
+
+func (p *proxyClient) initNetwork(proxyConfig *common.TaskNetConfig) error {
+	var err error
+	err = p.validNetConfig(proxyConfig)
+	if err != nil {
+		return err
+	}
+	p.proxyInfo.proxyConfig = proxyConfig
+	p.networkInstence, err = net.InitNetwork(proxyConfig)
+	if err == nil {
+		hwlog.RunLog.Info("proxyClient InitNetwork succeed.")
+		return nil
+	}
+	hwlog.RunLog.Errorf("proxyClient InitNetwork failed:%v.", err)
+	return err
+}
+
+func (p *proxyClient) destroyNet() {
+	p.networkInstence.Destroy()
+}
+
+// InitProxy init proxy grpc
+func InitProxy(proxyConfig *common.TaskNetConfig) error {
+	err := newProxyInstance(proxyConfig)
+	if err != nil {
+		hwlog.RunLog.Errorf("InitProxy failed:%s.", err)
+		return err
+	}
+	hwlog.RunLog.Info("InitProxy success.")
+	return nil
+}
+
+// DestroyProxy destroy proxy
+func DestroyProxy() {
+	if proxyInstance == nil {
+		return
+	}
+	proxyInstance.destroyNet()
+	proxyInstance = nil
+}

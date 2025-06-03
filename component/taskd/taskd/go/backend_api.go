@@ -35,6 +35,7 @@ import (
 	"taskd/common/constant"
 	"taskd/common/utils"
 	"taskd/framework_backend/manager"
+	"taskd/framework_backend/proxy"
 	"taskd/framework_backend/worker/monitor/profiling"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
@@ -234,6 +235,34 @@ func FreeCMemory(ptr unsafe.Pointer) {
 	if ptr != nil {
 		C.free(ptr)
 	}
+}
+
+// InitTaskdProxy to init tasdD proxy, should be called by taskd agent python api
+//
+//export InitTaskdProxy
+func InitTaskdProxy(configJson *C.char) C.int {
+	if configJson == nil {
+		return C.int(1)
+	}
+	configStr := C.GoString(configJson)
+	var config common.TaskNetConfig
+	err := json.Unmarshal([]byte(configStr), &config)
+	if err != nil {
+		return C.int(1)
+	}
+
+	err = proxy.InitProxy(&config)
+	if err != nil {
+		return C.int(1)
+	}
+	return C.int(0)
+}
+
+// DestroyTaskdProxy to destroy tasdD proxy, should be called by taskd agent python api
+//
+//export DestroyTaskdProxy
+func DestroyTaskdProxy() {
+	proxy.DestroyProxy()
 }
 
 func main() {
