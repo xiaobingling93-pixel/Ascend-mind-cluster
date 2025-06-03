@@ -17,6 +17,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,6 +52,39 @@ func InitHwLog(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func marshalData(data interface{}) []byte {
+	dataBuffer, err := json.Marshal(data)
+	if err != nil {
+		hwlog.RunLog.Errorf("marshal data err: %v", err)
+		return nil
+	}
+	return dataBuffer
+}
+
+// ObjToString obj to string
+func ObjToString(data interface{}) string {
+	var dataBuffer []byte
+	if dataBuffer = marshalData(data); len(dataBuffer) == 0 {
+		return ""
+	}
+	return string(dataBuffer)
+}
+
+// GetOnesDigit get code ones digit num
+func GetOnesDigit(code int32) int32 {
+	return code % constant.Ten
+}
+
+// GetTensDigit get code tens digit num
+func GetTensDigit(code int32) int32 {
+	return code / constant.Ten % constant.Ten
+}
+
+// GetThousandsAndHundreds get thousands and hundreds num
+func GetThousandsAndHundreds(code int32) int32 {
+	return code / constant.Hundred * constant.Hundred
 }
 
 // CopyStringMap copy string map

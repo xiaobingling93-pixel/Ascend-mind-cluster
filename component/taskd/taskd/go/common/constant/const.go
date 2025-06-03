@@ -115,16 +115,76 @@ const (
 	SwitchON = "on"
 )
 
+// All MsgBody's Code must be defined here
+const (
+	RegisterCode                 = 101
+	RestartTimeCode              = 201
+	FaultRankCode                = 202
+	ExitAgentCode                = 203
+	ProfilingAllCloseCmdCode     = 700
+	ProfilingDefaultDomainOnCode = 710
+	ProfilingCommDomainOnCode    = 701
+	ProfilingAllOnCmdCode        = 711
+)
+
 // RequestChanNum message handler chan number
 const RequestChanNum = 100
 
 // MaxMsgQueueLength max length of message queue
 const MaxMsgQueueLength = 40000
 
+// All Mtype or MsgType must be defined here
+const (
+	REGISTER          = "REGISTER"
+	STATUS            = "STATUS"
+	Action            = "ACTION"
+	ReportFaultRank   = "REPORT_FAULT_RANK"
+	KeepAlive         = "KEEP_ALIVE"
+	ReportRestartTime = "REPORT_RESTART_TIME"
+	Exit              = "EXIT"
+)
+
 // All num const must be defined here
 const (
 	Ten     = 10
 	Hundred = 100
+)
+
+const (
+	// MaxResendTimes the max times to resend message
+	MaxResendTimes = 5
+	// ResendSeconds time interval for resending messages
+	ResendSeconds = 3
+)
+
+// All cluster info type must be defined here
+const (
+	ClusterRole  = "Cluster"
+	ClusterDRank = "ClusterD"
+	TaskDRank    = "TaskD"
+)
+
+// All cluster command must be defined here
+const (
+	DefaultDomainCmd = "DefaultDomainCmd"
+	CommDomainCmd    = "CommDomainCmd"
+)
+
+// All status must be defined here
+const (
+	DefaultDomainStatus = "DefaultDomainStatus"
+	CommDomainStatus    = "CommDomainStatus"
+)
+
+// All worker profiling execute status must be defined here
+const (
+	OffCode = 0
+	OnCode  = 1
+	ExpCode = 2
+	On      = "On"
+	Off     = "Off"
+	Unknown = "Unknown"
+	Exp     = "Exception"
 )
 
 // MuMark mutex locker for marker
@@ -135,3 +195,12 @@ var MuApi sync.Mutex
 
 // MuKernal mutex locker for kernel
 var MuKernal sync.Mutex
+
+// All profiling execute result code definition
+const (
+	ProfilingAllCloseCode   = 1400
+	ProfilingDefaultOpenInc = 10
+	ProfilingDefaultExpInc  = 20
+	ProfilingCommOpenInc    = 1
+	ProfilingCommExpInc     = 2
+)

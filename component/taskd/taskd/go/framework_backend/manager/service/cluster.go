@@ -1,0 +1,88 @@
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+// Package service is to provide other service tools, i.e. clusterd
+package service
+
+import (
+	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
+	"taskd/common/constant"
+	"taskd/framework_backend/manager/infrastructure/storage"
+)
+
+func (mpc *MsgProcessor) clusterHandler(dataPool *storage.DataPool, data storage.BaseMessage) error {
+	clusterName := data.Header.Src.ServerRank
+	var clusterInfo = &storage.Cluster{RWMutex: sync.RWMutex{}}
+	cluster, err := dataPool.GetCluster(clusterName)
+	if err != nil {
+		dataPool.RegisterCluster(clusterName, clusterInfo)
+	} else {
+		clusterInfo = cluster
+	}
+	switch data.Body.MsgType {
+	case constant.Action:
+		defaultDomainCmd, commDomainCmd, err := profilingCmd(data.Body.Code)
+		if err != nil {
+			return err
+		}
+		clusterInfo.Command[constant.DefaultDomainCmd] = defaultDomainCmd
+		clusterInfo.Command[constant.CommDomainCmd] = commDomainCmd
+	case constant.KeepAlive:
+		clusterInfo.HeartBeat = time.Now()
+	default:
+		return fmt.Errorf("unknow message type: %v", data.Body.MsgType)
+	}
+	err = dataPool.UpdateCluster(clusterName, clusterInfo)
+	return err
+}
+
+func profilingCmd(actionCode int32) (string, string, error) {
+	profilingSwitch, err := BizCodeToProfilingCmd(actionCode)
+	if err != nil {
+		return "", "", err
+	}
+	defaultDomainCmd := strconv.FormatBool(profilingSwitch.DefaultDomainAble)
+	commDomainCmd := strconv.FormatBool(profilingSwitch.CommDomainAble)
+	return defaultDomainCmd, commDomainCmd, nil
+}
+
+// BizCodeToProfilingCmd convert code to ProfilingDomainCmd
+func BizCodeToProfilingCmd(code int32) (constant.ProfilingDomainCmd, error) {
+	profilingCmdMap := map[int32]constant.ProfilingDomainCmd{
+		constant.ProfilingAllCloseCmdCode: {
+			DefaultDomainAble: false,
+			CommDomainAble:    false,
+		},
+		constant.ProfilingDefaultDomainOnCode: {
+			DefaultDomainAble: true,
+			CommDomainAble:    false,
+		},
+		constant.ProfilingCommDomainOnCode: {
+			DefaultDomainAble: false,
+			CommDomainAble:    true,
+		},
+		constant.ProfilingAllOnCmdCode: {
+			DefaultDomainAble: true,
+			CommDomainAble:    true,
+		},
+	}
+	if config, exists := profilingCmdMap[code]; exists {
+		return config, nil
+	}
+	return constant.ProfilingDomainCmd{}, fmt.Errorf("cannot convert code %d to ProfilingDomainCmd", code)
+}
