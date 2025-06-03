@@ -115,6 +115,18 @@ const (
 	SwitchON = "on"
 )
 
+// RequestChanNum message handler chan number
+const RequestChanNum = 100
+
+// MaxMsgQueueLength max length of message queue
+const MaxMsgQueueLength = 40000
+
+// All num const must be defined here
+const (
+	Ten     = 10
+	Hundred = 100
+)
+
 // MuMark mutex locker for marker
 var MuMark sync.Mutex
 
