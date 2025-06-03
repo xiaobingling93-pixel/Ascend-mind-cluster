@@ -44,6 +44,7 @@ func NewStream(name string, priorityConf map[string]int) *Stream {
 	return &Stream{
 		Name:           name,
 		OwnerMap:       make(map[string]string, 0),
+		TokenOwner:     "",
 		PluginPriority: priorityConf,
 	}
 }
@@ -64,7 +65,13 @@ func (s *Stream) Bind(plugin string) error {
 }
 
 // Release function of releasing the plugin that currently holds the token for this stream
-func (s *Stream) Release() error {
+func (s *Stream) Release(ownerName string) error {
+	if s.TokenOwner == "" {
+		return fmt.Errorf("stream %s is free,release failed", s.Name)
+	}
+	if s.TokenOwner != ownerName {
+		return fmt.Errorf("stream %s is not belong to owner %s,release failed", s.Name, ownerName)
+	}
 	s.TokenOwner = ""
 	return nil
 }

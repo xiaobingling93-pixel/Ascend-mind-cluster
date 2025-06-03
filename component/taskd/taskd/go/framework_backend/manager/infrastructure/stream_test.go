@@ -147,7 +147,7 @@ func TestBind(t *testing.T) {
 		stream := NewStream("stream1", nil)
 
 		_ = stream.Bind("pluginA")
-		_ = stream.Release()
+		_ = stream.Release("pluginA")
 		_ = stream.Bind("pluginB")
 
 		assert.Contains(t, stream.OwnerMap, "pluginA")
@@ -160,7 +160,7 @@ func TestRelease(t *testing.T) {
 	t.Run("release occupied streams", func(t *testing.T) {
 		stream := &Stream{TokenOwner: "plugin1"}
 
-		err := stream.Release()
+		err := stream.Release("plugin1")
 
 		assert.NoError(t, err)
 		assert.Empty(t, stream.TokenOwner)
@@ -169,9 +169,9 @@ func TestRelease(t *testing.T) {
 	t.Run("release free streams", func(t *testing.T) {
 		stream := &Stream{TokenOwner: ""}
 
-		err := stream.Release()
+		err := stream.Release("")
 
-		assert.NoError(t, err)
+		assert.NotNil(t, err)
 		assert.Empty(t, stream.TokenOwner)
 	})
 }
