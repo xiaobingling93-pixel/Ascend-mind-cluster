@@ -18,53 +18,54 @@ package profiling
 import "C"
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 
 	"ascend-common/common-utils/hwlog"
 	"taskd/common/constant"
+	"taskd/common/utils"
+	"taskd/toolkit_backend/net"
+	"taskd/toolkit_backend/net/common"
 )
 
-// SwitchProfiling is the struct for serialization and deserialization of profiling switches
-type SwitchProfiling struct {
-	CommunicationOperator string
-	Step                  string
-	SaveCheckpoint        string
-	FP                    string
-	DataLoader            string
+const maxRegisterTime = 5
+
+type msgBody struct {
+	MsgType string
+	Code    int32
 }
 
-// GetProfilingSwitch get profile switch status from file, if any fault happened return all switch off
-func GetProfilingSwitch(filePath string) SwitchProfiling {
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		// if reading failed close all
-		hwlog.RunLog.Errorf("failed to read file %s, err%v", filePath, err)
-		return SwitchProfiling{
-			CommunicationOperator: constant.SwitchOFF,
-			Step:                  constant.SwitchOFF,
-			SaveCheckpoint:        constant.SwitchOFF,
-			FP:                    constant.SwitchOFF,
-			DataLoader:            constant.SwitchOFF,
-		}
-	}
+// CmdChan for SwitchProfiling
+var CmdChan chan constant.ProfilingDomainCmd
 
-	var profiling SwitchProfiling
+const (
+	maxCmdChanLen      = 10
+	maxWaitNetInitTime = 60 * time.Second
+	printErrDuration   = 30 * time.Second
+)
 
-	err = json.Unmarshal(data, &profiling)
-	if err != nil {
-		hwlog.RunLog.Errorf("failed to parse profiling switch %#v: %v", profiling, err)
-		return SwitchProfiling{
-			CommunicationOperator: constant.SwitchOFF,
-			Step:                  constant.SwitchOFF,
-			SaveCheckpoint:        constant.SwitchOFF,
-			FP:                    constant.SwitchOFF,
-			DataLoader:            constant.SwitchOFF,
-		}
-	}
-	return profiling
+// NetTool from worker
+var NetTool *net.NetInstance
+
+// NetToolInitCtx and NetToolInitNotify to notify profiling that net tool init
+var NetToolInitCtx context.Context
+var NetToolInitNotify context.CancelFunc
+
+// MgrProfilingCmd from worker
+var MgrProfilingCmd atomic.Bool
+
+// GlobalRank of this work
+var GlobalRank int
+
+// NodeRank of this work
+var NodeRank int
+
+func init() {
+	CmdChan = make(chan constant.ProfilingDomainCmd, maxCmdChanLen)
+	NetToolInitCtx, NetToolInitNotify = context.WithCancel(context.Background())
 }
 
 // ManageDomainEnableStatus dead loop for manage domain status
@@ -76,49 +77,183 @@ func ManageDomainEnableStatus(ctx context.Context) {
 		}
 	}()
 	hwlog.RunLog.Infof("start to watch for domain config changes")
-	lastStatus := ""
+	lastStatus := constant.ProfilingDomainCmd{
+		DefaultDomainAble: false,
+		CommDomainAble:    false,
+	}
+	firstRun := true
+	go loopWatchProfilingFile()
 	for {
 		select {
 		case <-ctx.Done():
 			hwlog.RunLog.Warnf("domain config received exit signal")
 			return
-		default:
-			profilingSwitches := GetProfilingSwitch(constant.ProfilingSwitchFilePath)
-			if lastStatus == getProfilingStatusStr(profilingSwitches) {
+		case newStatus := <-CmdChan:
+			if lastStatus == newStatus && !firstRun {
 				hwlog.RunLog.Debug("status not changed will not call mspti")
-				time.Sleep(constant.DomainCheckInterval)
 				continue
 			}
-			changeProfileSwitchStatus(profilingSwitches)
-			lastStatus = getProfilingStatusStr(profilingSwitches)
-			time.Sleep(constant.DomainCheckInterval)
+			hwlog.RunLog.Infof("recv profiling cmd %v", newStatus)
+			firstRun = false
+			changeProfileSwitchStatus(newStatus)
+			lastStatus = newStatus
 		}
 	}
 }
 
-func changeProfileSwitchStatus(profilingSwitches SwitchProfiling) {
+func loopWatchProfilingFile() {
+	circleTicker := time.NewTicker(constant.DomainCheckInterval)
+	lastPrintErr := time.Now()
+	for {
+		select {
+		case <-circleTicker.C:
+			if MgrProfilingCmd.Load() {
+				hwlog.RunLog.Info("MgrProfilingCmd load, return")
+				return
+			}
+			getCmd(lastPrintErr)
+		}
+	}
+}
+
+func getCmd(lastPrintErr time.Time) {
+	profilingSwitches, err := utils.GetProfilingSwitch(constant.ProfilingSwitchFilePath)
+	if err != nil {
+		if time.Since(lastPrintErr) > printErrDuration {
+			hwlog.RunLog.Errorf("GetProfilingSwitch err: %v", err)
+			lastPrintErr = time.Now()
+		}
+	} else {
+		profilingDomainCmd := utils.PfSwitchToPfDomainSwitch(profilingSwitches)
+		CmdChan <- profilingDomainCmd
+	}
+}
+
+func changeProfileSwitchStatus(profilingDomainCmd constant.ProfilingDomainCmd) {
+	result := constant.ProfilingResult{
+		DefaultDomain: constant.ProfilingUnknownStatus,
+		CommDomain:    constant.ProfilingUnknownStatus,
+	}
 	// if all kinds of records are off,  disable all marker
-	if profilingSwitches.Step == constant.SwitchOFF && profilingSwitches.SaveCheckpoint == constant.SwitchOFF &&
-		profilingSwitches.FP == constant.SwitchOFF && profilingSwitches.DataLoader == constant.SwitchOFF &&
-		profilingSwitches.CommunicationOperator == constant.SwitchOFF {
+	if !profilingDomainCmd.DefaultDomainAble {
+		result.DefaultDomain = constant.ProfilingOffStatus
 		if err := DisableMsptiActivity(); err != nil {
 			hwlog.RunLog.Errorf("failed to disable MsptiActivity: %v", err)
+			result.DefaultDomain = constant.ProfilingExpStatus
 		}
 	} else {
 		// any kind of domain is on, need to enable marker, FP/dataloader/ckpt/step will be enabled
+		result.DefaultDomain = constant.ProfilingOnStatus
 		if err := EnableMsptiMarkerActivity(); err != nil {
-			hwlog.RunLog.Error(err)
+			result.DefaultDomain = constant.ProfilingExpStatus
+			hwlog.RunLog.Errorf("failed to change default marker domain status, err: %v", err)
 		}
-		// only change status of communication dynamically
-		if err := EnableMarkerDomain(constant.CommunicationDomainName,
-			profilingSwitches.CommunicationOperator); err != nil {
-			hwlog.RunLog.Errorf("failed to change communication marker domain status, err: %v", err)
+	}
+	if !profilingDomainCmd.CommDomainAble {
+		result.CommDomain = constant.ProfilingOffStatus
+	} else {
+		result.CommDomain = constant.ProfilingOnStatus
+	}
+	// only change status of communication dynamically
+	if err := EnableMarkerDomain(constant.CommunicationDomainName,
+		profilingDomainCmd.CommDomainAble); err != nil {
+		result.CommDomain = constant.ProfilingExpStatus
+		hwlog.RunLog.Errorf("failed to change communication marker domain status, err: %v", err)
+	}
+	hwlog.RunLog.Infof("exec cmd %v result %v", profilingDomainCmd, result)
+	if MgrProfilingCmd.Load() {
+		notifyMgrSwitchChange(result)
+	}
+}
+
+func notifyMgrSwitchChange(result constant.ProfilingResult) {
+	if NetTool == nil {
+		hwlog.RunLog.Errorf("NetTool for worker is nil?")
+		return
+	}
+	msg := make(map[string]any)
+	msg["MsgType"] = "STATUS"
+	msg["Code"] = utils.ProfilingResultToBizCode(result)
+	_, err := NetTool.SyncSendMessage(uuid.New().String(), "default", utils.ObjToString(msg), &common.Position{
+		Role:       common.MgrRole,
+		ServerRank: "0",
+	})
+
+	if err != nil {
+		hwlog.RunLog.Errorf("send result to mgr err: %v", err)
+		return
+	}
+	hwlog.RunLog.Infof("notify mgr result %v succeeded", result)
+}
+
+func waitNetToolInit() bool {
+	hwlog.RunLog.Info("wait NetTool init")
+	select {
+	case <-NetToolInitCtx.Done():
+		hwlog.RunLog.Info("wait NetTool inited")
+		return true
+	case <-time.After(maxWaitNetInitTime):
+		hwlog.RunLog.Info("wait NetTool timeout")
+		return false
+	}
+}
+
+func RegisterAndLoopRecv(ctx context.Context) {
+	if !waitNetToolInit() {
+		hwlog.RunLog.Error("cannot RegisterAndLoopRecv for profiling, net tool init timeout")
+		return
+	}
+	body := msgBody{
+		MsgType: "REGISTER",
+		Code:    101,
+	}
+	registerSucc := false
+	for i := 0; i < maxRegisterTime; i++ {
+		time.Sleep(time.Duration(i) * time.Second)
+		_, err := NetTool.SyncSendMessage(uuid.NewString(), "default", utils.ObjToString(body), &common.Position{
+			Role:       common.MgrRole,
+			ServerRank: "0",
+		})
+		if err != nil {
+			hwlog.RunLog.Errorf("worker %d register manager err: %v", GlobalRank, err)
+			continue
+		}
+		registerSucc = true
+		break
+	}
+	if !registerSucc {
+		hwlog.RunLog.Errorf("worker  %d register manager meet max times %d", GlobalRank, maxRegisterTime)
+		return
+	}
+	hwlog.RunLog.Errorf("worker %d register manager success, begin recv msg", GlobalRank)
+	for {
+		select {
+		case <-ctx.Done():
+			hwlog.RunLog.Errorf("worker %d exit", GlobalRank)
+			return
+		default:
+			msg := NetTool.ReceiveMessage()
+			processMsg(GlobalRank, msg)
 		}
 	}
 }
 
-func getProfilingStatusStr(profilingSwiches SwitchProfiling) string {
-	return fmt.Sprintf("communication:%s,step:%s,FP:%s,dataloader:%s,ckpt:%s",
-		profilingSwiches.CommunicationOperator, profilingSwiches.Step, profilingSwiches.FP,
-		profilingSwiches.DataLoader, profilingSwiches.SaveCheckpoint)
+func processMsg(globalRank int, msg *common.Message) {
+	hwlog.RunLog.Infof("worker %d recv msg %v", globalRank, msg)
+	profilingSwitch, err := getProfilingSwitch(msg)
+	if err != nil {
+		hwlog.RunLog.Errorf("getSwitchProfiling err: %v", err)
+		return
+	}
+	MgrProfilingCmd.Store(true)
+	CmdChan <- profilingSwitch
+}
+
+func getProfilingSwitch(msg *common.Message) (constant.ProfilingDomainCmd, error) {
+	body, err := utils.StringToObj[msgBody](msg.Body)
+	if err != nil {
+		err = fmt.Errorf("get msgBody err: %v, msgBody is %v", err, body)
+		return constant.ProfilingDomainCmd{}, err
+	}
+	return utils.BizCodeToProfilingCmd(body.Code)
 }

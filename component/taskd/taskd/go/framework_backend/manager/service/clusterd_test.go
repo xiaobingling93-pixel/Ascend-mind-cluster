@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -144,24 +143,5 @@ func TestSubscribeProfiling(t *testing.T) {
 		}()
 		subscribeProfiling(jobId, ctx, nil, 0)
 		convey.So(stream.getRecvCode(), convey.ShouldEqual, 1)
-	})
-}
-
-func TestWatchProfilingSwitchChange(t *testing.T) {
-	convey.Convey("TestWatchProfilingSwitchChange", t, func() {
-		patches := gomonkey.NewPatches()
-		defer patches.Reset()
-		called := atomic.Bool{}
-		patches.ApplyFunc(getProfilingFromFile, func() {
-			called.Store(true)
-		})
-
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		profilingFromClusterD.Store(false)
-		go func() {
-			cancelFunc()
-		}()
-		watchProfilingSwitchChange(ctx)
-		convey.ShouldBeTrue(called.Load())
 	})
 }

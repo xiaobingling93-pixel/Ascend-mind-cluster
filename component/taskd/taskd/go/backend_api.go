@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"taskd/common/utils"
 	"taskd/framework_backend/manager"
 	"taskd/framework_backend/proxy"
+	"taskd/framework_backend/worker"
 	"taskd/framework_backend/worker/monitor/profiling"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
@@ -46,25 +48,14 @@ var netLifeCtl = make(map[uintptr]*net.NetInstance)
 var rw sync.RWMutex
 var managerInstance = &manager.BaseManager{}
 
-// InitTaskMonitor to init tasdD monitor, should be called by python api,
+// InitWorker to init worker, should be called by python api,
 // and this python api will be called in user script
-// rank: the global rank of current process, upperLimitOfDiskInMb is the upper limit of disk usage
+// globalRank: the global rank of current process
+// nodeRank: the node rank
+// upperLimitOfDiskInMb: is the upper limit of disk usage
 //
-//export InitTaskMonitor
-func InitTaskMonitor(rank int, upperLimitOfDiskInMb int) C.int {
-	profiling.SetDiskUsageUpperLimitMB(upperLimitOfDiskInMb)
-	profiling.GlobalRankId = rank
-	// init so should not use print to avoid impact on system calls
-	err := utils.InitHwLog(ctx)
-	if err != nil {
-		fmt.Println(err)
-		return C.int(1)
-	}
-	if err := profiling.InitMspti(); err != nil {
-		hwlog.RunLog.Error(err)
-		return C.int(1)
-	}
-	hwlog.RunLog.Info("successfully init mspti lib so")
+//export InitWorker
+func InitWorker(globalRank, nodeRank, upperLimitOfDiskInMb int) C.int {
 	// listen to system signal
 	sigChan := make(chan os.Signal, 1)
 	var cancel context.CancelFunc
@@ -75,6 +66,12 @@ func InitTaskMonitor(rank int, upperLimitOfDiskInMb int) C.int {
 		hwlog.RunLog.Errorf("Received signal: %v, exiting...", sig)
 		cancel()
 	}()
+	err := utils.InitHwLog(fmt.Sprintf(constant.WorkerLogPathPattern, strconv.Itoa(globalRank)), ctx)
+	if err != nil {
+		fmt.Println(err)
+	}
+	go worker.InitMonitor(ctx, globalRank, upperLimitOfDiskInMb)
+	go worker.InitNetwork(globalRank, nodeRank)
 	return C.int(0)
 }
 
@@ -90,14 +87,7 @@ func StartMonitorClient() C.int {
 		}
 	}()
 	hwlog.RunLog.Infof("rank %d will start its client", profiling.GlobalRankId)
-	if err := profiling.MsptiActivityRegisterCallbacksWrapper(); err != nil {
-		return C.int(1)
-	}
-	go profiling.ManageSaveProfiling(ctx)
-	go profiling.ManageDomainEnableStatus(ctx)
-	go profiling.ManageProfilingDiskUsage(constant.ProfilingBaseDir, ctx)
-	profiling.ProfileTaskQueue = profiling.NewTaskQueue(ctx)
-
+	go worker.StartMonitor(ctx)
 	return C.int(0)
 }
 

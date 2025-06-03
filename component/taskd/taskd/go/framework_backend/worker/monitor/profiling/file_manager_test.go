@@ -75,8 +75,6 @@ func TestSaveProfilingDataIntoFileWriteOK(t *testing.T) {
 			return nil
 		})
 
-		patches.ApplyGlobalVar(&ProfileRecordsKernel, []MsptiActivityKernel{{}})
-
 		err = SaveProfilingDataIntoFile(0)
 		assert.NoError(t, err)
 	})
@@ -149,6 +147,11 @@ func TestGetCurrentSavePathWithUID(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		}(constant.TaskUidKey)
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(os.MkdirAll, func(path string, perm os.FileMode) error {
+			return nil
+		})
 
 		savePath, err := getCurrentSavePath(0)
 		assert.NoError(t, err)
@@ -159,6 +162,12 @@ func TestGetCurrentSavePathWithUID(t *testing.T) {
 func TestGetCurrentSavePathWithoutUID(t *testing.T) {
 	// Test case 2: Without environment variable
 	t.Run("without task UID", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(os.MkdirAll, func(path string, perm os.FileMode) error {
+			return nil
+		})
+
 		savePath, err := getCurrentSavePath(1)
 		assert.NoError(t, err)
 		assert.Contains(t, savePath, "default_task_id_")
@@ -239,7 +248,7 @@ func TestDeleteOldestFileForEachRank(t *testing.T) {
 	})
 }
 
-func TestManageSaveProfiling(t *testing.T) {
+func testManageSaveProfiling(t *testing.T) {
 	t.Run("save profile files ok", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -347,7 +356,7 @@ func TestManageProfilingDiskUsage(t *testing.T) {
 
 		// Execute
 		go ManageProfilingDiskUsage(testBaseDir, ctx)
-		time.Sleep(constant.DiskUsageCheckInterval * time.Second) // Allow time for cleanup
+		time.Sleep(time.Second) // Allow time for cleanup
 
 		// Verify
 		usedSize, err := getDirSizeInMB(testBaseDir)
@@ -356,21 +365,15 @@ func TestManageProfilingDiskUsage(t *testing.T) {
 	})
 }
 
-func TestWriteToBytes(t *testing.T) {
+func TestMethodsMayDataRace(t *testing.T) {
+	testWriteToBytes(t)
+	testManageSaveProfiling(t)
+}
+
+func testWriteToBytes(t *testing.T) {
 	t.Run("test records is null after write bytes", func(t *testing.T) {
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
-
-		// Setup test data
-		patches.ApplyGlobalVar(&ProfileRecordsMark, []MsptiActivityMark{
-			{},
-		})
-		patches.ApplyGlobalVar(&ProfileRecordsApi, []MsptiActivityApi{
-			{},
-		})
-		patches.ApplyGlobalVar(&ProfileRecordsKernel, []MsptiActivityKernel{
-			{},
-		})
 
 		// Execute
 		writeToBytes()

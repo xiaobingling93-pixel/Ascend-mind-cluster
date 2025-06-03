@@ -203,22 +203,21 @@ func InitMspti() error {
 }
 
 // EnableMarkerDomain to enable or disable specific domain
-func EnableMarkerDomain(domainName string, status string) error {
+func EnableMarkerDomain(domainName string, enable bool) error {
 	cDomainName := C.CString(domainName)
 	defer C.free(unsafe.Pointer(cDomainName))
-	if status == constant.SwitchOFF {
+	if !enable {
 		if result := C.mspti_mstx_domain_disable(cDomainName); result != C.MSPTI_SUCCESS {
 			hwlog.RunLog.Errorf("failed to disable domain %s with retCode:%v", domainName, result)
 			return fmt.Errorf("failed to disable domain %s with retCode:%v", domainName, result)
 		}
-	}
-	if status == constant.SwitchON {
+	} else {
 		if result := C.mspti_mstx_domain_enable(cDomainName); result != C.MSPTI_SUCCESS {
 			hwlog.RunLog.Errorf("failed to enable domain %s with retCode:%v", domainName, result)
 			return fmt.Errorf("failed to enable domain %s with retCode:%v", domainName, result)
 		}
 	}
-	hwlog.RunLog.Infof("successfully changed domain %s status to %s, rank:%d", domainName, status, GlobalRankId)
+	hwlog.RunLog.Infof("successfully changed domain %s status to %v, rank:%d", domainName, enable, GlobalRankId)
 	return nil
 }
 

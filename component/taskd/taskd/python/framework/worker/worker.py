@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import os
 
 from taskd.python.cython_api import cython_api
 from taskd.python.utils.log import run_log
@@ -24,23 +25,28 @@ class Worker:
     Worker is a framework of training thread management
     """
 
-    def __init__(self, rank: int, framework: str = "pt"):
-        self.rank = rank
+    def __init__(self, global_rank: int, framework: str = "pt"):
+        self.global_rank = global_rank
         self.framework = framework
 
     def start(self) -> bool:
         return self._start_up_monitor()
 
-    def init_monitor(self, rank: int, upper_limit_of_disk_in_mb: int) -> bool:
+    def init_worker(self, upper_limit_of_disk_in_mb: int) -> bool:
         if cython_api.lib is None:
             run_log.error("the libtaskd.so has not been loaded!")
             return False
-        self.rank = rank
-        init_taskd_func = cython_api.lib.InitTaskMonitor
-        result = init_taskd_func(self.rank, upper_limit_of_disk_in_mb)
+        init_taskd_func = cython_api.lib.InitWorker
+        node_rank_str = os.getenv('RANK') or os.getenv('MS_NODE_RANK') or '-1'
+        try:
+            node_rank = int(node_rank_str)
+        except ValueError:
+            run_log.error(f'invalid node_rank_str {node_rank_str}')
+            return False
+        result = init_taskd_func(self.global_rank, node_rank, upper_limit_of_disk_in_mb)
         if result == 0:
+            dump_group_info(self.global_rank)
             run_log.info("Successfully init taskd monitor")
-            dump_group_info(rank)
             return True
         run_log.warning(f"failed to init taskd monitor with ret code:f{result}")
         return False
@@ -53,7 +59,7 @@ class Worker:
             start_monitor_client_func = cython_api.lib.StartMonitorClient
             result = start_monitor_client_func()
             if result == 0:
-                run_log.info(f"Successfully start monitor client for rank:{self.rank}")
+                run_log.info(f"Successfully start monitor client for rank:{self.global_rank}")
                 return True
             run_log.warning(f"failed to start up monitor client with ret code:f{result}")
             return False

@@ -16,26 +16,75 @@
 package worker
 
 import (
+	"context"
+	"fmt"
+	"sync/atomic"
+
 	"testing"
 
-	_ "github.com/agiledragon/gomonkey/v2"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
+
+	"ascend-common/common-utils/hwlog"
+	"taskd/common/utils"
+	"taskd/framework_backend/worker/monitor/profiling"
+	"taskd/toolkit_backend/net"
+	"taskd/toolkit_backend/net/common"
 )
 
-func TestStartWorker(t *testing.T) {
-	convey.Convey("test start taskd worker", t, func() {
-		convey.Convey("test start taskd worker success", func() {
-			newWorker := NewTaskDWorker(1)
-			convey.So(newWorker.Start(), convey.ShouldEqual, "start worker!")
-		})
-	})
+func TestMain(m *testing.M) {
+	if err := setup(); err != nil {
+		return
+	}
+	code := m.Run()
+	fmt.Printf("exit_code = %v\n", code)
 }
 
-func TestProcessWorker(t *testing.T) {
-	convey.Convey("test process taskd worker", t, func() {
-		convey.Convey("test process taskd worker success", func() {
-			newWorker := NewTaskDWorker(1)
-			newWorker.Process()
-		})
+func setup() error {
+	return initLog()
+}
+
+func initLog() error {
+	logConfig := &hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	if err := hwlog.InitRunLogger(logConfig, context.Background()); err != nil {
+		fmt.Printf("init hwlog failed, %v\n", err)
+		return err
+	}
+	return nil
+}
+
+func TestInitMonitor(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.InitHwLog, func(logFileName string, ctx context.Context) error {
+		return nil
 	})
+
+	patches.ApplyFunc(profiling.InitMspti, func() error {
+		return nil
+	})
+	called := atomic.Bool{}
+	patches.ApplyFunc(monitorInitNotify, func() {
+		called.Store(true)
+	})
+	InitMonitor(context.Background(), 0, 0)
+	convey.ShouldBeTrue(called.Load())
+}
+
+func TestInitNetwork(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	netTool = &net.NetInstance{}
+	patches.ApplyFunc(net.InitNetwork, func(conf *common.TaskNetConfig) (*net.NetInstance, error) {
+		return netTool, nil
+	})
+	called := atomic.Bool{}
+	patches.ApplyFunc(profiling.NetToolInitNotify, func() {
+		called.Store(true)
+	})
+	InitNetwork(0, 0)
+	convey.ShouldBeTrue(called.Load())
 }

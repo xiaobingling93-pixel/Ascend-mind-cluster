@@ -40,7 +40,7 @@ def init_taskd_worker(rank_id: int, upper_limit_of_disk_in_mb: int = 5000, frame
             run_log.error(f"upper_limit_of_disk_in_mb {upper_limit_of_disk_in_mb} should not less than 0")
             return False
         taskd_worker = Worker(rank_id, framework)
-        return taskd_worker.init_monitor(rank_id, upper_limit_of_disk_in_mb)
+        return taskd_worker.init_worker(upper_limit_of_disk_in_mb)
     except Exception as e:
         run_log.error(f"Failed to initialize worker: {e}")
         return False

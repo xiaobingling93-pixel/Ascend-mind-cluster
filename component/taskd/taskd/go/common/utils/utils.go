@@ -19,20 +19,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
+	"reflect"
 
 	"ascend-common/common-utils/hwlog"
 	"taskd/common/constant"
-	"taskd/framework_backend/worker/monitor/profiling"
 )
 
 // InitHwLog init hwlog
-func InitHwLog(ctx context.Context) error {
+func InitHwLog(logFileName string, ctx context.Context) error {
 	var logFile string
 	logFilePath := os.Getenv(constant.LogFilePathEnv)
-	logFileName := "taskd-worker-" + strconv.Itoa(profiling.GlobalRankId) + ".log"
 	if logFilePath == "" {
 		logFile = constant.DefaultLogFilePath + logFileName
 	} else {
@@ -47,7 +46,7 @@ func InitHwLog(ctx context.Context) error {
 		// do not print to screen to avoid influence training log
 		OnlyToFile: true,
 	}
-	if err := hwlog.InitRunLogger(&hwLogConfig, context.Background()); err != nil {
+	if err := hwlog.InitRunLogger(&hwLogConfig, ctx); err != nil {
 		fmt.Printf("hwlog init failed, error is %v\n", err)
 		return err
 	}
@@ -70,6 +69,111 @@ func ObjToString(data interface{}) string {
 		return ""
 	}
 	return string(dataBuffer)
+}
+
+// StringToObj string to obj
+func StringToObj[T any](str string) (T, error) {
+	var result T
+	err := json.Unmarshal([]byte(str), &result)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal %s for type %s err: %v", str, reflect.TypeOf(result).Name(), err)
+	}
+	return result, err
+}
+
+// GetProfilingSwitch get profile switch status from file, if any fault happened return all switch off
+func GetProfilingSwitch(filePath string) (constant.ProfilingSwitch, error) {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		// if reading failed close all
+		err := fmt.Errorf("failed to read file %s, err%v", filePath, err)
+		return constant.ProfilingSwitch{
+			CommunicationOperator: constant.SwitchOFF,
+			Step:                  constant.SwitchOFF,
+			SaveCheckpoint:        constant.SwitchOFF,
+			FP:                    constant.SwitchOFF,
+			DataLoader:            constant.SwitchOFF,
+		}, err
+	}
+
+	var profiling constant.ProfilingSwitch
+
+	err = json.Unmarshal(data, &profiling)
+	if err != nil {
+		err := fmt.Errorf("failed to parse profiling switch %#v: %v", profiling, err)
+		return constant.ProfilingSwitch{
+			CommunicationOperator: constant.SwitchOFF,
+			Step:                  constant.SwitchOFF,
+			SaveCheckpoint:        constant.SwitchOFF,
+			FP:                    constant.SwitchOFF,
+			DataLoader:            constant.SwitchOFF,
+		}, err
+	}
+	return profiling, nil
+}
+
+// PfSwitchToPfDomainSwitch convert ProfilingSwitch to ProfilingDomainCmd
+func PfSwitchToPfDomainSwitch(profilingSwitch constant.ProfilingSwitch) constant.ProfilingDomainCmd {
+	profilingDomainCmd := constant.ProfilingDomainCmd{
+		DefaultDomainAble: false,
+		CommDomainAble:    false,
+	}
+	if profilingSwitch.Step == constant.SwitchON || profilingSwitch.SaveCheckpoint == constant.SwitchON &&
+		profilingSwitch.FP == constant.SwitchON || profilingSwitch.DataLoader == constant.SwitchON {
+		profilingDomainCmd.DefaultDomainAble = true
+	}
+	if profilingSwitch.CommunicationOperator == constant.SwitchON {
+		profilingDomainCmd.CommDomainAble = true
+	}
+	return profilingDomainCmd
+}
+
+// ProfilingResultToBizCode convert ProfilingResult to code
+func ProfilingResultToBizCode(result constant.ProfilingResult) int32 {
+	var code int32 = constant.ProfilingAllCloseCode
+	switch result.DefaultDomain {
+	case constant.ProfilingOnStatus:
+		code += constant.ProfilingDefaultOpenInc
+	case constant.ProfilingExpStatus:
+		code += constant.ProfilingDefaultExpInc
+	}
+
+	switch result.CommDomain {
+	case constant.ProfilingOnStatus:
+		code += constant.ProfilingCommOpenInc
+	case constant.ProfilingExpStatus:
+		code += constant.ProfilingCommExpInc
+	}
+	return code
+}
+
+// BizCodeToProfilingCmd convert code to ProfilingDomainCmd
+func BizCodeToProfilingCmd(code int32) (constant.ProfilingDomainCmd, error) {
+	if code == constant.ProfilingAllCloseCmdCode {
+		return constant.ProfilingDomainCmd{
+			DefaultDomainAble: false,
+			CommDomainAble:    false,
+		}, nil
+	}
+	if code == constant.ProfilingDefaultDomainOnCode {
+		return constant.ProfilingDomainCmd{
+			DefaultDomainAble: true,
+			CommDomainAble:    false,
+		}, nil
+	}
+	if code == constant.ProfilingCommDomainOnCode {
+		return constant.ProfilingDomainCmd{
+			DefaultDomainAble: false,
+			CommDomainAble:    true,
+		}, nil
+	}
+	if code == constant.ProfilingAllOnCmdCode {
+		return constant.ProfilingDomainCmd{
+			DefaultDomainAble: true,
+			CommDomainAble:    true,
+		}, nil
+	}
+	return constant.ProfilingDomainCmd{}, fmt.Errorf("cannot convert code %d to ProfilingDomainCmd", code)
 }
 
 // GetOnesDigit get code ones digit num

@@ -24,7 +24,8 @@ const (
 	// LogFilePathEnv for log file path environment
 	LogFilePathEnv = "TASKD_LOG_PATH"
 	// LogFileName default log file name
-	LogFileName = "taskd.log"
+	LogFileName          = "taskd.log"
+	WorkerLogPathPattern = "taskd-worker-%s.log"
 )
 
 const (
@@ -204,3 +205,9 @@ const (
 	ProfilingCommOpenInc    = 1
 	ProfilingCommExpInc     = 2
 )
+
+// All kind of ProfilingExecRes
+var ProfilingUnknownStatus = NewProfilingExecRes(Unknown)
+var ProfilingOnStatus = NewProfilingExecRes(On)
+var ProfilingOffStatus = NewProfilingExecRes(Off)
+var ProfilingExpStatus = NewProfilingExecRes(Exp)
