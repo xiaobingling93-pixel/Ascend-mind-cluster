@@ -211,3 +211,11 @@ var ProfilingUnknownStatus = NewProfilingExecRes(Unknown)
 var ProfilingOnStatus = NewProfilingExecRes(On)
 var ProfilingOffStatus = NewProfilingExecRes(Off)
 var ProfilingExpStatus = NewProfilingExecRes(Exp)
+
+// All grpc ip must be defined here
+const (
+	// DefaultIP grpc manager ListenAddr default ip
+	DefaultIP = "127.0.0.1"
+	// MgrPort grpc manager ListenAddr port
+	MgrPort = ":9601"
+)
