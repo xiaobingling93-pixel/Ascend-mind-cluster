@@ -55,7 +55,7 @@ func testUpdateFaultDevInfo() {
 		panic("nodeController is nil")
 	}
 	resetFaultDevInfo()
-	nodeController.Control(nodeController.faultManager.GetFaultDevInfo())
+	nodeController.updateFault(nodeController.faultManager.GetFaultDevInfo())
 	convey.So(nodeController.faultManager.GetNodeStatus(), convey.ShouldEqual, common.PreSeparate)
 }
 

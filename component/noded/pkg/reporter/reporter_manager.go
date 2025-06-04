@@ -39,10 +39,9 @@ func NewReporterManager(client *kubeclient.ClientK8s) *ReportManager {
 
 // Execute reporter fault device info
 func (r *ReportManager) Execute(fcInfo *common.FaultAndConfigInfo, processType string) {
-	faultDevInfo := fcInfo.FaultDevInfo
 	reporters := processmanager.GetReporterPlugins(processType)
 	for _, reporter := range reporters {
-		go reporter.Report(faultDevInfo)
+		go reporter.Report(fcInfo)
 	}
 }
 

@@ -20,8 +20,6 @@ Package cmreporter is using for pingmesh result report to configmap
 package cmreporter
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"strconv"
@@ -35,6 +33,7 @@ import (
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager/common"
+	common2 "nodeD/pkg/common"
 	"nodeD/pkg/kubeclient"
 	"nodeD/pkg/pingmesh/types"
 )
@@ -240,7 +239,7 @@ func constructFaultInfo(cardID string, timestamp int64) api.Fault {
 	}
 	return api.Fault{
 		Assertion:     faultAssertionOccur,
-		FaultId:       generateFaultID(nodeName, cardID),
+		FaultId:       common2.GenerateFaultID(nodeName, cardID),
 		FaultType:     "NPU",
 		FaultCode:     faultCode,
 		FaultTime:     timestamp,
@@ -253,14 +252,4 @@ func constructFaultInfo(cardID string, timestamp int64) api.Fault {
 		},
 		Description: "hccsping-mesh fault",
 	}
-}
-
-func generateFaultID(nodeName, cardId string) string {
-	h := sha256.New()
-	_, err := h.Write([]byte(nodeName + "/" + cardId))
-	if err != nil {
-		hwlog.RunLog.Warnf("generateFaultID failed, err: %v", err)
-		return ""
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }

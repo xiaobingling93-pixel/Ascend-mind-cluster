@@ -31,6 +31,7 @@ arch=$(arch 2>&1)
 echo "Build Architecture is" "${arch}"
 
 sed -i "s/noded:.*/noded:${build_version}/" "${TOP_DIR}"/build/noded.yaml
+sed -i "s/noded:.*/noded:${build_version}/" "${TOP_DIR}"/build/noded-dpc.yaml
 
 OUTPUT_NAME="noded"
 DOCKER_FILE_NAME="Dockerfile"
@@ -60,6 +61,7 @@ function build() {
 function mv_file() {
   mv "${TOP_DIR}/${OUTPUT_NAME}" "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/noded.yaml "${TOP_DIR}"/output/noded-"${build_version}".yaml
+  cp "${TOP_DIR}"/build/noded-dpc.yaml "${TOP_DIR}"/output/noded-dpc-"${build_version}".yaml
   cp "${TOP_DIR}"/build/pingmesh-config.yaml "${TOP_DIR}"/output/pingmesh-config.yaml
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/${NODE_CONFIG_FILE_NAME} "${TOP_DIR}"/output

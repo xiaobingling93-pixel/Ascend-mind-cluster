@@ -104,10 +104,15 @@ func TestSetFaultDevList(t *testing.T) {
 // TestSetNodeStatus test the function of set node status
 func TestSetNodeStatus(t *testing.T) {
 	convey.Convey("test set node status", t, func() {
-		convey.Convey("fault manager set node status", func() {
+		convey.Convey("01-fault manager set node status", func() {
 			faultManager := NewFaultManager()
 			faultManager.SetNodeStatus(common.NodeUnHealthy)
 			convey.So(faultManager.GetNodeStatus(), convey.ShouldEqual, common.NodeUnHealthy)
+		})
+		convey.Convey("01-when faultDevInfo is nil, set node status failed", func() {
+			faultManager := FaultTools{}
+			faultManager.SetNodeStatus(common.NodeUnHealthy)
+			convey.So(faultManager.GetNodeStatus(), convey.ShouldBeEmpty)
 		})
 	})
 }

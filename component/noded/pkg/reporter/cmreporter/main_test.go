@@ -66,6 +66,14 @@ var (
 		FaultDevList: []*common.FaultDev{},
 		NodeStatus:   common.NodeHealthy,
 	}
+
+	fcNormalInfo = &common.FaultAndConfigInfo{
+		FaultDevInfo: testNormalDevInfo,
+	}
+
+	fcFaultInfo = &common.FaultAndConfigInfo{
+		FaultDevInfo: testFaultDevInfo,
+	}
 )
 
 func TestMain(m *testing.M) {

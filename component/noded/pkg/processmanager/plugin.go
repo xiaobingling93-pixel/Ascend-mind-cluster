@@ -16,16 +16,20 @@
 package processmanager
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"ascend-common/common-utils/hwlog"
 	"nodeD/pkg/common"
+	"nodeD/pkg/control/dpccontrol"
 	"nodeD/pkg/control/faultcontrol"
 	"nodeD/pkg/kubeclient"
 	"nodeD/pkg/monitoring/config"
+	"nodeD/pkg/monitoring/dpcmonitor"
 	"nodeD/pkg/monitoring/ipmimonitor"
 	"nodeD/pkg/reporter/cmreporter"
+	"nodeD/pkg/reporter/publicfault"
 )
 
 var (
@@ -46,28 +50,35 @@ type Plugin struct {
 }
 
 // InitPlugin init process plugin
-func InitPlugin() error {
+func InitPlugin(ctx context.Context) error {
 	if kubeclient.GetK8sClient() == nil {
 		return errors.New("k8s client is nil")
 	}
 	ipmiEventMonitor := ipmimonitor.NewIpmiEventMonitor()
 	configmapEventMonitor := config.NewFaultConfigurator(kubeclient.GetK8sClient())
+	dpcEventMonitor := dpcmonitor.NewDpcEventMonitor(ctx)
+
 	nodeController := faultcontrol.NewNodeController()
+	dpcController := dpccontrol.NewDpcController()
+
 	configMapReporter := cmreporter.NewConfigMapReporter(kubeclient.GetK8sClient())
+	pfReporter := publicfault.NewGrpcReporter()
 
 	precessPluginMap = make(map[string]Plugin, processNum)
-	ipmiPlugin := Plugin{
+	precessPluginMap[common.IpmiProcess] = Plugin{
 		monitor:   ipmiEventMonitor,
 		controls:  []common.PluginControl{nodeController},
 		reporters: []common.PluginReporter{configMapReporter},
 	}
-	precessPluginMap[common.IpmiProcess] = ipmiPlugin
-
-	configPlugin := Plugin{
+	precessPluginMap[common.ConfigProcess] = Plugin{
 		monitor:  configmapEventMonitor,
 		controls: []common.PluginControl{nodeController},
 	}
-	precessPluginMap[common.ConfigProcess] = configPlugin
+	precessPluginMap[common.DpcProcess] = Plugin{
+		monitor:   dpcEventMonitor,
+		controls:  []common.PluginControl{dpcController},
+		reporters: []common.PluginReporter{pfReporter},
+	}
 	if err := startAllMonitor(); err != nil {
 		return err
 	}

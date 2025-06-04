@@ -15,6 +15,10 @@
 // Package common for common function
 package common
 
+import (
+	"nodeD/pkg/grpcclient/pubfault"
+)
+
 var (
 	// ParamOption for option
 	ParamOption Option
@@ -36,6 +40,8 @@ type FaultProcessor interface {
 type FaultAndConfigInfo struct {
 	FaultDevInfo *FaultDevInfo
 	FaultConfig  *FaultConfig
+	DpcStatusMap map[int]DpcStatus
+	PubFaultInfo *pubfault.PublicFaultRequest
 }
 
 // FaultDevInfo fault device info
@@ -89,13 +95,20 @@ type PluginMonitor interface {
 
 // PluginReporter reporter plugin interface
 type PluginReporter interface {
-	Report(*FaultDevInfo)
+	Report(*FaultAndConfigInfo)
 	Init() error
 }
 
 // PluginControl control plugin interface
 type PluginControl interface {
-	Control(*FaultDevInfo) *FaultDevInfo
-	UpdateConfig(faultConfig *FaultConfig) *FaultConfig
+	Control(*FaultAndConfigInfo) *FaultAndConfigInfo
 	Name() string
+}
+
+// DpcStatus the dpc status
+type DpcStatus struct {
+	ProcessError     bool
+	ProcessErrorTime int64
+	MemoryError      bool
+	MemoryErrorTime  int64
 }

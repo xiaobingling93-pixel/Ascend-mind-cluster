@@ -100,3 +100,15 @@ func mockFaultDev(tp, level string, id int64, faultCode []string) *FaultDev {
 		FaultCode:  faultCode,
 	}
 }
+
+func TestGenerateFaultID(t *testing.T) {
+	convey.Convey("test GenerateFaultID", t, func() {
+		convey.Convey("01-when node name and id is different, should return different id", func() {
+			name1 := "test1"
+			id1 := "1"
+			name2 := "test2"
+			id2 := "2"
+			convey.So(GenerateFaultID(name1, id1), convey.ShouldNotEqual, GenerateFaultID(name2, id2))
+		})
+	})
+}

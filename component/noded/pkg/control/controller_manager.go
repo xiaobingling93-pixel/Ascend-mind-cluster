@@ -55,12 +55,7 @@ func (nc *ControlManager) Init() error {
 func (nc *ControlManager) Execute(fcInfo *common.FaultAndConfigInfo, processType string) {
 	controls := processmanager.GetControlPlugins(processType)
 	for _, plugin := range controls {
-		if fcInfo.FaultDevInfo != nil {
-			fcInfo.FaultDevInfo = plugin.Control(fcInfo.FaultDevInfo)
-		}
-		if fcInfo.FaultConfig != nil {
-			fcInfo.FaultConfig = plugin.UpdateConfig(fcInfo.FaultConfig)
-		}
+		fcInfo = plugin.Control(fcInfo)
 	}
 	nc.nextFaultProcessor.Execute(fcInfo, processType)
 }

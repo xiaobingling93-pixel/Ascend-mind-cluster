@@ -51,7 +51,8 @@ func NewConfigMapReporter(client *kubeclient.ClientK8s) *ConfigMapReporter {
 }
 
 // Report send fault device info by config map
-func (c *ConfigMapReporter) Report(faultDevInfo *common.FaultDevInfo) {
+func (c *ConfigMapReporter) Report(fcInfo *common.FaultAndConfigInfo) {
+	faultDevInfo := fcInfo.FaultDevInfo
 	hwlog.RunLog.Debugf("old fault info: %+v, new fault info: %+v", c.nodeInfoCache.NodeInfo, faultDevInfo)
 	hwlog.RunLog.Debugf("last report time: %s", c.reportTime.Format(time.RFC3339))
 	if common.DeepEqualFaultDevInfo(faultDevInfo, &c.nodeInfoCache.NodeInfo) &&

@@ -54,7 +54,7 @@ func testReportNoToNo() {
 
 	cmReporter.nodeInfoCache.NodeInfo = *testNormalDevInfo
 	go func() {
-		cmReporter.Report(testNormalDevInfo)
+		cmReporter.Report(fcNormalInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -70,7 +70,7 @@ func testReportNoToHas() {
 
 	cmReporter.nodeInfoCache.NodeInfo = *testNormalDevInfo
 	go func() {
-		cmReporter.Report(testFaultDevInfo)
+		cmReporter.Report(fcFaultInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -91,7 +91,7 @@ func testReportHasToNo() {
 
 	cmReporter.nodeInfoCache.NodeInfo = *testFaultDevInfo
 	go func() {
-		cmReporter.Report(testNormalDevInfo)
+		cmReporter.Report(fcNormalInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -105,7 +105,7 @@ func testReportHasToHas() {
 	testReportNoToHas()
 	cmReporter.nodeInfoCache.NodeInfo = *testNormalDevInfo
 	go func() {
-		cmReporter.Report(testFaultDevInfo)
+		cmReporter.Report(fcFaultInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -123,7 +123,7 @@ func testReportErrDelete() {
 	testReportNoToHas()
 	cmReporter.nodeInfoCache.NodeInfo = *testFaultDevInfo
 	go func() {
-		cmReporter.Report(testNormalDevInfo)
+		cmReporter.Report(fcNormalInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -141,7 +141,7 @@ func testReportErrUnmarshal() {
 	defer p1.Reset()
 	cmReporter.nodeInfoCache.NodeInfo = *testNormalDevInfo
 	go func() {
-		cmReporter.Report(testFaultDevInfo)
+		cmReporter.Report(fcFaultInfo)
 	}()
 	time.Sleep(waitGoroutineFinishedTime)
 
@@ -157,7 +157,7 @@ func testReportErrUpdate() {
 	defer p2.Reset()
 	cmReporter.nodeInfoCache.NodeInfo = *testNormalDevInfo
 	go func() {
-		cmReporter.Report(testFaultDevInfo)
+		cmReporter.Report(fcFaultInfo)
 	}()
 	time.Sleep(retryInterval)
 

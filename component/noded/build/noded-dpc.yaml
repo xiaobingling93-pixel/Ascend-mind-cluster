@@ -1,3 +1,4 @@
+##### work with Scale-Out Storage DPC 24.2.0 and above.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -93,6 +94,8 @@ spec:
               mountPath: /dev
             - name: slownode
               mountPath: /user/cluster-info/profiling
+            - name: dpcstatus
+              mountPath: /user/mind-cluster/dpcstatus
       volumes:
         - name: log-noded
           hostPath:
@@ -115,4 +118,8 @@ spec:
         - name: slownode
           hostPath:
             path: /user/cluster-info/profiling
+            type: DirectoryOrCreate
+        - name: dpcstatus
+          hostPath:
+            path: /proc/odcs
             type: DirectoryOrCreate

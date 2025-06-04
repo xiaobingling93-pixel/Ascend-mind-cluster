@@ -97,7 +97,7 @@ func main() {
 		hwlog.RunLog.Errorf("create workers failed, err is %v", err)
 		return
 	}
-	if err := initFunction(); err != nil {
+	if err := initFunction(ctx); err != nil {
 		hwlog.RunLog.Errorf("init function failed, err is %v", err)
 		return
 	}
@@ -174,8 +174,8 @@ func createWorkers() error {
 	return nil
 }
 
-func initFunction() error {
-	if err := processmanager.InitPlugin(); err != nil {
+func initFunction(ctx context.Context) error {
+	if err := processmanager.InitPlugin(ctx); err != nil {
 		hwlog.RunLog.Errorf("init controller failed when start, err is %v", err)
 		return err
 	}

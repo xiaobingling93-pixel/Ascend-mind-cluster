@@ -16,8 +16,13 @@
 package common
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"ascend-common/common-utils/hwlog"
 )
 
 const decimal = 10
@@ -74,4 +79,15 @@ func faultDevListToMap(list []*FaultDev) map[string]*faultDevWithCodeSet {
 		}
 	}
 	return m
+}
+
+// GenerateFaultID get uuid by nodeName and Id
+func GenerateFaultID(nodeName, id string) string {
+	h := sha256.New()
+	_, err := h.Write([]byte(nodeName + "/" + id))
+	if err != nil {
+		hwlog.RunLog.Warnf("GenerateFaultID failed, err: %v", err)
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

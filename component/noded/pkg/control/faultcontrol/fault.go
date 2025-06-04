@@ -58,8 +58,18 @@ func (nc *NodeController) UpdateConfig(faultConfig *common.FaultConfig) *common.
 	return faultConfig
 }
 
-// Control update fault device info
-func (nc *NodeController) Control(faultDevInfo *common.FaultDevInfo) *common.FaultDevInfo {
+// Control update fault device info or fault config info
+func (nc *NodeController) Control(fcInfo *common.FaultAndConfigInfo) *common.FaultAndConfigInfo {
+	if fcInfo.FaultDevInfo != nil {
+		fcInfo.FaultDevInfo = nc.updateFault(fcInfo.FaultDevInfo)
+	}
+	if fcInfo.FaultConfig != nil {
+		fcInfo.FaultConfig = nc.UpdateConfig(fcInfo.FaultConfig)
+	}
+	return fcInfo
+}
+
+func (nc *NodeController) updateFault(faultDevInfo *common.FaultDevInfo) *common.FaultDevInfo {
 	// get support fault code
 	faultDevs := nc.getSupportFaultDev(faultDevInfo)
 
