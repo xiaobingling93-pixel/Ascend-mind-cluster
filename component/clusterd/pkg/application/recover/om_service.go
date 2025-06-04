@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"ascend-common/common-utils/hwlog"
-	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
@@ -19,7 +18,7 @@ import (
 // SwitchNicTrack Switch the track of the specified nic
 func (s *FaultRecoverService) SwitchNicTrack(ctx context.Context, nics *pb.SwitchNics) (*pb.Status, error) {
 	if ok, msg := s.checkNicsParam(nics); !ok {
-		hwlog.RunLog.Errorf("jobId=%s check param failed: %s", nics.JobID, msg)
+		hwlog.RunLog.Errorf("check param failed: %s", msg)
 		return &pb.Status{
 			Code: int32(common.NicParamInvalid),
 			Info: msg,
@@ -68,7 +67,6 @@ func (s *FaultRecoverService) checkNicsParam(nics *pb.SwitchNics) (bool, string)
 	if jobInfo.Status != job.StatusJobRunning {
 		return false, fmt.Sprintf("job:%s is not running", nics.JobID)
 	}
-	deviceInfos := faultmanager.QueryDeviceInfoToReport()
 	jobServerMap := s.getNodeDeviceMap(jobInfo.PreServerList)
 	for node, devs := range nics.NicOps {
 		if _, ok := jobServerMap[node]; !ok {
@@ -76,9 +74,6 @@ func (s *FaultRecoverService) checkNicsParam(nics *pb.SwitchNics) (bool, string)
 		}
 		if msg, ok := s.checkDevsValid(devs, jobServerMap[node], node); !ok {
 			return false, msg
-		}
-		if deviceInfos[node].SuperPodID < 0 {
-			return false, fmt.Sprintf("node:%s should operate in superPodID", node)
 		}
 	}
 	return true, ""

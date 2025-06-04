@@ -32,5 +32,9 @@ func TestGetRules(t *testing.T) {
 			baseRules := ctl.getExtendPreRules()
 			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
 		})
+		convey.Convey("06-test getOMRules, should return slice", func() {
+			baseRules := ctl.geOMRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
 	})
 }
