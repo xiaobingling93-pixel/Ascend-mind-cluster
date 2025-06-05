@@ -20,9 +20,13 @@ import queue
 from taskd.python.utils.log import run_log
 from taskd.python.framework.agent.base_agent.agent_network import init_network_client
 from taskd.python.framework.agent.base_agent.base_agent import BaseAgent, REPORT_CODE
-from torch.distributed.elastic.agent.server.api import WorkerState, RunResult
 from taskd.python.framework.common.type import AgentReportInfo
-
+try:
+    from torch.distributed.elastic.agent.server.api import WorkerState, RunResult
+except ImportError:
+    run_log.debug("torch not installed, please install torch to use pt_agent")
+    WorkerState = None
+    RunResult = None
 
 class PtAgent(BaseAgent):
     """
