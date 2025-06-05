@@ -133,6 +133,9 @@ func (processor *jobRankFaultInfoProcessor) appendFilterFaultCodeAndLevel(jobId,
 	}
 	newFaultList := make([]constant.DeviceFault, 0, len(faultList)+len(filterFault))
 	for faultCode, faultLevel := range filterFault {
+		if faultdomain.IsUceFault(faultCode) || faultdomain.IsHcclRetryFault(faultCode) {
+			continue
+		}
 		found := false
 		for _, fault := range faultList {
 			if fault.FaultCode == faultCode {
