@@ -59,7 +59,7 @@ class AgentMessageManager():
         """
         dst = Position(
             role = "Mgr",
-            server_rank = rank,
+            server_rank = "0",
             process_rank = "-1"
         )
         msg_body = MsgBody(
