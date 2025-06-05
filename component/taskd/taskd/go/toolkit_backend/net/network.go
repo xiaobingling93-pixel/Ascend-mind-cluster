@@ -89,6 +89,13 @@ func InitNetwork(conf *common.TaskNetConfig) (*NetInstance, error) {
 // SyncSendMessage sends a message synchronously.
 func (nt *NetInstance) SyncSendMessage(uuid, mtype, msgBody string, dst *common.Position) (*common.Ack, error) {
 	data := common.DataFrame(uuid, mtype, msgBody, &nt.config.Pos, dst)
+	if data == nil {
+		return &common.Ack{
+			Uuid: uuid,
+			Code: common.ClientErr,
+			Src:  &nt.config.Pos,
+		}, errors.New("nil data")
+	}
 	data.Header.Sync = true
 	code, err := common.ValidateAndCorrectFrame(data)
 	if err != nil {
@@ -111,6 +118,9 @@ func (nt *NetInstance) SyncSendMessage(uuid, mtype, msgBody string, dst *common.
 // AsyncSendMessage sends a message asynchronously.
 func (nt *NetInstance) AsyncSendMessage(uuid, mtype, msgBody string, dst *common.Position) error {
 	data := common.DataFrame(uuid, mtype, msgBody, &nt.config.Pos, dst)
+	if data == nil {
+		return errors.New("nil data")
+	}
 	data.Header.Sync = false
 	_, err := common.ValidateAndCorrectFrame(data)
 	if err != nil {
