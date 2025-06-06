@@ -318,6 +318,8 @@ const (
 	fillJobMaxNPUTaskNum = 4
 	// NullTag the value means not use tor affinity
 	NullTag = "null"
+	// DevSplitNum device split number
+	DevSplitNum = 2
 )
 
 const (
