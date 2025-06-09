@@ -34,7 +34,7 @@ def init_taskd_proxy(config : dict) -> bool:
         CONFIG_LISTENIP_KEY: LOCAL_HOST,
         CONFIG_UPSTREAMPORT_KEY: DEFAULT_PROXY_UPSTREAMPORT,
         CONFIG_LISTENPORT_KEY: DEFAULT_PRXOY_LISTENPORT,
-        CONFIG_SERVERRANK_KEY: os.getenv("RANK", DEFAULT_SERVERRANK) or os.getenv("MS_NODE_RANK", DEFAULT_SERVERRANK)
+        CONFIG_SERVERRANK_KEY: os.getenv("RANK") or os.getenv("MS_NODE_RANK") or DEFAULT_SERVERRANK
     }
 
     config_values = {}
