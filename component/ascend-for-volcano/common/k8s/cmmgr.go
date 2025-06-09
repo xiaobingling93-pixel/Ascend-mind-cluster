@@ -389,7 +389,7 @@ func initNodeDeviceInfoByCmMgr(nodeInfo *api.NodeInfo, deviceInfo NodeDeviceInfo
 			sort.Strings(availDev)
 			tmpDeviceInfo.DeviceList[devListKey] = strings.Join(availDev, ",")
 			klog.V(util.LogDebugLev).Infof("node[%s] device list: %v, available list: %v, pod used list: %v, "+
-				"unhealthy list: %v. The above does not include vnpu card",
+				"unhealthy list: %v. The above does not include vnpu card, may not be accurate in the vnpu scence",
 				nodeInfo.Name, nodeDevList, availDev, podUsedDevList, unHealthyDevList)
 		} else {
 			tmpDeviceInfo.DeviceList[devListKey] = devListValue
