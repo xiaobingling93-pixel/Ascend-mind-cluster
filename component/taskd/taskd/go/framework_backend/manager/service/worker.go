@@ -29,7 +29,7 @@ func (mpc *MsgProcessor) workerHandler(dataPool *storage.DataPool, data storage.
 	if data.Body.MsgType == constant.REGISTER {
 		return mpc.workerRegister(dataPool, data)
 	}
-	workerName := data.Header.Src.Role + data.Header.Src.ServerRank
+	workerName := data.Header.Src.Role + data.Header.Src.ProcessRank
 	workerInfo, err := dataPool.GetWorker(workerName)
 	if err != nil {
 		return err
