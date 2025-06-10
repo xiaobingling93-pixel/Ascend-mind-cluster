@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	dpcMap map[int]common.DpcStatus
+	dpcMap map[int]common.DpcStatus = nil
 	// dpc file match: [instidx=N]
 	instRegex = regexp.MustCompile(`^\[instidx=(\d+)\]$`)
 	// dpc file match: DPC_INTERNAL_ERROR: XX
