@@ -930,11 +930,11 @@ func (ctl *EventController) chooseStrategy() (string, error) {
 		return ctl.chooseForRetryFail(), nil
 	} else if res.Strategy == constant.ProcessRecoverStrategyName {
 		return ctl.chooseForRecoverFail(), nil
+	} else if res.Strategy == constant.ProcessDumpStrategyName &&
+		ctl.isSwitchingNic() && ctl.jobInfo.Framework == constant.PtFramework {
 		// In order to correctly switch from the state machine of mindIO to the state machine for failure recovery,
 		// after the switch nic failed, need to notify the dump first. After mindIO fails to return dump,
 		// it goes through the failure recovery state machine again.
-	} else if res.Strategy == constant.ProcessDumpStrategyName &&
-		ctl.isSwitchingNic() && ctl.jobInfo.Framework == constant.PtFramework {
 		return constant.ProcessDumpStrategyName, nil
 	}
 	return constant.ProcessExitStrategyName, nil
@@ -986,7 +986,7 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 	hwlog.RunLog.Infof("jobId:%s, enter handleRestartFaultProcess func, choose strategy:%s",
 		ctl.jobInfo.JobId, signal.ChangeStrategy)
 	if signal.ChangeStrategy == constant.ProcessRecoverInPlaceStrategyName {
-		if err := ctl.WaitNormalFaultRecovery(); err != nil {
+		if err := ctl.waitNormalFaultRecovery(); err != nil {
 			hwlog.RunLog.Warnf("jobId:%s wait fault recover timeout, err:%v", ctl.jobInfo.JobId, err)
 			ctl.restartFaultProcess = false
 			return common.KillPodAfterRestartProcessEvent, common.ServerInnerError, nil
@@ -1014,7 +1014,7 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 	return ctl.signalEnqueue(signal)
 }
 
-func (ctl *EventController) WaitNormalFaultRecovery() error {
+func (ctl *EventController) waitNormalFaultRecovery() error {
 	startTime := time.Now().Unix()
 	for {
 		if !retry.RetryProcessor.JobHasFault(ctl.jobInfo.JobId) {

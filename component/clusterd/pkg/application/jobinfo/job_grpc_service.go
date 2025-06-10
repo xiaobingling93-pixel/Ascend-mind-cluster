@@ -103,7 +103,8 @@ func (s *JobServer) Register(ctx context.Context, req *job.ClientInfo) (*job.Sta
 }
 
 // SubscribeJobSummarySignal to subscribe all job info
-func (s *JobServer) SubscribeJobSummarySignal(req *job.ClientInfo, stream job.Job_SubscribeJobSummarySignalServer) error {
+func (s *JobServer) SubscribeJobSummarySignal(req *job.ClientInfo,
+	stream job.Job_SubscribeJobSummarySignalServer) error {
 	hwlog.RunLog.Infof("role: %v call SubscribeJobSummarySignal, clientId: %s", req.Role, req.ClientId)
 	s.mu.Lock()
 	cltState, exists := s.clients[req.ClientId]
@@ -140,6 +141,9 @@ func (s *JobServer) SubscribeJobSummarySignal(req *job.ClientInfo, stream job.Jo
 }
 
 func (s *JobServer) startBroadcasting(ctx context.Context) {
+	if jobUpdateChan == nil {
+		jobUpdateChan = make(chan job.JobSummarySignal, jobUpdateChanCache)
+	}
 	go func() {
 		for {
 			select {

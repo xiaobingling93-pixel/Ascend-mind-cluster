@@ -56,7 +56,7 @@ func TestSendJobInfoSignalDrop(t *testing.T) {
 		jobUpdateChan = make(chan job.JobSummarySignal, jobUpdateChanCache)
 
 		for i := 0; i < jobUpdateChanCache; i++ {
-			jobUpdateChan <- job.JobSummarySignal{JobId: fmt.Sprintf("job-%d", i)}
+			SendJobInfoSignal(job.JobSummarySignal{JobId: fmt.Sprintf("job-%d", i)})
 		}
 
 		convey.Convey("11 signal go default", func() {

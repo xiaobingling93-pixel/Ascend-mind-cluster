@@ -774,7 +774,8 @@ func setNewTaskInfoError() {
 			return newCm, nil
 		})
 		defer patch1.Reset()
-		_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{errorRank}, true, constant.NotifyFaultListOperation)
+		_, err := WriteResetInfoToCM(info.JobName, info.Namespace, []string{errorRank}, true,
+			constant.NotifyFaultListOperation)
 		convey.ShouldNotBeNil(err)
 	})
 }

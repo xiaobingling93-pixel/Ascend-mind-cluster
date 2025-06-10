@@ -40,7 +40,8 @@ func (s *FaultRecoverService) SwitchNicTrack(ctx context.Context, nics *pb.Switc
 }
 
 // SubscribeSwitchNicSignal return the result of switch nic
-func (s *FaultRecoverService) SubscribeSwitchNicSignal(req *pb.SwitchNicRequest, stream pb.Recover_SubscribeSwitchNicSignalServer) error {
+func (s *FaultRecoverService) SubscribeSwitchNicSignal(req *pb.SwitchNicRequest,
+	stream pb.Recover_SubscribeSwitchNicSignalServer) error {
 	hwlog.RunLog.Infof("receive Subscribe signal request, jobID: %s", req.JobID)
 	controller, exist := s.getController(req.JobID)
 	if !exist {

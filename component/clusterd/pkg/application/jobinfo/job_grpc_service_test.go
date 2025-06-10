@@ -1,3 +1,19 @@
+/* Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+// Package jobinfo is used to return job info by subscribe
+
 package jobinfo
 
 import (
@@ -41,8 +57,8 @@ func TestNewJobServer(t *testing.T) {
 	})
 }
 
-// TestJobServer_Register tests client registration
-func TestJobServer_Register(t *testing.T) {
+// TestJobServerRegister tests client registration
+func TestJobServerRegister(t *testing.T) {
 	convey.Convey("Given a JobServer", t, func() {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
@@ -72,8 +88,8 @@ func TestJobServer_Register(t *testing.T) {
 	})
 }
 
-// TestJobServer_Subscribe tests job summary subscription
-func TestJobServer_Subscribe(t *testing.T) {
+// TestJobServerSubscribe tests job summary subscription
+func TestJobServerSubscribe(t *testing.T) {
 	convey.Convey("Given a registered client", t, func() {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
@@ -98,8 +114,8 @@ func TestJobServer_Subscribe(t *testing.T) {
 	})
 }
 
-// TestJobServer_SubscribeBreakStream tests job summary subscription break stream
-func TestJobServer_SubscribeBreakStream(t *testing.T) {
+// TestJobServerSubscribeBreakStream tests job summary subscription break stream
+func TestJobServerSubscribeBreakStream(t *testing.T) {
 	convey.Convey("Given a registered client", t, func() {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
@@ -123,8 +139,8 @@ func TestJobServer_SubscribeBreakStream(t *testing.T) {
 	})
 }
 
-// TestJobServer_SubscribeFakeClient tests job summary subscription with fake client
-func TestJobServer_SubscribeFakeClient(t *testing.T) {
+// TestJobServerSubscribeFakeClient tests job summary subscription with fake client
+func TestJobServerSubscribeFakeClient(t *testing.T) {
 	convey.Convey("Given a registered client", t, func() {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
@@ -141,8 +157,8 @@ func TestJobServer_SubscribeFakeClient(t *testing.T) {
 	})
 }
 
-// TestJobServer_Broadcast tests message broadcasting
-func TestJobServer_Broadcast(t *testing.T) {
+// TestJobServerBroadcast tests message broadcasting
+func TestJobServerBroadcast(t *testing.T) {
 	convey.Convey("Given multiple clients", t, func() {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
@@ -180,8 +196,8 @@ func TestJobServer_Broadcast(t *testing.T) {
 	})
 }
 
-// TestClientState_SafeClose tests safe channel closing
-func TestClientState_SafeClose(t *testing.T) {
+// TestClientStateSafeClose tests safe channel closing
+func TestClientStateSafeClose(t *testing.T) {
 	convey.Convey("Given a client state", t, func() {
 		state := &clientState{
 			clientChan: make(chan job.JobSummarySignal, jobSignalChanLen),

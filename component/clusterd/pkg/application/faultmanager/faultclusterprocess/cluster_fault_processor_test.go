@@ -143,8 +143,8 @@ func TestNewClusterFaultProcessor(t *testing.T) {
 	})
 }
 
-// TestClusterFaultProcessor_GatherClusterFaultInfo tests the GatherClusterFaultInfo method.
-func TestClusterFaultProcessor_GatherClusterFaultInfo(t *testing.T) {
+// TestClusterFaultProcessorGatherClusterFaultInfo tests the GatherClusterFaultInfo method.
+func TestClusterFaultProcessorGatherClusterFaultInfo(t *testing.T) {
 	convey.Convey("Test get all fault info while cache is available", t, func() {
 		processor := newClusterFaultProcessor()
 		processor.lastUpdateTime = time.Now()
