@@ -28,6 +28,7 @@ import (
 
 	"taskd/common/constant"
 	"taskd/common/utils"
+	"taskd/framework_backend/manager/infrastructure/storage"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
 )
@@ -314,4 +315,22 @@ func TestNotifyMgrSwitchChange(t *testing.T) {
 
 	notifyMgrSwitchChange(constant.ProfilingResult{})
 	convey.ShouldBeTrue(called)
+}
+
+func TestProcessMsg(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	ProcessMsg(0, &common.Message{
+		Body: utils.ObjToString(storage.MsgBody{
+			Code: constant.ProfilingAllOnCmdCode,
+		}),
+	})
+	var profilingSwitch constant.ProfilingDomainCmd
+	select {
+	case msg := <-CmdChan:
+		profilingSwitch = msg
+	default:
+	}
+	convey.ShouldBeTrue(profilingSwitch.CommDomainAble)
+	convey.ShouldBeTrue(profilingSwitch.DefaultDomainAble)
 }

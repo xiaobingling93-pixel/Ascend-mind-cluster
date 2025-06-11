@@ -34,9 +34,6 @@ import (
 
 const maxRegisterTime = 10
 
-// CmdChan for SwitchProfiling
-var CmdChan chan constant.ProfilingDomainCmd
-
 const (
 	maxCmdChanLen      = 10
 	maxWaitNetInitTime = 180 * time.Second
@@ -54,6 +51,9 @@ var GlobalRank int
 
 // NodeRank of this work
 var NodeRank int
+
+// CmdChan for SwitchProfiling
+var CmdChan chan constant.ProfilingDomainCmd
 
 func init() {
 	CmdChan = make(chan constant.ProfilingDomainCmd, maxCmdChanLen)

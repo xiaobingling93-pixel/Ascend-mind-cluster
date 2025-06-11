@@ -22,6 +22,7 @@ from taskd.python.cython_api import cython_api
 from taskd.python.utils.log import run_log
 from taskd.python.adaptor.pytorch.group_info import dump_group_info
 
+
 class Worker:
     """
     Worker is a framework of training thread management
