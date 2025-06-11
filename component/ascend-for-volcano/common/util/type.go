@@ -112,6 +112,8 @@ const (
 	Module910bx16AcceleratorType = "module-910b-16"
 	// Module910bx8AcceleratorType for module mode.
 	Module910bx8AcceleratorType = "module-910b-8"
+	// ModuleA3x16AcceleratorType for module mode.
+	ModuleA3x16AcceleratorType = "module-a3-16"
 	// ModuleAcceleratorType for module mode.
 	ModuleAcceleratorType = "module"
 	// ServerType server type value takes Ascend310P-10-dual/Ascend910-32...
