@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/smartystreets/goconvey/convey"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/domain/common"
@@ -63,27 +64,35 @@ func TestJobServerRegister(t *testing.T) {
 		ctx := context.Background()
 		server := NewJobServer(ctx)
 
-		convey.Convey("When registering with valid role", func() {
+		convey.Convey("When registering with valid role, it should succeed", func() {
 			req := &job.ClientInfo{Role: CCAgentClientName}
 			resp, err := server.Register(ctx, req)
-
-			convey.Convey("It should succeed", func() {
-				convey.So(err, convey.ShouldBeNil)
-				convey.So(resp.Code, convey.ShouldEqual, int32(common.SuccessCode))
-				convey.So(resp.ClientId, convey.ShouldNotBeEmpty)
-				convey.So(len(server.clients), convey.ShouldEqual, 1)
-			})
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(resp.Code, convey.ShouldEqual, int32(common.SuccessCode))
+			convey.So(resp.ClientId, convey.ShouldNotBeEmpty)
+			convey.So(len(server.clients), convey.ShouldEqual, 1)
 		})
 
-		convey.Convey("When registering with invalid role", func() {
+		convey.Convey("When registering with invalid role, it should fail", func() {
 			req := &job.ClientInfo{Role: "InvalidRole"}
 			resp, err := server.Register(ctx, req)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(resp.Code, convey.ShouldEqual, int32(common.UnRegistry))
+			convey.So(len(server.clients), convey.ShouldEqual, 0)
+		})
 
-			convey.Convey("It should fail", func() {
-				convey.So(err, convey.ShouldNotBeNil)
-				convey.So(resp.Code, convey.ShouldEqual, int32(common.UnRegistry))
-				convey.So(len(server.clients), convey.ShouldEqual, 0)
-			})
+		convey.Convey("When registering clients more than maxClientNum, it should fail", func() {
+			req := &job.ClientInfo{Role: CCAgentClientName}
+			mockClientMap := make(map[string]*clientState, maxClientNum)
+			for i := 0; i < maxClientNum; i++ {
+				mockClientMap[string(uuid.NewUUID())] = &clientState{}
+			}
+			server.clients = mockClientMap
+			resp, err := server.Register(ctx, req)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(resp.Code, convey.ShouldEqual, int32(common.RateLimitedCode))
+			convey.So(resp.ClientId, convey.ShouldBeEmpty)
+			convey.So(len(server.clients), convey.ShouldEqual, maxClientNum)
 		})
 	})
 }

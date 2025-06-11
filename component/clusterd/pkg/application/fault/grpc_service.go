@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"sync"
 	"time"
@@ -43,7 +44,11 @@ const (
 	defaultTokenRate      = 10
 	defaultBurst          = 10
 	defaultMaxQueueLen    = 50
+	minJobIdLen           = 8
+	maxJobIdLen           = 128
 )
+
+var chinesePattern = regexp.MustCompile(`[\x{4e00}-\x{9fa5}]`)
 
 // FaultServer fault server
 type FaultServer struct {
@@ -124,6 +129,17 @@ func (s *FaultServer) SubscribeFaultMsgSignal(request *fault.ClientInfo,
 	return nil
 }
 
+// isValidJobId check jobId is valid
+func isValidJobId(jobId string) bool {
+	if len(jobId) < minJobIdLen || len(jobId) > maxJobIdLen {
+		return false
+	}
+	if chinesePattern.MatchString(jobId) {
+		return false
+	}
+	return true
+}
+
 // GetFaultMsgSignal return cluster fault
 func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.ClientInfo) (*fault.FaultQueryResult, error) {
 	hwlog.RunLog.Infof("role: %#v call get faults", request)
@@ -138,12 +154,20 @@ func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.Clie
 	if jobId == "" {
 		return s.getClusterFaultInfo(), nil
 	}
+	if !isValidJobId(jobId) {
+		errMsg := fmt.Sprintf("job with jobId: %v is invalid", jobId)
+		return &fault.FaultQueryResult{
+			Code:        common.InvalidReqParam,
+			Info:        errMsg,
+			FaultSignal: nil,
+		}, errors.New(errMsg)
+	}
 	jobFaultInfo := faultrank.JobFaultRankProcessor.GetJobFaultRankInfos()
 	faultInfo, ok := jobFaultInfo[jobId]
 	if !ok {
 		return &fault.FaultQueryResult{
 			Code:        int32(common.SuccessCode),
-			Info:        fmt.Sprintf("job with jobId: %v not found", jobId),
+			Info:        fmt.Sprintf("job with jobId: %v not found fault info", jobId),
 			FaultSignal: nil,
 		}, nil
 	}
