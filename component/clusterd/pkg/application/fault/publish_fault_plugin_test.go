@@ -12,7 +12,6 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
-	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/grpc/fault"
@@ -192,8 +191,6 @@ func TestCheckPublishFault(t *testing.T) {
 // TestCheckFaultFromFaultCenter for test checkFaultFromFaultCenter
 func TestCheckFaultFromFaultCenter(t *testing.T) {
 	convey.Convey("occur fault, should send fault msg", t, func() {
-		patch := gomonkey.ApplyFuncReturn(faultmanager.QueryJobsFaultInfo, nil)
-		defer patch.Reset()
 		service := fakeFaultService()
 		ctx, cancel := context.WithCancel(context.Background())
 		service.serviceCtx = ctx

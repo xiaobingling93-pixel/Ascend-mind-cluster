@@ -55,6 +55,8 @@ type EventController struct {
 	globalSwitchRankIDs       []string
 	globalOps                 []bool
 	switchNicResponse         chan *pb.SwitchNicResponse
+	switchRankList            chan *pb.SwitchRankList
+	switchRankResult          chan *pb.SwitchResult
 	restartFaultProcess       bool
 	controllerContext         context.Context
 	ctxCancelFunc             context.CancelFunc
@@ -91,6 +93,8 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		globalSwitchRankIDs:       []string{},
 		globalOps:                 []bool{},
 		switchNicResponse:         make(chan *pb.SwitchNicResponse, 1),
+		switchRankList:            make(chan *pb.SwitchRankList, 1),
+		switchRankResult:          make(chan *pb.SwitchResult, 1),
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
@@ -159,13 +163,7 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.uuid = ""
 	ctl.latestStrategy = ctl.latestStrategy[:0]
 	ctl.faultPod = make(map[string]string)
-	close(ctl.events)
-	close(ctl.signalChan)
-	close(ctl.reportStopCompleteChan)
-	close(ctl.reportRecoverStrategyChan)
-	close(ctl.reportStatusChan)
-	close(ctl.scheduleResultChan)
-	close(ctl.switchNicResponse)
+	ctl.closeControllerChan()
 	if stop {
 		return
 	}
@@ -184,10 +182,24 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
 	ctl.globalOps = ctl.globalOps[:0]
 	ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
+	ctl.switchRankList = make(chan *pb.SwitchRankList, 1)
+	ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
 	ctl.state.Reset()
 	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
 	go ctl.listenEvent()
 	go ctl.keepAlive()
+}
+
+func (ctl *EventController) closeControllerChan() {
+	close(ctl.events)
+	close(ctl.signalChan)
+	close(ctl.reportStopCompleteChan)
+	close(ctl.reportRecoverStrategyChan)
+	close(ctl.reportStatusChan)
+	close(ctl.scheduleResultChan)
+	close(ctl.switchNicResponse)
+	close(ctl.switchRankList)
+	close(ctl.switchRankResult)
 }
 
 func (ctl *EventController) selectKeepAlive(ctx context.Context, sendChan chan *pb.ProcessManageSignal) bool {

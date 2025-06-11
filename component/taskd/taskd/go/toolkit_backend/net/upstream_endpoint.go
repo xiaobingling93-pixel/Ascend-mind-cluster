@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -205,7 +204,7 @@ func (up *upStreamEndpoint) rebuildNet() error {
 
 // listenUpStreamMessage listens for messages from the upstream stream.
 func (up *upStreamEndpoint) listenUpStreamMessage() {
-	log.Println("start listen upstream message")
+	hwlog.RunLog.Info("start listen upstream message")
 	var msg *proto.Message
 	var err error
 	err = up.setUpStream()

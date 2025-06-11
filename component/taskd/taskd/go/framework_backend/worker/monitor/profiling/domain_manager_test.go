@@ -28,7 +28,6 @@ import (
 
 	"taskd/common/constant"
 	"taskd/common/utils"
-	"taskd/framework_backend/manager/infrastructure/storage"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
 )
@@ -315,31 +314,4 @@ func TestNotifyMgrSwitchChange(t *testing.T) {
 
 	notifyMgrSwitchChange(constant.ProfilingResult{})
 	convey.ShouldBeTrue(called)
-}
-
-func TestRegisterAndLoopRecv(t *testing.T) {
-	NetTool = &net.NetInstance{}
-	patches := gomonkey.NewPatches()
-	patches.ApplyMethod(NetTool, "SyncSendMessage",
-		func(nt *net.NetInstance, uuid, mtype, msgBody string, dst *common.Position) (*common.Ack, error) {
-			return nil, nil
-		})
-	patches.ApplyMethod(NetTool, "ReceiveMessage", func(nt *net.NetInstance) *common.Message {
-		time.Sleep(time.Second)
-		return &common.Message{
-			Body: utils.ObjToString(storage.MsgBody{
-				Code: constant.ProfilingAllOnCmdCode,
-			}),
-		}
-	})
-	patches.ApplyFunc(waitNetToolInit, func() bool {
-		return true
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	go func() {
-		time.Sleep(time.Second)
-		cancel()
-	}()
-	RegisterAndLoopRecv(ctx)
-	convey.ShouldBeGreaterThan(len(CmdChan), 1)
 }

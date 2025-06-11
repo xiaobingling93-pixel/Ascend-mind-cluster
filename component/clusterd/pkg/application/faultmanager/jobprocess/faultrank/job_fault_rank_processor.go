@@ -5,6 +5,7 @@ package faultrank
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -89,7 +90,7 @@ func (processor *jobRankFaultInfoProcessor) GetJobFaultRankInfos() map[string]co
 
 // GetJobFaultRankInfosFilterLevel query jobs fault rank info, and filter fault below `faultLevel`
 func (processor *jobRankFaultInfoProcessor) GetJobFaultRankInfosFilterLevel(
-	faultLevel string) map[string]constant.JobFaultInfo {
+	faultLevels []string) map[string]constant.JobFaultInfo {
 	jobFaultRankInfos := processor.GetJobFaultRankInfos()
 	if jobFaultRankInfos == nil {
 		return nil
@@ -97,7 +98,7 @@ func (processor *jobRankFaultInfoProcessor) GetJobFaultRankInfosFilterLevel(
 	for jobId, jobFaultInfo := range jobFaultRankInfos {
 		faultList := make([]constant.FaultRank, 0)
 		for _, fault := range jobFaultInfo.FaultList {
-			if fault.FaultLevel != faultLevel {
+			if !slices.Contains(faultLevels, fault.FaultLevel) {
 				faultList = append(faultList, fault)
 			}
 		}

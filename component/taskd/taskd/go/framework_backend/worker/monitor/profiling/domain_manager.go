@@ -46,10 +46,6 @@ const (
 // NetTool from worker
 var NetTool *net.NetInstance
 
-// NetToolInitCtx and NetToolInitNotify to notify profiling that net tool init
-var NetToolInitCtx context.Context
-var NetToolInitNotify context.CancelFunc
-
 // MgrProfilingCmd from worker
 var MgrProfilingCmd atomic.Bool
 
@@ -61,7 +57,6 @@ var NodeRank int
 
 func init() {
 	CmdChan = make(chan constant.ProfilingDomainCmd, maxCmdChanLen)
-	NetToolInitCtx, NetToolInitNotify = context.WithCancel(context.Background())
 }
 
 // ManageDomainEnableStatus dead loop for manage domain status
@@ -184,60 +179,7 @@ func notifyMgrSwitchChange(result constant.ProfilingResult) {
 	hwlog.RunLog.Infof("notify mgr result %v succeeded", result)
 }
 
-func waitNetToolInit() bool {
-	hwlog.RunLog.Info("wait NetTool init")
-	select {
-	case <-NetToolInitCtx.Done():
-		hwlog.RunLog.Info("wait NetTool inited")
-		return true
-	case <-time.After(maxWaitNetInitTime):
-		hwlog.RunLog.Info("wait NetTool timeout")
-		return false
-	}
-}
-
-func RegisterAndLoopRecv(ctx context.Context) {
-	if !waitNetToolInit() {
-		hwlog.RunLog.Error("cannot RegisterAndLoopRecv for profiling, net tool init timeout")
-		return
-	}
-	body := storage.MsgBody{
-		MsgType: "REGISTER",
-		Code:    101,
-	}
-	registerSucc := false
-	for i := 0; i < maxRegisterTime; i++ {
-		time.Sleep(time.Duration(i) * time.Second)
-		_, err := NetTool.SyncSendMessage(uuid.NewString(), "default", utils.ObjToString(body), &common.Position{
-			Role:       common.MgrRole,
-			ServerRank: "0",
-		})
-		if err != nil {
-			hwlog.RunLog.Errorf("worker %d register manager err: %v", GlobalRank, err)
-			continue
-		}
-		registerSucc = true
-		break
-	}
-	if !registerSucc {
-		hwlog.RunLog.Errorf("worker  %d register manager meet max times %d", GlobalRank, maxRegisterTime)
-		return
-	}
-	hwlog.RunLog.Errorf("worker %d register manager success, begin recv msg", GlobalRank)
-	MgrProfilingCmd.Store(true)
-	for {
-		select {
-		case <-ctx.Done():
-			hwlog.RunLog.Errorf("worker %d exit", GlobalRank)
-			return
-		default:
-			msg := NetTool.ReceiveMessage()
-			processMsg(GlobalRank, msg)
-		}
-	}
-}
-
-func processMsg(globalRank int, msg *common.Message) {
+func ProcessMsg(globalRank int, msg *common.Message) {
 	hwlog.RunLog.Infof("worker %d recv msg %v", globalRank, msg)
 	profilingSwitch, err := getProfilingSwitch(msg)
 	if err != nil {

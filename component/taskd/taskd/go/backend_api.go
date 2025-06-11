@@ -39,6 +39,7 @@ import (
 	"taskd/framework_backend/proxy"
 	"taskd/framework_backend/worker"
 	"taskd/framework_backend/worker/monitor/profiling"
+	"taskd/framework_backend/worker/om"
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
 )
@@ -47,6 +48,13 @@ var ctx context.Context = context.Background()
 var netLifeCtl = make(map[uintptr]*net.NetInstance)
 var rw sync.RWMutex
 var managerInstance = &manager.BaseManager{}
+
+// RegisterSwitchCallback register switch callback, is called by om worker
+//
+//export RegisterSwitchCallback
+func RegisterSwitchCallback(cb uintptr) {
+	om.RegisterCallback(cb)
+}
 
 // InitWorker to init worker, should be called by python api,
 // and this python api will be called in user script

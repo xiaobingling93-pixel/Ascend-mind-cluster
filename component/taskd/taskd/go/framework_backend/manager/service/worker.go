@@ -35,6 +35,12 @@ func (mpc *MsgProcessor) workerHandler(dataPool *storage.DataPool, data storage.
 		return err
 	}
 	switch data.Body.MsgType {
+	case constant.Action:
+		if data.Body.Code == constant.SwitchNicCode {
+			workerInfo.Status[constant.SwitchNic] = data.Body.Message
+			workerInfo.Status[constant.SwitchNicUUID] = data.Body.Extension[constant.SwitchNicUUID]
+			return nil
+		}
 	case constant.STATUS:
 		err := mpc.workerStatus(data, workerInfo)
 		if err != nil {

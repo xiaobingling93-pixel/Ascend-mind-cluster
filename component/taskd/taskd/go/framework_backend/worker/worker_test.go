@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
-
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -82,7 +81,7 @@ func TestInitNetwork(t *testing.T) {
 		return netTool, nil
 	})
 	called := atomic.Bool{}
-	patches.ApplyFunc(profiling.NetToolInitNotify, func() {
+	patches.ApplyFunc(netToolInitNotify, func() {
 		called.Store(true)
 	})
 	InitNetwork(0, 0)

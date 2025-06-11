@@ -68,7 +68,7 @@ func TestSelectSendChannelSendSwitchNicChanNil(t *testing.T) {
 			},
 		}
 		stream := &switchNicSender{}
-		ctl.selectSendSwitchNicChan(context.Background(), nil, stream)
+		ctl.selectSendSwitchNicResponseChan(context.Background(), nil, stream)
 	})
 }
 
@@ -83,7 +83,7 @@ func TestSelectSendSwitchNicChanContextDone(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		sendChan := make(chan *pb.SwitchNicResponse)
-		ctl.selectSendSwitchNicChan(ctx, sendChan, stream)
+		ctl.selectSendSwitchNicResponseChan(ctx, sendChan, stream)
 	})
 }
 
@@ -101,13 +101,13 @@ func TestSelectSwitchNicSendChannelReceiveSignal(t *testing.T) {
 		signal := &pb.SwitchNicResponse{JobID: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.SwitchNicSendRetry,
+		patchSendRetry := gomonkey.ApplyFunc(common.SwitchNicResponseSendRetry,
 			func(stream pb.Recover_SubscribeSwitchNicSignalServer, signal *pb.SwitchNicResponse, retryTimes int) error {
 				called = true
 				return nil
 			})
 		defer patchSendRetry.Reset()
-		ctl.selectSendSwitchNicChan(ctx, sendChan, stream)
+		ctl.selectSendSwitchNicResponseChan(ctx, sendChan, stream)
 		assert.True(t, called)
 	})
 }
@@ -123,18 +123,18 @@ func TestSelectSendSwitchNicSendChanClosed(t *testing.T) {
 		ctx := context.Background()
 		sendChan := make(chan *pb.SwitchNicResponse, 1)
 		close(sendChan)
-		ctl.selectSendSwitchNicChan(ctx, sendChan, stream)
+		ctl.selectSendSwitchNicResponseChan(ctx, sendChan, stream)
 		_, ok := <-sendChan
 		convey.So(ok, convey.ShouldBeFalse)
 	})
 }
 
 func TestGetCtxAndSwitchNicChan(t *testing.T) {
-	convey.Convey("Testing getCtxAndSwitchNicChan", t, func() {
+	convey.Convey("Testing getCtxAndSwitchNicResponseChan", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)
 		serviceCtx := context.Background()
 		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
-		ctx, ch := ctl.getCtxAndSwitchNicChan()
+		ctx, ch := ctl.getCtxAndSwitchNicResponseChan()
 		convey.So(ctx, convey.ShouldNotBeNil)
 		convey.So(ch, convey.ShouldNotBeNil)
 	})
@@ -152,12 +152,12 @@ func TestListenSwitchNicChannel(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		sendChan := make(chan *pb.SwitchNicResponse, 1)
-		patches.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicChan",
+		patches.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResponseChan",
 			func() (context.Context, chan *pb.SwitchNicResponse) {
 				return ctx, sendChan
 			})
 		patches.ApplyPrivateMethod(ctl, "reset", func() {})
-		patches.ApplyPrivateMethod(ctl, "selectSendSwitchNicChan", func(_ context.Context,
+		patches.ApplyPrivateMethod(ctl, "selectSendSwitchNicResponseChan", func(_ context.Context,
 			_ chan *pb.SwitchNicResponse, _ pb.Recover_SubscribeSwitchNicSignalServer) {
 			return
 		})
@@ -295,6 +295,16 @@ func testSwitchNicFinishNil(ctl *EventController) {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
+		resultChan := make(chan *pb.SwitchResult, 1)
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResultChan",
+			func() (context.Context, chan *pb.SwitchResult) {
+				return context.Background(), resultChan
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.switchRankResult)
+			ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
+		}()
 		event, respCode, err := ctl.handleWaitSwitchNicFinish()
 		convey.So(event, convey.ShouldEqual, "")
 		convey.So(respCode, convey.ShouldEqual, common.ServerInnerError)
@@ -314,6 +324,16 @@ func testSwitchNicFinishCanceled(ctl *EventController) {
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
+		}()
+		resultChan := make(chan *pb.SwitchResult, 1)
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResultChan",
+			func() (context.Context, chan *pb.SwitchResult) {
+				return ctx, resultChan
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.switchRankResult)
+			ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
 		}()
 		event, respCode, err := ctl.handleWaitSwitchNicFinish()
 		convey.So(event, convey.ShouldEqual, "")
@@ -335,6 +355,16 @@ func testSwitchNicFinishNotReady(ctl *EventController) {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
+		resultChan := make(chan *pb.SwitchResult, 1)
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResultChan",
+			func() (context.Context, chan *pb.SwitchResult) {
+				return context.Background(), resultChan
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.switchRankResult)
+			ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
+		}()
 		event, respCode, err := ctl.handleWaitSwitchNicFinish()
 		convey.So(event, convey.ShouldEqual, common.WaitSwitchNicRecvFaultEvent)
 		convey.So(respCode, convey.ShouldEqual, common.ClientError)
@@ -344,11 +374,20 @@ func testSwitchNicFinishNotReady(ctl *EventController) {
 
 func testSwitchNicFinishFailed(ctl *EventController) {
 	convey.Convey("When receiving a report with switch nic error", func() {
-		reportChan := make(chan *pb.RecoverStatusRequest, 1)
-		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: common.SwitchNicFail}}
+		resultChan := make(chan *pb.SwitchResult, 1)
+		resultChan <- &pb.SwitchResult{JobId: ctl.jobInfo.JobId, Result: false}
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResultChan",
+			func() (context.Context, chan *pb.SwitchResult) {
+				return context.Background(), resultChan
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.switchRankResult)
+			ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
+		}()
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
 			func() (context.Context, chan *pb.RecoverStatusRequest) {
-				return context.Background(), reportChan
+				return context.Background(), make(chan *pb.RecoverStatusRequest, 1)
 			})
 		defer patches.Reset()
 		defer func() {
@@ -364,16 +403,25 @@ func testSwitchNicFinishFailed(ctl *EventController) {
 
 func testSwitchNicFinishValidReport(ctl *EventController) {
 	convey.Convey("When receiving a valid report", func() {
-		reportChan := make(chan *pb.RecoverStatusRequest, 1)
-		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: int32(common.OK)}}
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
 			func() (context.Context, chan *pb.RecoverStatusRequest) {
-				return context.Background(), reportChan
+				return context.Background(), make(chan *pb.RecoverStatusRequest, 1)
 			})
 		defer patches.Reset()
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
+		}()
+		resultChan := make(chan *pb.SwitchResult, 1)
+		resultChan <- &pb.SwitchResult{JobId: ctl.jobInfo.JobId, Result: true}
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndSwitchNicResultChan",
+			func() (context.Context, chan *pb.SwitchResult) {
+				return context.Background(), resultChan
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.switchRankResult)
+			ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
 		}()
 		event, respCode, err := ctl.handleWaitSwitchNicFinish()
 		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)

@@ -32,12 +32,18 @@ func (mpc *MsgProcessor) clusterHandler(dataPool *storage.DataPool, data storage
 	}
 	switch data.Body.MsgType {
 	case constant.Action:
-		defaultDomainCmd, commDomainCmd, err := profilingCmd(data.Body.Code)
-		if err != nil {
-			return err
+		if data.Body.Code == constant.SwitchNicCode {
+			clusterInfo.Command[constant.GlobalRankKey] = data.Body.Extension[constant.GlobalRankKey]
+			clusterInfo.Command[constant.GlobalOpKey] = data.Body.Extension[constant.GlobalOpKey]
+			clusterInfo.Command[constant.SwitchNicUUID] = data.Header.Uuid
+			clusterInfo.Command[constant.SwitchJobID] = data.Body.Extension[constant.SwitchJobID]
+			return nil
 		}
-		clusterInfo.Command[constant.DefaultDomainCmd] = defaultDomainCmd
-		clusterInfo.Command[constant.CommDomainCmd] = commDomainCmd
+		defaultDomainCmd, commDomainCmd, err := profilingCmd(data.Body.Code)
+		if err == nil {
+			clusterInfo.Command[constant.DefaultDomainCmd] = defaultDomainCmd
+			clusterInfo.Command[constant.CommDomainCmd] = commDomainCmd
+		}
 	case constant.KeepAlive:
 		clusterInfo.HeartBeat = time.Now()
 	default:

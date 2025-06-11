@@ -10,6 +10,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
+	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
@@ -130,8 +131,7 @@ func TestCheckNicsParam(t *testing.T) {
 	rankID := "1"
 	job.SaveJobCache(jobID, constant.JobInfo{
 		PreServerList: []constant.ServerHccl{
-			{ServerName: nodeName, DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}}},
-		},
+			{ServerName: nodeName, DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}}}},
 		Status: job.StatusJobRunning,
 	})
 	defer job.DeleteJobCache(jobID)
@@ -163,7 +163,28 @@ func TestCheckNicsParam(t *testing.T) {
 			job.SaveJobCache(jobID, jobInfo)
 		}()
 	})
+}
+
+func TestCheckNicsParamOK(t *testing.T) {
+	jobID := "jobID"
+	nodeName := "nodeName"
+	deviceID := "device"
+	rankID := "1"
+	job.SaveJobCache(jobID, constant.JobInfo{
+		PreServerList: []constant.ServerHccl{
+			{ServerName: nodeName, DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}}}},
+		Status: job.StatusJobRunning,
+	})
+	defer job.DeleteJobCache(jobID)
 	t.Run("check param ok", func(t *testing.T) {
+		patch := gomonkey.ApplyFunc(faultmanager.QueryDeviceInfoToReport,
+			func() map[string]*constant.AdvanceDeviceFaultCm {
+				res := make(map[string]*constant.AdvanceDeviceFaultCm)
+				res[nodeName] = &constant.AdvanceDeviceFaultCm{
+					SuperPodID: 1,
+				}
+				return res
+			})
 		s := fakeService()
 		s.eventCtl[jobID] = &EventController{}
 		ok, _ := s.checkNicsParam(&pb.SwitchNics{
@@ -173,6 +194,7 @@ func TestCheckNicsParam(t *testing.T) {
 			},
 		})
 		assert.True(t, ok)
+		patch.Reset()
 	})
 }
 

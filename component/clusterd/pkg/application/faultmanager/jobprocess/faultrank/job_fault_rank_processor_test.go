@@ -314,7 +314,7 @@ func testNilJobFaultRankInfos(processor *jobRankFaultInfoProcessor) {
 			})
 		defer patches.Reset()
 
-		result := processor.GetJobFaultRankInfosFilterLevel("RestartBusiness")
+		result := processor.GetJobFaultRankInfosFilterLevel([]string{"RestartBusiness"})
 		convey.So(result, convey.ShouldBeNil)
 	})
 }
@@ -336,7 +336,7 @@ func testFilterFaultLevel(processor *jobRankFaultInfoProcessor) {
 			})
 		defer patches.Reset()
 
-		result := processor.GetJobFaultRankInfosFilterLevel("RestartBusiness")
+		result := processor.GetJobFaultRankInfosFilterLevel([]string{"RestartBusiness"})
 		convey.So(result, convey.ShouldNotBeNil)
 		convey.So(result["job1"].FaultList, convey.ShouldHaveLength, 1)
 		convey.So(result["job1"].FaultList[0].FaultLevel, convey.ShouldEqual, "NoRestart")
