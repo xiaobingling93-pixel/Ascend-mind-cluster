@@ -49,7 +49,7 @@ func (mpc *MsgProcessor) workerHandler(dataPool *storage.DataPool, data storage.
 	case constant.KeepAlive:
 		workerInfo.HeartBeat = time.Now()
 	default:
-		return fmt.Errorf("unknow message type: %v", data.Body.MsgType)
+		return fmt.Errorf("unknown message type: %v", data.Body.MsgType)
 	}
 	err = dataPool.UpdateWorker(workerName, workerInfo)
 	return err
@@ -75,7 +75,7 @@ func (mpc *MsgProcessor) workerStatus(data storage.BaseMessage, workerInfo *stor
 	case constant.ProfilingAllCloseCode:
 		return profilingStatus(data, workerInfo)
 	default:
-		return fmt.Errorf("unknow message status code: %v", data.Body.Code)
+		return fmt.Errorf("unknown message status code: %v", data.Body.Code)
 	}
 }
 

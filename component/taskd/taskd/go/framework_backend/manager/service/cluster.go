@@ -41,7 +41,7 @@ func (mpc *MsgProcessor) clusterHandler(dataPool *storage.DataPool, data storage
 	case constant.KeepAlive:
 		clusterInfo.HeartBeat = time.Now()
 	default:
-		return fmt.Errorf("unknow message type: %v", data.Body.MsgType)
+		return fmt.Errorf("unknown message type: %v", data.Body.MsgType)
 	}
 	err = dataPool.UpdateCluster(clusterName, clusterInfo)
 	return err
