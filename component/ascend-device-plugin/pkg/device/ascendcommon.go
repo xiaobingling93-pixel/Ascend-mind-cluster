@@ -790,13 +790,12 @@ func (tool *AscendTools) AddPodAnnotation(podDev *common.PodDeviceInfo, deviceTy
 	}
 	if tool.name == common.Ascend910 || common.IsContainAll300IDuo() {
 		config, err := tool.getConfigAnno(podDev, deviceType, serverID, allDevices)
-		if err != nil {
-			return err
-		}
-		if podDev.Pod.Annotations[api.Pod910DeviceAnno] != config {
-			hwlog.RunLog.Warnf("need correct: annotKey: %s, old value: %s, new value: %s",
-				api.Pod910DeviceAnno, podDev.Pod.Annotations[api.Pod910DeviceAnno], config)
-			annotation[api.Pod910DeviceAnno] = config
+		if err == nil {
+			if podDev.Pod.Annotations[api.Pod910DeviceAnno] != config {
+				hwlog.RunLog.Warnf("need correct: annotKey: %s, old value: %s, new value: %s",
+					api.Pod910DeviceAnno, podDev.Pod.Annotations[api.Pod910DeviceAnno], config)
+				annotation[api.Pod910DeviceAnno] = config
+			}
 		}
 	}
 	if len(annotation) == 0 {

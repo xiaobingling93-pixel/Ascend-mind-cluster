@@ -29,8 +29,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -523,5 +526,56 @@ func TestFlushPodCacheNextQuerying(t *testing.T) {
 	convey.Convey("test flush pod cache success", t, func() {
 		client.FlushPodCacheNextQuerying()
 		convey.So(client.IsApiErr, convey.ShouldBeTrue)
+	})
+}
+
+// TestAddAnnotation test add annotation
+func TestAddAnnotation(t *testing.T) {
+	nodeName := "test-node"
+	newTestClient := func(node *v1.Node, patchErrs []error) *ClientK8s {
+		clientset := fake.NewSimpleClientset(node)
+		actionIndex := 0
+		clientset.Fake.PrependReactor("patch", "nodes",
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				defer func() { actionIndex++ }()
+				if actionIndex < len(patchErrs) {
+					return true, nil, patchErrs[actionIndex]
+				}
+				return true, node, nil
+			})
+		return &ClientK8s{
+			Clientset: clientset,
+			NodeName:  nodeName,
+		}
+	}
+
+	convey.Convey("Given a ClientK8s instance for testing AddAnnotation", t, func() {
+		baseNode := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        nodeName,
+				Annotations: map[string]string{},
+			},
+		}
+
+		convey.Convey("When all patch requests fail", func() {
+			patchErrs := []error{fmt.Errorf("api server timeout"), fmt.Errorf("connection refused"), fmt.Errorf("network error")}
+			ki := newTestClient(baseNode, patchErrs)
+			err := ki.AddAnnotation("anno", "val")
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldEqual, patchErrs[len(patchErrs)-1].Error())
+		})
+
+		convey.Convey("When first patch request succeeds", func() {
+			ki := newTestClient(baseNode, nil)
+			err := ki.AddAnnotation("anno", "val")
+			convey.So(err, convey.ShouldBeNil)
+		})
+
+		convey.Convey("When retry then succeed", func() {
+			patchErrs := []error{fmt.Errorf("first error"), fmt.Errorf("second error"), nil}
+			ki := newTestClient(baseNode, patchErrs)
+			err := ki.AddAnnotation("anno", "val")
+			convey.So(err, convey.ShouldBeNil)
+		})
 	})
 }
