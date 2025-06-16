@@ -1951,10 +1951,10 @@ func (hnm *HwAscend910Manager) fillResetDevs(devs []ResetDevice) ([]ResetDevice,
 
 // updateResetInfo update in rest devices, wait third party devices, wait manually devices
 func (hnm *HwAscend910Manager) updateResetInfo(failDevs, sucDevs []ResetDevice) {
-	hwlog.RunLog.Infof("reset failed devices: %v, reset success devices: %v", failDevs, sucDevs)
 	if len(failDevs) <= 0 {
 		return
 	}
+	hwlog.RunLog.Infof("reset failed devices: %v, reset success devices: %v", failDevs, sucDevs)
 	resetInfo := ReadResetInfo()
 	filledFailDevs, err := hnm.fillResetDevs(failDevs)
 	if err != nil {
