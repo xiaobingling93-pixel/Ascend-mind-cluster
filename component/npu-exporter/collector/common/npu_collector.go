@@ -79,28 +79,32 @@ func startCollectForMultiGoroutine(group *sync.WaitGroup, ctx context.Context, n
 	for _, chip := range chips {
 		go func(chip HuaWeiAIChip) {
 			defer group.Done()
-			ticker := time.NewTicker(n.updateTime)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					logger.Infof("received the stop signal,stop collect network info of npu(%d)", chip.LogicID)
-					return
-				default:
-					singleChipSlice := []HuaWeiAIChip{chip}
-
-					for _, c := range ChainForMultiGoroutine {
-						c.PreCollect(n, singleChipSlice)
-						c.CollectToCache(n, singleChipSlice)
-						c.PostCollect(n)
-					}
-					if _, ok := <-ticker.C; !ok {
-						logger.Errorf(tickerFailedPattern, "collect for multigroutine ")
-						return
-					}
-				}
-			}
+			runChipCollector(ctx, n, chip)
 		}(chip)
+	}
+}
+
+func runChipCollector(ctx context.Context, n *NpuCollector, chip HuaWeiAIChip) {
+	ticker := time.NewTicker(n.updateTime)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Infof("received the stop signal,stop collect network info of npu(%d)", chip.LogicID)
+			return
+		default:
+			singleChipSlice := []HuaWeiAIChip{chip}
+
+			for _, c := range ChainForMultiGoroutine {
+				c.PreCollect(n, singleChipSlice)
+				c.CollectToCache(n, singleChipSlice)
+				c.PostCollect(n)
+			}
+			if _, ok := <-ticker.C; !ok {
+				logger.Errorf(tickerFailedPattern, "collect for multigroutine ")
+				return
+			}
+		}
 	}
 }
 

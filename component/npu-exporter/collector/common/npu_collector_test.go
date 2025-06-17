@@ -51,6 +51,8 @@ const (
 	defaultUpdateTime = 10 * time.Millisecond
 	num2              = 2
 	num100            = 100
+	mockKey           = "mockKey"
+	mockValue         = "mockValue"
 )
 
 type mockContainerRuntimeOperator struct{}
@@ -254,26 +256,69 @@ func TestNpuChipInfoInitAtFirstTime(t *testing.T) {
 	})
 }
 
+func patchCollectToCache() *gomonkey.Patches {
+	return gomonkey.ApplyMethod(&MetricsCollectorAdapter{}, "CollectToCache",
+		func(_ *MetricsCollectorAdapter, n *NpuCollector, chipList []HuaWeiAIChip) {
+			n.cache.Set(mockKey, mockValue, n.cacheTime)
+		})
+}
+
+func TestStartCollectForMultiGoroutine(t *testing.T) {
+	n := mockNewNpuCollector()
+	wg := sync.WaitGroup{}
+	ChainForMultiGoroutine = []MetricsCollector{
+		&MetricsCollectorAdapter{},
+		&MetricsCollectorAdapter{},
+	}
+	patches := patchCollectToCache()
+	defer patches.Reset()
+	patches.ApplyFuncReturn(getChipListCache, []HuaWeiAIChip{createChip()})
+	convey.Convey("TestStartCollectForMultiGoroutine", t, func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		startCollectForMultiGoroutine(&wg, ctx, n)
+		time.Sleep(n.updateTime)
+		cancel()
+		data, err := n.cache.Get(mockKey)
+		convey.So(err, convey.ShouldBeNil)
+		value, ok := data.(string)
+		convey.So(ok, convey.ShouldBeTrue)
+		convey.So(value, convey.ShouldEqual, mockValue)
+	})
+}
+
+func TestRunChipCollector(t *testing.T) {
+	n := mockNewNpuCollector()
+	patches := patchCollectToCache()
+	defer patches.Reset()
+	convey.Convey("TestRunChipCollector", t, func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		tickCh := make(chan time.Time)
+		patches.ApplyFuncReturn(time.NewTicker, &time.Ticker{C: tickCh})
+		close(tickCh)
+		go runChipCollector(ctx, n, createChip())
+		time.Sleep(n.updateTime)
+		cancel()
+		data, err := n.cache.Get(mockKey)
+		convey.So(err, convey.ShouldBeNil)
+		value, ok := data.(string)
+		convey.So(ok, convey.ShouldBeTrue)
+		convey.So(value, convey.ShouldEqual, mockValue)
+	})
+}
+
 func TestStartCollectSingleGoroutine(t *testing.T) {
-	const mockKey = "mockKey"
-	const mockValue = "mockValue"
 	n := mockNewNpuCollector()
 	wg := sync.WaitGroup{}
 	ChainForSingleGoroutine = []MetricsCollector{
 		&MetricsCollectorAdapter{},
 	}
-	patches := gomonkey.NewPatches()
+	patches := patchCollectToCache()
 	defer patches.Reset()
-	patches.ApplyMethod(&MetricsCollectorAdapter{}, "CollectToCache",
-		func(_ *MetricsCollectorAdapter, n *NpuCollector, chipList []HuaWeiAIChip) {
-			n.cache.Set(mockKey, mockValue, n.cacheTime)
-		})
 	convey.Convey("TestStartCollectSingleGoroutine", t, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		startCollectSingleGoroutine(&wg, ctx, n, "")
 		time.Sleep(n.updateTime)
 		cancel()
-		// valid cache
 		data, err := n.cache.Get(mockKey)
 		convey.So(err, convey.ShouldBeNil)
 		value, ok := data.(string)
