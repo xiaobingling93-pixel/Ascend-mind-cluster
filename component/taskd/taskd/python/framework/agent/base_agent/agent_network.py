@@ -51,7 +51,7 @@ class AgentMessageManager():
         self.rank = None
         self.msg_queue = msg_queue
         self._network_instance = None
-        self._init_Network(network_config)
+        self._init_network(network_config)
 
     def register(self, rank: str):
         """
@@ -147,7 +147,7 @@ class AgentMessageManager():
         run_log.info(f"agent parse message body: {msg}")
         return msg
 
-    def _init_Network(self, network_config):
+    def _init_network(self, network_config):
         """
         Initialize network.
         """ 

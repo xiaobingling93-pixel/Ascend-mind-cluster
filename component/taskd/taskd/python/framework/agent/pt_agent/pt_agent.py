@@ -76,7 +76,6 @@ class PtAgent(BaseAgent):
                 continue
             else:
                 raise Exception(f"[{role}] Worker group in {state.name} state")
-        return
 
     def update_agent_info(self):
         self.local_rank = [worker.global_rank for worker in self.worker_group.workers]

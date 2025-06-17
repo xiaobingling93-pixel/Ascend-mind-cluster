@@ -29,7 +29,7 @@ taskd_agent = None
 framework = None
 
 
-def init_taskd_agent(config: dict = {}, cls=None) -> bool:
+def init_taskd_agent(config: dict, cls=None) -> bool:
     global taskd_agent, framework
     if cython_api.lib is None:
         run_log.error("init_taskd_agent: the libtaskd.so has not been loaded!")
