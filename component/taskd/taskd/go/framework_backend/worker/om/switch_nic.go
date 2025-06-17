@@ -4,6 +4,7 @@
 package om
 
 /*
+#include <stdlib.h>
 #include "switch.h"
 */
 import "C"
