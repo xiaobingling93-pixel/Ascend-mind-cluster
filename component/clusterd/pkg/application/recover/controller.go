@@ -67,6 +67,7 @@ type EventController struct {
 	reportRecoverStrategyChan chan *pb.RecoverStrategyRequest
 	reportStatusChan          chan *pb.RecoverStatusRequest
 	scheduleResultChan        chan bool
+	isChanClosed              bool
 	lock                      sync.RWMutex
 }
 
@@ -96,6 +97,8 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		switchNicResponse:         make(chan *pb.SwitchNicResponse, 1),
 		switchRankList:            make(chan *pb.SwitchRankList, 1),
 		switchRankResult:          make(chan *pb.SwitchResult, 1),
+		restartFaultProcess:       false,
+		isChanClosed:              false,
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
@@ -161,10 +164,14 @@ func (ctl *EventController) reset(stop bool) {
 		ctl.ctxCancelFunc()
 	}
 	ctl.faultFlushing = false
+	ctl.restartFaultProcess = false
 	ctl.uuid = ""
 	ctl.latestStrategy = ctl.latestStrategy[:0]
 	ctl.faultPod = make(map[string]string)
-	ctl.closeControllerChan()
+	if !ctl.isChanClosed {
+		ctl.closeControllerChan()
+		ctl.isChanClosed = true
+	}
 	if stop {
 		return
 	}
@@ -187,6 +194,7 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
 	ctl.state.Reset()
 	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
+	ctl.isChanClosed = false
 	go ctl.listenEvent()
 	go ctl.keepAlive()
 }
@@ -494,6 +502,7 @@ func (ctl *EventController) selectSendChannel(ctx context.Context, sendChan chan
 		hwlog.RunLog.Infof("context done, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 		return true
 	case <-stream.Context().Done():
+		ctl.reset(true)
 		hwlog.RunLog.Infof("stream context done, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 		return true
 	case signal, ok := <-sendChan:

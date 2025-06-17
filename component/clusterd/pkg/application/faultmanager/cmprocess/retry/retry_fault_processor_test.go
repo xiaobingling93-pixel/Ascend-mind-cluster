@@ -628,7 +628,7 @@ func TestUpdateNormalFaultDetailOfJob(t *testing.T) {
 		target := constant.DeviceFaultDetail{
 			FaultTime: current, ReportTime: constant.JobShouldReportFault, HasFaultAboveL3: true, HasRank0Fault: false,
 		}
-		RetryProcessor.updateNormalFaultDetailOfJob(jobName, &detail, 1)
+		RetryProcessor.updateNormalFaultDetailOfJob(jobName, &detail, 1, constant.JobShouldReportFault)
 		result, ok := RetryProcessor.normalFaultDetailOfJob[jobName]
 		if !ok {
 			t.Error("update map failed")
@@ -645,7 +645,7 @@ func TestUpdateNormalFaultDetailOfJob(t *testing.T) {
 		target := constant.DeviceFaultDetail{
 			FaultTime: current, ReportTime: current, HasFaultAboveL3: true, HasRank0Fault: true,
 		}
-		RetryProcessor.updateNormalFaultDetailOfJob(jobName, &detail, 0)
+		RetryProcessor.updateNormalFaultDetailOfJob(jobName, &detail, 0, current)
 		result, ok := RetryProcessor.normalFaultDetailOfJob[jobName]
 		if !ok {
 			t.Error("update map failed")
