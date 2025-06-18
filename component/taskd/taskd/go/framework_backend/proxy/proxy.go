@@ -31,10 +31,6 @@ const (
 	localHost = "127.0.0.1"
 )
 
-var (
-	proxyInstance *proxyClient
-)
-
 type proxyClient struct {
 	networkInstence *net.NetInstance
 	proxyInfo       *proxyInfo
@@ -43,6 +39,8 @@ type proxyClient struct {
 type proxyInfo struct {
 	proxyConfig *common.TaskNetConfig
 }
+
+var proxyInstance *proxyClient
 
 func newProxyInstance(proxyConfig *common.TaskNetConfig) error {
 	var err error

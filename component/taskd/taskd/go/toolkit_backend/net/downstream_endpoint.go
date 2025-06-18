@@ -310,16 +310,14 @@ func (de *downStreamEndpoint) getBroadCastNextHops(msg *proto.Message) []common.
 		if dst.Role != msg.Header.Dst.Role {
 			continue
 		}
-		if dst.ServerRank != msg.Header.Dst.ServerRank &&
-			msg.Header.Dst.ServerRank != common.BroadCastPos {
+		if dst.ServerRank != msg.Header.Dst.ServerRank && msg.Header.Dst.ServerRank != common.BroadCastPos {
 			continue
 		}
 		if !common.RoleHasProcessProperty(msg.Header.Dst.Role) {
 			res = append(res, proxy)
 			continue
 		}
-		if dst.ProcessRank != msg.Header.Dst.ProcessRank &&
-			msg.Header.Dst.ProcessRank != common.BroadCastPos {
+		if dst.ProcessRank != msg.Header.Dst.ProcessRank && msg.Header.Dst.ProcessRank != common.BroadCastPos {
 			continue
 		}
 		res = append(res, proxy)

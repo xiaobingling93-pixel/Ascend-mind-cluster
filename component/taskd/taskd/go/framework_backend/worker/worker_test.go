@@ -93,13 +93,13 @@ func TestInitNetwork(t *testing.T) {
 }
 
 func TestRegisterAndLoopRecv(t *testing.T) {
-	NetTool = &net.NetInstance{}
+	netTool = &net.NetInstance{}
 	patches := gomonkey.NewPatches()
-	patches.ApplyMethod(NetTool, "SyncSendMessage",
+	patches.ApplyMethod(netTool, "SyncSendMessage",
 		func(nt *net.NetInstance, uuid, mtype, msgBody string, dst *common.Position) (*common.Ack, error) {
 			return nil, nil
 		})
-	patches.ApplyMethod(NetTool, "ReceiveMessage", func(nt *net.NetInstance) *common.Message {
+	patches.ApplyMethod(netTool, "ReceiveMessage", func(nt *net.NetInstance) *common.Message {
 		time.Sleep(time.Second)
 		return &common.Message{
 			Body: utils.ObjToString(storage.MsgBody{

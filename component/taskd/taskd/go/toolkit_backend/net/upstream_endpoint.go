@@ -205,7 +205,6 @@ func (up *upStreamEndpoint) rebuildNet() error {
 // listenUpStreamMessage listens for messages from the upstream stream.
 func (up *upStreamEndpoint) listenUpStreamMessage() {
 	hwlog.RunLog.Info("start listen upstream message")
-	var msg *proto.Message
 	var err error
 	err = up.setUpStream()
 	for err != nil && !up.destroyed.Load() {
@@ -215,6 +214,7 @@ func (up *upStreamEndpoint) listenUpStreamMessage() {
 				err, up.netInstance.config.Pos.Role, up.netInstance.config.Pos.ServerRank, up.netInstance.config.Pos.ProcessRank)
 		}
 	}
+	var msg *proto.Message
 	for !up.destroyed.Load() {
 		msg, err = up.stream.Recv()
 		if err != nil {
