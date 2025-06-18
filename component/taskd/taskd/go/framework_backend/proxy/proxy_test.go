@@ -18,8 +18,10 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
 	"ascend-common/common-utils/hwlog"
@@ -141,5 +143,69 @@ func TestProxyInit(t *testing.T) {
 			err := proxy.initNetwork(proxyConfig)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
+	})
+}
+
+func TestInitProxy(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	config := &common.TaskNetConfig{
+		Pos: common.Position{
+			Role:       common.ProxyRole,
+			ServerRank: "0",
+		},
+		ListenAddr:   localHost,
+		UpstreamAddr: localHost,
+		EnableTls:    false,
+		TlsConf:      nil,
+	}
+
+	convey.Convey("when proxy config is nil, then init proxy should return nil", t, func() {
+		convey.ShouldNotBeNil(InitProxy(nil))
+	})
+
+	convey.Convey("when init log error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(hwlog.InitRunLogger, func(config *hwlog.LogConfig, ctx context.Context) error {
+			return fmt.Errorf("init log error")
+		})
+
+		convey.ShouldNotBeNil(InitProxy(config))
+	})
+
+	convey.Convey("when init proxy network error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(hwlog.InitRunLogger, func(config *hwlog.LogConfig, ctx context.Context) error {
+			return nil
+		})
+
+		patches.ApplyFunc(newProxyInstance, func(proxyConfig *common.TaskNetConfig) error {
+			return fmt.Errorf("init instance error")
+		})
+		convey.ShouldNotBeNil(InitProxy(config))
+	})
+
+	convey.Convey("when no error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(newProxyInstance, func(proxyConfig *common.TaskNetConfig) error {
+			return nil
+		})
+		convey.ShouldBeNil(InitProxy(config))
+	})
+}
+
+func TestDestroyProxy(t *testing.T) {
+	convey.Convey("DestroyProxy should be called", t, func() {
+		proxyInstance = &proxyClient{}
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		called := false
+		patches.ApplyPrivateMethod(proxyInstance, "destroyNet", func(*proxyClient) {
+			called = true
+		})
+		DestroyProxy()
+		convey.ShouldBeTrue(called)
+
+		proxyInstance = nil
+		called = false
+		DestroyProxy()
+		convey.ShouldBeTrue(called)
 	})
 }

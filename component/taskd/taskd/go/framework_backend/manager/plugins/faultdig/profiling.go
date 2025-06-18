@@ -236,7 +236,7 @@ func NewProfilingPlugin() infrastructure.ManagerPlugin {
 		watchFile: atomic.Bool{},
 		shot:      storage.SnapShot{},
 		cmd:       constant.ProfilingDomainCmd{},
-		report:    nil,
+		report:    make(map[string]constant.ProfilingResult),
 		workerStatus: workerExecStatus{
 			workers: make(map[string]constant.ProfilingResult),
 			cmd: constant.ProfilingDomainCmd{

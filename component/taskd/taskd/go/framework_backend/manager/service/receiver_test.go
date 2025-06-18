@@ -47,15 +47,18 @@ func TestReceiveMsg(t *testing.T) {
 		ListenAddr: constant.DefaultIP + constant.MgrPort})
 	mockMsg := &common.Message{Uuid: "test_uuid", BizType: "test_biz_type", Src: workerPos,
 		Dst: workerPos, Body: utils.ObjToString(&storage.MsgBody{})}
-	patch := gomonkey.ApplyFuncReturn(tool.ReceiveMessage, mockMsg)
+	patch := gomonkey.ApplyMethod(tool, "ReceiveMessage", func(*net.NetInstance) *common.Message {
+		defer func() {
+			mockMsg = nil
+		}()
+		return mockMsg
+	})
 	defer patch.Reset()
 	convey.Convey("TestReceiveMsg test enqueue success wait exit return nil", t, func() {
-		ctx, cancel := context.WithTimeout(context.Background(), fiveHundred*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 		defer cancel()
 		testReturn := &testReturn{}
-		go func() {
-			testReturn.msg, testReturn.msgBody, testReturn.err = mrc.ReceiveMsg(mq, tool, ctx)
-		}()
+		testReturn.msg, testReturn.msgBody, testReturn.err = mrc.ReceiveMsg(mq, tool, ctx)
 		convey.So(testReturn.msg, convey.ShouldBeNil)
 		convey.So(testReturn.msgBody, convey.ShouldResemble, storage.MsgBody{})
 		convey.So(testReturn.err, convey.ShouldBeNil)
