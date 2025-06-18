@@ -142,7 +142,7 @@ func isValidJobId(jobId string) bool {
 
 // GetFaultMsgSignal return cluster fault
 func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.ClientInfo) (*fault.FaultQueryResult, error) {
-	hwlog.RunLog.Infof("role: %#v call get faults", request)
+	hwlog.RunLog.Infof("job %s role %s call get faults", request.JobId, request.Role)
 	if !s.limiter.Allow(ctx) {
 		return &fault.FaultQueryResult{
 			Code:        common.RateLimitedCode,

@@ -19,6 +19,8 @@ const (
 
 	// MaxGRPCRecvMsgSize 4MB
 	MaxGRPCRecvMsgSize = 4 * 1024 * 1024
+	// MaxGRPCSendMsgSize 8MB
+	MaxGRPCSendMsgSize = 8 * 1024 * 1024
 	// MaxGRPCConcurrentStreams limit on the number of concurrent streams to each ServerTransport.
 	MaxGRPCConcurrentStreams = 64
 	// MaxConcurrentLimit limit over listener
