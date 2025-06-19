@@ -435,3 +435,26 @@ func TestGetFaultCodeBySwitchInfo(t *testing.T) {
 		convey.So(codeList, convey.ShouldResemble, []string{"code1", "code2"})
 	})
 }
+
+func TestAppendFilterFaultCodeAndLevel(t *testing.T) {
+	convey.Convey("Test appendFilterFaultCodeAndLevel", t, func() {
+		filterFault := map[string]string{
+			constant.UceFaultCode: "level1",
+			"fakeCode1":           "level2",
+			"fakeCode2":           "level3",
+		}
+		patches := gomonkey.ApplyPrivateMethod(retry.RetryProcessor, "GetFilterFaultCodeAndLevel",
+			func(jobId, nodeName, deviceName string) map[string]string {
+				return filterFault
+			})
+		defer patches.Reset()
+		faultList := []constant.DeviceFault{{FaultCode: "fakeCode1", FaultLevel: "level3"}}
+		codeList := JobFaultRankProcessor.appendFilterFaultCodeAndLevel("", "", "", faultList)
+		listLength := 2
+		convey.So(len(codeList), convey.ShouldEqual, listLength)
+		convey.So(codeList, convey.ShouldResemble, []constant.DeviceFault{
+			{FaultCode: "fakeCode2", FaultLevel: "level3"},
+			{FaultCode: "fakeCode1", FaultLevel: "level3"},
+		})
+	})
+}

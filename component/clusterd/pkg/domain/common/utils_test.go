@@ -20,6 +20,7 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/pod"
+	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
@@ -863,6 +864,37 @@ func TestCalculatePodRank(t *testing.T) {
 			convey.So(podRank, convey.ShouldEqual, 0)
 			podRank = CalculateStringDivInt(deviceNpuStr, deviceNum)
 			convey.So(podRank, convey.ShouldEqual, 1)
+		})
+	})
+}
+
+func TestCanRestartFaultProcess(t *testing.T) {
+	convey.Convey("Test CanRestartFaultProcess", t, func() {
+		convey.Convey("config not support recover-in-place, should return false", func() {
+			patch := gomonkey.ApplyFuncReturn(podgroup.JudgeRestartProcessByJobKey, false)
+			defer patch.Reset()
+			convey.So(CanRestartFaultProcess("", nil), convey.ShouldBeFalse)
+		})
+		patch := gomonkey.ApplyFuncReturn(podgroup.JudgeRestartProcessByJobKey, true)
+		defer patch.Reset()
+		convey.Convey("only have L2/L3 fault and DoRestartInPlace of all faults is true, should return true",
+			func() {
+				faultRank := []constant.FaultRank{
+					{FaultLevel: constant.RestartBusiness, DoRestartInPlace: true},
+					{FaultLevel: constant.RestartRequest, DoRestartInPlace: true}}
+				convey.So(CanRestartFaultProcess("", faultRank), convey.ShouldBeTrue)
+			})
+		convey.Convey("only have L2/L3 fault and DoRestartInPlace of some faults is not true, "+
+			"should return false", func() {
+			faultRank := []constant.FaultRank{
+				{FaultLevel: constant.RestartBusiness, DoRestartInPlace: true},
+				{FaultLevel: constant.RestartRequest, DoRestartInPlace: false}}
+			convey.So(CanRestartFaultProcess("", faultRank), convey.ShouldBeFalse)
+		})
+		convey.Convey("not only have L2/L3 fault, should return false", func() {
+			faultRank := []constant.FaultRank{
+				{FaultLevel: constant.RestartNPU, DoRestartInPlace: true}}
+			convey.So(CanRestartFaultProcess("", faultRank), convey.ShouldBeFalse)
 		})
 	})
 }

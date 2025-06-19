@@ -1055,19 +1055,19 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 
 func (ctl *EventController) waitNormalFaultRecovery() error {
 	startTime := time.Now().Unix()
-	for {
+	for i := 0; i < constant.JobFaultDisappearRetryTimes; i++ {
+		time.Sleep(constant.JobFaultCheckPeriod * time.Second)
 		if !retry.RetryProcessor.JobHasFault(ctl.jobInfo.JobId) {
+			hwlog.RunLog.Infof("fault disappear, jobId:%s", ctl.jobInfo.JobId)
 			return nil
 		}
-		time.Sleep(constant.CheckPeriod * time.Second)
-		timeUse := time.Now().Unix() - startTime
-		if timeUse > constant.JobFaultRecoverTimeout {
-			hwlog.RunLog.Warnf("wait fault recover timeout, jobId:%s timeUse=%d > %d second",
-				ctl.jobInfo.JobId, startTime, constant.JobFaultRecoverTimeout)
-			return fmt.Errorf("wait fault recover timeout, jobId:%s timeUse=%d > %d second",
-				ctl.jobInfo.JobId, startTime, constant.JobFaultRecoverTimeout)
-		}
 	}
+	timeUse := time.Now().Unix() - startTime
+	timeout := constant.JobFaultDisappearRetryTimes * constant.JobFaultCheckPeriod
+	hwlog.RunLog.Warnf("wait fault disappear timeout, jobId:%s timeUse=%d > %d second",
+		ctl.jobInfo.JobId, timeUse, timeout)
+	return fmt.Errorf("wait fault disappear timeout, jobId:%s timeUse=%d > %d second",
+		ctl.jobInfo.JobId, timeUse, timeout)
 }
 
 func (ctl *EventController) getStrategyResult() ([]string, []*pb.RecoverStatusRequest) {

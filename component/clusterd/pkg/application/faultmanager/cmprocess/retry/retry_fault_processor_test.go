@@ -667,7 +667,9 @@ func getMockRetryDeviceOfJobMap() map[string]constant.RetryJobInfo {
 	return map[string]constant.RetryJobInfo{
 		job1: {RetryNode: map[string]constant.RetryNodeInfo{
 			node1: {DeviceInfo: map[string]constant.RetryDeviceInfo{
-				device1: {}},
+				device1: {
+					FaultCodeLevel: map[string]string{"code1": "level1"},
+				}},
 			}},
 		},
 	}
@@ -691,6 +693,59 @@ func TestGetRetryDeviceFromJob(t *testing.T) {
 		_, found := RetryProcessor.GetRetryDeviceFromJob(job1, node1, device1)
 		if !found {
 			t.Errorf("GetRetryDeviceFromJob() = %v, want %v", found, true)
+		}
+	})
+}
+
+func TestCanDoRestartInPlace(t *testing.T) {
+	currentTime := time.Now().UnixMilli()
+	RetryProcessor.normalFaultDetailOfJob = map[string]constant.DeviceFaultDetail{
+		"job1": {HasFaultAboveL3: true},
+		"job2": {HasRank0Fault: true},
+		"job3": {ReportTime: currentTime, FaultTime: currentTime - 1},
+		"job4": {FaultTime: currentTime - 1},
+		"job5": {FaultTime: currentTime - constant.JobRestartInPlaceTimeout - 1},
+	}
+	t.Run("CanDoRestartInPlace, can not do restart in place", func(t *testing.T) {
+		canDo := RetryProcessor.CanDoRestartInPlace("job0")
+		canDo1 := RetryProcessor.CanDoRestartInPlace("job1")
+		canDo2 := RetryProcessor.CanDoRestartInPlace("job2")
+		canDo3 := RetryProcessor.CanDoRestartInPlace("job3")
+		canDo4 := RetryProcessor.CanDoRestartInPlace("job5")
+		if canDo || canDo1 || canDo2 || canDo3 || canDo4 {
+			t.Errorf("CanDoRestartInPlace() = %v, want %v", canDo, false)
+		}
+	})
+	t.Run("GetRetryDeviceFromJob, CanDoRestartInPlace, can do restart in place", func(t *testing.T) {
+		canDo := RetryProcessor.CanDoRestartInPlace("job4")
+		if !canDo {
+			t.Errorf("CanDoRestartInPlace() = %v, want %v", canDo, true)
+		}
+	})
+}
+
+func TestGetFilterFaultCodeAndLevel(t *testing.T) {
+	RetryProcessor.retryDevicesOfJob = getMockRetryDeviceOfJobMap()
+	t.Run("GetFilterFaultCodeAndLevel, get map success", func(t *testing.T) {
+		faultLevelMap := RetryProcessor.GetFilterFaultCodeAndLevel(job1, node1, device1)
+		if faultLevelMap == nil {
+			t.Errorf("GetFilterFaultCodeAndLevel() = %v, want: should not be nil", faultLevelMap)
+		}
+	})
+}
+
+func TestJobHasFault(t *testing.T) {
+	RetryProcessor.retryDevicesOfJob = getMockRetryDeviceOfJobMap()
+	t.Run("JobHasFault, job has fault, should return true", func(t *testing.T) {
+		hasFault := RetryProcessor.JobHasFault(job1)
+		if !hasFault {
+			t.Errorf("JobHasFault() = %v, want %v", hasFault, true)
+		}
+	})
+	t.Run("JobHasFault, job has no fault, should return false", func(t *testing.T) {
+		hasFault := RetryProcessor.JobHasFault(job2)
+		if hasFault {
+			t.Errorf("JobHasFault() = %v, want %v", hasFault, false)
 		}
 	})
 }
