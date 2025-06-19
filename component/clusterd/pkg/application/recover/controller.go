@@ -175,28 +175,36 @@ func (ctl *EventController) reset(stop bool) {
 	if stop {
 		return
 	}
+	ctl.initControllerChan()
+	ctl.cleanControllerSlice()
+	ctl.healthState = constant.HealthyState
+	ctl.platStrategy = ""
+	ctl.state.Reset()
+	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
+	ctl.isChanClosed = false
+	go ctl.listenEvent()
+	go ctl.keepAlive()
+}
+
+func (ctl *EventController) initControllerChan() {
 	ctl.events = make(chan string, eventChanLength)
 	ctl.signalChan = make(chan *pb.ProcessManageSignal, 1)
 	ctl.reportStopCompleteChan = make(chan *pb.StopCompleteRequest, 1)
 	ctl.reportRecoverStrategyChan = make(chan *pb.RecoverStrategyRequest, 1)
 	ctl.reportStatusChan = make(chan *pb.RecoverStatusRequest, 1)
 	ctl.scheduleResultChan = make(chan bool, 1)
-	ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
-	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
-	ctl.healthState = constant.HealthyState
-	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
-	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
-	ctl.platStrategy = ""
-	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
-	ctl.globalOps = ctl.globalOps[:0]
 	ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 	ctl.switchRankList = make(chan *pb.SwitchRankList, 1)
 	ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
-	ctl.state.Reset()
-	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
-	ctl.isChanClosed = false
-	go ctl.listenEvent()
-	go ctl.keepAlive()
+}
+
+func (ctl *EventController) cleanControllerSlice() {
+	ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
+	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
+	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
+	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
+	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
+	ctl.globalOps = ctl.globalOps[:0]
 }
 
 func (ctl *EventController) closeControllerChan() {

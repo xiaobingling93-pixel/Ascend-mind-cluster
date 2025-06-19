@@ -438,6 +438,39 @@ func TestReset(t *testing.T) {
 	})
 }
 
+func TestInitControllerChan(t *testing.T) {
+	convey.Convey("Testing initControllerChan", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.initControllerChan()
+		convey.So(ctl.events, convey.ShouldNotBeNil)
+		convey.So(ctl.signalChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportStopCompleteChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportRecoverStrategyChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportStatusChan, convey.ShouldNotBeNil)
+		convey.So(ctl.scheduleResultChan, convey.ShouldNotBeNil)
+		convey.So(ctl.switchNicResponse, convey.ShouldNotBeNil)
+		convey.So(ctl.switchRankList, convey.ShouldNotBeNil)
+		convey.So(ctl.switchRankResult, convey.ShouldNotBeNil)
+	})
+}
+
+func TestCleanControllerSlice(t *testing.T) {
+	convey.Convey("Testing cleanControllerSlice", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cleanControllerSlice()
+		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 0)
+		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 0)
+		convey.So(ctl.latestRecoverResult, convey.ShouldHaveLength, 0)
+		convey.So(ctl.agentReportStrategies, convey.ShouldHaveLength, 0)
+		convey.So(ctl.globalSwitchRankIDs, convey.ShouldHaveLength, 0)
+		convey.So(ctl.globalOps, convey.ShouldHaveLength, 0)
+	})
+}
+
 func TestSelectKeepAlive(t *testing.T) {
 	convey.Convey("Testing selectKeepAlive", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)
