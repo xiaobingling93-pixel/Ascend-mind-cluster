@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager/common"
@@ -92,6 +93,13 @@ type DeviceInterface interface {
 	DcGetHccsPingMeshState(int32, int32, int, uint) (int, error)
 }
 
+const (
+	// init dcmi interface max retry times
+	maxRetries = 6
+	// init dcmi interface retry delay
+	retryDelay = 10 * time.Second
+)
+
 var (
 	devManager     *DeviceManager = nil
 	devManagerOnce sync.Once
@@ -110,9 +118,28 @@ func GetDeviceManager() (*DeviceManager, error) {
 	devManagerOnce.Do(func() {
 		// a common dcmi Manager is initiated for init dcmi interface, you can specify an specific manager in later
 		dcMgr := dcmi.DcManager{}
-		if err := dcMgr.DcInit(); err != nil {
-			hwlog.RunLog.Errorf("deviceManager init failed, prepare dcmi failed, err: %v", err)
-			return
+		var cardNum int32
+		var cardList []int32
+		var err error
+		// if check card list failed, retry maxRetries times
+		for retry := 0; retry < maxRetries; retry++ {
+			if err = dcMgr.DcInit(); err != nil {
+				hwlog.RunLog.Errorf("deviceManager init failed, prepare dcmi failed, err: %v", err)
+				return
+			}
+			cardNum, cardList, err = dcMgr.DcGetCardList()
+			if err == nil && int(cardNum) == len(cardList) {
+				break
+			}
+			hwlog.RunLog.Warnf("deviceManager get card list failed (attempt %d), cardNum=%d, cardList=%v, "+
+				"err: %v", retry+1, cardNum, cardList, err)
+			if retry < maxRetries-1 {
+				if err = dcMgr.DcShutDown(); err != nil {
+					hwlog.RunLog.Errorf("deviceManager shut down failed, err: %v", err)
+					return
+				}
+				time.Sleep(retryDelay)
+			}
 		}
 		devManager = &DeviceManager{}
 		devManager.DcMgr = &dcMgr
