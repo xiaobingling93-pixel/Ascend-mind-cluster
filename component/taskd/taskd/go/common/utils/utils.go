@@ -117,13 +117,13 @@ func GetProfilingSwitch(filePath string) (constant.ProfilingSwitch, error) {
 // PfSwitchToPfDomainSwitch convert ProfilingSwitch to ProfilingDomainCmd
 func PfSwitchToPfDomainSwitch(profilingSwitch constant.ProfilingSwitch) constant.ProfilingDomainCmd {
 	profilingDomainCmd := constant.ProfilingDomainCmd{
-		DefaultDomainAble: false,
+		DefaultDomainAble: true,
 		CommDomainAble:    false,
 	}
-	if profilingSwitch.Step == constant.SwitchON || profilingSwitch.SaveCheckpoint == constant.SwitchON ||
-		profilingSwitch.FP == constant.SwitchON || profilingSwitch.DataLoader == constant.SwitchON ||
-		profilingSwitch.CommunicationOperator == constant.SwitchON {
-		profilingDomainCmd.DefaultDomainAble = true
+	if profilingSwitch.Step == constant.SwitchOFF && profilingSwitch.SaveCheckpoint == constant.SwitchOFF &&
+		profilingSwitch.FP == constant.SwitchOFF && profilingSwitch.DataLoader == constant.SwitchOFF &&
+		profilingSwitch.CommunicationOperator == constant.SwitchOFF {
+		profilingDomainCmd.DefaultDomainAble = false
 	}
 	if profilingSwitch.CommunicationOperator == constant.SwitchON {
 		profilingDomainCmd.CommDomainAble = true
