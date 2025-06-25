@@ -21,10 +21,18 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
 	"taskd/toolkit_backend/net/proto"
+)
+
+const (
+	emptyStr    = ""
+	demoIp      = "127.0.0.1"
+	correctAddr = demoIp + ":8899"
+	wrongAddr   = demoIp + "-8899"
 )
 
 func TestExtractAckFrame(t *testing.T) {
@@ -318,4 +326,56 @@ func TestIsIPValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetIpFromAddr(t *testing.T) {
+	convey.Convey("get ip should right", t, func() {
+		addr := GetIpFromAddr(correctAddr)
+		convey.ShouldEqual(addr, demoIp)
+		addr = GetIpFromAddr(wrongAddr)
+		convey.ShouldEqual(addr, emptyStr)
+	})
+}
+
+func TestDstCase(t *testing.T) {
+	convey.Convey("Test DstCase function", t, func() {
+		cur := &Position{Role: MgrRole}
+		dst := &Position{Role: WorkerRole, ServerRank: "0", ProcessRank: "0"}
+		dst2 := &Position{Role: WorkerRole, ServerRank: "1", ProcessRank: "1"}
+		broadcast := &Position{Role: WorkerRole, ServerRank: BroadCastPos, ProcessRank: BroadCastPos}
+
+		convey.Convey("When either position is nil", func() {
+			convey.So(DstCase(nil, dst), convey.ShouldEqual, "unknown")
+			convey.So(DstCase(cur, nil), convey.ShouldEqual, "unknown")
+		})
+
+		convey.Convey("When positions are equal", func() {
+			convey.So(DstCase(cur, cur), convey.ShouldEqual, Dst2Self)
+		})
+
+		convey.Convey("When destination is higher level", func() {
+			convey.So(DstCase(dst, cur), convey.ShouldEqual, Dst2UpperLevel)
+		})
+
+		convey.Convey("When destination is lower level", func() {
+			convey.So(DstCase(cur, dst), convey.ShouldEqual, Dst2LowerLevel)
+		})
+
+		convey.Convey("When destination is same level", func() {
+			convey.So(DstCase(dst, dst2), convey.ShouldEqual, Dst2SameLevel)
+		})
+
+		convey.Convey("When destination is broadcast", func() {
+			convey.So(DstCase(dst, broadcast), convey.ShouldEqual, Dst2Self)
+		})
+	})
+}
+
+func TestIsBroadCast(t *testing.T) {
+	convey.Convey("judge broadcast should right", t, func() {
+		broadcast := &proto.Position{Role: WorkerRole, ServerRank: BroadCastPos, ProcessRank: BroadCastPos}
+		notBroadcast := &proto.Position{Role: WorkerRole, ServerRank: "0", ProcessRank: "0"}
+		convey.ShouldBeTrue(IsBroadCast(broadcast))
+		convey.ShouldBeFalse(IsBroadCast(notBroadcast))
+	})
 }

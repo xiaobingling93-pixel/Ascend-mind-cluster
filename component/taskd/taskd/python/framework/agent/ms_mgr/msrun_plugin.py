@@ -110,6 +110,8 @@ class MSRunPlugin:
 
     def start_mindspore_worker_list(self, global_rank_list: list):
         local_rank_list = calculate_local_rank_by_global_rank(global_rank_list)
+        if not isinstance(local_rank_list, list):
+            raise ValueError("local rank list is None")
         start_worker_list_func = self.__func_map.get(START_WORKER_LIST_CALLBACK_NAME)
         init_time = 0
         while True:
@@ -122,6 +124,7 @@ class MSRunPlugin:
                 start_worker_list_func(local_rank_list)
                 run_log.info(f"training process list has been started, global rank:{global_rank_list},"
                              f" local rank:{local_rank_list}")
+                break
             time.sleep(constants.WAITING_INTERVAL)
             init_time = init_time + constants.WAITING_INTERVAL
 
@@ -198,7 +201,6 @@ class MSRunPlugin:
         kill_worker_func = self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)
         start_worker_func = self.__func_map.get(START_ALL_WORKER_CALLBACK_NAME)
         start_single_worker_func = self.__func_map.get(START_WORKER_LIST_CALLBACK_NAME)
-        # {rank_0: {pid: pidNum, status: status code}，1：status code …..}
         monitor_func = self.__func_map.get(MONITOR_CALLBACK_NAME)
         if (kill_worker_func is None or start_worker_func is None or monitor_func is None or
                 start_single_worker_func is None):
@@ -266,7 +268,7 @@ class MSRunPlugin:
         numbers corresponding to the current node.
         data = {
             {0: {'pid': 101, 'status': None, 'global_rank': 16}, 1: {'pid': 110, 'status': None, 'global_rank': 17},
-            2: {'pid': 119, 'status': None, 'global_rank': 18}, 3: {' 129, 'status': None, 'global_rank': 19},
+            2: {'pid': 119, 'status': None, 'global_rank': 18}, 3: {'pid': 129, 'status': None, 'global_rank': 19},
             4: {'pid': 143, 'status': None, 'global_rank': 20}, 5: {'pid': 155, 'status': None, 'global_rank': 21},
             6: {'pid': 167, 'status': None, 'global_rank': 22}, 7: {'pid': 176, 'status': None, 'global_rank': 23}}
         }
@@ -356,8 +358,7 @@ class MSRunPlugin:
         if self.ms_node_rank != "0" and self.restart_fault_process and \
                 os.getenv(constants.ENABLE_RESTART_FAULT_PROCESS_ENV) == "on":
             run_log.info(f"restart part workers, fault global rank:{fault_status.local_ranks}")
-            fault_pid_list = [self.local_rank_to_pid.get(locak_rank) for locak_rank in fault_status.local_ranks \
-                           if locak_rank in self.local_rank_to_pid]
+            fault_pid_list = self.get_fault_pid_list_by_local_ranks(fault_status.local_ranks)
             if len(fault_pid_list) > 0:
                 self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)(fault_pid_list)
                 force_exit_pids(fault_pid_list)
@@ -414,43 +415,51 @@ class MSRunPlugin:
         exit(0)
 
     def _handle_exist_unhealthy_process(self):
-        if self.rank_status in {self.RANK_STATUS_UNHEALTHY}:
-            if self.ms_node_rank != "0" and os.getenv(constants.ENABLE_RESTART_FAULT_PROCESS_ENV) == "on":
-                run_log.warning(f"nodeRank:{self.ms_node_rank} some rank is unhealthy, "
-                                f"waiting for cluster notify fault rank")
-                init_time = 0
-                can_restart_process = False
+        if self.rank_status not in {self.RANK_STATUS_UNHEALTHY}:
+            return
+        if self.ms_node_rank != "0" and os.getenv(constants.ENABLE_RESTART_FAULT_PROCESS_ENV) == "on":
+            run_log.warning(f"nodeRank:{self.ms_node_rank} some rank is unhealthy, "
+                            f"waiting for cluster notify fault rank")
+            init_time = 0
+            can_restart_process = False
+            fault_status = self.get_fault_status()
+            while True:
+                if init_time >= constants.INIT_RESET_CHANGE_TIMEOUT:
+                    run_log.warning("waiting for cluster notify fault status timeout")
+                    break
+                if fault_status.is_fault:
+                    run_log.info(f"fault status refreshed, fault global rank: {fault_status.local_ranks},"
+                                 f" restart_fault_process: {fault_status.restart_fault_process}")
+                    if fault_status.restart_fault_process:
+                        can_restart_process = True
+                    break
                 fault_status = self.get_fault_status()
-                while True:
-                    run_log.debug(f"waiting for cluster notify fault status:{fault_status}")
-                    if init_time >= constants.INIT_RESET_CHANGE_TIMEOUT:
-                        run_log.warning("waiting for cluster notify fault status timeout")
-                        break
-                    if fault_status.is_fault:
-                        if fault_status.restart_fault_process:
-                            can_restart_process = True
-                        break
-                    fault_status = self.get_fault_status()
-                    time.sleep(constants.WAITING_RESET_CHANGE_INTERVAL)
-                    init_time = init_time + constants.WAITING_RESET_CHANGE_INTERVAL
-                fault_pid_list = [self.local_rank_to_pid.get(local_rank) for local_rank in \
-                                  fault_status.local_ranks if local_rank in self.local_rank_to_pid]
-                if can_restart_process and len(fault_pid_list) > 0:
-                    run_log.info(f"nodeRank:{self.ms_node_rank} restart part workers, fault global rank:"
-                                 f"{fault_status.local_ranks}")
-                    self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)(fault_pid_list)
-                    force_exit_pids(fault_pid_list)
-                    self.start_mindspore_worker_list(fault_status.local_ranks)
-                    return
-            run_log.warning(f"nodeRank:{self.ms_node_rank} some rank is unhealthy will stop workers, "
-                            f"and exit this node")
-            if self.ms_node_rank == "0":
-                run_log.warning("will kill mindio controller")
-                shared_data.shared_data_inst.set_kill_flag(True)
-            time.sleep(constants.WAITING_INTERVAL * constants.WAIT_TIMES)
-            stop_res = self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)([KILL_ALL_WORKERS])
-            run_log.warning(f"rank with pid {self.rank_pids} will be killed")
-            if stop_res is not constants.RES_OK:
-                run_log.error(
-                    f"nodeRank:{self.ms_node_rank} failed to stop workers with return code:{stop_res}")
-            exit(1)
+                time.sleep(constants.WAITING_RESET_CHANGE_INTERVAL)
+                init_time = init_time + constants.WAITING_RESET_CHANGE_INTERVAL
+            fault_pid_list = self.get_fault_pid_list_by_local_ranks(fault_status.local_ranks)
+            if can_restart_process and len(fault_pid_list) > 0:
+                run_log.info(f"nodeRank:{self.ms_node_rank} restart part workers")
+                self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)(fault_pid_list)
+                force_exit_pids(fault_pid_list)
+                self.start_mindspore_worker_list(fault_status.local_ranks)
+                return
+        run_log.warning(f"nodeRank:{self.ms_node_rank} some rank is unhealthy will stop workers, "
+                        f"and exit this node")
+        if self.ms_node_rank == "0":
+            run_log.warning("will kill mindio controller")
+            shared_data.shared_data_inst.set_kill_flag(True)
+        time.sleep(constants.WAITING_INTERVAL * constants.WAIT_TIMES)
+        stop_res = self.__func_map.get(KILL_ALL_WORKER_CALLBACK_NAME)([KILL_ALL_WORKERS])
+        run_log.warning(f"rank with pid {self.rank_pids} will be killed")
+        if stop_res is not constants.RES_OK:
+            run_log.error(
+                f"nodeRank:{self.ms_node_rank} failed to stop workers with return code:{stop_res}")
+        exit(1)
+
+    def get_fault_pid_list_by_local_ranks(self, local_ranks):
+        pid_list = []
+        for local_rank in local_ranks:
+            if local_rank in self.local_rank_to_pid:
+                pid = self.local_rank_to_pid.get(local_rank)
+                pid_list.append(pid)
+        return pid_list

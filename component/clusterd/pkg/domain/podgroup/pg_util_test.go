@@ -163,3 +163,19 @@ func TestGetResourceType(t *testing.T) {
 		convey.So(resourceType, convey.ShouldEqual, constant.Ascend910)
 	})
 }
+
+func TestJudgeRestartProcessByJobKey(t *testing.T) {
+	convey.Convey("test JudgeRestartProcessByJobKey", t, func() {
+		pgDemo1 := getDemoPodGroup(pgName1, pgNameSpace, jobUid1)
+		convey.Convey("when pg is exists, process-recover-enable is exists, "+
+			"recover-strategy is exists, and equals recover-in-place, should return true",
+			func() {
+				pgDemo1.Labels[constant.ProcessRecoverEnableLabel] = constant.ProcessRecoverEnable
+				pgDemo1.Annotations[constant.RecoverStrategies] = constant.ProcessRecoverInPlaceStrategyName
+				SavePodGroup(pgDemo1)
+				defer DeletePodGroup(pgDemo1)
+				convey.So(JudgeRestartProcessByJobKey(jobUid1), convey.ShouldBeTrue)
+			},
+		)
+	})
+}

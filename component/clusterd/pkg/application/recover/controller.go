@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/faultmanager/cmprocess/retry"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
@@ -23,12 +24,15 @@ import (
 	"clusterd/pkg/interface/kube"
 )
 
+const (
+	retryTimes           = 3
+	randomLen            = 16
+	reportTimeoutMinutes = 15
+	faultFlushSeconds    = 10
+	eventChanLength      = 10
+)
+
 var (
-	retryTimes            = 3
-	randomLen             = 16
-	reportTimeoutMinutes  = 15
-	faultFlushSeconds     = 10
-	eventChanLength       = 10
 	saveAndExitActions    = []string{"save_and_exit"}
 	stopTrainActions      = []string{"stop_train"}
 	pauseTrainActions     = []string{"pause_train"}
@@ -66,6 +70,7 @@ type EventController struct {
 	reportRecoverStrategyChan chan *pb.RecoverStrategyRequest
 	reportStatusChan          chan *pb.RecoverStatusRequest
 	scheduleResultChan        chan bool
+	isChanClosed              bool
 	lock                      sync.RWMutex
 }
 
@@ -95,6 +100,8 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		switchNicResponse:         make(chan *pb.SwitchNicResponse, 1),
 		switchRankList:            make(chan *pb.SwitchRankList, 1),
 		switchRankResult:          make(chan *pb.SwitchResult, 1),
+		restartFaultProcess:       false,
+		isChanClosed:              false,
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
 	}
@@ -160,34 +167,47 @@ func (ctl *EventController) reset(stop bool) {
 		ctl.ctxCancelFunc()
 	}
 	ctl.faultFlushing = false
+	ctl.restartFaultProcess = false
 	ctl.uuid = ""
 	ctl.latestStrategy = ctl.latestStrategy[:0]
 	ctl.faultPod = make(map[string]string)
-	ctl.closeControllerChan()
+	if !ctl.isChanClosed {
+		ctl.closeControllerChan()
+		ctl.isChanClosed = true
+	}
 	if stop {
 		return
 	}
+	ctl.initControllerChan()
+	ctl.cleanControllerSlice()
+	ctl.healthState = constant.HealthyState
+	ctl.platStrategy = ""
+	ctl.state.Reset()
+	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
+	ctl.isChanClosed = false
+	go ctl.listenEvent()
+	go ctl.keepAlive()
+}
+
+func (ctl *EventController) initControllerChan() {
 	ctl.events = make(chan string, eventChanLength)
 	ctl.signalChan = make(chan *pb.ProcessManageSignal, 1)
 	ctl.reportStopCompleteChan = make(chan *pb.StopCompleteRequest, 1)
 	ctl.reportRecoverStrategyChan = make(chan *pb.RecoverStrategyRequest, 1)
 	ctl.reportStatusChan = make(chan *pb.RecoverStatusRequest, 1)
 	ctl.scheduleResultChan = make(chan bool, 1)
-	ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
-	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
-	ctl.healthState = constant.HealthyState
-	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
-	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
-	ctl.platStrategy = ""
-	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
-	ctl.globalOps = ctl.globalOps[:0]
 	ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 	ctl.switchRankList = make(chan *pb.SwitchRankList, 1)
 	ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
-	ctl.state.Reset()
-	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
-	go ctl.listenEvent()
-	go ctl.keepAlive()
+}
+
+func (ctl *EventController) cleanControllerSlice() {
+	ctl.cacheRetryFault = ctl.cacheRetryFault[:0]
+	ctl.cacheNormalFault = ctl.cacheNormalFault[:0]
+	ctl.latestRecoverResult = ctl.latestRecoverResult[:0]
+	ctl.agentReportStrategies = ctl.agentReportStrategies[:0]
+	ctl.globalSwitchRankIDs = ctl.globalSwitchRankIDs[:0]
+	ctl.globalOps = ctl.globalOps[:0]
 }
 
 func (ctl *EventController) closeControllerChan() {
@@ -243,6 +263,10 @@ func (ctl *EventController) annotationWithRetryStrategy() bool {
 		}
 	}
 	return false
+}
+
+func (ctl *EventController) hasRecoverInPlaceStrategy() bool {
+	return util.IsSliceContain(constant.ProcessRecoverInPlaceStrategyName, ctl.jobInfo.MindXConfigStrategies)
 }
 
 func (ctl *EventController) supportRetryStrategy() bool {
@@ -489,6 +513,7 @@ func (ctl *EventController) selectSendChannel(ctx context.Context, sendChan chan
 		hwlog.RunLog.Infof("context done, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 		return true
 	case <-stream.Context().Done():
+		ctl.reset(true)
 		hwlog.RunLog.Infof("stream context done, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 		return true
 	case signal, ok := <-sendChan:
@@ -568,7 +593,7 @@ func (ctl *EventController) handleNotifyWaitFaultFlushing() (string, common.Resp
 		ctl.agentReportStrategies = append(ctl.agentReportStrategies, constant.ProcessDumpStrategyName)
 		return common.DumpForFaultEvent, common.OK, nil
 	}
-	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, ctl.restartFaultProcess,
+	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, false,
 		constant.NotifyFaultFlushingOperation)
 	if err != nil {
 		hwlog.RunLog.Errorf("notify agent faultFlushing error, err=%v", err)
@@ -862,6 +887,15 @@ func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, 
 	if len(retryFaults) > 0 {
 		return ctl.notifyFaultForRetryFaultCase(retryFaults, normalFaults)
 	}
+	// strategy includes recover-in-place and fault can be restored in place, then check if fault disappears.
+	// If fault does not disappear after 15 seconds, can not choose recover-in-place strategy
+	if ctl.restartFaultProcess && ctl.hasRecoverInPlaceStrategy() {
+		if err := ctl.waitNormalFaultRecovery(); err != nil {
+			hwlog.RunLog.Warnf("jobId:%s wait fault recover timeout, err:%v", ctl.jobInfo.JobId, err)
+			ctl.restartFaultProcess = false
+			faultmanager.CallbackForReportNoRetryInfo(ctl.jobInfo.JobId, time.Now().UnixMilli())
+		}
+	}
 	return ctl.notifyFaultForNormalFaultCase(retryFaults, normalFaults)
 }
 
@@ -998,11 +1032,6 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 	hwlog.RunLog.Infof("jobId:%s, enter handleRestartFaultProcess func, choose strategy:%s",
 		ctl.jobInfo.JobId, signal.ChangeStrategy)
 	if signal.ChangeStrategy == constant.ProcessRecoverInPlaceStrategyName {
-		if err := ctl.waitNormalFaultRecovery(); err != nil {
-			hwlog.RunLog.Warnf("jobId:%s wait fault recover timeout, err:%v", ctl.jobInfo.JobId, err)
-			ctl.restartFaultProcess = false
-			return common.KillPodAfterRestartProcessEvent, common.ServerInnerError, nil
-		}
 		_, allFaultRanks, err := ctl.updateCacheFaultAndPod()
 		if err != nil {
 			hwlog.RunLog.Errorf("update cache info fail, jobId=%s err=%v", ctl.jobInfo.JobId, err)
@@ -1021,6 +1050,7 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 	} else if signal.ChangeStrategy != constant.ProcessRetryStrategyName {
 		hwlog.RunLog.Warnf("choose strategy: %s, not restart fault process", signal.ChangeStrategy)
 		ctl.restartFaultProcess = false
+		faultmanager.CallbackForReportNoRetryInfo(ctl.jobInfo.JobId, time.Now().UnixMilli())
 		return common.KillPodAfterRestartProcessEvent, common.ServerInnerError, nil
 	}
 	return ctl.signalEnqueue(signal)
@@ -1028,19 +1058,19 @@ func (ctl *EventController) handleRestartFaultProcess(signal *pb.ProcessManageSi
 
 func (ctl *EventController) waitNormalFaultRecovery() error {
 	startTime := time.Now().Unix()
-	for {
+	for i := 0; i < constant.JobFaultDisappearRetryTimes; i++ {
+		time.Sleep(constant.JobFaultCheckPeriod * time.Second)
 		if !retry.RetryProcessor.JobHasFault(ctl.jobInfo.JobId) {
+			hwlog.RunLog.Infof("fault disappear, jobId:%s", ctl.jobInfo.JobId)
 			return nil
 		}
-		time.Sleep(constant.CheckPeriod * time.Second)
-		timeUse := time.Now().Unix() - startTime
-		if timeUse > constant.JobFaultRecoverTimeout {
-			hwlog.RunLog.Warnf("wait fault recover timeout, jobId:%s timeUse=%d > %d second",
-				ctl.jobInfo.JobId, startTime, constant.JobFaultRecoverTimeout)
-			return fmt.Errorf("wait fault recover timeout, jobId:%s timeUse=%d > %d second",
-				ctl.jobInfo.JobId, startTime, constant.JobFaultRecoverTimeout)
-		}
 	}
+	timeUse := time.Now().Unix() - startTime
+	timeout := constant.JobFaultDisappearRetryTimes * constant.JobFaultCheckPeriod
+	hwlog.RunLog.Warnf("wait fault disappear timeout, jobId:%s timeUse=%d > %d second",
+		ctl.jobInfo.JobId, timeUse, timeout)
+	return fmt.Errorf("wait fault disappear timeout, jobId:%s timeUse=%d > %d second",
+		ctl.jobInfo.JobId, timeUse, timeout)
 }
 
 func (ctl *EventController) getStrategyResult() ([]string, []*pb.RecoverStatusRequest) {
@@ -1364,7 +1394,7 @@ func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCo
 			if !scheduleSuccess {
 				return common.ScheduleTimeoutEvent, common.ScheduleTimeout, nil
 			}
-			_, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, ctl.restartFaultProcess,
+			_, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, false,
 				constant.ClearOperation)
 			if err != nil {
 				hwlog.RunLog.Errorf("clear reset configMap error, err=%v, jobId=%s, uuid=%s", err, ctl.jobInfo.JobId, ctl.uuid)
@@ -1435,7 +1465,7 @@ func (ctl *EventController) handleListenScheduleResult() (string, common.RespCod
 }
 
 func (ctl *EventController) handleRestartAllProcess() (string, common.RespCode, error) {
-	_, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, ctl.restartFaultProcess,
+	_, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, false,
 		constant.RestartAllProcessOperation)
 	if err != nil {
 		hwlog.RunLog.Errorf("clear reset configMap error, err=%v, jobId=%s, uuid=%s",

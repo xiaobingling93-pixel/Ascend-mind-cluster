@@ -747,3 +747,56 @@ func TestMergeCode(t *testing.T) {
 		})
 	})
 }
+
+func TestGetRetryTypeByFaultCode(t *testing.T) {
+	convey.Convey("Test GetRetryTypeByFaultCode", t, func() {
+		convey.Convey("fault is uce, should return UceFaultType", func() {
+			convey.So(GetRetryTypeByFaultCode(constant.UceFaultCode), convey.ShouldEqual, constant.UceFaultType)
+		})
+		convey.Convey("fault is hccl fault, should return HcclFaultType", func() {
+			convey.So(GetRetryTypeByFaultCode(constant.HcclRetryFaultCode), convey.ShouldEqual, constant.HcclFaultType)
+		})
+		convey.Convey("fault is other fault, should return NormalFaultType", func() {
+			convey.So(GetRetryTypeByFaultCode("fakeFault"), convey.ShouldEqual, constant.NormalFaultType)
+		})
+	})
+}
+
+func TestGetRetryCodeByFaultType(t *testing.T) {
+	convey.Convey("Test GetRetryCodeByFaultType", t, func() {
+		convey.Convey("fault type is UceFault, should return uce fault code", func() {
+			convey.So(GetRetryCodeByFaultType(constant.UceFaultType), convey.ShouldEqual, constant.UceFaultCode)
+		})
+		convey.Convey("fault type is HcclFaultType, should return hccl fault code", func() {
+			convey.So(GetRetryCodeByFaultType(constant.HcclFaultType), convey.ShouldEqual, constant.HcclRetryFaultCode)
+		})
+		convey.Convey("fault type is other, should return empty string", func() {
+			convey.So(GetRetryCodeByFaultType(constant.NormalFaultType), convey.ShouldEqual, "")
+		})
+	})
+}
+
+func TestIsL2L3Fault(t *testing.T) {
+	convey.Convey("Test IsL2L3Fault", t, func() {
+		convey.Convey("fault level is RestartBusiness, should return true", func() {
+			convey.So(IsL2L3Fault(constant.RestartBusiness), convey.ShouldBeTrue)
+		})
+		convey.Convey("fault level is RestartRequest, should return true", func() {
+			convey.So(IsL2L3Fault(constant.RestartRequest), convey.ShouldBeTrue)
+		})
+		convey.Convey("fault level is other value , should return false", func() {
+			convey.So(IsL2L3Fault(constant.RestartNPU), convey.ShouldBeFalse)
+		})
+	})
+}
+
+func TestIsL1Fault(t *testing.T) {
+	convey.Convey("Test IsL1Fault", t, func() {
+		convey.Convey("fault level is NotHandleFault, should return true", func() {
+			convey.So(IsL1Fault(constant.NotHandleFault), convey.ShouldBeTrue)
+		})
+		convey.Convey("fault level is other value, should return false", func() {
+			convey.So(IsL1Fault(constant.RestartRequest), convey.ShouldBeFalse)
+		})
+	})
+}

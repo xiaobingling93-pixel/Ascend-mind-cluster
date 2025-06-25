@@ -33,7 +33,7 @@ class PtAgent(BaseAgent):
     """
     PtAgent is for PyTorch to manage training process.
     """
-    def __init__(self, cls, network_config=None):
+    def __init__(self, cls, network_config, logger):
         super().__init__()
         self.pt_instance = cls
         self.worker_group = cls._worker_group
@@ -47,9 +47,10 @@ class PtAgent(BaseAgent):
             'RESTART': self.restart_workers,
             'GRACE_EXIT': self.grace_exit,
         }
+        self.logger = logger
 
     def invoke_run(self, role) -> RunResult:
-        init_network_client(self.network_config, self.msg_queue)
+        init_network_client(self.network_config, self.msg_queue, self.logger)
         self.check_network()
         spec = self.worker_group.spec
         role = spec.role
@@ -76,7 +77,6 @@ class PtAgent(BaseAgent):
                 continue
             else:
                 raise Exception(f"[{role}] Worker group in {state.name} state")
-        return
 
     def update_agent_info(self):
         self.local_rank = [worker.global_rank for worker in self.worker_group.workers]
@@ -97,25 +97,25 @@ class PtAgent(BaseAgent):
         return
 
     def initialize_workers(self, msg):
-        run_log.info(f'receive {msg.MsgType} command, restart time is {msg.Extension},'
+        run_log.info(f'receive {msg.msg_type} command, restart time is {msg.extension},'
                      f' start to initialize workers')
-        self.pt_instance._remaining_restarts = int(msg.Extension)
+        self.pt_instance._remaining_restarts = int(msg.extension)
         self._func_map.get('START_ALL_WORKER')(self.worker_group)
 
     def stop_workers(self, msg):
-        run_log.info(f'receive {msg.MsgType} command, start to stop workers')
+        run_log.info(f'receive {msg.msg_type} command, start to stop workers')
         self._func_map.get('KILL_WORKER')(self.worker_group)
         self.worker_group.state = WorkerState.STOPPED
 
     def exit_agent(self, msg):
-        run_log.info(f'receive {msg.MsgType} command, start to exit agent')
+        run_log.info(f'receive {msg.msg_type} command, start to exit agent')
         self._func_map.get('KILL_WORKER')(self.worker_group)
         self.send_message_to_manager('STATUS', REPORT_CODE, AgentReportInfo())
         exit(1)
 
     def restart_workers(self, msg):
-        run_log.info(f'receive {msg.MsgType} command, start to restart workers, restart time is {msg.Extension}')
-        self.pt_instance._remaining_restarts = int(msg.Extension)
+        run_log.info(f'receive {msg.msg_type} command, start to restart workers, restart time is {msg.extension}')
+        self.pt_instance._remaining_restarts = int(msg.extension)
         self._func_map.get('KILL_WORKER')(self.worker_group)
         self.worker_group.state = WorkerState.STOPPED
         self._func_map.get('START_ALL_WORKER')(self.worker_group)

@@ -630,7 +630,7 @@ func TestAddPodAnnotation1(t *testing.T) {
 				KltDevice:  nil,
 				RealDevice: []string{common.Ascend910},
 			}, common.Ascend910vir2, "", nil)
-			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		mockTryUpdatePodAnnotation := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
 			"TryUpdatePodAnnotation", func(_ *kubeclient.ClientK8s, pod *v1.Pod,
@@ -685,7 +685,7 @@ func TestAddPodAnnotation2(t *testing.T) {
 				KltDevice:  nil,
 				RealDevice: []string{common.Ascend910 + "-0"},
 			}, common.Ascend910, "", nil)
-			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("GetDeviceIPAddress ok", func() {
 			mockGetDeviceIPAddress := gomonkey.ApplyMethod(reflect.TypeOf(new(devmanager.DeviceManagerMock)),
@@ -725,7 +725,7 @@ func TestAddPodAnnotation3(t *testing.T) {
 				KltDevice:  nil,
 				RealDevice: []string{common.Ascend910 + "-0"},
 			}, common.Ascend910, "", nil)
-			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("ParseInt failed", func() {
 			tool.name = common.Ascend910
@@ -734,7 +734,7 @@ func TestAddPodAnnotation3(t *testing.T) {
 				KltDevice:  nil,
 				RealDevice: []string{common.Ascend910 + "-a"},
 			}, common.Ascend910, "", nil)
-			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err, convey.ShouldBeNil)
 		})
 	})
 }

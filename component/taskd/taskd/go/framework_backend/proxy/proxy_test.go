@@ -18,8 +18,10 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
 	"ascend-common/common-utils/hwlog"
@@ -28,7 +30,7 @@ import (
 )
 
 var initNetworkFunc = net.InitNetwork
-var originalNewProxyInstance func(config *common.TaskNetConfig) error
+var originalNewProxyInstance func(config *common.TaskNetConfig, log *hwlog.CustomLogger) error
 
 func init() {
 	originalNewProxyInstance = newProxyInstance
@@ -57,7 +59,7 @@ func TestNewProxyInstance(t *testing.T) {
 	defer func() {
 		initNetworkFunc = originalInitNetwork
 	}()
-	initNetworkFunc = func(config *common.TaskNetConfig) (*net.NetInstance, error) {
+	initNetworkFunc = func(config *common.TaskNetConfig, log *hwlog.CustomLogger) (*net.NetInstance, error) {
 		return mockNet.InitNetwork(config)
 	}
 	proxyConfig := &common.TaskNetConfig{
@@ -70,14 +72,16 @@ func TestNewProxyInstance(t *testing.T) {
 		convey.Convey("newProxyInstance failed", func() {
 			mockNet.InitNetworkErr = errors.New("test newProxyInstance failed")
 			proxyInstance = nil
-			err := newProxyInstance(proxyConfig)
+			customLog := hwlog.SetCustomLogger(hwlog.RunLog)
+			err := newProxyInstance(proxyConfig, customLog)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
 }
 
 func TestValidNetConfig(t *testing.T) {
-	proxy := &proxyClient{}
+	customLog := hwlog.SetCustomLogger(hwlog.RunLog)
+	proxy := &proxyClient{proxyLogger: customLog}
 	validConfig := &common.TaskNetConfig{
 		Pos: common.Position{
 			ProcessRank: "-1",
@@ -111,12 +115,13 @@ func TestProxyInit(t *testing.T) {
 	defer func() {
 		initNetworkFunc = originalInitNetwork
 	}()
-	initNetworkFunc = func(config *common.TaskNetConfig) (*net.NetInstance, error) {
+	initNetworkFunc = func(config *common.TaskNetConfig, log *hwlog.CustomLogger) (*net.NetInstance, error) {
 		return mockNet.InitNetwork(config)
 	}
-
+	customLog := hwlog.SetCustomLogger(hwlog.RunLog)
 	proxy := &proxyClient{
-		proxyInfo: &proxyInfo{},
+		proxyInfo:   &proxyInfo{},
+		proxyLogger: customLog,
 	}
 	proxyConfig := &common.TaskNetConfig{
 		Pos: common.Position{
@@ -141,5 +146,69 @@ func TestProxyInit(t *testing.T) {
 			err := proxy.initNetwork(proxyConfig)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
+	})
+}
+
+func TestInitProxy(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	config := &common.TaskNetConfig{
+		Pos: common.Position{
+			Role:       common.ProxyRole,
+			ServerRank: "0",
+		},
+		ListenAddr:   localHost,
+		UpstreamAddr: localHost,
+		EnableTls:    false,
+		TlsConf:      nil,
+	}
+
+	convey.Convey("when proxy config is nil, then init proxy should return nil", t, func() {
+		convey.ShouldNotBeNil(InitProxy(nil))
+	})
+
+	convey.Convey("when init log error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(hwlog.InitRunLogger, func(config *hwlog.LogConfig, ctx context.Context) error {
+			return fmt.Errorf("init log error")
+		})
+
+		convey.ShouldNotBeNil(InitProxy(config))
+	})
+
+	convey.Convey("when init proxy network error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(hwlog.InitRunLogger, func(config *hwlog.LogConfig, ctx context.Context) error {
+			return nil
+		})
+
+		patches.ApplyFunc(newProxyInstance, func(proxyConfig *common.TaskNetConfig) error {
+			return fmt.Errorf("init instance error")
+		})
+		convey.ShouldNotBeNil(InitProxy(config))
+	})
+
+	convey.Convey("when no error, then init proxy should return nil", t, func() {
+		patches.ApplyFunc(newProxyInstance, func(proxyConfig *common.TaskNetConfig) error {
+			return nil
+		})
+		convey.ShouldBeNil(InitProxy(config))
+	})
+}
+
+func TestDestroyProxy(t *testing.T) {
+	convey.Convey("DestroyProxy should be called", t, func() {
+		proxyInstance = &proxyClient{}
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		called := false
+		patches.ApplyPrivateMethod(proxyInstance, "destroyNet", func(*proxyClient) {
+			called = true
+		})
+		DestroyProxy()
+		convey.ShouldBeTrue(called)
+
+		proxyInstance = nil
+		called = false
+		DestroyProxy()
+		convey.ShouldBeTrue(called)
 	})
 }

@@ -257,7 +257,7 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	return opts
 }
 
-func paramValidInPrometheus() error {
+func checkIPAndPortInPrometheus() error {
 	if port < portLeft || port > portRight {
 		return errors.New("the port is invalid")
 	}
@@ -267,6 +267,13 @@ func paramValidInPrometheus() error {
 	}
 	ip = parsedIP.String()
 	logger.Infof("listen on: %s", ip)
+	return nil
+}
+
+func paramValidInPrometheus() error {
+	if err := checkIPAndPortInPrometheus(); err != nil {
+		return err
+	}
 	if updateTime > oneMinute || updateTime < 1 {
 		return errors.New("the updateTime is invalid")
 	}

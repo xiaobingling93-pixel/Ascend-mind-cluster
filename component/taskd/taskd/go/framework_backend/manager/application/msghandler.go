@@ -17,6 +17,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 
@@ -30,6 +31,13 @@ import (
 	"taskd/toolkit_backend/net"
 	"taskd/toolkit_backend/net/common"
 )
+
+// MsgHandlerInterface define MsgHandler interface
+type MsgHandlerInterface interface {
+	GetDataPool() *storage.DataPool
+	SendMsgUseGrpc(msgType string, msgBody string, dst *common.Position)
+	SendMsgToMgr(uuid string, bizType string, src *common.Position, msgBody storage.MsgBody)
+}
 
 // MsgHandler receive, send, process and store message info
 type MsgHandler struct {
@@ -89,6 +97,10 @@ func (mhd *MsgHandler) initManagerGrpc() (error, *net.NetInstance) {
 	if ip == "" {
 		ip = constant.DefaultIP
 	}
+	customLogger := hwlog.SetCustomLogger(hwlog.RunLog)
+	if customLogger == nil {
+		return errors.New("manager SetCustomLogger failed"), nil
+	}
 	tool, err := net.InitNetwork(&common.TaskNetConfig{
 		Pos: common.Position{
 			Role:        common.MgrRole,
@@ -96,7 +108,7 @@ func (mhd *MsgHandler) initManagerGrpc() (error, *net.NetInstance) {
 			ProcessRank: "-1",
 		},
 		ListenAddr: ip + constant.MgrPort,
-	})
+	}, customLogger)
 	if err != nil {
 		return err, nil
 	}
@@ -177,4 +189,9 @@ func (mhd *MsgHandler) SendMsgToMgr(uuid string, bizType string, src *common.Pos
 		hwlog.RunLog.Errorf("enqueue failed: %v", err)
 		mhd.SendMsgUseGrpc(bizType, err.Error(), src)
 	}
+}
+
+// GetDataPool return data pool
+func (mhd *MsgHandler) GetDataPool() *storage.DataPool {
+	return mhd.DataPool
 }

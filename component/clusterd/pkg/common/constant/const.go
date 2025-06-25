@@ -115,8 +115,10 @@ const (
 	CheckPeriod = 3
 	// ProcessControlTimeout wait process annotation until timeout
 	ProcessControlTimeout = 300
-	// JobFaultRecoverTimeout wait fault recover until timeout
-	JobFaultRecoverTimeout = 15
+	// JobFaultDisappearRetryTimes wait fault disappear retry times
+	JobFaultDisappearRetryTimes = 5
+	// JobFaultCheckPeriod job fault check period
+	JobFaultCheckPeriod = 3
 	// RetrySuccess retry success
 	RetrySuccess = "retry-success"
 	// RetryFailed retry failed

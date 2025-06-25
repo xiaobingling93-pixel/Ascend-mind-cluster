@@ -157,7 +157,9 @@ func initGrpcServer(ctx context.Context) {
 		Time:    time.Minute,
 		Timeout: grpcKeepAliveTimeOut * time.Second,
 	}
-	server = sv.NewClusterInfoMgrServer([]grpc.ServerOption{grpc.MaxRecvMsgSize(constant.MaxGRPCRecvMsgSize),
+	server = sv.NewClusterInfoMgrServer([]grpc.ServerOption{
+		grpc.MaxRecvMsgSize(constant.MaxGRPCRecvMsgSize),
+		grpc.MaxSendMsgSize(constant.MaxGRPCSendMsgSize),
 		grpc.MaxConcurrentStreams(constant.MaxGRPCConcurrentStreams),
 		grpc.UnaryInterceptor(limitQPS),
 		grpc.KeepaliveParams(keepAlive)})

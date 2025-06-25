@@ -151,7 +151,7 @@ spec:
             path: /tmp
         - name: containerd
           hostPath:
-            path: /run/containerd # update the directory where the containerd.sock file is located When using older version of Docker
+            path: /run/containerd # the path to the directory containing the container runtime's socket file on the node
         - name: localtime
           hostPath:
             path: /etc/localtime

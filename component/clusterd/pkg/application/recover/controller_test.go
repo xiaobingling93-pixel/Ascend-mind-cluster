@@ -19,6 +19,8 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager"
+	"clusterd/pkg/application/faultmanager/cmprocess/retry"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
@@ -435,6 +437,39 @@ func TestReset(t *testing.T) {
 		convey.So(ctl.faultPod, convey.ShouldHaveLength, 0)
 		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 0)
 		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 0)
+	})
+}
+
+func TestInitControllerChan(t *testing.T) {
+	convey.Convey("Testing initControllerChan", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.initControllerChan()
+		convey.So(ctl.events, convey.ShouldNotBeNil)
+		convey.So(ctl.signalChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportStopCompleteChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportRecoverStrategyChan, convey.ShouldNotBeNil)
+		convey.So(ctl.reportStatusChan, convey.ShouldNotBeNil)
+		convey.So(ctl.scheduleResultChan, convey.ShouldNotBeNil)
+		convey.So(ctl.switchNicResponse, convey.ShouldNotBeNil)
+		convey.So(ctl.switchRankList, convey.ShouldNotBeNil)
+		convey.So(ctl.switchRankResult, convey.ShouldNotBeNil)
+	})
+}
+
+func TestCleanControllerSlice(t *testing.T) {
+	convey.Convey("Testing cleanControllerSlice", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cleanControllerSlice()
+		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 0)
+		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 0)
+		convey.So(ctl.latestRecoverResult, convey.ShouldHaveLength, 0)
+		convey.So(ctl.agentReportStrategies, convey.ShouldHaveLength, 0)
+		convey.So(ctl.globalSwitchRankIDs, convey.ShouldHaveLength, 0)
+		convey.So(ctl.globalOps, convey.ShouldHaveLength, 0)
 	})
 }
 
@@ -2867,5 +2902,64 @@ func TestNotifyHCCLRoutingTimeout(t *testing.T) {
 		}
 		res := ctl.notifyHCCLRoutingTimeout(signal)
 		convey.So(res.Timeout, convey.ShouldEqual, constant.HCCLRoutingConvergenceTimeout+constant.StepRetryTimeout)
+	})
+}
+
+func TestHandleRestartFaultProcess(t *testing.T) {
+	convey.Convey("Testing handleRestartFaultProcess", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(ctl.signalEnqueue,
+			func(signal *pb.ProcessManageSignal) (string, common.RespCode, error) {
+				return "", common.OK, nil
+			}).ApplyFuncReturn(common.WriteResetInfoToCM, &v1.ConfigMap{}, nil).
+			ApplyPrivateMethod(ctl, "updateCacheFaultAndPod",
+				func() ([]*pb.FaultRank, []string, error) {
+					return []*pb.FaultRank{{RankId: "rank1"}}, []string{"rank1"}, nil
+				}).ApplyFuncReturn(faultmanager.CallbackForReportNoRetryInfo)
+		defer patches.Reset()
+		convey.Convey("choose recover-in-place strategy and write json success, "+
+			"should notify recover strategy", func() {
+			signal := &pb.ProcessManageSignal{ChangeStrategy: constant.ProcessRecoverInPlaceStrategyName}
+			_, code, _ := ctl.handleRestartFaultProcess(signal)
+			convey.So(code, convey.ShouldEqual, common.OK)
+			convey.So(signal.ChangeStrategy, convey.ShouldEqual, constant.ProcessRecoverStrategyName)
+		})
+		convey.Convey("choose retry strategy, should enqueue signal", func() {
+			signal := &pb.ProcessManageSignal{ChangeStrategy: constant.ProcessRetryStrategyName}
+			_, code, _ := ctl.handleRestartFaultProcess(signal)
+			convey.So(code, convey.ShouldEqual, common.OK)
+			convey.So(signal.ChangeStrategy, convey.ShouldEqual, constant.ProcessRetryStrategyName)
+		})
+		convey.Convey("choose other strategy, should kill pod", func() {
+			ctl.restartFaultProcess = true
+			signal := &pb.ProcessManageSignal{ChangeStrategy: constant.ProcessRecoverStrategyName}
+			event, code, _ := ctl.handleRestartFaultProcess(signal)
+			convey.So(event, convey.ShouldEqual, common.KillPodAfterRestartProcessEvent)
+			convey.So(code, convey.ShouldEqual, common.ServerInnerError)
+			convey.So(ctl.restartFaultProcess, convey.ShouldBeFalse)
+		})
+	})
+}
+
+func TestWaitNormalFaultRecovery(t *testing.T) {
+	convey.Convey("Testing waitNormalFaultRecovery ", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		patches := gomonkey.ApplyFuncReturn(time.Sleep)
+		defer patches.Reset()
+		convey.Convey("job has no fault, should return nil", func() {
+			err := ctl.waitNormalFaultRecovery()
+			convey.So(err, convey.ShouldBeNil)
+		})
+		convey.Convey("job has fault, should return error", func() {
+			patches.ApplyPrivateMethod(retry.RetryProcessor, "JobHasFault",
+				func(string) bool { return true })
+			err := ctl.waitNormalFaultRecovery()
+			convey.So(err, convey.ShouldNotBeNil)
+		})
 	})
 }

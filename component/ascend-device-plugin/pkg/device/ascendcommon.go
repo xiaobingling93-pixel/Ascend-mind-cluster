@@ -458,11 +458,13 @@ func (tool *AscendTools) getDevStatesDevSet(classifyDevs map[string][]*common.Np
 	totalUHDevices, totalNetUHDevices, podUsedDev, totalRCDevices :=
 		sets.String{}, sets.String{}, sets.String{}, sets.String{}
 	totalDeviceFaults := make([]common.DeviceFault, 0, common.GeneralMapSize)
+	allDevices := sets.String{}
 	if !common.ParamOption.PresetVDevice {
 		podUsedDev = tool.getRealUsedDevices()
 	}
 	for devType, classifyDev := range classifyDevs {
 		partDevStatusSet := tool.groupDevsByStatus(classifyDev, tool.name)
+		allDevices = allDevices.Union(partDevStatusSet.AllDevices)
 		kltUsedDevices := tool.getUsedDevices(classifyDev)
 		totalFreeDevices[devType] = partDevStatusSet.HealthDevices.Difference(kltUsedDevices)
 		if !common.ParamOption.PresetVDevice {
@@ -479,6 +481,7 @@ func (tool *AscendTools) getDevStatesDevSet(classifyDevs map[string][]*common.Np
 		NetUnHealthyDevice: totalNetUHDevices,
 		RecoveringDevices:  totalRCDevices,
 		DeviceFault:        totalDeviceFaults,
+		AllDevices:         allDevices,
 	}
 	hwlog.RunLog.Debugf("get device status devStatusSet=%#v", devStatusSet)
 	return devStatusSet
@@ -498,7 +501,9 @@ func (tool *AscendTools) groupDevsByStatus(subClassDevices []*common.NpuDevice, 
 	healthDevice, totalUHDevices, totalNetworkUHDevices, totalRCDevices :=
 		sets.String{}, sets.String{}, sets.String{}, sets.String{}
 	deviceFaults := make([]common.DeviceFault, 0, common.GeneralMapSize)
+	allDevices := sets.NewString()
 	for _, device := range subClassDevices {
+		allDevices.Insert(device.DeviceName)
 		deviceFaults = append(deviceFaults, tool.getDeviceFaults(device)...)
 		if device.NetworkHealth == v1beta1.Unhealthy {
 			totalNetworkUHDevices.Insert(device.DeviceName)
@@ -529,6 +534,7 @@ func (tool *AscendTools) groupDevsByStatus(subClassDevices []*common.NpuDevice, 
 		NetUnHealthyDevice: totalNetworkUHDevices,
 		RecoveringDevices:  totalRCDevices,
 		DeviceFault:        deviceFaults,
+		AllDevices:         allDevices,
 	}
 }
 
@@ -781,6 +787,11 @@ func (tool *AscendTools) AddPodAnnotation(podDev *common.PodDeviceInfo, deviceTy
 	annotation := make(map[string]string)
 	if !common.IsVirtualDev(deviceType) {
 		for _, checker := range annoChecker {
+			// dynamic scene, not correct huawei.com/npu-core
+			if deviceType == common.AiCoreResourceName && checker.annoKey ==
+				fmt.Sprintf("%s%s", api.ResourceNamePrefix, deviceType) {
+				continue
+			}
 			if podDev.Pod.Annotations[checker.annoKey] != checker.annoValue {
 				hwlog.RunLog.Warnf("need correct: annotKey: %s, old value: %s, new value: %s",
 					checker.annoKey, podDev.Pod.Annotations[checker.annoKey], checker.annoValue)
@@ -790,13 +801,12 @@ func (tool *AscendTools) AddPodAnnotation(podDev *common.PodDeviceInfo, deviceTy
 	}
 	if tool.name == common.Ascend910 || common.IsContainAll300IDuo() {
 		config, err := tool.getConfigAnno(podDev, deviceType, serverID, allDevices)
-		if err != nil {
-			return err
-		}
-		if podDev.Pod.Annotations[api.Pod910DeviceAnno] != config {
-			hwlog.RunLog.Warnf("need correct: annotKey: %s, old value: %s, new value: %s",
-				api.Pod910DeviceAnno, podDev.Pod.Annotations[api.Pod910DeviceAnno], config)
-			annotation[api.Pod910DeviceAnno] = config
+		if err == nil {
+			if podDev.Pod.Annotations[api.Pod910DeviceAnno] != config {
+				hwlog.RunLog.Warnf("need correct: annotKey: %s, old value: %s, new value: %s",
+					api.Pod910DeviceAnno, podDev.Pod.Annotations[api.Pod910DeviceAnno], config)
+				annotation[api.Pod910DeviceAnno] = config
+			}
 		}
 	}
 	if len(annotation) == 0 {
@@ -1096,7 +1106,7 @@ func (tool *AscendTools) writeNewFaultCode(deviceMap map[string][]*common.NpuDev
 			tool.flushFaultCodesWithInit(device, devFaultInfoMap)
 			common.CountFaultDuration(device, devFaultInfoMap)
 			device.Health = tool.isHealthy(device)
-			if runMode == common.Ascend910 && tool.deviceUsage == common.Train {
+			if runMode == common.Ascend910 {
 				device.NetworkHealth = tool.isNetworkHealthy(device)
 			}
 		}

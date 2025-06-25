@@ -33,28 +33,18 @@ import (
 	"taskd/toolkit_backend/net/common"
 )
 
-var netTool *net.NetInstance
-
-var monitorInitCtx context.Context
-var monitorInitNotify context.CancelFunc
-
-// NetTool from worker
-var NetTool *net.NetInstance
-
-// GlobalRank of this work
-var GlobalRank int
-
-// NodeRank of this work
-var NodeRank int
-
-var netToolInitCtx context.Context
-var netToolInitNotify context.CancelFunc
+var netTool = &net.NetInstance{}
 
 const (
 	waitInitMsptiTimeout = 180 * time.Second
 	maxRegisterTime      = 10
 	maxWaitNetInitTime   = 180 * time.Second
 )
+
+var monitorInitCtx context.Context
+var monitorInitNotify context.CancelFunc
+var netToolInitCtx context.Context
+var netToolInitNotify context.CancelFunc
 
 func init() {
 	monitorInitCtx, monitorInitNotify = context.WithCancel(context.Background())
@@ -79,12 +69,15 @@ func InitMonitor(ctx context.Context, globalRank int, upperLimitOfDiskInMb int) 
 // InitNetwork register worker to manager
 func InitNetwork(globalRank, nodeRank int) {
 	hwlog.RunLog.Infof("worker %d noderank %d init network begin", globalRank, nodeRank)
-	GlobalRank = globalRank
-	NodeRank = nodeRank
 	profiling.GlobalRank = globalRank
 	profiling.NodeRank = nodeRank
 	addr := constant.DefaultIP + constant.ProxyPort
 	var err error
+	customLogger := hwlog.SetCustomLogger(hwlog.RunLog)
+	if customLogger == nil {
+		hwlog.RunLog.Errorf("manager SetCustomLogger failed")
+		return
+	}
 	netTool, err = net.InitNetwork(&common.TaskNetConfig{
 		Pos: common.Position{
 			Role:        common.WorkerRole,
@@ -95,12 +88,16 @@ func InitNetwork(globalRank, nodeRank int) {
 		UpstreamAddr: addr,
 		EnableTls:    false,
 		TlsConf:      nil,
-	})
+	}, customLogger)
 	if err != nil {
 		hwlog.RunLog.Errorf("worker %d init network err: %v", globalRank, err)
+		return
+	}
+	if netTool == nil {
+		hwlog.RunLog.Errorf("worker %d init network nil", globalRank)
+		return
 	}
 	hwlog.RunLog.Infof("worker %d init network end", globalRank)
-	NetTool = netTool
 	profiling.NetTool = netTool
 	om.NetTool = netTool
 	netToolInitNotify()
@@ -119,13 +116,13 @@ func waitMonitorInit() bool {
 }
 
 func waitNetToolInit() bool {
-	hwlog.RunLog.Info("wait NetTool init")
+	hwlog.RunLog.Info("wait netTool init")
 	select {
 	case <-netToolInitCtx.Done():
-		hwlog.RunLog.Info("wait NetTool inited")
+		hwlog.RunLog.Info("wait netTool inited")
 		return true
 	case <-time.After(maxWaitNetInitTime):
-		hwlog.RunLog.Info("wait NetTool timeout")
+		hwlog.RunLog.Info("wait netTool timeout")
 		return false
 	}
 }
@@ -135,6 +132,10 @@ func registerAndLoopRecv(ctx context.Context) {
 		hwlog.RunLog.Error("cannot RegisterAndLoopRecv for profiling, net tool init timeout")
 		return
 	}
+	if netTool == nil {
+		hwlog.RunLog.Error("cannot RegisterAndLoopRecv for profiling, netTool is not initialized")
+		return
+	}
 	body := storage.MsgBody{
 		MsgType: constant.REGISTER,
 		Code:    constant.RegisterCode,
@@ -142,32 +143,32 @@ func registerAndLoopRecv(ctx context.Context) {
 	registerSucc := false
 	for i := 0; i < maxRegisterTime; i++ {
 		time.Sleep(time.Duration(i) * time.Second)
-		_, err := NetTool.SyncSendMessage(uuid.NewString(), "default", utils.ObjToString(body), &common.Position{
+		_, err := netTool.SyncSendMessage(uuid.NewString(), "default", utils.ObjToString(body), &common.Position{
 			Role:       common.MgrRole,
 			ServerRank: "0",
 		})
 		if err != nil {
-			hwlog.RunLog.Errorf("worker %d register manager err: %v", GlobalRank, err)
+			hwlog.RunLog.Errorf("worker %d register manager err: %v", profiling.GlobalRank, err)
 			continue
 		}
 		registerSucc = true
 		break
 	}
 	if !registerSucc {
-		hwlog.RunLog.Errorf("worker  %d register manager meet max times %d", GlobalRank, maxRegisterTime)
+		hwlog.RunLog.Errorf("worker  %d register manager meet max times %d", profiling.GlobalRank, maxRegisterTime)
 		return
 	}
-	hwlog.RunLog.Infof("worker %d register manager success, begin recv msg", GlobalRank)
+	hwlog.RunLog.Infof("worker %d register manager success, begin recv msg", profiling.GlobalRank)
 	profiling.MgrProfilingCmd.Store(true)
 	for {
 		select {
 		case <-ctx.Done():
-			hwlog.RunLog.Errorf("worker %d exit", GlobalRank)
+			hwlog.RunLog.Errorf("worker %d exit", profiling.GlobalRank)
 			return
 		default:
-			msg := NetTool.ReceiveMessage()
-			om.ProcessMsg(GlobalRank, msg)
-			profiling.ProcessMsg(GlobalRank, msg)
+			msg := netTool.ReceiveMessage()
+			om.ProcessMsg(profiling.GlobalRank, msg)
+			profiling.ProcessMsg(profiling.GlobalRank, msg)
 		}
 	}
 }

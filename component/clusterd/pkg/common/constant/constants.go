@@ -19,6 +19,8 @@ const (
 
 	// MaxGRPCRecvMsgSize 4MB
 	MaxGRPCRecvMsgSize = 4 * 1024 * 1024
+	// MaxGRPCSendMsgSize 8MB
+	MaxGRPCSendMsgSize = 8 * 1024 * 1024
 	// MaxGRPCConcurrentStreams limit on the number of concurrent streams to each ServerTransport.
 	MaxGRPCConcurrentStreams = 64
 	// MaxConcurrentLimit limit over listener
@@ -56,6 +58,9 @@ const (
 	DefaultLogLevel = 0
 	// MaxNotifyChanLen max support notify chan
 	MaxNotifyChanLen = 1000
+
+	// InvalidResult invalid result
+	InvalidResult = -1
 )
 
 // fault code const
@@ -74,6 +79,7 @@ const (
 	JobNotRecover               = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
 	JobNotRecoverComplete       = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
 	DeviceNotFault              = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
+	JobShouldReportFault        = int64(math.MaxInt64) // Cannot be used for calculation, only for comparison.
 	DiagnosisAccompanyTimeout   = 5 * 1000
 	JobReportRecoverTimeout     = 10 * 1000
 	JobReportInfoExpiredTimeout = 10 * 1000
@@ -213,6 +219,8 @@ const (
 	SignalTypeFault = "fault"
 	// Comma comma
 	Comma = ","
+	// Minus minus
+	Minus = "-"
 	// EmptyDeviceId device id for node or switch fault
 	EmptyDeviceId = "-1"
 	// FormatBase The base number used to convert int to string
