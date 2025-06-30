@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -31,6 +32,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/limiter"
 	"ascend-docker-runtime/mindxcheckutils"
 )
 
@@ -52,7 +54,7 @@ const (
 )
 
 var (
-	containerConfigInputStream = os.Stdin
+	limitReader                = io.LimitReader(os.Stdin, limiter.DefaultDataLimit)
 	doExec                     = syscall.Exec
 	ascendDockerCliName        = ascendDockerCli
 	defaultAscendDockerCliName = defaultAscendDockerCli
@@ -179,7 +181,7 @@ func parseOciSpecFile(file string) (*specs.Spec, error) {
 
 var getContainerConfig = func() (*containerConfig, error) {
 	state := new(specs.State)
-	decoder := json.NewDecoder(containerConfigInputStream)
+	decoder := json.NewDecoder(limitReader)
 
 	if err := decoder.Decode(state); err != nil {
 		return nil, fmt.Errorf("failed to parse the container's state")
