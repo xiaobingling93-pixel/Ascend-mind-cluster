@@ -20,6 +20,7 @@ type DeviceFault struct {
 	FaultHandling        string                       `json:"fault_handling"`
 	FaultCode            string                       `json:"fault_code"`
 	FaultTimeAndLevelMap map[string]FaultTimeAndLevel `json:"fault_time_and_level_map"`
+	FaultOnce            bool                         `json:"FaultOnce"`
 }
 
 // NodeInfoCM the config map struct of node info
@@ -330,6 +331,7 @@ type FaultInfo struct {
 	FaultTime        int64
 	ExecutedStrategy string
 	DealMaxTime      int64
+	FaultOnce        bool
 }
 
 // FaultDuration fault duration config

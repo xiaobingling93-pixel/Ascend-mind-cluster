@@ -167,7 +167,7 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 					detailInfo.FaultType)
 				if processor.canFilterRetryDeviceFaultInfo(retryDevice, currentTime) {
 					hwlog.RunLog.Warn("retryProcessor filter retry " + fullLog)
-					processor.filterRetryDeviceFaultInfo(deviceName, deviceInfo)
+					processor.filterRetryDeviceFaultInfo(deviceName, deviceInfo, currentTime)
 					modified = true
 				} else {
 					hwlog.RunLog.Warn("retryProcessor cannot filter retry " + fullLog)
@@ -196,11 +196,15 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 }
 
 func (processor *retryFaultProcessor) filterRetryDeviceFaultInfo(
-	deviceName string, advanceDevInfo *constant.AdvanceDeviceFaultCm) {
+	deviceName string, advanceDevInfo *constant.AdvanceDeviceFaultCm, currentTime int64) {
 	for _, fault := range advanceDevInfo.FaultDeviceList[deviceName] {
 		// filter device's retry fault
-		if faultdomain.IsUceFault(fault.FaultCode) || faultdomain.IsHcclRetryFault(fault.FaultCode) {
+		if faultdomain.IsUceFault(fault.FaultCode) {
 			advanceDevInfo.DelFaultAndFix(fault)
+		} else if faultdomain.IsHcclRetryFault(fault.FaultCode) &&
+			currentTime-fault.FaultTimeAndLevelMap[fault.FaultCode].FaultTime <=
+				constant.HCCLRoutingConvergenceTimeout+constant.StepRetryTimeout {
+			advanceDevInfo.SetFaultOnce(fault)
 		}
 	}
 }
