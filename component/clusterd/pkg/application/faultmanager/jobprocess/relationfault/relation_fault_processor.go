@@ -373,7 +373,6 @@ func (fJob *FaultJob) initFaultInfoByDeviceFault(
 					NPUName:     fault.NPUName,
 					FaultCode:   faultCode,
 					FaultLevel:  faultTimeAndLevel.FaultLevel,
-					FaultOnce:   fault.FaultOnce,
 					FaultTime:   time.Now().UnixMilli(),
 					DealMaxTime: getFaultCodeDelMaxTime(faultCode),
 					FaultUid:    nodeName + "-" + fault.NPUName + "-" + faultCode,
@@ -398,9 +397,6 @@ func (fJob *FaultJob) addFaultInfoByCodeType(faultInfo *constant.FaultInfo) {
 	}
 	if triggerFaultMap.Has(faultInfo.FaultCode) {
 		if fJob.IsA3Job && faultdomain.IsCqeFault(faultInfo.FaultCode) {
-			return
-		}
-		if fJob.IsA3Job && faultInfo.FaultOnce == true {
 			return
 		}
 		fJob.TriggerFault = append(fJob.TriggerFault, *faultInfo)

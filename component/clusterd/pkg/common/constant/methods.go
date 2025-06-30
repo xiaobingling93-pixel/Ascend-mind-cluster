@@ -114,20 +114,6 @@ func (cm *AdvanceDeviceFaultCm) DelFaultAndFix(delFault DeviceFault) {
 	}
 }
 
-// SetFaultOnce set fault report once
-func (cm *AdvanceDeviceFaultCm) SetFaultOnce(faultOnce DeviceFault) {
-	deviceFaults := cm.FaultDeviceList[faultOnce.NPUName]
-	newDeviceFaults := make([]DeviceFault, 0)
-	for _, devFault := range deviceFaults {
-		if devFault.FaultCode == faultOnce.FaultCode {
-			devFault.FaultOnce = true
-		}
-		newDeviceFaults = append(newDeviceFaults, devFault)
-	}
-	cm.FaultDeviceList[faultOnce.NPUName] = newDeviceFaults
-	hwlog.RunLog.Infof("newDeviceFaults %v", newDeviceFaults)
-}
-
 // IsSame compare two AdvanceDeviceFaultCm, do not care UpdateTime
 func (cm *AdvanceDeviceFaultCm) IsSame(another ConfigMapInterface) bool {
 	if cm == nil {
