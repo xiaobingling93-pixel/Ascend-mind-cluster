@@ -368,7 +368,6 @@ func InitCMInformer() {
 		},
 	})
 	AddRankTableEventHandler(&cmInformer)
-	addPingMeshConfigEventHandler(&cmInformer)
 	informerFactory.Start(informerCh)
 }
 

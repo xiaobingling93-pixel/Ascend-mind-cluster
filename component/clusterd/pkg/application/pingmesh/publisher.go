@@ -225,14 +225,6 @@ func initSuperPodsCM() {
 			})
 			hwlog.RunLog.Errorf("init super pod info cm error, %v", err)
 		}
-		err = handleFileUpdate(superPodDevice.SuperPodID, superPodDevice, checkCode, true)
-		if err != nil {
-			failedTasks = append(failedTasks, task{
-				superPodID: superPodDevice.SuperPodID,
-				operator:   constant.AddOperator,
-			})
-			hwlog.RunLog.Errorf("init super pod file error, %v", err)
-		}
 		time.Sleep(publishInterval)
 	}
 	publishMgr.rwLock.Lock()
@@ -294,11 +286,7 @@ func handleUpdate(superPodID string, device *api.SuperPodDevice) error {
 		return nil
 	}
 	checkCode := util.MakeDataHash(device)
-	err := handleCmUpdate(superPodID, device, checkCode, false)
-	if err != nil {
-		return err
-	}
-	return handleFileUpdate(superPodID, device, checkCode, false)
+	return handleCmUpdate(superPodID, device, checkCode, false)
 }
 
 func handleCmDelete(superPodID string) error {
@@ -330,11 +318,7 @@ func handleFileDelete(superPodID string) error {
 }
 
 func handleDelete(superPodID string) error {
-	err := handleCmDelete(superPodID)
-	if err != nil {
-		return err
-	}
-	return handleFileDelete(superPodID)
+	return handleCmDelete(superPodID)
 }
 
 type task struct {
@@ -391,25 +375,14 @@ func handleTasks(tasks []task) {
 
 // TickerCheckSuperPodDevice ticker check super pod device modify event
 func TickerCheckSuperPodDevice(ctx context.Context) {
-	if rasNetDetectInst.CheckIsOn() {
-		initSuperPodsCM()
-	}
+	initSuperPodsCM()
 	ticker := time.NewTicker(eventCheckPeriod)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			if !rasNetDetectInst.CheckIsOn() {
-				hwlog.RunLog.Debug("ras feature net fault detect is inactive")
-				continue
-			}
-			if !publishMgr.inited.Load() {
-				hwlog.RunLog.Info("cluster super pod device is not initialized, init it")
-				initSuperPodsCM()
-				continue
-			}
 			tasks := getPartTaskAndClean()
-			hwlog.RunLog.Debugf("event-length=%d, handleBatch=%d",
+			hwlog.RunLog.Debugf("event length=%d, handleBatch=%d",
 				len(publishMgr.eventMap), len(tasks))
 			handleTasks(tasks)
 		case <-ctx.Done():

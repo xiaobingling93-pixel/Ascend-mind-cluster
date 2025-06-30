@@ -222,7 +222,7 @@ func GetStateLevelByFaultLevel(faultLevel string) (string, int) {
 	case constant.NotHandleFault, constant.NotHandleFaultLevelStr:
 		return constant.HealthyState, constant.HealthyLevel
 	case constant.SubHealthFault, constant.PreSeparateFault, constant.PreSeparateFaultLevelStr,
-		constant.SubHealthFaultStrategy:
+		constant.SubHealthFaultStrategy, constant.PreSeparateNPU:
 		return constant.SubHealthyState, constant.SubHealthyLevel
 	default:
 		return constant.UnHealthyState, constant.UnHealthyLevel
