@@ -187,9 +187,7 @@ func testInvalidPath() {
 	convey.Convey("Test invalid path", func() {
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
-		patches.ApplyFunc(utils.CheckPath, func(path string) (string, error) {
-			return "", fmt.Errorf("invalid path")
-		})
+		patches.ApplyFuncReturn(utils.CheckOwnerAndPermission, "", fmt.Errorf("invalid path"))
 
 		_, err := getStatusFromFile()
 		convey.So(err, convey.ShouldNotBeNil)
@@ -201,9 +199,7 @@ func testFileOpenFailure() {
 	convey.Convey("Test file open failure", func() {
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
-		patches.ApplyFunc(utils.CheckPath, func(path string) (string, error) {
-			return "/valid/path", nil
-		})
+		patches.ApplyFuncReturn(utils.CheckOwnerAndPermission, "/valid/path", nil)
 		patches.ApplyFunc(os.Open, func(name string) (*os.File, error) {
 			return nil, fmt.Errorf("open failed")
 		})
