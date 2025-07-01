@@ -240,3 +240,9 @@ const (
 	PtFramework = "pytorch"
 	MsFramework = "mindspore"
 )
+
+const (
+	Success = "success"
+	Failed  = "failed"
+	Start   = "start"
+)

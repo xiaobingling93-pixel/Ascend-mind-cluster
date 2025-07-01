@@ -16,6 +16,7 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/config"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/logs"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/profile"
@@ -59,6 +60,11 @@ const (
 // ModifyTrainingDataTraceSwitch to modify the profiling marker status by updating the cm
 func (ps *SwitchManager) ModifyTrainingDataTraceSwitch(ctx context.Context,
 	in *profiling.DataTypeReq) (*profiling.DataTypeRes, error) {
+	event := "modify profiling marker status"
+	logs.RecordLog("", event, constant.Start)
+	res := constant.Failed
+	defer logs.RecordLog("", event, res)
+
 	jobNsName := in.GetJobNsName()
 	jobNameInfo := strings.Split(jobNsName, "/")
 	if len(jobNameInfo) != PartsOfJobNs {
@@ -80,6 +86,7 @@ func (ps *SwitchManager) ModifyTrainingDataTraceSwitch(ctx context.Context,
 					"And notify subcriber failed", dtc.JobNamespace, dtc.JobName), Code: ErrServerFault},
 				fmt.Errorf("create cm err:%v, notify subcriber err %v", createErr, notifyErr)
 		}
+		res = constant.Success
 		return &profiling.DataTypeRes{Message: fmt.Sprintf("comfigmap:[%s/%s] has been created"+
 			" and param is updated to change profiling marker status", dtc.JobNamespace, dtc.JobName), Code: OK}, nil
 	}
@@ -90,6 +97,7 @@ func (ps *SwitchManager) ModifyTrainingDataTraceSwitch(ctx context.Context,
 				" And notify subcriber failed", dtc.JobNamespace, dtc.JobName), Code: ErrServerFault},
 			fmt.Errorf("update cm err:%v, notify subcriber err %v", updateCmErr, notifyErr)
 	}
+	res = constant.Success
 	response := &profiling.DataTypeRes{Message: "successfully changed profiling marker enable status", Code: OK}
 	hwlog.RunLog.Infof("successfully changed profiling marker enable status: %#v", in.ProfilingSwitch)
 	return response, nil
@@ -127,6 +135,11 @@ func (ps *SwitchManager) publish(jobId string, info *profiling.ProfilingSwitch) 
 // GetTrainingDataTraceSwitch get  current profiling marker status
 func (ps *SwitchManager) GetTrainingDataTraceSwitch(ctx context.Context,
 	in *profiling.DataStatusReq) (*profiling.DataStatusRes, error) {
+	event := "get profiling switch info"
+	logs.RecordLog("", event, constant.Start)
+	res := constant.Failed
+	defer logs.RecordLog("", event, res)
+
 	jobNsName := in.GetJobNsName()
 	jobNameInfo := strings.Split(jobNsName, "/")
 	if len(jobNameInfo) != PartsOfJobNs {
@@ -156,6 +169,7 @@ func (ps *SwitchManager) GetTrainingDataTraceSwitch(ctx context.Context,
 			Message: fmt.Sprintf("failed to convert comfigmap:[%s/%s]", dtc.JobNamespace, dtc.JobName),
 			Code:    ErrServerFault}, err
 	}
+	res = constant.Success
 	return &profiling.DataStatusRes{
 		Message:         fmt.Sprintf("successfully get the status of job[%s/%s]", dtc.JobNamespace, dtc.JobName),
 		ProfilingSwitch: &resProfile,
@@ -165,6 +179,11 @@ func (ps *SwitchManager) GetTrainingDataTraceSwitch(ctx context.Context,
 // SubscribeDataTraceSwitch subscribe profiling date trace switch
 func (ps *SwitchManager) SubscribeDataTraceSwitch(
 	clientInfo *profiling.ProfilingClientInfo, stream profiling.TrainingDataTrace_SubscribeDataTraceSwitchServer) error {
+	event := "subscribe profiling message signal"
+	logs.RecordLog(clientInfo.Role, event, constant.Start)
+	res := constant.Failed
+	defer logs.RecordLog("", event, res)
+
 	hwlog.RunLog.Infof("receive Subscribe profiling message signal request, %v", clientInfo)
 	publisher, ok := ps.getPublisher(clientInfo.JobId)
 	if !ok || publisher == nil {
@@ -179,6 +198,7 @@ func (ps *SwitchManager) SubscribeDataTraceSwitch(
 	ps.deletePublisher(clientInfo.JobId, publisher.GetCreateTime())
 	hwlog.RunLog.Infof("jobId=%s stop subscribe fault message signal, createTime=%v",
 		clientInfo.JobId, publisher.GetCreateTime().UnixNano())
+	res = constant.Success
 	return nil
 }
 

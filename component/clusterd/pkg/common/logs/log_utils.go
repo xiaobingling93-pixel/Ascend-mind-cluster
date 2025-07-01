@@ -1,12 +1,13 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 
-// Package logs a series of statistic function
+// Package logs common func about logs
 package logs
 
 import (
 	"context"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/common/constant"
 )
 
 const (
@@ -31,4 +32,16 @@ func InitJobEventLogger(ctx context.Context) error {
 	}
 	JobEventLog = customLog
 	return nil
+}
+
+// RecordLog record log
+func RecordLog(role, event, result string) {
+	switch result {
+	case constant.Start, constant.Success:
+		hwlog.RunLog.Infof("role[%s] %s %s", role, event, result)
+	case constant.Failed:
+		hwlog.RunLog.Errorf("role[%s] %s %s", role, event, result)
+	default:
+		hwlog.RunLog.Error("invalid event result")
+	}
 }
