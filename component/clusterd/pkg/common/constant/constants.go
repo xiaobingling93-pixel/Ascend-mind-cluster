@@ -266,4 +266,6 @@ const (
 	HCCLRoutingConvergenceTimeout = 3
 	// StepRetryTimeout is the timeout for step retry
 	StepRetryTimeout = 30
+	// HCCLStepRetryTimeout is the timeout for HCCL step retry
+	HCCLStepRetryTimeout = 1000 * 60
 )

@@ -6,6 +6,7 @@ package collector
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
@@ -15,6 +16,9 @@ import (
 )
 
 var ReportInfoCollector *JobReportInfoCollector
+
+// ReportTimeExpireTime report time expire time
+const ReportTimeExpireTime = 10 * 1000
 
 // JobReportInfoCollector job report info collector
 type JobReportInfoCollector struct {
@@ -43,10 +47,21 @@ func (reportInfos *JobReportInfoCollector) GetInfo(jobId, nodeName, deviceName s
 	}
 	reportInfos.RwMutex.RLock()
 	defer reportInfos.RwMutex.RUnlock()
-	if info, ok := reportInfos.RetryMap[jobId][nodeName][deviceName]; ok {
-		return info
+	info, ok := reportInfos.RetryMap[jobId][nodeName][deviceName]
+	if !ok {
+		return noReport
 	}
-	return noReport
+	currentTime := time.Now().UnixMilli()
+	if currentTime-info.RecoverTime > ReportTimeExpireTime {
+		reportInfos.deleteInfo(jobId, nodeName, deviceName)
+		hwlog.RunLog.Infof("delete expired report info(%s, %s, %s), info: %v", jobId, nodeName, deviceName, info)
+		return noReport
+	}
+	return info
+}
+
+func (reportInfos *JobReportInfoCollector) deleteInfo(jobId string, nodeName string, deviceName string) {
+	delete(reportInfos.RetryMap[jobId][nodeName], deviceName)
 }
 
 // GetNoRetryReportTime get no retry report time

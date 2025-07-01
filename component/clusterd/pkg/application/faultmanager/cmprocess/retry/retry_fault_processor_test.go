@@ -326,7 +326,7 @@ func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 		}
 
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		deviceOfNodes := RetryProcessor.getRetryDeviceOfNodes()
+		deviceOfNodes := RetryProcessor.handleRetryDeviceOfNodes()
 		for nodeName, filterNode := range deviceOfNodes {
 			for deviceName, filterDevice := range filterNode.DeviceInfo {
 				filterDevice.FaultCodeLevel = nil
@@ -334,7 +334,7 @@ func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 			}
 		}
 		if !reflect.DeepEqual(deviceOfNodes, uceNodesInfos) {
-			t.Errorf("getRetryDeviceOfNodes() = %v, want %v",
+			t.Errorf("handleRetryDeviceOfNodes() = %v, want %v",
 				util.ObjToString(deviceOfNodes), util.ObjToString(uceNodesInfos))
 		}
 	})
@@ -350,8 +350,8 @@ func TestUceFaultProcessorGetUceDevicesForUceTolerateJobs(t *testing.T) {
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
 		for jobId, filterJob := range RetryProcessor.retryDevicesOfJob {
 			for nodeName, filterNode := range filterJob.RetryNode {
 				for deviceName, filterDevice := range filterNode.DeviceInfo {
@@ -377,8 +377,8 @@ func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
 		currentTime := 109 * time.Second.Milliseconds()
 		RetryProcessor.processRetryFaultInfo(currentTime)
 		result := RetryProcessor.nodeDeviceCmMap
@@ -398,14 +398,21 @@ func TestUceFaultProcessorScenario1(t *testing.T) {
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
-		collector.ReportInfoCollector = reportInfos
 
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		retryInfo := make(map[string]map[string]map[string]constant.ReportInfo)
+		util.DeepCopy(&retryInfo, reportInfos.RetryMap)
+		collector.ReportInfoCollector = reportInfos
 		currentTime := 100 * time.Second.Milliseconds()
+		patch := gomonkey.ApplyMethodFunc(collector.ReportInfoCollector, "GetInfo",
+			func(jobId string, nodeName string, deviceName string) constant.ReportInfo {
+				return retryInfo[jobId][nodeName][deviceName]
+			})
+		defer patch.Reset()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(currentTime)
 		RetryProcessor.processRetryFaultInfo(currentTime)
 		result := RetryProcessor.nodeDeviceCmMap
 		want := faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](expectProcessedDeviceInfos)
@@ -414,6 +421,52 @@ func TestUceFaultProcessorScenario1(t *testing.T) {
 				util.ObjToString(result), util.ObjToString(want))
 		}
 	})
+}
+
+func TestAddRetryFault(t *testing.T) {
+	t.Run("add retry fault ok", func(t *testing.T) {
+		nodeName := "test-node"
+		deviceName := "test-device"
+		deviceInfo := constant.AdvanceDeviceFaultCm{}
+		retryInfo := constant.RetryDeviceInfo{
+			DeviceName: deviceName,
+			FaultDetail: map[string]constant.DeviceFaultDetail{
+				constant.DeviceRetryFault: {
+					FaultType: constant.HcclFaultType,
+				},
+			},
+		}
+		fault := constant.DeviceFault{}
+		RetryProcessor.onceRetryDeviceInfo = map[string]map[string]constant.RetryDeviceInfo{
+			nodeName: {
+				deviceName: retryInfo,
+			},
+		}
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkDownFaultOnceQue = []constant.DeviceFault{fault}
+		RetryProcessor.addRetryFault(nodeName, &deviceInfo, retryInfo, deviceName)
+		if len(RetryProcessor.onceRetryDeviceInfo) != 0 {
+			t.Error("addRetryFault() failed")
+		}
+	})
+}
+
+func TestGetLinkdownFault(t *testing.T) {
+	t.Run("get linkdown fault ok", func(t *testing.T) {
+		fault := constant.DeviceFault{
+			FaultType: constant.HcclFaultType,
+		}
+		RetryProcessor.linkDownFaultOnceQue = []constant.DeviceFault{fault}
+		fault = RetryProcessor.getLinkdownFault()
+		if fault.FaultType != constant.HcclFaultType {
+			t.Error("getLinkdownFault() failed")
+		}
+	})
+
 }
 
 func TestUceFaultProcessorScenario2(t *testing.T) {
@@ -431,6 +484,8 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 					Data:  nil},
 			},
 		}
+		retryInfo := make(map[string]map[string]map[string]constant.ReportInfo)
+		util.DeepCopy(&retryInfo, reportInfos.RetryMap)
 		collector.ReportInfoCollector = reportInfos
 		mockJob := gomonkey.ApplyFunc(job.GetJobServerInfoMap, func() constant.JobServerInfoMap {
 			return jobServerInfoMap
@@ -442,6 +497,11 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 		mockNow := gomonkey.ApplyFunc(time.Now, func() time.Time {
 			return mockTime
 		})
+		patch := gomonkey.ApplyMethodFunc(collector.ReportInfoCollector, "GetInfo",
+			func(jobId string, nodeName string, deviceName string) constant.ReportInfo {
+				return retryInfo[jobId][nodeName][deviceName]
+			})
+		defer patch.Reset()
 		defer func() {
 			mockJob.Reset()
 			mockNow.Reset()

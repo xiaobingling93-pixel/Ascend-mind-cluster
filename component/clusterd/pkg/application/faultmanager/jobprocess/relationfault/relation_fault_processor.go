@@ -449,7 +449,6 @@ func (fJob *FaultJob) handleJobFault(relationFault []*constant.FaultInfo,
 
 	// get code device map
 	relationCodeDeviceMap, nodeDeviceList, triggerCodeDeviceMap := fJob.transferFaultToMap(relationFault, triggerFault)
-
 	// find all matching configuration tables
 	curFaultTables := fJob.getCodeMatchedTables(relationCodeDeviceMap, triggerCodeDeviceMap, strategyList)
 	if len(curFaultTables) <= 0 {
