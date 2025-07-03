@@ -43,7 +43,7 @@ func (th *TorHandlerV2) PreStartAction(ssn *framework.Session) error {
 	if th.globalTorEnv == nil {
 		return fmt.Errorf("prestart action is failed by globalTorEnv is nil")
 	}
-	if th.Job.SchedulingTaskNum == 0 {
+	if th.Job.SchedulingTaskNum == 0 || th.Job.SchedulingTaskNum == len(th.Job.Tasks) {
 		return nil
 	}
 	// obtain the tors which job used and not used  before restart
