@@ -25,6 +25,9 @@ The retryFaultProcessor process retry fault reporting information.
 If the device fault is UCE fault, then determine whether the job running on the device can tolerate UCE faults.
 If they can tolerate it, the reporting of the UCE fault should be delayed by 10 seconds.
 */
+
+const linkdownTimeout = 300
+
 type retryFaultProcessor struct {
 	JobReportRecoverTimeout  int64
 	JobReportCompleteTimeout int64
@@ -33,12 +36,15 @@ type retryFaultProcessor struct {
 	retryDevicesOfJob      map[string]constant.RetryJobInfo
 	normalFaultDetailOfJob map[string]constant.DeviceFaultDetail
 	// node->DeviceName->retryDeviceInfo
-	retryDeviceOfNode    map[string]constant.RetryNodeInfo
-	jobServerInfoMap     constant.JobServerInfoMap
-	nodeDeviceCmMap      map[string]*constant.AdvanceDeviceFaultCm
-	onceRetryDeviceInfo  map[string]map[string]constant.RetryDeviceInfo
-	onceFaultMap         map[string]map[string]constant.DeviceFault
-	linkDownFaultOnceQue []constant.DeviceFault
+	retryDeviceOfNode   map[string]constant.RetryNodeInfo
+	jobServerInfoMap    constant.JobServerInfoMap
+	nodeDeviceCmMap     map[string]*constant.AdvanceDeviceFaultCm
+	nodeSwitchCmMap     map[string]*constant.SwitchInfo
+	onceRetryDeviceInfo map[string]map[string]constant.RetryDeviceInfo
+	onceFaultMap        map[string]map[string]constant.DeviceFault
+	linkdownDeviceFault map[string]map[string]constant.DeviceFault
+	linkdownSwitchFault map[string]constant.SimpleSwitchFaultInfo
+	hasLinkDown         bool
 }
 
 func init() {
@@ -47,7 +53,10 @@ func init() {
 		JobReportCompleteTimeout: constant.JobReportCompleteTimeout,
 		onceRetryDeviceInfo:      make(map[string]map[string]constant.RetryDeviceInfo),
 		onceFaultMap:             make(map[string]map[string]constant.DeviceFault),
-		linkDownFaultOnceQue:     make([]constant.DeviceFault, 0),
+		linkdownDeviceFault:      make(map[string]map[string]constant.DeviceFault),
+		nodeDeviceCmMap:          make(map[string]*constant.AdvanceDeviceFaultCm),
+		nodeSwitchCmMap:          make(map[string]*constant.SwitchInfo),
+		linkdownSwitchFault:      make(map[string]constant.SimpleSwitchFaultInfo),
 	}
 }
 
@@ -58,9 +67,13 @@ func (processor *retryFaultProcessor) initRetryDeviceFromNodeAndReportInfo(jobId
 	deviceNumOfPod := pod.GetPodDeviceNumByJobId(jobId)
 	jobRetryNodeInfo := constant.RetryNodeInfo{NodeName: nodeName, DeviceInfo: make(map[string]constant.RetryDeviceInfo)}
 	reportTime := collector.ReportInfoCollector.GetNoRetryReportTime(jobId)
+	hasReport := false
 	for _, deviceOfJob := range devicesOfJobOnNode.DeviceList {
 		deviceName := processor.nodeDeviceCmMap[nodeName].DeviceType + "-" + deviceOfJob.DeviceID
 		retryReportInfo := collector.ReportInfoCollector.GetInfo(jobId, nodeName, deviceName)
+		if retryReportInfo.FaultType == constant.HcclFaultType {
+			hasReport = true
+		}
 		jobRetryDevice := constant.RetryDeviceInfo{
 			DeviceName: deviceName, FaultDetail: make(map[string]constant.DeviceFaultDetail),
 			FaultCodeLevel: make(map[string]string)}
@@ -89,10 +102,11 @@ func (processor *retryFaultProcessor) initRetryDeviceFromNodeAndReportInfo(jobId
 			jobRetryDevice.FaultDetail[constant.DeviceRetryFault] = detailInfo
 			jobRetryNodeInfo.DeviceInfo[deviceName] = jobRetryDevice
 		}
-		if retryReportInfo.FaultType == constant.HcclFaultType {
-			processor.onceFaultMap = make(map[string]map[string]constant.DeviceFault)
-			processor.onceRetryDeviceInfo = make(map[string]map[string]constant.RetryDeviceInfo)
-			processor.linkDownFaultOnceQue = make([]constant.DeviceFault, 0)
+		if hasReport {
+			delete(processor.onceFaultMap, nodeName)
+			delete(processor.onceRetryDeviceInfo, nodeName)
+			delete(processor.linkdownDeviceFault, nodeName)
+			delete(processor.linkdownSwitchFault, nodeName)
 			continue
 		}
 		processor.addOnceRetryDevices(nodeName, deviceName, currentTime, &jobRetryNodeInfo)
@@ -108,7 +122,8 @@ func (processor *retryFaultProcessor) addOnceRetryDevices(nodeName, deviceName s
 				continue
 			}
 			jobRetryNodeInfo.DeviceInfo[deviceName] = fault
-			hwlog.RunLog.Infof("jobRetryNodeInfo.DeviceInfo add: %v ", fault)
+			hwlog.RunLog.Debugf("jobRetryNodeInfo: nodeName %s, deviceName%s ,add: %v ",
+				nodeName, deviceName, fault)
 		}
 	}
 }
@@ -135,14 +150,19 @@ func (processor *retryFaultProcessor) updateNormalFaultDetailOfJob(jobId string,
 
 // Process retry, L2 and L3 fault
 func (processor *retryFaultProcessor) Process(info any) any {
-	processContent, ok := info.(constant.OneConfigmapContent[*constant.AdvanceDeviceFaultCm])
-	if !ok {
-		hwlog.RunLog.Errorf("%v cannot convert to DeviceInfo", info)
+	deviceContent, deviceOk := info.(constant.OneConfigmapContent[*constant.AdvanceDeviceFaultCm])
+	switchContent, switchOK := info.(constant.OneConfigmapContent[*constant.SwitchInfo])
+	if !deviceOk && !switchOK {
+		hwlog.RunLog.Errorf("%v cannot convert to DeviceInfo or SwitchInfo", info)
 		return info
 	}
-
+	if switchOK {
+		processor.nodeSwitchCmMap = switchContent.AllConfigmap
+	}
+	if deviceOk {
+		processor.nodeDeviceCmMap = deviceContent.AllConfigmap
+	}
 	processor.jobServerInfoMap = job.GetJobServerInfoMap()
-	processor.nodeDeviceCmMap = processContent.AllConfigmap
 	hwlog.RunLog.Debugf("current nodeDeviceCmMap %v", processor.nodeDeviceCmMap)
 
 	processor.retryDeviceOfNode = processor.handleRetryDeviceOfNodes()
@@ -159,8 +179,12 @@ func (processor *retryFaultProcessor) Process(info any) any {
 	hwlog.RunLog.Debugf("normalFaultDetailOfJob: %v", processor.normalFaultDetailOfJob)
 	hwlog.RunLog.Debugf("retryDevicesOfJob: %v", processor.retryDevicesOfJob)
 
-	hwlog.RunLog.Debugf("result deviceInfos %v", processContent.AllConfigmap)
-	return processContent
+	hwlog.RunLog.Debugf("result deviceInfos %v", deviceContent.AllConfigmap)
+	hwlog.RunLog.Debugf("result switchInfos %v", switchContent.AllConfigmap)
+	if switchOK {
+		return switchContent
+	}
+	return deviceContent
 }
 
 func (processor *retryFaultProcessor) processRetryFaultInfo(currentTime int64) {
@@ -168,15 +192,18 @@ func (processor *retryFaultProcessor) processRetryFaultInfo(currentTime int64) {
 		advanceDeviceInfo = processor.processEachNodeRetryFaultInfo(nodeName, advanceDeviceInfo, currentTime)
 		processor.nodeDeviceCmMap[nodeName] = advanceDeviceInfo
 	}
-}
-
-func (processor *retryFaultProcessor) getLinkdownFault() constant.DeviceFault {
-	var linkdownFault = constant.DeviceFault{}
-	length := len(processor.linkDownFaultOnceQue)
-	if length == 0 {
-		return linkdownFault
+	clearLinkDown := true
+	for _, devs := range processor.onceFaultMap {
+		if len(devs) > 0 {
+			clearLinkDown = false
+			break
+		}
 	}
-	return processor.linkDownFaultOnceQue[length-1]
+	if processor.hasLinkDown && clearLinkDown {
+		processor.hasLinkDown = false
+		processor.linkdownDeviceFault = make(map[string]map[string]constant.DeviceFault)
+		processor.linkdownSwitchFault = make(map[string]constant.SimpleSwitchFaultInfo)
+	}
 }
 
 func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
@@ -196,9 +223,11 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 					hwlog.RunLog.Warn("retryProcessor filter retry " + fullLog)
 					processor.filterRetryDeviceFaultInfo(deviceName, deviceInfo, nodeName)
 					modified = true
+				} else if retryDevice.FaultDetail[constant.DeviceRetryFault].FaultType == constant.HcclFaultType {
+					hwlog.RunLog.Warn("retryProcessor cannot filter retry " + fullLog)
+					processor.addRetryFault(nodeName, deviceInfo, deviceName)
 				} else {
 					hwlog.RunLog.Warn("retryProcessor cannot filter retry " + fullLog)
-					processor.addRetryFault(nodeName, deviceInfo, retryDevice, deviceName)
 				}
 			}
 			if detailInfo, ok := retryDevice.FaultDetail[constant.DeviceNormalFault]; ok &&
@@ -223,21 +252,38 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 	return deviceInfo
 }
 
-func (processor *retryFaultProcessor) addRetryFault(nodeName string, deviceInfo *constant.AdvanceDeviceFaultCm,
-	retryDevice constant.RetryDeviceInfo, deviceName string) {
-	if retryDevice.FaultDetail[constant.DeviceRetryFault].FaultType == constant.HcclFaultType {
-		if len(processor.onceRetryDeviceInfo[nodeName]) == 0 {
-			return
-		}
-		fault := processor.onceFaultMap[nodeName][deviceName]
-		linkdownFault := processor.getLinkdownFault()
-		deviceInfo.AddFaultAndFix(fault)
-		deviceInfo.AddFaultAndFix(linkdownFault)
-		processor.onceFaultMap = make(map[string]map[string]constant.DeviceFault)
-		processor.onceRetryDeviceInfo = make(map[string]map[string]constant.RetryDeviceInfo)
-		processor.linkDownFaultOnceQue = make([]constant.DeviceFault, 0)
-		hwlog.RunLog.Warnf("add hccl retry fault: %v, linkdown fault: %v ", fault, linkdownFault)
+func (processor *retryFaultProcessor) addRetryFault(nodeName string,
+	deviceInfo *constant.AdvanceDeviceFaultCm, deviceName string) {
+	if len(processor.onceRetryDeviceInfo[nodeName]) == 0 {
+		return
 	}
+	for _, faultInfo := range processor.linkdownDeviceFault {
+		if len(faultInfo) > 0 {
+			processor.hasLinkDown = true
+			break
+		}
+	}
+	if len(processor.linkdownSwitchFault) > 0 {
+		processor.hasLinkDown = true
+	}
+	if fault, ok := processor.onceFaultMap[nodeName][deviceName]; ok {
+		if !processor.hasLinkDown {
+			fault.FaultLevel = constant.RestartBusiness
+			hwlog.RunLog.Warn("fault upgrade  to restartBusiness")
+		}
+		deviceInfo.AddFaultAndFix(fault)
+		hwlog.RunLog.Warnf("nodeName :%v deviceName: %v, add hccl error: %v ", nodeName, deviceName, fault)
+	}
+	if fault, ok := processor.linkdownDeviceFault[nodeName][deviceName]; ok {
+		deviceInfo.AddFaultAndFix(fault)
+		hwlog.RunLog.Warnf("nodeName :%v deviceName: %v, add linkdown linkdown: %v ", nodeName, deviceName, fault)
+	}
+	if fault, ok := processor.linkdownSwitchFault[nodeName]; ok {
+		processor.nodeSwitchCmMap[constant.SwitchInfoPrefix+nodeName].AddFaultAndFix(fault)
+		hwlog.RunLog.Warnf("nodeName :%v deviceName: %v, add switch fault: %v ", nodeName, deviceName, fault)
+	}
+	delete(processor.onceRetryDeviceInfo[nodeName], deviceName)
+	delete(processor.onceFaultMap[nodeName], deviceName)
 }
 
 func (processor *retryFaultProcessor) filterRetryDeviceFaultInfo(
@@ -336,18 +382,15 @@ func (processor *retryFaultProcessor) handleRetryDeviceOfNodes() map[string]cons
 			continue
 		}
 		retryNodes[nodeName] = retryFaultDevicesOnNode
-		faultOnceDevs := make(map[string]constant.RetryDeviceInfo)
 		for _, retryDevice := range retryFaultDevicesOnNode.DeviceInfo {
-			if retryDevice.FaultDetail[constant.DeviceRetryFault].FaultType == constant.HcclFaultType {
-				faultOnceDevs[retryDevice.DeviceName] = retryDevice
+			if retryDevice.FaultDetail[constant.DeviceRetryFault].FaultType != constant.HcclFaultType {
+				continue
 			}
+			if _, ok := processor.onceRetryDeviceInfo[nodeName]; !ok {
+				processor.onceRetryDeviceInfo[nodeName] = make(map[string]constant.RetryDeviceInfo)
+			}
+			processor.onceRetryDeviceInfo[nodeName][retryDevice.DeviceName] = retryDevice
 		}
-		if len(faultOnceDevs) == 0 {
-			continue
-		}
-		processor.onceRetryDeviceInfo[nodeName] = faultOnceDevs
-		hwlog.RunLog.Infof("nodeName: %s, processor.onceRetryDeviceInfo: %v",
-			nodeName, processor.onceRetryDeviceInfo[nodeName])
 	}
 	return retryNodes
 }
@@ -372,12 +415,36 @@ func (processor *retryFaultProcessor) getRetryDevicesForTolerateJobs(curTime int
 				continue
 			}
 			jobInfo.RetryNode[nodeName] = processor.initRetryDeviceFromNodeAndReportInfo(jobUid, nodeName, curTime)
+			processor.processSwitchLinkDownFaults(nodeName)
 		}
 		if len(jobInfo.RetryNode) != 0 {
 			retryJobs[jobUid] = jobInfo
 		}
 	}
 	return retryJobs
+}
+
+func (processor *retryFaultProcessor) processSwitchLinkDownFaults(nodeName string) {
+	currentTime := time.Now().Unix()
+	switchKey := constant.SwitchInfoPrefix + nodeName
+	switchFault, ok := processor.linkdownSwitchFault[nodeName]
+	if ok && currentTime-switchFault.AlarmRaisedTime >= linkdownTimeout {
+		hwlog.RunLog.Infof("switch linkdownFault delete node: %v: %v", nodeName, switchFault)
+		delete(processor.linkdownSwitchFault, nodeName)
+	}
+	switchInfo, ok := processor.nodeSwitchCmMap[switchKey]
+	if !ok {
+		return
+	}
+	for _, info := range switchInfo.SwitchFaultInfo.FaultInfo {
+		if !faultdomain.IsSwitchLinkDownFault(info.AssembledFaultCode) {
+			continue
+		}
+		if currentTime-info.AlarmRaisedTime >= linkdownTimeout {
+			continue
+		}
+		processor.linkdownSwitchFault[nodeName] = info
+	}
 }
 
 func (processor *retryFaultProcessor) getRetryFaultDevices(
@@ -416,7 +483,10 @@ func (processor *retryFaultProcessor) getRetryFaultDevices(
 				faultDeviceInfo.FaultCodeLevel[fault.FaultCode] = fault.FaultLevel
 			}
 			if faultdomain.IsLinkDownFault(fault.FaultCode) {
-				processor.linkDownFaultOnceQue = append(processor.linkDownFaultOnceQue, fault)
+				if _, ok := processor.linkdownDeviceFault[nodeName]; !ok {
+					processor.linkdownDeviceFault[nodeName] = make(map[string]constant.DeviceFault)
+				}
+				processor.linkdownDeviceFault[nodeName][fault.NPUName] = fault
 			}
 			if !faultdomain.IsL1Fault(fault.FaultLevel) {
 				if oldDetailInfo, ok := faultDeviceInfo.FaultDetail[constant.DeviceNormalFault]; ok {

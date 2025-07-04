@@ -244,3 +244,12 @@ func TestNodeInfoBusinessDataIsNotEqual(t *testing.T) {
 		convey.So(NodeInfoBusinessDataIsNotEqual(node1, node4), convey.ShouldBeTrue)
 	})
 }
+
+func TestSwitchAddFaultAndFix1(t *testing.T) {
+	convey.Convey("add switch fault ok", t, func() {
+		cm := &SwitchInfo{}
+		fault := SimpleSwitchFaultInfo{}
+		cm.AddFaultAndFix(fault)
+		convey.So(len(cm.FaultInfo), convey.ShouldEqual, 1)
+	})
+}

@@ -229,6 +229,11 @@ func (cm *SwitchInfo) IsSame(another ConfigMapInterface) bool {
 	return !SwitchInfoBusinessDataIsNotEqual(cm, anotherSwitchInfo)
 }
 
+// AddFaultAndFix add fault in the switchCM
+func (cm *SwitchInfo) AddFaultAndFix(addFault SimpleSwitchFaultInfo) {
+	cm.SwitchFaultInfo.FaultInfo = append(cm.FaultInfo, addFault)
+}
+
 // IsSame compare with another cm
 func (cm *NodeInfo) IsSame(another ConfigMapInterface) bool {
 	anotherNodeInfo, ok := another.(*NodeInfo)

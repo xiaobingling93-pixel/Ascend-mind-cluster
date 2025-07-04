@@ -437,6 +437,11 @@ func IsLinkDownFault(faultCode string) bool {
 	return strings.Contains(faultCode, constant.LinkDownFaultCode)
 }
 
+// IsSwitchLinkDownFault check faultCode is switch linkdown fault
+func IsSwitchLinkDownFault(faultCode string) bool {
+	return strings.Contains(faultCode, constant.SwitchLinkDownFaultCode)
+}
+
 // IsUceAccompanyFault check faultCode is uce accompany
 func IsUceAccompanyFault(faultCode string) bool {
 	return strings.Contains(faultCode, constant.AicFaultCode) ||
