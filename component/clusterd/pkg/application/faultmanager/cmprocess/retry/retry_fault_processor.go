@@ -26,7 +26,7 @@ If the device fault is UCE fault, then determine whether the job running on the 
 If they can tolerate it, the reporting of the UCE fault should be delayed by 10 seconds.
 */
 
-const linkdownTimeout = 300
+const linkdownTimeout = 180
 
 type retryFaultProcessor struct {
 	JobReportRecoverTimeout  int64

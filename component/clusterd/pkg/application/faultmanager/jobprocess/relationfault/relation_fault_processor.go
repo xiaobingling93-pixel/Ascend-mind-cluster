@@ -328,6 +328,7 @@ func (fJob *FaultJob) clearProcessedAndTimeOutFault() {
 		if preStopTime-fault.FaultTime >= fault.DealMaxTime*constant.Kilo {
 			hwlog.RunLog.Infof("fault code %s is time out, process as default strategy", fault.FaultUid)
 			fJob.addFaultStrategyForTimeOutCode(fault)
+			fJob.ProcessingFaultCode.Delete(fault.FaultUid)
 			continue
 		}
 		networkFaultInfo = append(networkFaultInfo, fault)
