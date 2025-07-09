@@ -92,6 +92,29 @@ func TestJobReportInfoCollectorGetInfo(t *testing.T) {
 	})
 }
 
+func TestGetInfoCollectTimeout(t *testing.T) {
+	t.Run("get report timeout info", func(t *testing.T) {
+		oldMap := ReportInfoCollector.RetryMap
+		defer func() {
+			ReportInfoCollector.RetryMap = oldMap
+		}()
+		ReportInfoCollector.RetryMap = map[string]map[string]map[string]constant.ReportInfo{
+			JobId: {
+				NodeName: {
+					DeviceName: {
+						RecoverTime:  time.Now().UnixMilli() - dataExpireTime - 1,
+						CompleteTime: constant.JobNotRecoverComplete,
+					},
+				},
+			},
+		}
+		info := ReportInfoCollector.GetInfo(JobId, NodeName, DeviceName)
+		if info.RecoverTime != constant.JobNotRecover {
+			t.Error("get report info should be timeout")
+		}
+	})
+}
+
 func TestReportAndGetNoRetryReportTime(t *testing.T) {
 	t.Run("get no retry report time success", func(t *testing.T) {
 		reportTime := ReportInfoCollector.GetNoRetryReportTime(JobId)

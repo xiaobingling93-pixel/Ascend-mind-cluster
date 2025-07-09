@@ -18,6 +18,7 @@ package kubeclient
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -169,6 +170,11 @@ func testAddAnnotation() {
 	}
 	err := testK8sClient.AddAnnotation("testKey", "testValue")
 	convey.So(err.Error(), convey.ShouldEqual, `nodes "`+testNodeName+`" not found`)
+
+	p1 := gomonkey.ApplyFuncReturn(json.Marshal, nil, testErr)
+	defer p1.Reset()
+	err = testK8sClient.AddAnnotation("testKey", "testValue")
+	convey.So(err, convey.ShouldResemble, testErr)
 }
 
 func testCreateConfigMap() {

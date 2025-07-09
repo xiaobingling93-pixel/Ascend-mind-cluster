@@ -317,6 +317,56 @@ func TestUceFaultProcessorCanFilterUceDeviceFaultInfoSituation8(t *testing.T) {
 	}
 }
 
+func TestClearFault(t *testing.T) {
+	t.Run("TestClearFault success", func(t *testing.T) {
+		nodeName := "test-node"
+		deviceName := "test-device"
+		jobId := "test-job"
+		fault := constant.DeviceFault{}
+		curTime := time.Now().Unix()
+		switchFault := constant.SimpleSwitchFaultInfo{
+			AlarmRaisedTime: curTime - 100,
+		}
+		retryInfo := constant.RetryDeviceInfo{
+			DeviceName: deviceName,
+			FaultDetail: map[string]constant.DeviceFaultDetail{
+				constant.DeviceRetryFault: {
+					FaultType: constant.HcclFaultType,
+				},
+			},
+		}
+		RetryProcessor.onceRetryDeviceInfo = map[string]map[string]constant.RetryDeviceInfo{
+			nodeName: {
+				deviceName: retryInfo,
+			},
+		}
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkdownDeviceFault = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkdownSwitchFault = map[string]constant.SimpleSwitchFaultInfo{
+			constant.SwitchInfoPrefix + nodeName: switchFault,
+		}
+		RetryProcessor.jobServerInfoMap = constant.JobServerInfoMap{
+			InfoMap: map[string]map[string]constant.ServerHccl{
+				jobId: {
+					nodeName: {},
+				},
+			},
+		}
+		RetryProcessor.clearFault(jobId)
+		if len(RetryProcessor.onceRetryDeviceInfo) != 0 {
+			t.Errorf("clearFault() onceRetryDeviceInfo = %v, want %v", RetryProcessor.onceRetryDeviceInfo, 0)
+		}
+	})
+}
+
 // =============Test scenario===========
 func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 	t.Run("TestUceFaultProcessorGetUceDeviceOfNodes", func(t *testing.T) {
@@ -326,7 +376,7 @@ func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 		}
 
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		deviceOfNodes := RetryProcessor.getRetryDeviceOfNodes()
+		deviceOfNodes := RetryProcessor.handleRetryDeviceOfNodes()
 		for nodeName, filterNode := range deviceOfNodes {
 			for deviceName, filterDevice := range filterNode.DeviceInfo {
 				filterDevice.FaultCodeLevel = nil
@@ -334,7 +384,7 @@ func TestUceFaultProcessorGetUceDeviceOfNodes(t *testing.T) {
 			}
 		}
 		if !reflect.DeepEqual(deviceOfNodes, uceNodesInfos) {
-			t.Errorf("getRetryDeviceOfNodes() = %v, want %v",
+			t.Errorf("handleRetryDeviceOfNodes() = %v, want %v",
 				util.ObjToString(deviceOfNodes), util.ObjToString(uceNodesInfos))
 		}
 	})
@@ -350,8 +400,8 @@ func TestUceFaultProcessorGetUceDevicesForUceTolerateJobs(t *testing.T) {
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
 		for jobId, filterJob := range RetryProcessor.retryDevicesOfJob {
 			for nodeName, filterNode := range filterJob.RetryNode {
 				for deviceName, filterDevice := range filterNode.DeviceInfo {
@@ -367,6 +417,44 @@ func TestUceFaultProcessorGetUceDevicesForUceTolerateJobs(t *testing.T) {
 	})
 }
 
+func TestProcessSwitchLinkDownFaults(t *testing.T) {
+	t.Run("TestProcessSwitchLinkDownFaults", func(t *testing.T) {
+		nodeName := "test-node"
+		deviceName := "test-device"
+		fault := constant.DeviceFault{}
+		curTime := time.Now().Unix()
+		switchFault := constant.SimpleSwitchFaultInfo{
+			AlarmRaisedTime: curTime - 100,
+		}
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkdownDeviceFault = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.nodeSwitchCmMap = make(map[string]*constant.SwitchInfo)
+		RetryProcessor.nodeSwitchCmMap[constant.SwitchInfoPrefix+"node1"] = &constant.SwitchInfo{
+			CmName: constant.SwitchInfoPrefix + "node1",
+			SwitchFaultInfo: constant.SwitchFaultInfo{
+				FaultInfo: []constant.SimpleSwitchFaultInfo{
+					{
+						AssembledFaultCode: constant.SwitchLinkDownFaultCode,
+						AlarmRaisedTime:    time.Now().Unix(),
+					},
+				},
+			},
+		}
+		RetryProcessor.linkdownSwitchFault = map[string]constant.SimpleSwitchFaultInfo{
+			constant.SwitchInfoPrefix + nodeName: switchFault,
+		}
+		RetryProcessor.processSwitchLinkDownFaults(nodeName)
+	})
+}
+
 func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
 	t.Run("TestUceFaultProcessorProcessUceFaultInfo", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, _, jobServerInfoMap, _, testFileErr := readObjectFromUceProcessorTestYaml()
@@ -377,8 +465,8 @@ func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
 		currentTime := 109 * time.Second.Milliseconds()
 		RetryProcessor.processRetryFaultInfo(currentTime)
 		result := RetryProcessor.nodeDeviceCmMap
@@ -391,6 +479,82 @@ func TestUceFaultProcessorProcessUceFaultInfo(t *testing.T) {
 	})
 }
 
+func TestGetRetryDevicesForTolerateJobs(t *testing.T) {
+	t.Run("TestGetRetryDevicesForTolerateJobs", func(t *testing.T) {
+		cmDeviceInfos, _, _, jobServerInfoMap, _, testFileErr := readObjectFromUceProcessorTestYaml()
+		if testFileErr != nil {
+			t.Errorf("init data failed. %v", testFileErr)
+		}
+		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
+		RetryProcessor.jobServerInfoMap = jobServerInfoMap
+		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
+		RetryProcessor.nodeSwitchCmMap = make(map[string]*constant.SwitchInfo)
+		RetryProcessor.nodeSwitchCmMap[constant.SwitchInfoPrefix+"node1"] = &constant.SwitchInfo{
+			CmName: constant.SwitchInfoPrefix + "node1",
+			SwitchFaultInfo: constant.SwitchFaultInfo{
+				FaultInfo: []constant.SimpleSwitchFaultInfo{
+					{
+						AssembledFaultCode: constant.SwitchLinkDownFaultCode,
+						AlarmRaisedTime:    time.Now().Unix(),
+					},
+				},
+			},
+		}
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
+		if len(RetryProcessor.linkdownSwitchFault) == 0 {
+			t.Error("add linkdown fault failed")
+		}
+
+	})
+}
+
+func TestProcessRetryHCCLFaultInfo(t *testing.T) {
+	t.Run("TestProcessRetryHCCLFaultInfo node clear linkdown", func(t *testing.T) {
+		cmDeviceInfos, _, _, jobServerInfoMap, _, testFileErr := readObjectFromUceProcessorTestYaml()
+		if testFileErr != nil {
+			t.Errorf("init data failed. %v", testFileErr)
+		}
+		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
+		RetryProcessor.jobServerInfoMap = jobServerInfoMap
+		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
+		currentTime := 109 * time.Second.Milliseconds()
+		RetryProcessor.hasLinkDown = true
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{
+			"nodeName": {
+				"dev": {},
+			},
+		}
+		RetryProcessor.processRetryFaultInfo(currentTime)
+		if RetryProcessor.hasLinkDown == false {
+			t.Errorf("hasLinkDown is clear")
+		}
+	})
+}
+
+func TestProcessRetryHCCLFaultInfo2(t *testing.T) {
+	t.Run("TestProcessRetryHCCLFaultInfo clear linkdown", func(t *testing.T) {
+		cmDeviceInfos, _, _, jobServerInfoMap, _, testFileErr := readObjectFromUceProcessorTestYaml()
+		if testFileErr != nil {
+			t.Errorf("init data failed. %v", testFileErr)
+		}
+		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
+		RetryProcessor.jobServerInfoMap = jobServerInfoMap
+		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(time.Now().UnixMilli())
+		currentTime := 109 * time.Second.Milliseconds()
+		RetryProcessor.hasLinkDown = true
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{}
+		RetryProcessor.processRetryFaultInfo(currentTime)
+		if RetryProcessor.hasLinkDown == true {
+			t.Errorf("hasLinkDown is not clear")
+		}
+	})
+}
+
 func TestUceFaultProcessorScenario1(t *testing.T) {
 	t.Run("TestUceFaultProcessorScenario1", func(t *testing.T) {
 		cmDeviceInfos, expectProcessedDeviceInfos, jobServerInfoMap, reportInfos, testFileErr :=
@@ -398,20 +562,68 @@ func TestUceFaultProcessorScenario1(t *testing.T) {
 		if testFileErr != nil {
 			t.Errorf("init data failed. %v", testFileErr)
 		}
-		collector.ReportInfoCollector = reportInfos
 
 		RetryProcessor.normalFaultDetailOfJob = make(map[string]constant.DeviceFaultDetail)
 		RetryProcessor.jobServerInfoMap = jobServerInfoMap
 		RetryProcessor.nodeDeviceCmMap = faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos)
-		RetryProcessor.retryDeviceOfNode = RetryProcessor.getRetryDeviceOfNodes()
-		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs()
+		RetryProcessor.retryDeviceOfNode = RetryProcessor.handleRetryDeviceOfNodes()
+		retryInfo := make(map[string]map[string]map[string]constant.ReportInfo)
+		util.DeepCopy(&retryInfo, reportInfos.RetryMap)
+		collector.ReportInfoCollector = reportInfos
 		currentTime := 100 * time.Second.Milliseconds()
+		patch := gomonkey.ApplyMethodFunc(collector.ReportInfoCollector, "GetInfo",
+			func(jobId string, nodeName string, deviceName string) constant.ReportInfo {
+				return retryInfo[jobId][nodeName][deviceName]
+			})
+		defer patch.Reset()
+		RetryProcessor.retryDevicesOfJob = RetryProcessor.getRetryDevicesForTolerateJobs(currentTime)
 		RetryProcessor.processRetryFaultInfo(currentTime)
 		result := RetryProcessor.nodeDeviceCmMap
 		want := faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](expectProcessedDeviceInfos)
 		if !reflect.DeepEqual(result, want) {
 			t.Errorf("processRetryFaultInfo() = %v, \n\nwant %v",
 				util.ObjToString(result), util.ObjToString(want))
+		}
+	})
+}
+
+func TestAddRetryFault(t *testing.T) {
+	t.Run("add retry fault ok", func(t *testing.T) {
+		nodeName := "test-node"
+		deviceName := "test-device"
+		deviceInfo := constant.AdvanceDeviceFaultCm{}
+		retryInfo := constant.RetryDeviceInfo{
+			DeviceName: deviceName,
+			FaultDetail: map[string]constant.DeviceFaultDetail{
+				constant.DeviceRetryFault: {
+					FaultType: constant.HcclFaultType,
+				},
+			},
+		}
+		fault := constant.DeviceFault{}
+		switchFault := constant.SimpleSwitchFaultInfo{}
+		RetryProcessor.onceRetryDeviceInfo = map[string]map[string]constant.RetryDeviceInfo{
+			nodeName: {
+				deviceName: retryInfo,
+			},
+		}
+		RetryProcessor.onceFaultMap = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkdownDeviceFault = map[string]map[string]constant.DeviceFault{
+			nodeName: {
+				deviceName: fault,
+			},
+		}
+		RetryProcessor.linkdownSwitchFault = map[string]constant.SimpleSwitchFaultInfo{
+			constant.SwitchInfoPrefix + nodeName: switchFault,
+		}
+		length := len(RetryProcessor.onceRetryDeviceInfo)
+		RetryProcessor.addRetryFault(nodeName, &deviceInfo, deviceName)
+		if len(RetryProcessor.onceRetryDeviceInfo) < length {
+			t.Error("addRetryFault() failed")
 		}
 	})
 }
@@ -431,6 +643,8 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 					Data:  nil},
 			},
 		}
+		retryInfo := make(map[string]map[string]map[string]constant.ReportInfo)
+		util.DeepCopy(&retryInfo, reportInfos.RetryMap)
 		collector.ReportInfoCollector = reportInfos
 		mockJob := gomonkey.ApplyFunc(job.GetJobServerInfoMap, func() constant.JobServerInfoMap {
 			return jobServerInfoMap
@@ -442,6 +656,11 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 		mockNow := gomonkey.ApplyFunc(time.Now, func() time.Time {
 			return mockTime
 		})
+		patch := gomonkey.ApplyMethodFunc(collector.ReportInfoCollector, "GetInfo",
+			func(jobId string, nodeName string, deviceName string) constant.ReportInfo {
+				return retryInfo[jobId][nodeName][deviceName]
+			})
+		defer patch.Reset()
 		defer func() {
 			mockJob.Reset()
 			mockNow.Reset()
@@ -455,6 +674,56 @@ func TestUceFaultProcessorScenario2(t *testing.T) {
 			t.Errorf("processRetryFaultInfo() = %v, want %v",
 				util.ObjToString(result), util.ObjToString(want))
 		}
+	})
+}
+
+func TestUceFaultProcessorScenario3(t *testing.T) {
+	t.Run("TestUceFaultProcessorScenario3", func(t *testing.T) {
+		cmDeviceInfos, _, jobServerInfoMap, reportInfos, testFileErr :=
+			readObjectFromUceScenarioTestYaml()
+		if testFileErr != nil {
+			t.Errorf("init data failed. %v", testFileErr)
+		}
+		content := constant.OneConfigmapContent[*constant.SwitchInfo]{
+			AllConfigmap: map[string]*constant.SwitchInfo{},
+		}
+		devContent := constant.OneConfigmapContent[*constant.AdvanceDeviceFaultCm]{
+			AllConfigmap: faultdomain.GetAdvanceFaultCm[*constant.AdvanceDeviceFaultCm](cmDeviceInfos),
+			UpdateConfigmap: []constant.InformerCmItem[*constant.AdvanceDeviceFaultCm]{
+				{
+					IsAdd: false,
+					Data:  nil},
+			},
+		}
+		retryInfo := make(map[string]map[string]map[string]constant.ReportInfo)
+		util.DeepCopy(&retryInfo, reportInfos.RetryMap)
+		collector.ReportInfoCollector = reportInfos
+		mockJob := gomonkey.ApplyFunc(job.GetJobServerInfoMap, func() constant.JobServerInfoMap {
+			return jobServerInfoMap
+		})
+		mockTime := time.Time{}
+		mockUnixMilli := gomonkey.ApplyPrivateMethod(mockTime, "UnixMilli", func() int64 {
+			return 100 * time.Second.Milliseconds()
+		})
+		mockNow := gomonkey.ApplyFunc(time.Now, func() time.Time {
+			return mockTime
+		})
+		patch := gomonkey.ApplyMethodFunc(collector.ReportInfoCollector, "GetInfo",
+			func(jobId string, nodeName string, deviceName string) constant.ReportInfo {
+				return retryInfo[jobId][nodeName][deviceName]
+			})
+		defer patch.Reset()
+		defer func() {
+			mockJob.Reset()
+			mockNow.Reset()
+			mockUnixMilli.Reset()
+		}()
+		RetryProcessor.nodeDeviceCmMap = devContent.AllConfigmap
+		resultContent := RetryProcessor.Process(content).(constant.OneConfigmapContent[*constant.SwitchInfo])
+		if resultContent.AllConfigmap == nil {
+			t.Error("result is nil ")
+		}
+
 	})
 }
 

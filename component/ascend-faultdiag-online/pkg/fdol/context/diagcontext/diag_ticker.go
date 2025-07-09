@@ -55,15 +55,15 @@ func (diagTicker *DiagTicker) Start(ctxData *contextdata.CtxData, diagCtx *DiagC
 		return
 	}
 	diagTicker.running = true
-	interval := diagTicker.DiagItem.Interval
+	go diagTicker.startTicker(ctxData, diagCtx, diagTicker.DiagItem.Interval)
+}
+
+func (diagTicker *DiagTicker) startTicker(ctxData *contextdata.CtxData, diagCtx *DiagContext, interval int) {
 	if interval <= 0 {
 		return
 	}
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
-	go diagTicker.startTicker(ctxData, diagCtx, ticker)
-}
-
-func (diagTicker *DiagTicker) startTicker(ctxData *contextdata.CtxData, diagCtx *DiagContext, ticker *time.Ticker) {
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:

@@ -60,6 +60,55 @@ func TestValidateJob(t *testing.T) {
 	})
 }
 
+func TestValidateReplicas(t *testing.T) {
+	convey.Convey("Test validateReplicas", t, func() {
+		convey.Convey("Case 1: Replicas is nil should return nil", func() {
+			spec := &commonv1.ReplicaSpec{
+				Replicas: nil,
+			}
+			err := validateReplicas(spec)
+			convey.So(err, convey.ShouldBeNil)
+		})
+
+		convey.Convey("Case 2: Replicas < 0 should return error", func() {
+			replica := int32(-1)
+			spec := &commonv1.ReplicaSpec{
+				Replicas: &replica,
+			}
+			expectedErr := &validateError{
+				reason:  "ReplicaTypeError",
+				message: "jobSpec is not valid: replicas can not be negative num, but got -1",
+			}
+
+			err := validateReplicas(spec)
+			convey.So(err, convey.ShouldResemble, expectedErr)
+		})
+
+		convey.Convey("Case 3: Replicas > maxReplicas should return error", func() {
+			replica := int32(maxReplicas + 1)
+			spec := &commonv1.ReplicaSpec{
+				Replicas: &replica,
+			}
+			expectedErr := &validateError{
+				reason:  "ReplicaTypeError",
+				message: "jobSpec is not valid: replicas can not be larger than 15000, but got 15001",
+			}
+
+			err := validateReplicas(spec)
+			convey.So(err, convey.ShouldResemble, expectedErr)
+		})
+
+		convey.Convey("Case 4: Valid replicas (e.g. 0) should return nil", func() {
+			replica := int32(0)
+			spec := &commonv1.ReplicaSpec{
+				Replicas: &replica,
+			}
+			err := validateReplicas(spec)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
 // TestValidateBasicInfo test validateBasicInfo
 func TestValidateBasicInfo(t *testing.T) {
 	convey.Convey("reconciler valid basic info", t, func() {

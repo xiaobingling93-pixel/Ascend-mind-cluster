@@ -48,7 +48,8 @@ const (
 )
 
 var (
-	testError = errors.New("test")
+	containerConfigInputStream = os.Stdin
+	testError                  = errors.New("test")
 )
 
 // TestDoPrestartHookCase1 test function DoPrestartHook

@@ -56,6 +56,8 @@ const (
 	dpcErrorTypeIndex   = 1
 	dpcErrorResultIndex = 2
 
+	excludePermissions = 0133
+	rootUID            = 0
 	memoryErrorTimeOut = 60 * time.Second
 )
 
@@ -164,7 +166,7 @@ func isSame(newDpcMap map[int]common.DpcStatus) bool {
 }
 
 func getStatusFromFile() (map[int]common.DpcStatus, error) {
-	absPath, err := utils.CheckPath(dpcFilePath)
+	absPath, err := utils.CheckOwnerAndPermission(dpcFilePath, excludePermissions, rootUID)
 	if err != nil {
 		return nil, fmt.Errorf("the filePath is invalid: %v", err)
 	}
@@ -231,7 +233,7 @@ func readInstStatus(s *bufio.Scanner) (int, common.DpcStatus, error) {
 
 func getStatusByText(text string, key string) (bool, error) {
 	errMatch := errRegex.FindStringSubmatch(text)
-	if len(errMatch) < dpcErrorResultIndex {
+	if len(errMatch) <= dpcErrorResultIndex {
 		return false, errors.New("get status failed, not match regex")
 	}
 	fileKey := errMatch[dpcErrorTypeIndex]

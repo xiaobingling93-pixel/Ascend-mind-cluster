@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"ascend-common/api"
+	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/logs"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/interface/grpc/pubfault"
 )
@@ -25,6 +27,13 @@ func NewPubFaultService(ctx context.Context) *PubFaultService {
 // SendPublicFault send public fault to clusterd
 func (s *PubFaultService) SendPublicFault(ctx context.Context,
 	req *pubfault.PublicFaultRequest) (*pubfault.RespStatus, error) {
+	event := "send public fault"
+	logs.RecordLog(req.Resource, event, constant.Start)
+	res := constant.Failed
+	defer func() {
+		logs.RecordLog(req.Resource, event, res)
+	}()
+
 	pubFaultInfo := constructPubFaultInfo(req)
 	if err := PubFaultCollector(pubFaultInfo); err != nil {
 		if err.Error() == "limiter work by resource failed" {
@@ -38,6 +47,7 @@ func (s *PubFaultService) SendPublicFault(ctx context.Context,
 			Info: err.Error(),
 		}, nil
 	}
+	res = constant.Success
 	return &pubfault.RespStatus{
 		Code: int32(common.OK),
 		Info: "public fault send successfully",

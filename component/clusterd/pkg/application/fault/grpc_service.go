@@ -33,6 +33,7 @@ import (
 	"clusterd/pkg/application/faultmanager/faultclusterprocess"
 	"clusterd/pkg/application/faultmanager/jobprocess/faultrank"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/common/logs"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
@@ -115,6 +116,13 @@ func (s *FaultServer) serveJobNum() int {
 // SubscribeFaultMsgSignal subscribe fault message signal from ClusterD
 func (s *FaultServer) SubscribeFaultMsgSignal(request *fault.ClientInfo,
 	stream fault.Fault_SubscribeFaultMsgSignalServer) error {
+	event := "subscribe fault msg signal"
+	logs.RecordLog(request.Role, event, constant.Start)
+	res := constant.Failed
+	defer func() {
+		logs.RecordLog(request.Role, event, res)
+	}()
+
 	requestInfo := fmt.Sprintf("jobId=%s, role=%s", request.JobId, request.Role)
 	hwlog.RunLog.Infof("receive Subscribe fault message signal request, %s", requestInfo)
 	faultPublisher, exist := s.getPublisher(request.JobId)
@@ -126,6 +134,7 @@ func (s *FaultServer) SubscribeFaultMsgSignal(request *fault.ClientInfo,
 	s.deletePublisher(request.JobId, faultPublisher.GetCreateTime())
 	hwlog.RunLog.Infof("jobId=%s stop subscribe fault message signal, createTime=%v",
 		request.JobId, faultPublisher.GetCreateTime().UnixNano())
+	res = constant.Success
 	return nil
 }
 
@@ -142,6 +151,13 @@ func isValidJobId(jobId string) bool {
 
 // GetFaultMsgSignal return cluster fault
 func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.ClientInfo) (*fault.FaultQueryResult, error) {
+	event := "get fault info"
+	logs.RecordLog(request.Role, event, constant.Start)
+	res := constant.Failed
+	defer func() {
+		logs.RecordLog(request.Role, event, res)
+	}()
+
 	hwlog.RunLog.Infof("job %s role %s call get faults", request.JobId, request.Role)
 	if !s.limiter.Allow(ctx) {
 		return &fault.FaultQueryResult{
@@ -173,6 +189,7 @@ func (s *FaultServer) GetFaultMsgSignal(ctx context.Context, request *fault.Clie
 	}
 	faultMsg := faultDeviceToSortedFaultMsgSignal(jobId, faultInfo.FaultDevice)
 	faultMsg.Uuid = string(uuid.NewUUID())
+	res = constant.Success
 	return &fault.FaultQueryResult{
 		Code:        int32(common.SuccessCode),
 		Info:        "all info returned",

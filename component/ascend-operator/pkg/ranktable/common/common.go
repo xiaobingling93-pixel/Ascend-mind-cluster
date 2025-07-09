@@ -49,7 +49,7 @@ type BaseGenerator struct {
 
 	servers        *sync.Map
 	rankTabler     generator.RankTableGenerator
-	IsMindIEEPJob  bool
+	IsMindIEEPJob  bool `json:"-"`
 	isSoftStrategy bool
 
 	Status      utils.RankTableStatus `json:"status"`

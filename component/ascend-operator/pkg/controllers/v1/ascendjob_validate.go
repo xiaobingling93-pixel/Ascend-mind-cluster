@@ -109,9 +109,40 @@ func validContainerNum(rType commonv1.ReplicaType, spec *commonv1.ReplicaSpec) *
 	return nil
 }
 
+func validateReplicas(spec *commonv1.ReplicaSpec) *validateError {
+	if spec.Replicas == nil {
+		return nil
+	}
+	if *spec.Replicas < 0 {
+		return &validateError{
+			reason: "ReplicaTypeError",
+			message: fmt.Sprintf("jobSpec is not valid: replicas can not be negative num, but got %d",
+				*spec.Replicas),
+		}
+	}
+	if *spec.Replicas > maxReplicas {
+		return &validateError{
+			reason: "ReplicaTypeError",
+			message: fmt.Sprintf("jobSpec is not valid: replicas can not be larger than %d, but got %d",
+				maxReplicas, *spec.Replicas),
+		}
+	}
+	return nil
+}
+
 func checkReplicaSpecs(frame string, specs map[commonv1.ReplicaType]*commonv1.ReplicaSpec) *validateError {
 	hasLeader := false
 	for rType, value := range specs {
+		if value == nil {
+			return &validateError{
+				reason:  "ReplicaTypeError",
+				message: "jobSpec is not valid: nil",
+			}
+		}
+		if ve := validateReplicas(value); ve != nil {
+			return ve
+		}
+
 		if ve := validContainerNum(rType, value); ve != nil {
 			return ve
 		}

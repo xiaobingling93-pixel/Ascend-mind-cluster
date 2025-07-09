@@ -408,6 +408,11 @@ func TestFaultCodeJudge(t *testing.T) {
 			t.Error("TestFaultCodeJudgeLinkDownFault fail")
 		}
 	})
+	t.Run("TestFaultCodeJudgeSwitchLinkDownFault", func(t *testing.T) {
+		if got := IsSwitchLinkDownFault(constant.SwitchLinkDownFaultCode); got == false {
+			t.Error("TestFaultCodeJudgeLinkDownFault fail")
+		}
+	})
 	t.Run("TestFaultCodeJudgeCqeFault", func(t *testing.T) {
 		if got := IsCqeFault(constant.DevCqeFaultCode); got == false {
 			t.Error("TestFaultCodeJudgeCqeFault fail")

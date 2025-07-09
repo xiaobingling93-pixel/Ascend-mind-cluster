@@ -41,6 +41,7 @@ func TestFaultConfigurator(t *testing.T) {
 	convey.Convey("test FaultConfigurator method 'AddConfigCM'", t, testAddConfigCM)
 	convey.Convey("test FaultConfigurator method 'UpdateConfigCM'", t, testUpdateConfigCM)
 	convey.Convey("test FaultConfigurator method 'DeleteConfigCM'", t, testDeleteConfigCM)
+	convey.Convey("test FaultConfigurator method 'GetMonitorData'", t, testGetMonitorData)
 
 	convey.Convey("test FaultConfigurator method 'initFaultConfigFromCM'", t, testInitFaultConfigFromCM)
 	convey.Convey("test FaultConfigurator method 'loadFaultConfigFromFile'", t, testLoadFaultConfigFromFile)
@@ -277,4 +278,19 @@ func testDeleteConfigCM() {
 		panic("configManager is nil")
 	}
 	configManager.DeleteConfigCM(nil)
+}
+
+func testGetMonitorData() {
+	if configManager == nil {
+		panic("configManager is nil")
+	}
+	faultConfig := &common.FaultConfig{FaultTypeCode: &common.FaultTypeCode{
+		NotHandleFaultCodes:   []string{"00000001"},
+		PreSeparateFaultCodes: []string{"00000002"},
+		SeparateFaultCodes:    []string{"00000003"},
+	}}
+
+	configManager.configManager.SetFaultConfig(faultConfig)
+	fcInfo := configManager.GetMonitorData()
+	convey.So(fcInfo.FaultConfig, convey.ShouldResemble, faultConfig)
 }
