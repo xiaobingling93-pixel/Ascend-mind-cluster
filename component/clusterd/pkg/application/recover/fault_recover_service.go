@@ -456,3 +456,12 @@ func getFaultReason(faults []*pb.FaultRank) string {
 	}
 	return normalFaultValue
 }
+
+// HealthCheck report connection health check
+func (s *FaultRecoverService) HealthCheck(ctx context.Context, request *pb.ClientInfo) (*pb.Status, error) {
+	hwlog.RunLog.Debugf("receive HeathCheck from client, jobId: %s", request.JobId)
+	return &pb.Status{
+		Code: int32(common.OK),
+		Info: fmt.Sprintf("jobId=%s, receive HeathCheck", request.JobId),
+	}, nil
+}
