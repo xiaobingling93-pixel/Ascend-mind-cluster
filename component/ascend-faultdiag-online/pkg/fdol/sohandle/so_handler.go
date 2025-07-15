@@ -65,10 +65,11 @@ import (
 
 // 定义SO文件常量
 const (
-	GetType      = "getType"
-	GetVersion   = "getVersion"
-	Execute      = "execute"
-	SoFileSuffix = ".so"
+	getType      = "getType"
+	getVersion   = "getVersion"
+	execute      = "execute"
+	soFileSuffix = ".so"
+	maxFileCount = 100
 )
 
 var dlcloseMutex sync.Mutex
@@ -121,7 +122,7 @@ func NewSoHandler(soPath string) (*SoHandler, error) {
 // getSoType 获取 .so 文件类型
 func getSoType(handle unsafe.Pointer, soPath string) (string, error) {
 	// 获取 getType 函数指针
-	cs := C.CString(GetType)
+	cs := C.CString(getType)
 	getTypeFunc := C.dlsym(handle, cs)
 	defer C.free(unsafe.Pointer(cs))
 
@@ -135,13 +136,13 @@ func getSoType(handle unsafe.Pointer, soPath string) (string, error) {
 	if typeName == "" {
 		return "", fmt.Errorf("call [%s] func [%s] failed", soPath, "getType")
 	}
-	return fmt.Sprintf("%s", typeName), nil
+	return typeName, nil
 }
 
 // getSoVersion 获取 .so 版本
 func getSoVersion(handle unsafe.Pointer, soPath string) (string, error) {
 	// 获取 getType 函数指针
-	cs := C.CString(GetVersion)
+	cs := C.CString(getVersion)
 	getVersionFunc := C.dlsym(handle, cs)
 	defer C.free(unsafe.Pointer(cs))
 
@@ -155,12 +156,12 @@ func getSoVersion(handle unsafe.Pointer, soPath string) (string, error) {
 	if version == "" {
 		return "", fmt.Errorf("call [%s] func [%s] failed", soPath, "getType")
 	}
-	return fmt.Sprintf("%s", version), nil
+	return version, nil
 }
 
 // getExecuteFunc 获取主执行函数
 func getExecuteFunc(handle unsafe.Pointer, soPath string) (func(input []byte, output []byte) (int, error), error) {
-	cs := C.CString(Execute)
+	cs := C.CString(execute)
 	// 获取 execute 函数指针
 	executeFunc := C.dlsym(handle, cs)
 	defer C.free(unsafe.Pointer(cs))
@@ -184,7 +185,7 @@ func getExecuteFunc(handle unsafe.Pointer, soPath string) (func(input []byte, ou
 		f := C.execute_func_t(executeFunc)
 		ret := C.callExecute(f, cInput, inputLength, cOutput, outputLength)
 		if ret != 0 {
-			return -1, fmt.Errorf("call [%s] func [%s] failed, return code [%d]", soPath, Execute, ret)
+			return -1, fmt.Errorf("call [%s] func [%s] failed, return code [%d]", soPath, execute, ret)
 		}
 		return 0, nil
 	}, nil
@@ -202,17 +203,22 @@ func (h *SoHandler) Close() error {
 }
 
 // 筛选 .so 文件的函数
-func filterSOFiles(soDir string) ([]string, error) {
+func filterSoFiles(soDir string) ([]string, error) {
 	var soFiles []string
+	var fileCount int
 	// 使用 filepath.Walk 递归遍历目录
 	err := filepath.Walk(soDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+		if fileCount > maxFileCount {
+			return fmt.Errorf("reach the max file count(%d)", maxFileCount)
+		}
 		// 检查是否为普通文件且扩展名是 .so
-		if !info.IsDir() && filepath.Ext(info.Name()) == SoFileSuffix {
+		if !info.IsDir() && filepath.Ext(info.Name()) == soFileSuffix {
 			soFiles = append(soFiles, path)
 		}
+		fileCount++
 		return nil
 	})
 	return soFiles, err
@@ -220,7 +226,7 @@ func filterSOFiles(soDir string) ([]string, error) {
 
 // GenerateSoHandlerMap 生成 .so 文件句柄映射表
 func GenerateSoHandlerMap(soDir string) (map[string]*SoHandler, error) {
-	soFiles, err := filterSOFiles(soDir)
+	soFiles, err := filterSoFiles(soDir)
 	if err != nil {
 		return nil, err
 	}
