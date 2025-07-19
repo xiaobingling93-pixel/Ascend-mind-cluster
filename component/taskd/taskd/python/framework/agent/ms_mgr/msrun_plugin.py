@@ -285,6 +285,8 @@ class MSRunPlugin:
             if details[constants.RANK_STATUS_KEY] not in {constants.RANK_STATUS_OK, constants.RANK_STATUS_NOT_START,
                                                           constants.RANK_STATUS_COMPLETE}:
                 self.rank_status = self.RANK_STATUS_UNHEALTHY
+                run_log.info(f"rank {details[constants.GLOBAL_RANK_ID_KEY]} status is "
+                                f"{details[constants.RANK_STATUS_KEY]}")
                 all_healthy = False
             if details[constants.RANK_STATUS_KEY] not in {constants.RANK_STATUS_COMPLETE}:
                 all_succeed = False
