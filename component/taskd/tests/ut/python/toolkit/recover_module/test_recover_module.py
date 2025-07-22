@@ -296,3 +296,81 @@ class TestRecoverManager(TestCase):
         with self.assertRaises(Exception):
             manager.register(manager.client_info)
         manager.grpc_stub.Register.assert_called_once_with(manager.client_info)
+
+
+class TestDLRecoverManagerConnectionCheck(TestCase):
+    def setUp(self):
+        from taskd.python.toolkit.recover_module import DLRecoverManager
+        self.client_info = pb.ClientInfo(jobId="test_job", role="master agent")
+        self.manager = DLRecoverManager(
+            info=self.client_info,
+            server_addr="localhost:50051",
+        )
+        DLRecoverManager.instance = None
+        self.manager.grpc_stub = mock.MagicMock()
+        self.manager.register_event = mock.MagicMock()
+        self.manager.init_clusterd = mock.MagicMock()
+        self.manager.register = mock.MagicMock()
+
+    @mock.patch('taskd.python.toolkit.recover_module.recover_manager.time.sleep')
+    def test_connection_check_success(self, mock_sleep):
+        self.manager.grpc_stub.HealthCheck.return_value = None
+        mock_sleep.side_effect = [None, KeyboardInterrupt]
+
+        try:
+            self.manager._connection_check()
+        except KeyboardInterrupt:
+            pass
+
+        self.manager.grpc_stub.HealthCheck.assert_called_with(self.client_info)
+        mock_sleep.assert_any_call(1)
+        self.manager.register_event.clear.assert_not_called()
+
+    @mock.patch('taskd.python.toolkit.recover_module.recover_manager.time.sleep')
+    def test_connection_check_recover_success(self, mock_sleep):
+        self.manager.grpc_stub.HealthCheck.side_effect = Exception("Connection failed")
+        self.manager.register = mock.MagicMock(return_value=pb.Status(code=0))
+        mock_sleep.side_effect = [None, KeyboardInterrupt]
+        self.manager.register_event.is_set.return_value = False
+
+        try:
+            self.manager._connection_check()
+        except KeyboardInterrupt:
+            pass
+
+        self.manager.register_event.clear.assert_called()
+        self.manager.init_clusterd.assert_called_once()
+        self.manager.register.assert_called_with(self.client_info)
+        self.manager.register_event.set.assert_called_once()
+        mock_sleep.assert_any_call(10)
+
+    @mock.patch('taskd.python.toolkit.recover_module.recover_manager.time.sleep')
+    def test_connection_check_recover_failed(self, mock_sleep):
+        self.manager.grpc_stub.HealthCheck.side_effect = Exception("Connection failed")
+        self.manager.register = mock.MagicMock(return_value=pb.Status(code=1))
+        mock_sleep.side_effect = [None, KeyboardInterrupt]
+
+        try:
+            self.manager._connection_check()
+        except KeyboardInterrupt:
+            pass
+
+        self.manager.register_event.set.assert_not_called()
+
+    @mock.patch('taskd.python.toolkit.recover_module.recover_manager.time.sleep')
+    def test_connection_check_event_set_during_wait(self, mock_sleep):
+        self.manager.grpc_stub.HealthCheck.side_effect = Exception("Connection failed")
+        def sleep_side_effect(seconds):
+            if seconds == 10:
+                self.manager.register_event.is_set.return_value = True
+            raise KeyboardInterrupt
+        mock_sleep.side_effect = sleep_side_effect
+
+        try:
+            self.manager._connection_check()
+        except KeyboardInterrupt:
+            pass
+
+        self.manager.init_clusterd.assert_not_called()
+        self.manager.register.assert_not_called()
+        

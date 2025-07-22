@@ -96,6 +96,7 @@ class DLRecoverManager(RecoverManager):
         self.lock = threading.Lock()
         self.grpc_channel = None
         self.grpc_stub = None
+        self.register_event = threading.Event()
         self._init_client()
 
     @staticmethod
@@ -138,6 +139,9 @@ class DLRecoverManager(RecoverManager):
     def start_subscribe(self, frame: str = "pytorch"):
         run_log.info("call start_subscribe")
         i = 1
+        connection_check = threading.Thread(target=self._connection_check)
+        connection_check.daemon = True
+        connection_check.start()
         while True:
             if shared_data.shared_data_inst.get_exit_flag():
                 run_log.info("start_subscribe stop and init controller")
@@ -149,6 +153,7 @@ class DLRecoverManager(RecoverManager):
                 self.init_clusterd()
                 status = self.register(self.client_info)
                 if status.code == 0:
+                    self.register_event.set()
                     i = 1
                 self.__listen_signal()
             except RuntimeError as e:
@@ -157,8 +162,27 @@ class DLRecoverManager(RecoverManager):
                 info = (f"{self.client_info.role} subscribe signal for error: {e.__str__()}, "
                         f"task id is: {self.client_info.jobId}, retry it after a few second")
                 run_log.warning(info)
+                self.register_event.clear()
             time.sleep(min(MAX_CONNECT_GAP, i * BASE_CONNECT_GAP))
             i += 1
+            
+    def _connection_check(self):
+        while True:
+            try:
+                self.grpc_stub.HealthCheck(self.client_info)
+                time.sleep(1)
+                continue
+            except Exception as e:
+                run_log.warning(f"connection_check catch exception:{e}")
+                self.register_event.clear()
+                time.sleep(constants.SLEEP_GAP * constants.WAIT_TIMES)
+                if self.register_event.is_set():
+                    continue
+                self.init_clusterd()
+                rsp = self.register(self.client_info)
+                if rsp.code == 0:
+                    self.register_event.set()
+                    run_log.info("connection_check recover succeed")
 
     def _init_client(self):
         options = [
@@ -346,6 +370,7 @@ def init_grpc_process(frame: str = "pytorch"):
             rsp = recover_manager.register(recover_manager.client_info)
             if rsp.code == 0:
                 run_log.info("recover_manager.register succeed")
+                recover_manager.register_event.set()
                 break
             else:
                 register_retry_times = register_retry_times + 1
