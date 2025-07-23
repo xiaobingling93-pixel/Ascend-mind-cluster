@@ -1885,12 +1885,12 @@ func (hnm *HwAscend910Manager) execResetDevice(devMap map[int32]int32) error {
 }
 
 func (hnm *HwAscend910Manager) execOutBandReset(inBandFailDevs, sucDevs []ResetDevice) error {
-	var resetError error
 	failDevs := make([]ResetDevice, 0, len(inBandFailDevs))
 	newSucDevs := make([]ResetDevice, 0, len(inBandFailDevs)+len(sucDevs))
 	newSucDevs = append(newSucDevs, sucDevs...)
 	var wg sync.WaitGroup
 	wg.Add(len(inBandFailDevs))
+	var resetError error
 	for _, dev := range inBandFailDevs {
 		go func(dev ResetDevice) {
 			defer wg.Done()
