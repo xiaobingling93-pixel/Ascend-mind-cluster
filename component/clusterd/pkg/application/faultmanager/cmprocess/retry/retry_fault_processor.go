@@ -232,6 +232,7 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 				} else if retryDevice.FaultDetail[constant.DeviceRetryFault].FaultType == constant.HcclFaultType {
 					hwlog.RunLog.Warn("retryProcessor cannot filter retry " + fullLog)
 					processor.addRetryFault(nodeName, deviceInfo, deviceName)
+					modified = true
 				} else {
 					hwlog.RunLog.Warn("retryProcessor cannot filter retry " + fullLog)
 				}
