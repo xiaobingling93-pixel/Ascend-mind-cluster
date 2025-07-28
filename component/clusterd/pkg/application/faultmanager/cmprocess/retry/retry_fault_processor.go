@@ -253,6 +253,7 @@ func (processor *retryFaultProcessor) processEachNodeRetryFaultInfo(
 		}
 	}
 	if modified {
+		deviceInfo.UpdateTime = time.Now().Unix()
 		faultdomain.SortDataForAdvanceDeviceInfo(deviceInfo)
 	}
 	return deviceInfo
