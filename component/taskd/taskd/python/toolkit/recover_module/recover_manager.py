@@ -122,13 +122,16 @@ class DLRecoverManager(RecoverManager):
         except Exception as e:
             raise e
 
-    def init_clusterd(self):
+    def init_clusterd(self) -> bool:
         while True:
             try:
                 status = self.grpc_stub.Init(self.client_info)
                 if status.code == 0:
                     run_log.info("init process recover succeed")
-                    break
+                    return True
+                if status.code == 403:
+                    run_log.info("ProcessRecoverEnable is off, will no longer init clusterd")
+                    return False
                 time.sleep(constants.SLEEP_GAP)
             except Exception as e:
                 run_log.warning(f"init process recover catch exception:{e}")
@@ -340,14 +343,16 @@ def init_grpc_process(frame: str = "pytorch"):
     if not import_flag:
         return
 
+    recover_manager = init_grpc_recover_manager()
+    run_log.info("init_grpc_process start to init process recover")
+    if not recover_manager.init_clusterd():
+        return
+
     os.environ[constants.TORCH_AGENT_START] = "0"
     register_callback_func()
     init_mindio_controller(frame)
 
     register_retry_times = 0
-    recover_manager = init_grpc_recover_manager()
-    run_log.info("init_grpc_process start to init process recover")
-    recover_manager.init_clusterd()
     run_log.info("init_grpc_process start check high_availability_switch")
     time_used = 0
     while True:

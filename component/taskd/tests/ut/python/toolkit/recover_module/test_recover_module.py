@@ -254,8 +254,27 @@ class TestRecoverManager(TestCase):
     def test_init_clusterd_success(self, mock_sleep, mock_run_log):
         from taskd.python.toolkit.recover_module import recover_manager
         manager = recover_manager.init_grpc_recover_manager()
-        manager.init_clusterd()
+        status = pb.Status()
+        status.code = 0
+        status.info = "ok"
+        manager.grpc_stub.Init = mock.Mock(return_value=status)
+        ret = manager.init_clusterd()
+        self.assertTrue(ret)
         mock_run_log.assert_called_with("init process recover succeed")
+        mock_sleep.assert_not_called()
+
+    @mock.patch('taskd.python.utils.log.logger.run_log.info')
+    @mock.patch('time.sleep')
+    def test_init_clusterd_process_recover_enable_off(self, mock_sleep, mock_run_log):
+        from taskd.python.toolkit.recover_module import recover_manager
+        manager = recover_manager.init_grpc_recover_manager()
+        status = pb.Status()
+        status.code = 403
+        status.info = "process recover enable off"
+        manager.grpc_stub.Init = mock.Mock(return_value=status)
+        ret = manager.init_clusterd()
+        self.assertFalse(ret)
+        mock_run_log.assert_called_with("ProcessRecoverEnable is off, will no longer init clusterd")
         mock_sleep.assert_not_called()
 
     def test_init_clusterd_use_proxy(self):
