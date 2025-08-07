@@ -197,6 +197,12 @@ func TestGetDefaultDevices(t *testing.T) {
 		}
 	}
 
+	if _, err := os.Stat(DvppCmdlistDevice); err != nil {
+		if err = createFile(DvppCmdlistDevice); err != nil {
+			t.Fatal("TestGetDefaultDevices Run Failed")
+		}
+	}
+
 	defaultDevices, err := GetDefaultDevices(true)
 	if err != nil {
 		t.Errorf("TestGetDefaultDevices Run Failed")
@@ -212,6 +218,7 @@ func TestGetDefaultDevices(t *testing.T) {
 	defaultMap[HiAi200RCSVM0] = ""
 	defaultMap[HiAi200RCTsAisle] = ""
 	defaultMap[HiAi200RCUpgrade] = ""
+	defaultMap[DvppCmdlistDevice] = ""
 
 	for _, str := range defaultDevices {
 		if _, ok := defaultMap[str]; !ok {

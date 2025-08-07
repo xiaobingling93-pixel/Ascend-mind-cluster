@@ -444,8 +444,8 @@ const (
 )
 
 const (
-	// Atlas310BDvppCmdlist is dvpp_cmdlist
-	Atlas310BDvppCmdlist = "/dev/dvpp_cmdlist"
+	// DvppCmdlistDevice is dvpp_cmdlist
+	DvppCmdlistDevice = "/dev/dvpp_cmdlist"
 	// Atlas310BPngd is pngd
 	Atlas310BPngd = "/dev/pngd"
 	// Atlas310BVenc is venc
