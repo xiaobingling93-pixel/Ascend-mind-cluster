@@ -184,7 +184,7 @@ func GetInstanceJobKey(jobId, namespace, appType string) (string, error) {
 }
 
 // GetJobFaultSdIdAndNodeName get job sdid and node name
-func GetJobFaultSdIdAndNodeName(jobId string, podNames map[string]struct{}) map[int]api.SuperPodFaultInfos {
+func GetJobFaultSdIdAndNodeName(jobId string, faultNodes map[string]struct{}) map[int]api.SuperPodFaultInfos {
 	jobInfo, ok := GetJobCache(jobId)
 	if !ok {
 		return nil
@@ -195,7 +195,7 @@ func GetJobFaultSdIdAndNodeName(jobId string, podNames map[string]struct{}) map[
 		if serverInfo.SuperPodId < 0 {
 			return nil
 		}
-		if _, ok = podNames[serverInfo.PodID]; !ok {
+		if _, ok = faultNodes[serverInfo.ServerName]; !ok {
 			superNodes[serverInfo.SuperPodId] = append(superNodes[serverInfo.SuperPodId], serverInfo.ServerName)
 			continue
 		}

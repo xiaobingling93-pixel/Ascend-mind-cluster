@@ -250,3 +250,8 @@ const (
 	Failed  = "failed"
 	Start   = "start"
 )
+
+const (
+	// CardDropFault is the fault code of card drop fault
+	CardDropFault = "40F84E00"
+)

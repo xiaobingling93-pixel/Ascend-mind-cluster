@@ -214,7 +214,7 @@ func RecoverFaultJobInfoCm(jobId string) {
 	if k8sClient == nil || k8sClient.ClientSet == nil {
 		return
 	}
-	time.Sleep(constant.JobReportRecoverTimeout)
+	time.Sleep(constant.ReleaseTimeOut)
 	for i := 0; i < constant.RetryTime; i++ {
 		cm, getErr := GetConfigMap(api.FaultJobCmName, api.ClusterNS)
 		if getErr != nil {

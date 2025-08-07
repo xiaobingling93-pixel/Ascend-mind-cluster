@@ -272,6 +272,6 @@ const (
 )
 
 const (
-	// CardDropFault is the fault code of card drop fault
-	CardDropFault = "40F84E00"
+	// ReleaseTimeOut release timeout
+	ReleaseTimeOut = 10 * time.Second
 )
