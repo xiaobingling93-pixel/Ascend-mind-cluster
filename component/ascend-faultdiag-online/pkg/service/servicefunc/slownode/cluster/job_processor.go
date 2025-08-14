@@ -34,7 +34,9 @@ import (
 	"ascend-faultdiag-online/pkg/service/servicefunc/slownode/algo"
 	"ascend-faultdiag-online/pkg/service/servicefunc/slownode/constants"
 	"ascend-faultdiag-online/pkg/service/servicefunc/slownode/slownodejob"
+	"ascend-faultdiag-online/pkg/utils"
 	globalConstants "ascend-faultdiag-online/pkg/utils/constants"
+	"ascend-faultdiag-online/pkg/utils/grpc"
 	"ascend-faultdiag-online/pkg/utils/k8s"
 )
 
@@ -43,9 +45,9 @@ const (
 	slowNodeOn = 1
 	// slowNodeOff stop slow node feature
 	slowNodeOff = 0
-
-	jobSummaryPrefix = "job-summary-"
 )
+
+var jobSummaryWatcher = utils.NewStorage[string]()
 
 type jobProcessor struct {
 	ctx *slownodejob.JobContext
@@ -68,11 +70,20 @@ func (j *jobProcessor) add() {
 		hwlog.RunLog.Warnf("%s has been existed in ctxMap, ignore it", j.logPrefix())
 		return // already exists, no need to create a new one
 	}
-	// start to watch the job summary cm
-	cmName := jobSummaryPrefix + j.job.JobName
 	ctx := slownodejob.NewJobContext(j.job, enum.Cluster)
 	slownodejob.GetJobCtxMap().Insert(j.job.KeyGenerator(), ctx)
-	GetConfigMapWatcher().WatchConfigMap(j.job.Namespace, cmName)
+	// start to real-time watch the job-summary
+	grpcClient, err := grpc.GetClient()
+	if err != nil {
+		hwlog.RunLog.Errorf("%s got grpc client failed: %v", j.logPrefix(), err)
+		return
+	}
+	registerId, err := grpcClient.SubscribeJobSummary(ctx.Job.JobName, ctx.Job.Namespace, jobSummaryProcessor)
+	if err != nil {
+		hwlog.RunLog.Errorf("%s started to watch the job summary failed: %v", j.logPrefix(), err)
+		return
+	}
+	jobSummaryWatcher.Store(j.job.KeyGenerator(), registerId)
 }
 
 func (j *jobProcessor) update() {
@@ -103,10 +114,18 @@ func (j *jobProcessor) delete() {
 	}
 	j.ctx = ctx
 	j.stop()
-	cmName := jobSummaryPrefix + j.job.JobName
-	GetConfigMapWatcher().StopWatching(j.job.Namespace, cmName)
-	var key = fmt.Sprintf("%s/%s", j.job.Namespace, j.job.JobName)
-	slownodejob.GetJobCtxMap().Delete(key)
+	grpcClient, err := grpc.GetClient()
+	if err != nil {
+		hwlog.RunLog.Errorf("%s got grpc client failed: %v", j.logPrefix(), err)
+		return
+	}
+	registerId, ok := jobSummaryWatcher.Load(j.job.KeyGenerator())
+	if !ok {
+		hwlog.RunLog.Warnf("%s could not got job summary watcher id", j.logPrefix())
+		return
+	}
+	grpcClient.UnsubscribeJobSummary(registerId)
+	slownodejob.GetJobCtxMap().Delete(j.job.KeyGenerator())
 }
 
 func (j *jobProcessor) start() {
@@ -147,7 +166,10 @@ func (j *jobProcessor) stop() {
 		return
 	}
 	j.ctx.RemoveAllCM()
-	j.ctx.StopAllProfiling()
+	if j.ctx.TrainingJobStatus != enum.IsCompleted {
+		// training job is complete, operate the profiling will cause error
+		j.ctx.StopAllProfiling()
+	}
 	algo.NewController(j.ctx).Stop()
 	j.ctx.Stop()
 	jobOnceMap.Delete(j.ctx.Job.JobId)

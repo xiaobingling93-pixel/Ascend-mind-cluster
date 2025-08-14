@@ -126,8 +126,8 @@ func (d *Controller) handleMergeSignal(logPrefix, triggerReason string) {
 	hwlog.RunLog.Infof("%s %s, merging parallel group info (reported nodes: %v)",
 		logPrefix, triggerReason, d.ctx.GetReportedNodeIps())
 
+	d.ctx.AddStep() // Advance cluster step (e.g., from 1 to 2)
 	d.ctx.StopHeavyProfiling()
 	d.Start()
 	hwlog.RunLog.Infof("%s merge succeeded, exiting watcher", logPrefix)
-	d.ctx.AddStep() // Advance cluster step (e.g., from 1 to 2)
 }

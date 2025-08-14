@@ -19,6 +19,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -308,5 +309,19 @@ func TestWriteAndReadUniqueId(t *testing.T) {
 		// wait the restartInterval
 		time.Sleep(constants.RestartInterval * time.Millisecond)
 		convey.So(IsRestarted(), convey.ShouldBeFalse)
+	})
+}
+
+func TestRetry(t *testing.T) {
+	convey.Convey("test Retry", t, func() {
+		// simulate all failed
+		var f = func() (int, error) {
+			return -1, errors.New("call f failed")
+		}
+		var count = 2
+		var sleepTime = time.Second
+		res, err := Retry(f, &RetryConfig{RetryCount: count, SleepTime: sleepTime})
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(res, convey.ShouldEqual, -1)
 	})
 }

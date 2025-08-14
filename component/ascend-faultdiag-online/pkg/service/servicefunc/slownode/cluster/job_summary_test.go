@@ -16,146 +16,58 @@
 package cluster
 
 import (
+	"encoding/json"
 	"testing"
+	"reflect"
+	"fmt"
 
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/smartystreets/goconvey/convey"
 
+	"ascend-common/common-utils/hwlog"
+	"ascend-faultdiag-online/pkg/model"
 	"ascend-faultdiag-online/pkg/model/slownode"
 )
 
-func TestConvertCMToJobSummarySuccess(t *testing.T) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: "test-cm"},
-		Data: map[string]string{
-			"job_id":     "job-123",
-			"job_name":   "test-job",
-			"job_status": "running",
-			"hccl.json": `{
-				"server_list": [
+func init() {
+	config := hwlog.LogConfig{
+		OnlyToStdout:  true,
+	}
+	err := hwlog.InitRunLogger(&config, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func TestServersGenerator(t *testing.T) {
+	convey.Convey("test serversGenerator", t, func() {
+		var hcclJson = model.HcclJson{}
+		servers := serversGenerator(hcclJson)
+		convey.So(servers, convey.ShouldBeEmpty)
+		var data = `{
+		"server_list": [
+			{
+				"server_id": "127.0.0.1",
+				"server_sn": "321123",
+				"device": [
 					{
-						"server_id": "192.168.1.1",
-						"server_sn": "sn-001",
-						"device": [{"rank_id": "0"},{"rank_id": "1"}]
+						"rank_id": "1"
 					},
-					{
-						"server_id": "192.168.1.2",
-						"server_sn": "sn-002",
-						"device": [{"rank_id": "2"}]
+										{
+						"rank_id": "2"
 					}
 				]
-			}`,
-		},
-	}
-	want := slownode.JobSummary{
-		Namespace: "test-ns",
-		JobStatus: "running",
-		Servers: []slownode.Server{
+			}
+		]}`
+		err := json.Unmarshal([]byte(data), &hcclJson)
+		convey.So(err, convey.ShouldBeNil)
+		var expect = []slownode.Server{
 			{
-				Sn:      "sn-001",
-				Ip:      "192.168.1.1",
-				RankIds: []string{"0", "1"},
+				Sn:      "321123",
+				Ip:      "127.0.0.1",
+				RankIds: []string{"1", "2"},
 			},
-			{
-				Sn:      "sn-002",
-				Ip:      "192.168.1.2",
-				RankIds: []string{"2"},
-			},
-		},
-	}
-	want.JobId = "job-123"
-	want.JobName = "test-job"
-
-	got, err := convertCMToJobSummary(configMap)
-	assert.Nil(t, err)
-	assert.Equal(t, want, *got)
-}
-
-func TestConvertCMToJobSummaryMissingRequiredFields(t *testing.T) {
-	tests := []struct {
-		name        string
-		configMap   *corev1.ConfigMap
-		errContains string
-	}{
-		{
-			name: "Missing jobId",
-			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: "test-cm"},
-				Data:       map[string]string{"job_name": "test-job", "job_status": "running", "hccl.json": "{}"},
-			},
-			errContains: "ConfigMap test-ns/test-cm does not contain job_id",
-		},
-		{
-			name: "Missing jobName",
-			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: "test-cm"},
-				Data:       map[string]string{"job_id": "job-123", "job_status": "running", "hccl.json": "{}"},
-			},
-			errContains: "ConfigMap test-ns/test-cm does not contain job_name",
-		},
-		{
-			name: "Missing jobStatus",
-			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: "test-cm"},
-				Data:       map[string]string{"job_id": "job-123", "job_name": "test-job", "hccl.json": "{}"},
-			},
-			errContains: "ConfigMap test-ns/test-cm does not contain job_status",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := convertCMToJobSummary(tt.configMap)
-			assert.NotNil(t, err)
-			assert.Contains(t, err.Error(), tt.errContains)
-		})
-	}
-}
-
-func TestConvertCMToJobSummaryHCCLJSONErrors(t *testing.T) {
-	tests := []struct {
-		name        string
-		configMap   *corev1.ConfigMap
-		errContains string
-	}{
-		{
-			name: "Invalid HCCL JSON",
-			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-cm",
-				},
-				Data: map[string]string{
-					"job_id":     "job-123",
-					"job_name":   "test-job",
-					"job_status": "running",
-					"hccl.json":  `}`,
-				},
-			},
-			errContains: "failed to unmarshal HCCL data",
-		},
-		{
-			name: "Empty HCCL data",
-			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-cm",
-				},
-				Data: map[string]string{
-					"job_id":     "job-123",
-					"job_name":   "test-job",
-					"job_status": "running",
-					"hccl.json":  "",
-				},
-			},
-			errContains: "ConfigMap test-ns/test-cm does not contain hccl.json",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := convertCMToJobSummary(tt.configMap)
-			assert.NotNil(t, err)
-			assert.Contains(t, err.Error(), tt.errContains)
-		})
-	}
+		}
+		servers = serversGenerator(hcclJson)
+		convey.So(reflect.DeepEqual(servers, expect), convey.ShouldBeTrue)
+	})
 }
