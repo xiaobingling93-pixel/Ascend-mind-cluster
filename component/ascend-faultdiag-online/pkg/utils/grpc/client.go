@@ -43,6 +43,8 @@ const (
 	off = "off"
 )
 
+var storage = utils.NewStorage[*model.JobSummary]()
+
 type callback struct {
 	registerId string
 	jobName    string
@@ -58,13 +60,12 @@ type jobSummaryWatcher struct {
 	disconnectedSignal chan struct{}
 	// closeSignal is a  signal the stream is close(by client) or not
 	closeSignal chan struct{}
-	storage     *utils.Storage[*model.JobSummary]
 }
 
 func (jw *jobSummaryWatcher) reset() {
 	jw.mu.Lock()
 	jw.isRegisterd = false
-	jw.storage.Clear()
+	storage.Clear()
 	jw.mu.Unlock()
 }
 
@@ -232,7 +233,6 @@ func (c *Client) registerJobSummary() error {
 	c.isRegisterd = true
 	c.disconnectedSignal = make(chan struct{})
 	c.closeSignal = make(chan struct{})
-	c.storage = utils.NewStorage[*model.JobSummary]()
 	go c.processJobSummary(stream)
 	go c.supervisor()
 	return nil
@@ -258,6 +258,7 @@ func (c *Client) processJobSummary(stream job.Job_SubscribeJobSummarySignalClien
 			hwlog.RunLog.Info("[FD-OL]detected callbacks are empty, close job summary register")
 			if err := stream.CloseSend(); err != nil {
 				hwlog.RunLog.Errorf("[FD-OL]close job summary register failed: %v", err)
+				time.Sleep(time.Second)
 				continue
 			}
 			c.closeSignal <- struct{}{}
@@ -281,7 +282,7 @@ func (c *Client) processJobSummary(stream job.Job_SubscribeJobSummarySignalClien
 			hwlog.RunLog.Errorf("[FD-OL]json unmarshal hcclJson data: %s failed: %v", data.HcclJson, err)
 			continue
 		}
-		c.storage.Store(fmt.Sprintf("%s/%s", job.Namespace, job.JobName), job)
+		storage.Store(fmt.Sprintf("%s/%s", job.Namespace, job.JobName), job)
 		c.mu.Lock()
 		for _, cb := range c.callbacks {
 			if cb.jobName == data.JobName && cb.namespace == data.Namespace {
@@ -294,11 +295,6 @@ func (c *Client) processJobSummary(stream job.Job_SubscribeJobSummarySignalClien
 
 // SubscribeJobSummary will subscribe all the job summary
 func (c *Client) SubscribeJobSummary(jobName, namespace string, f func(job *model.JobSummary)) (string, error) {
-	// register
-	err := c.registerJobSummary()
-	if err != nil {
-		return "", err
-	}
 	// add f to process list
 	registerId := uuid.New().String()
 	cb := callback{
@@ -308,12 +304,20 @@ func (c *Client) SubscribeJobSummary(jobName, namespace string, f func(job *mode
 		f:          f,
 	}
 	// send the storage data immediatelly
-	if job, ok := c.storage.Load(fmt.Sprintf("%s/%s", namespace, jobName)); ok {
+	if job, ok := storage.Load(fmt.Sprintf("%s/%s", namespace, jobName)); ok {
 		go cb.f(job)
 	}
 	c.mu.Lock()
 	c.callbacks = append(c.callbacks, cb)
 	c.mu.Unlock()
+
+	// register
+	err := c.registerJobSummary()
+	if err != nil {
+		// unsub
+		c.UnsubscribeJobSummary(registerId)
+		return "", err
+	}
 	return registerId, err
 }
 
