@@ -79,8 +79,8 @@ func (c *ClusterInfo) getCluster() (*ClusterInfo, error) {
 }
 
 func (c *ClusterInfos) updateCluster(clusterName string, newCluster *ClusterInfo) error {
-	c.Clusters[clusterName].RWMutex.Lock()
-	defer c.Clusters[clusterName].RWMutex.Unlock()
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
 	c.Clusters[clusterName] = &ClusterInfo{
 		Command:   newCluster.Command,
 		Business:  newCluster.Business,

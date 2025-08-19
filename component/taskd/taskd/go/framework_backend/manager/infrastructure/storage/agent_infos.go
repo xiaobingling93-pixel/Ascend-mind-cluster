@@ -75,8 +75,8 @@ func (a *AgentInfo) getAgent() (*AgentInfo, error) {
 }
 
 func (a *AgentInfos) updateAgent(agentName string, newAgent *AgentInfo) error {
-	a.Agents[agentName].RWMutex.Lock()
-	defer a.Agents[agentName].RWMutex.Unlock()
+	a.RWMutex.Lock()
+	defer a.RWMutex.Unlock()
 	a.Agents[agentName] = &AgentInfo{
 		Config:    newAgent.Config,
 		Actions:   newAgent.Actions,

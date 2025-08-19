@@ -75,8 +75,8 @@ func (w *WorkerInfo) getWorker() (*WorkerInfo, error) {
 }
 
 func (w *WorkerInfos) updateWorker(workerName string, newWorker *WorkerInfo) error {
-	w.Workers[workerName].RWMutex.Lock()
-	defer w.Workers[workerName].RWMutex.Unlock()
+	w.RWMutex.Lock()
+	defer w.RWMutex.Unlock()
 	w.Workers[workerName] = &WorkerInfo{
 		Config:     newWorker.Config,
 		Actions:    newWorker.Actions,
