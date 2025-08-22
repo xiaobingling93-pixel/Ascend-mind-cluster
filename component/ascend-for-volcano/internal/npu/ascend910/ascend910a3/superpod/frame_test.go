@@ -345,8 +345,21 @@ func buildValidNPUJobTestCases() []validNPUJobTest {
 	}
 }
 
+func buildValidNPUJobTestCases01() []validNPUJobTest {
+	return []validNPUJobTest{
+		{
+			name:          "08 will return false when spBlockNPUNum is 0",
+			taskNum:       util.NPUIndex2,
+			reqNPUNum:     util.NPUIndex2 * util.NPUIndex16,
+			spBlockNPUNum: util.NPUIndex1,
+			superPodSize:  util.NPUIndex16,
+			wantPass:      false,
+		},
+	}
+}
+
 func TestValidNPUJob(t *testing.T) {
-	for _, tt := range buildValidNPUJobTestCases() {
+	for _, tt := range append(buildValidNPUJobTestCases(), buildValidNPUJobTestCases01()...) {
 		t.Run(tt.name, func(t *testing.T) {
 			tp := &module910SuperPod{}
 			tp.NPUJob = &util.NPUJob{}

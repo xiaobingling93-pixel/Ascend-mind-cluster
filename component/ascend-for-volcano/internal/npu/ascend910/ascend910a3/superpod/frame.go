@@ -99,8 +99,18 @@ func (tp *module910SuperPod) checkSpBlock() *api.ValidateResult {
 			Message: fmt.Sprintf("sp-block(%d) is invalid", tp.SpBlockNPUNum),
 		}
 	}
+	klog.V(util.LogInfoLev).Infof("job<%s> SpBlockNPUNum<%d> MaxNodeNPUNum <%d>", tp.Name, tp.SpBlockNPUNum, tp.MaxNodeNPUNum)
 	if tp.SpBlockNPUNum < tp.MaxNodeNPUNum {
-		tp.spBlock = 1
+		if tp.SpBlockNPUNum == tp.ReqNPUNum {
+			tp.spBlock = 1
+		} else {
+			return &api.ValidateResult{
+				Pass:   false,
+				Reason: spBlockInvalidReason,
+				Message: fmt.Sprintf("sp-block(%d) is not equal of standlone job npu (%d)", tp.SpBlockNPUNum,
+					tp.ReqNPUNum),
+			}
+		}
 	} else {
 		if tp.SpBlockNPUNum%tp.MaxNodeNPUNum != 0 {
 			return &api.ValidateResult{
