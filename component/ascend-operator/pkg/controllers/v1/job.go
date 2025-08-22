@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/kubeflow/common/pkg/controller.v1/common"
@@ -281,8 +282,18 @@ func (r *ASJobReconciler) newPodGroupSpec(ji *jobInfo) v1beta1.PodGroupSpec {
 		minResources = common.CalcPGMinResources(minMember, ji.rpls, r.PriorityClassLister.Get)
 	}
 
+	minTaskMember := make(map[string]int32)
+
+	for k, r := range ji.rpls {
+		minTaskMember[strings.ToLower(string(k))] = defaultMinMember
+		if r.Replicas != nil {
+			minTaskMember[strings.ToLower(string(k))] = *r.Replicas
+		}
+	}
+
 	return v1beta1.PodGroupSpec{
 		MinMember:         minMember,
+		MinTaskMember:     minTaskMember,
 		Queue:             queue,
 		PriorityClassName: priorityClass,
 		MinResources:      minResources,

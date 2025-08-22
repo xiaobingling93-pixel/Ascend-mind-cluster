@@ -10,6 +10,7 @@ package v1
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -409,6 +410,7 @@ func TestNewPodGroupSpec(t *testing.T) {
 			pgSpec := rc.newPodGroupSpec(ji)
 			convey.So(pgSpec, convey.ShouldResemble, v1beta1.PodGroupSpec{
 				MinMember:         1,
+				MinTaskMember:     map[string]int32{strings.ToLower(string(mindxdlv1.ReplicaTypeWorker)): 1},
 				Queue:             "default",
 				PriorityClassName: "",
 				MinResources:      nil,
