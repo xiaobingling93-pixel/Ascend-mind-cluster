@@ -127,7 +127,7 @@ func matchAndSortProfiles(rankDir string) ([]string, error) {
 	}
 
 	var count = 0
-	var matchedFiles []string
+	var matchedFiles []string = nil
 	for _, file := range files {
 		count += 1
 		if count >= maxFilesCount {

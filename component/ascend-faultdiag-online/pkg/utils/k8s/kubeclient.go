@@ -40,7 +40,7 @@ const (
 var (
 	err    error
 	once   sync.Once
-	client *Client
+	client *Client = nil
 )
 
 // Client k8s client include node name and node info name

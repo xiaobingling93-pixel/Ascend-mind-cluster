@@ -311,8 +311,8 @@ func loopCsvCallDetection(param detectionParam) {
 /* return super pod ids and directory paths */
 func getSuperPodDirInfo(clusterPath string) ([]int, []string) {
 	/* traverse below cluster directory named super-pod-i dir*/
-	var superPodIds []int
-	var superPodPaths []string
+	var superPodIds []int = nil
+	var superPodPaths []string = nil
 	regexFileName := regexp.MustCompile(pattern)
 	err := filepath.Walk(clusterPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

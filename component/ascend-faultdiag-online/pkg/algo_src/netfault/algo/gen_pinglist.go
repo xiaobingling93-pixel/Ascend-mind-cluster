@@ -637,7 +637,9 @@ func (nd *NetDetect) sortIpList(ipList []string) {
 	sort.Slice(toSort, func(i, j int) bool {
 		return toSort[i].number < toSort[j].number
 	})
-
+	if len(toSort) != len(ipList) {
+		return
+	}
 	// write back the data to ipList
 	for i, item := range toSort {
 		ipList[i] = item.ip
