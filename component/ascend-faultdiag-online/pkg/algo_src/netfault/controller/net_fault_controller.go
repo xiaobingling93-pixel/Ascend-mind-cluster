@@ -83,16 +83,6 @@ func markFalseDetection(superPodAbsolutePath string) {
 
 func writeNetFaultResult(result []byte, superPodPath string, curDetectionCount int) {
 	filePath := filepath.Join(superPodPath, detectionResult)
-	// check the symlink
-	isSoftlink, err := utils.IsSoftlink(filePath)
-	if err != nil {
-		hwlog.RunLog.Errorf("[NETFAULT ALGO]check file: %s is softlink or not failed: %v", filePath, err)
-		return
-	}
-	if isSoftlink {
-		hwlog.RunLog.Errorf("[NETFAULT ALGO]file: %s is symlink, unsupported", filePath)
-		return
-	}
 	/* reload will clean file */
 	if _, err := os.Stat(filePath); err == nil && !os.IsNotExist(err) && curDetectionCount == 0 {
 		if err = os.Truncate(filePath, 0); err != nil {
@@ -105,6 +95,16 @@ func writeNetFaultResult(result []byte, superPodPath string, curDetectionCount i
 		return
 	}
 	defer file.Close()
+	// check the symlink
+	isSoftlink, err := utils.IsSoftlink(filePath)
+	if err != nil {
+		hwlog.RunLog.Errorf("[NETFAULT ALGO]check file: %s is softlink or not failed: %v", filePath, err)
+		return
+	}
+	if isSoftlink {
+		hwlog.RunLog.Errorf("[NETFAULT ALGO]file: %s is symlink, unsupported", filePath)
+		return
+	}
 	now := time.Now()
 	year := now.Year()
 	month := now.Month()
