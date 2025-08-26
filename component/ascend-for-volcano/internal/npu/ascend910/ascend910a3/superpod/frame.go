@@ -105,10 +105,9 @@ func (tp *module910SuperPod) checkSpBlock() *api.ValidateResult {
 			tp.spBlock = 1
 		} else {
 			return &api.ValidateResult{
-				Pass:   false,
-				Reason: spBlockInvalidReason,
-				Message: fmt.Sprintf("sp-block(%d) is not equal of standlone job npu (%d)", tp.SpBlockNPUNum,
-					tp.ReqNPUNum),
+				Pass:    false,
+				Reason:  spBlockInvalidReason,
+				Message: fmt.Sprintf("sp-block(%d) is not mutiple of node npu (%d)", tp.SpBlockNPUNum, tp.MaxNodeNPUNum),
 			}
 		}
 	} else {
