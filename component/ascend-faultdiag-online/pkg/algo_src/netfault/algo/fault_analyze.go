@@ -389,6 +389,30 @@ func getIndicators(input []map[string]any, path map[string]any) (float64, float6
 	return lossIndicator, delayIndicator
 }
 
+func isDuplicatedLinkCurDetectionPeriod(uniqueLinkPaths []interface{}, curLinkPath map[string]interface{}) bool {
+	for i := 0; i < len(uniqueLinkPaths); i++ {
+		path, ok := uniqueLinkPaths[i].(map[string]interface{})
+		if !ok {
+			hwlog.RunLog.Warn("[ALGO] transfer fault link obj failed!")
+			continue
+		}
+		src, ok1 := path[srcAddrConstant].(string)
+		dst, ok2 := path[dstAddrConstant].(string)
+		curSrc, ok3 := curLinkPath[srcAddrConstant].(string)
+		curDst, ok4 := curLinkPath[dstAddrConstant].(string)
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			hwlog.RunLog.Warn("[ALGO] transfer fault link address string failed!")
+			continue
+		}
+		if src != curSrc || dst != curDst {
+			continue
+		}
+		hwlog.RunLog.Infof("[ALGO] remove duplicated link path, src: %v, dst: %v", src, dst)
+		return true
+	}
+	return false
+}
+
 // 组合异常路径
 func (nd *NetDetect) diffFaultPathList(faultPathList []any, detectType string) ([]any, []any) {
 	npuDireAlarmList := make([]any, 0)
@@ -404,7 +428,12 @@ func (nd *NetDetect) diffFaultPathList(faultPathList []any, detectType string) (
 
 		// 挑选出npu直连的异常路径（npu直连的没有完整路径，只有ip->ip，因此单独拿出来进行分析）
 		if !containsKey(path, fromLayerConstant) || !containsKey(path, toLayerConstant) {
-			npuDireAlarmList = append(npuDireAlarmList, path)
+			if !isDuplicatedLinkCurDetectionPeriod(npuDireAlarmList, path) {
+				npuDireAlarmList = append(npuDireAlarmList, path)
+			}
+			continue
+		}
+		if isDuplicatedLinkCurDetectionPeriod(otherAlarmList, path) {
 			continue
 		}
 
