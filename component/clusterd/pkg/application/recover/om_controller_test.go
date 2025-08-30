@@ -808,3 +808,43 @@ func TestIsStressTest(t *testing.T) {
 		assert.Equal(t, false, res)
 	})
 }
+
+func TestGetCtxAndStressTestNotifyChan(t *testing.T) {
+	convey.Convey("Testing getCtxAndSwitchNicNotifyChan", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctx, ch := ctl.getCtxAndStressTestNotifyChan()
+		convey.So(ctx, convey.ShouldNotBeNil)
+		convey.So(ch, convey.ShouldNotBeNil)
+	})
+}
+
+func TestListenStressTestNotifyChannel(t *testing.T) {
+	convey.Convey("Test listenStressTestNotifyChannel", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{JobId: "test-job-id"},
+		}
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		sendChan := make(chan *pb.StressTestRankParams, 1)
+		patches.ApplyPrivateMethod(ctl, "getCtxAndStressTestNotifyChan",
+			func() (context.Context, chan *pb.StressTestRankParams) {
+				return ctx, sendChan
+			})
+		patches.ApplyPrivateMethod(ctl, "reset", func() {})
+		patches.ApplyPrivateMethod(ctl, "selectNotifyStressTest", func(_ context.Context,
+			_ chan *pb.StressTestRankParams, _ pb.Recover_SubscribeNotifyExecStressTestServer) bool {
+			return true
+		})
+
+		stream := &notifyStressTestSender{}
+		ctl.listenStressTestNotifyChannel(stream)
+		convey.So(true, convey.ShouldBeTrue)
+
+	})
+}

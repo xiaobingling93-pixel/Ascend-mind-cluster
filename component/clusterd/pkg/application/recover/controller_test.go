@@ -45,6 +45,14 @@ func init() {
 	}
 }
 
+type notifyStressTestSender struct {
+	mockStream
+}
+
+func (s *notifyStressTestSender) Send(signal *pb.StressTestRankParams) error {
+	return nil
+}
+
 type sender struct {
 	mockStream
 }
