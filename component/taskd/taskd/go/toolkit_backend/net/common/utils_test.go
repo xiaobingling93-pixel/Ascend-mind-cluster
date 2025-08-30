@@ -282,57 +282,11 @@ func TestCheckConfig(t *testing.T) {
 	}
 }
 
-func TestIsIPValid(t *testing.T) {
-	tests := []struct {
-		name    string
-		ip      string
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "invalid IP format", ip: "not.an.ip",
-			wantErr: true, errMsg: "parse to ip failed",
-		},
-		{
-			name: "valid IPv4", ip: "192.168.1.1", wantErr: false,
-		},
-		{
-			name: "valid IPv6", ip: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-			wantErr: false,
-		},
-		{
-			name: "unspecified IPv4", ip: "0.0.0.0",
-			wantErr: true, errMsg: "is all zeros ip",
-		},
-		{
-			name: "unspecified IPv6", ip: "::",
-			wantErr: true, errMsg: "is all zeros ip",
-		},
-		{
-			name: "IPv6 multicast", ip: "ff02::1",
-			wantErr: true, errMsg: "is multicast ip",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := IsIPValid(tt.ip)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("IsIPValid() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err != nil && err.Error() != tt.errMsg {
-				t.Errorf("IsIPValid() error = %v, wantErrMsg %v",
-					err.Error(), tt.errMsg)
-			}
-		})
-	}
-}
-
 func TestGetIpFromAddr(t *testing.T) {
 	convey.Convey("get ip should right", t, func() {
-		addr := GetIpFromAddr(correctAddr)
+		addr := GetHostFromAddr(correctAddr)
 		convey.ShouldEqual(addr, demoIp)
-		addr = GetIpFromAddr(wrongAddr)
+		addr = GetHostFromAddr(wrongAddr)
 		convey.ShouldEqual(addr, emptyStr)
 	})
 }

@@ -16,9 +16,13 @@
 package utils
 
 import (
+	"context"
+	"errors"
+	"net"
 	"net/http"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 )
 
@@ -66,5 +70,167 @@ func mockRequest(header map[string][]string) *http.Request {
 		Close:         false,
 		Host:          "www.test.com",
 		RemoteAddr:    "127.0.0.1:8080",
+	}
+}
+
+func TestCheckDomain(t *testing.T) {
+	convey.Convey("CheckDomain function test suite", t, func() {
+		testDomainFormatValidation()
+		testLocalUsageConstraints()
+		testDNSResolutionLogic()
+		testParameterCombinations()
+	})
+}
+
+// Test domain format validation
+func testDomainFormatValidation() {
+	convey.Convey("Validate domain format rules", func() {
+		convey.Convey("Valid domain should pass validation", func() {
+			err := CheckDomain("example.com", false, false)
+			convey.So(err, convey.ShouldBeNil)
+		})
+
+		convey.Convey("Domain with special characters should be rejected", func() {
+			err := CheckDomain("example@com", false, false)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "domain does not match allowed regex")
+		})
+
+		convey.Convey("Domain starting with hyphen should be rejected", func() {
+			err := CheckDomain("-example.com", false, false)
+			convey.So(err, convey.ShouldNotBeNil)
+		})
+	})
+}
+
+// Test local usage constraints
+func testLocalUsageConstraints() {
+	convey.Convey("Validate constraints for local usage (forLocalUsage=true)", func() {
+		convey.Convey("All-digit domain should be rejected", func() {
+			err := CheckDomain("123456", true, true)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "domain can not be all digits")
+		})
+
+		convey.Convey("Domain containing 'localhost' should be rejected", func() {
+			err := CheckDomain("my-localhost.com", true, true)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "domain can not contain localhost")
+		})
+
+		convey.Convey("Valid local domain should pass validation", func() {
+			err := CheckDomain("local-app.example", true, true)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// Test DNS resolution scenarios
+func testDNSResolutionLogic() {
+	convey.Convey("Validate DNS resolution logic", func() {
+		convey.Convey("Resolution to loopback address should be rejected", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			loopbackIP := net.ParseIP("127.0.0.1")
+			patches.ApplyMethodFunc(
+				(*net.Resolver)(nil), "LookupNetIP",
+				func(ctx context.Context, network, host string) ([]net.IPNet, error) {
+					return []net.IPNet{{IP: loopbackIP}}, nil
+				},
+			)
+			err := CheckDomain("loopback.test", true, false)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "loop back address")
+		})
+		convey.Convey("Resolution failure should be allowed when ignored", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			patches.ApplyMethodFunc(
+				(*net.Resolver)(nil), "LookupNetIP",
+				func(ctx context.Context, network, host string) ([]net.IPNet, error) {
+					return nil, errors.New("dns error")
+				},
+			)
+
+			err := CheckDomain("invalid.test", true, true)
+			convey.So(err, convey.ShouldBeNil)
+		})
+	})
+}
+
+// Test parameter combinations
+func testParameterCombinations() {
+	convey.Convey("Validate parameter combinations", func() {
+		convey.Convey("All-digit restriction ignored when forLocalUsage=false", func() {
+			err := CheckDomain("123456", false, false)
+			convey.So(err, convey.ShouldBeNil)
+		})
+
+		convey.Convey("DNS check skipped when forLocalUsage=false", func() {
+			err := CheckDomain("unresolvable.test", false, false)
+			convey.So(err, convey.ShouldBeNil)
+		})
+
+		convey.Convey("Resolution failure should error when ignoreLookupIPErr=false", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+
+			patches.ApplyMethodFunc(
+				(*net.Resolver)(nil), "LookupNetIP",
+				func(ctx context.Context, network, host string) ([]net.IPNet, error) {
+					return nil, errors.New("dns error")
+				},
+			)
+
+			err := CheckDomain("fail.test", true, false)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "domain resolve failed")
+		})
+	})
+}
+
+func TestIsHostValid(t *testing.T) {
+	tests := []struct {
+		name    string
+		ip      string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "invalid IP format but domain", ip: "not.an.ip",
+			wantErr: false,
+		},
+		{
+			name: "valid IPv4", ip: "192.168.1.1", wantErr: false,
+		},
+		{
+			name: "valid IPv6", ip: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+			wantErr: false,
+		},
+		{
+			name: "unspecified IPv4", ip: "0.0.0.0",
+			wantErr: true, errMsg: "is all zeros ip",
+		},
+		{
+			name: "unspecified IPv6", ip: "::",
+			wantErr: true, errMsg: "is all zeros ip",
+		},
+		{
+			name: "IPv6 multicast", ip: "ff02::1",
+			wantErr: true, errMsg: "is multicast ip",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := IsHostValid(tt.ip)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("IsIPValid() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Error() != tt.errMsg {
+				t.Errorf("IsIPValid() error = %v, wantErrMsg %v",
+					err.Error(), tt.errMsg)
+			}
+		})
 	}
 }
