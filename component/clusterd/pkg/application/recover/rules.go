@@ -18,22 +18,37 @@ func (ctl *EventController) getExtendPreRules() []common.TransRule {
 	}
 }
 
-func (ctl *EventController) geOMRules() []common.TransRule {
+func (ctl *EventController) geStressTestRules() []common.TransRule {
+	return []common.TransRule{
+		{Src: common.InitState, Event: common.StartStressTest,
+			Dst: common.NotifyPauseTrainState, Handler: ctl.handleNotifyPauseTrain},
+		{Src: common.WaitReportPauseCompleteState, Event: common.StressTestRecvPauseEvent,
+			Dst: common.NotifyStressTestState, Handler: ctl.notifyStressTest},
+
+		{Src: common.NotifyStressTestState, Event: common.NotifySuccessEvent,
+			Dst: common.WaitStressTestFinishedState, Handler: ctl.handleWaitStressTestFinish},
+		{Src: common.NotifyStressTestState, Event: common.NotifyFailEvent,
+			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
+
+		{Src: common.WaitStressTestFinishedState, Event: common.ReceiveReportEvent,
+			Dst: common.NotifyContinueTrainState, Handler: ctl.notifyContinueTrain},
+		{Src: common.WaitStressTestFinishedState, Event: common.ReportTimeoutEvent,
+			Dst: common.NotifyStopTrainState, Handler: ctl.handleNotifyStopTrain},
+		{Src: common.WaitStressTestFinishedState, Event: common.StressTestFailEvent,
+			Dst: common.NotifyStopTrainState, Handler: ctl.handleStressTestFail},
+
+		{Src: common.WaitContinueTrainState, Event: common.StressTestRecvContinueEvent,
+			Dst: common.InitState, Handler: ctl.handleStressTestFinish},
+	}
+}
+
+func (ctl *EventController) geSwitchNicRules() []common.TransRule {
 	return []common.TransRule{
 		{Src: common.InitState, Event: common.StartSwitchNic,
 			Dst: common.NotifyPauseTrainState, Handler: ctl.handleNotifyPauseTrain},
 
-		{Src: common.NotifyPauseTrainState, Event: common.NotifySuccessEvent,
-			Dst: common.WaitReportPauseCompleteState, Handler: ctl.handleWaitPauseTrainComplete},
-		{Src: common.NotifyPauseTrainState, Event: common.NotifyFailEvent,
-			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
-
-		{Src: common.WaitReportPauseCompleteState, Event: common.ReceiveReportEvent,
+		{Src: common.WaitReportPauseCompleteState, Event: common.SwitchNicRecvPauseEvent,
 			Dst: common.NotifySwitchNicState, Handler: ctl.notifySwitchNic},
-		{Src: common.WaitReportPauseCompleteState, Event: common.ReportTimeoutEvent,
-			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
-		{Src: common.WaitReportPauseCompleteState, Event: common.ProcessPauseFailEvent,
-			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
 
 		{Src: common.NotifySwitchNicState, Event: common.NotifySuccessEvent,
 			Dst: common.WaitSwitchNicFinishedState, Handler: ctl.handleWaitSwitchNicFinish},
@@ -49,13 +64,28 @@ func (ctl *EventController) geOMRules() []common.TransRule {
 		{Src: common.WaitSwitchNicFinishedState, Event: common.SwitchNicFailEvent,
 			Dst: common.NotifyStopTrainState, Handler: ctl.handleNotifyStopTrain},
 
+		{Src: common.WaitContinueTrainState, Event: common.SwitchNicRecvContinueEvent,
+			Dst: common.InitState, Handler: ctl.handleSwitchNicFinish},
+	}
+}
+
+func (ctl *EventController) geOMRules() []common.TransRule {
+	return []common.TransRule{
+		{Src: common.NotifyPauseTrainState, Event: common.NotifySuccessEvent,
+			Dst: common.WaitReportPauseCompleteState, Handler: ctl.handleWaitPauseTrainComplete},
+		{Src: common.NotifyPauseTrainState, Event: common.NotifyFailEvent,
+			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
+
+		{Src: common.WaitReportPauseCompleteState, Event: common.ReportTimeoutEvent,
+			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
+		{Src: common.WaitReportPauseCompleteState, Event: common.ProcessPauseFailEvent,
+			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
+
 		{Src: common.NotifyContinueTrainState, Event: common.NotifyContinueSuccessEvent,
 			Dst: common.WaitContinueTrainState, Handler: ctl.handleDecideContinueTrainComplete},
 		{Src: common.NotifyContinueTrainState, Event: common.NotifyFailEvent,
 			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
 
-		{Src: common.WaitContinueTrainState, Event: common.ReceiveReportEvent,
-			Dst: common.InitState, Handler: ctl.handleSwitchNicFinish},
 		{Src: common.WaitContinueTrainState, Event: common.ReportTimeoutEvent,
 			Dst: common.NotifyKillJobState, Handler: ctl.handleKillJob},
 		{Src: common.WaitContinueTrainState, Event: common.ContinueTrainFailEvent,
@@ -202,5 +232,7 @@ func (ctl *EventController) getBaseRules() []common.TransRule {
 	rules = append(rules, ctl.getFixRules()...)
 	rules = append(rules, ctl.getAfterRules()...)
 	rules = append(rules, ctl.geOMRules()...)
+	rules = append(rules, ctl.geSwitchNicRules()...)
+	rules = append(rules, ctl.geStressTestRules()...)
 	return rules
 }

@@ -36,5 +36,13 @@ func TestGetRules(t *testing.T) {
 			baseRules := ctl.geOMRules()
 			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
 		})
+		convey.Convey("06-test geSwitchNicRules, should return slice", func() {
+			baseRules := ctl.geSwitchNicRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("07-test geStressTestRules, should return slice", func() {
+			baseRules := ctl.geStressTestRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
 	})
 }

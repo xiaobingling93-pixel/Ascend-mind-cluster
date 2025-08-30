@@ -325,6 +325,20 @@ func (ctl *EventController) isStressTest() bool {
 	return len(ctl.stressTestParam) > 0
 }
 
+func (ctl *EventController) getStressTestParam() common.StressTestParam {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.stressTestParam
+}
+
+func (ctl *EventController) notifyStressTest() (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
+func (ctl *EventController) stressTestSignalEnqueue(signal *pb.StressTestRankParams) (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
 func (ctl *EventController) getCtxAndStressTestNotifyChan() (context.Context, chan *pb.StressTestRankParams) {
 	ctl.lock.RLock()
 	defer ctl.lock.RUnlock()
@@ -372,14 +386,47 @@ func (ctl *EventController) selectNotifyStressTest(ctx context.Context, sendChan
 	}
 }
 
+func (ctl *EventController) waitStressTestFinishRecvFault(ctx context.Context,
+	rch chan *pb.StressTestResult) (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
+func (ctl *EventController) handleWaitStressTestFinish() (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
+func (ctl *EventController) waitStressTestDone(ctx context.Context, rch chan *pb.StressTestResult,
+	ch chan *pb.RecoverStatusRequest) (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
+func (ctl *EventController) parseStressTestResult(result *pb.StressTestResult) (bool, string) {
+	return true, ""
+}
+
 func (ctl *EventController) setStressTestResult(result *pb.StressTestResult) {
 	ctl.stressTestResult <- result
+}
+
+func (ctl *EventController) getCtxAndStressTestResultChan() (context.Context, chan *pb.StressTestResult) {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.controllerContext, ctl.stressTestResult
 }
 
 func (ctl *EventController) getCtxAndStressTestResponseChan() (context.Context, chan *pb.StressTestResponse) {
 	ctl.lock.RLock()
 	defer ctl.lock.RUnlock()
 	return ctl.controllerContext, ctl.stressTestResponse
+}
+
+func (ctl *EventController) handleStressTestFail() (string, common.RespCode, error) {
+	return "", common.OK, nil
+}
+
+func (ctl *EventController) handleStressTestFinish() (string, common.RespCode, error) {
+	ctl.reset(false)
+	return "", common.OK, nil
 }
 
 func (ctl *EventController) listenStressTestChannel(stream pb.Recover_SubscribeStressTestResponseServer) {

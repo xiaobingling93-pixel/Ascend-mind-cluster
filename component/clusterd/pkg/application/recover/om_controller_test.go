@@ -1040,3 +1040,42 @@ func TestSelectSendStressTestResponseChanClosed(t *testing.T) {
 		convey.So(ok, convey.ShouldBeFalse)
 	})
 }
+
+func TestGetStressTestParam(t *testing.T) {
+	t.Run("get stress test param", func(t *testing.T) {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		res := ctl.getStressTestParam()
+		assert.NotNil(t, res)
+	})
+}
+
+func TestGetCtxAndStressTestResultChan(t *testing.T) {
+	convey.Convey("Testing getCtxAndStressTestResultChan, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctx, ch := ctl.getCtxAndStressTestResultChan()
+		convey.So(ctx, convey.ShouldNotBeNil)
+		convey.So(ch, convey.ShouldNotBeNil)
+	})
+}
+
+func TestHandleStressTestFinish(t *testing.T) {
+	convey.Convey("Test handleStressTestFinish, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		patches := gomonkey.ApplyPrivateMethod(ctl, "reset", func() { return })
+		defer patches.Reset()
+		defer func() {
+			close(ctl.stressTestResult)
+			ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
+		}()
+		event, respCode, err := ctl.handleStressTestFinish()
+		convey.So(event, convey.ShouldEqual, "")
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
