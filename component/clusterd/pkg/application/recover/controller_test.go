@@ -441,6 +441,17 @@ func TestReset(t *testing.T) {
 	})
 }
 
+func TestCleanControllerMap(t *testing.T) {
+	convey.Convey("Testing cleanControllerMapAndSet", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cleanControllerMapAndSet()
+		convey.So(ctl.stressTestParam, convey.ShouldHaveLength, 0)
+		convey.So(ctl.isolateNodes, convey.ShouldHaveLength, 0)
+	})
+}
+
 func TestInitControllerChan(t *testing.T) {
 	convey.Convey("Testing initControllerChan", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)

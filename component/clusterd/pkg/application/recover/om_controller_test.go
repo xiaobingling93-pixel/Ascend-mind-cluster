@@ -184,6 +184,7 @@ func TestHandleWaitContinueTrainComplete(t *testing.T) {
 		testSwitchNicContextCanceled(ctl)
 		testSwitchNicTrainError(ctl)
 		testSwitchNicValidReport(ctl)
+		testStressTestValidReport(ctl)
 	})
 }
 
@@ -246,7 +247,7 @@ func testSwitchNicTrainError(ctl *EventController) {
 }
 
 func testSwitchNicValidReport(ctl *EventController) {
-	convey.Convey("When receiving a valid report", func() {
+	convey.Convey("When receiving a valid report, when switch nic", func() {
 		reportChan := make(chan *pb.RecoverStatusRequest, 1)
 		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: int32(common.OK)}}
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
@@ -254,12 +255,38 @@ func testSwitchNicValidReport(ctl *EventController) {
 				return context.Background(), reportChan
 			})
 		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isSwitchingNic",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
 		event, respCode, err := ctl.handleDecideContinueTrainComplete()
-		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
+		convey.So(event, convey.ShouldEqual, common.SwitchNicRecvContinueEvent)
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func testStressTestValidReport(ctl *EventController) {
+	convey.Convey("When receiving a valid report, when stress test", func() {
+		reportChan := make(chan *pb.RecoverStatusRequest, 1)
+		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: int32(common.OK)}}
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
+			func() (context.Context, chan *pb.RecoverStatusRequest) {
+				return context.Background(), reportChan
+			})
+		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isStressTest",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
+		event, respCode, err := ctl.handleDecideContinueTrainComplete()
+		convey.So(event, convey.ShouldEqual, common.StressTestRecvContinueEvent)
 		convey.So(respCode, convey.ShouldEqual, common.OK)
 		convey.So(err, convey.ShouldBeNil)
 	})
@@ -495,6 +522,7 @@ func TestHandleWaitReportPauseTrainComplete(t *testing.T) {
 		testSwitchNicPauseTrainCanceled(ctl)
 		testSwitchNicPauseTrainError(ctl)
 		testSwitchNicPauseTrainValidReport(ctl)
+		testStressTestPauseTrainValidReport(ctl)
 	})
 }
 
@@ -557,7 +585,7 @@ func testSwitchNicPauseTrainError(ctl *EventController) {
 }
 
 func testSwitchNicPauseTrainValidReport(ctl *EventController) {
-	convey.Convey("When receiving a valid report", func() {
+	convey.Convey("When receiving a valid report, when switch nic", func() {
 		reportChan := make(chan *pb.StopCompleteRequest, 1)
 		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: int32(common.OK)}}
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
@@ -565,12 +593,38 @@ func testSwitchNicPauseTrainValidReport(ctl *EventController) {
 				return context.Background(), reportChan
 			})
 		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isSwitchingNic",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
 		event, respCode, err := ctl.handleWaitPauseTrainComplete()
-		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
+		convey.So(event, convey.ShouldEqual, common.SwitchNicRecvPauseEvent)
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func testStressTestPauseTrainValidReport(ctl *EventController) {
+	convey.Convey("When receiving a valid report, when stress test", func() {
+		reportChan := make(chan *pb.StopCompleteRequest, 1)
+		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: int32(common.OK)}}
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return context.Background(), reportChan
+			})
+		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isStressTest",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
+		event, respCode, err := ctl.handleWaitPauseTrainComplete()
+		convey.So(event, convey.ShouldEqual, common.StressTestRecvPauseEvent)
 		convey.So(respCode, convey.ShouldEqual, common.OK)
 		convey.So(err, convey.ShouldBeNil)
 	})

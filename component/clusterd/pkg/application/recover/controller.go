@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/faultmanager/cmprocess/retry"
@@ -61,6 +63,7 @@ type EventController struct {
 	switchNicResponse         chan *pb.SwitchNicResponse
 	switchRankList            chan *pb.SwitchRankList
 	switchRankResult          chan *pb.SwitchResult
+	stressTestNotifyChan      chan *pb.StressTestRankParams
 	restartFaultProcess       bool
 	controllerContext         context.Context
 	ctxCancelFunc             context.CancelFunc
@@ -73,6 +76,10 @@ type EventController struct {
 	isChanClosed              bool
 	jobCanceled               bool
 	lock                      sync.RWMutex
+	stressTestParam           common.StressTestParam
+	stressTestResponse        chan *pb.StressTestResponse
+	stressTestResult          chan *pb.StressTestResult
+	isolateNodes              sets.String
 }
 
 func catchException() {
@@ -104,13 +111,18 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		healthState:               constant.HealthyState,
 		globalSwitchRankIDs:       []string{},
 		globalOps:                 []bool{},
-		switchNicResponse:         make(chan *pb.SwitchNicResponse, 1),
+		switchNicResponse:         make(chan *pb.SwitchNicResponse, eventChanLength),
 		switchRankList:            make(chan *pb.SwitchRankList, 1),
 		switchRankResult:          make(chan *pb.SwitchResult, 1),
+		stressTestNotifyChan:      make(chan *pb.StressTestRankParams, 1),
 		restartFaultProcess:       false,
 		isChanClosed:              false,
 		serviceContext:            serviceCtx,
 		lock:                      sync.RWMutex{},
+		stressTestParam:           make(common.StressTestParam),
+		stressTestResponse:        make(chan *pb.StressTestResponse, eventChanLength),
+		stressTestResult:          make(chan *pb.StressTestResult, 1),
+		isolateNodes:              make(sets.String),
 	}
 	var rules []common.TransRule = ctl.getBaseRules()
 	ctl.state = common.NewStateMachine(common.InitState, rules)
@@ -186,6 +198,7 @@ func (ctl *EventController) reset(stop bool) {
 	}
 	ctl.initControllerChan()
 	ctl.cleanControllerSlice()
+	ctl.cleanControllerMapAndSet()
 	ctl.healthState = constant.HealthyState
 	ctl.platStrategy = ""
 	ctl.state.Reset()
@@ -195,6 +208,11 @@ func (ctl *EventController) reset(stop bool) {
 	go ctl.keepAlive()
 }
 
+func (ctl *EventController) cleanControllerMapAndSet() {
+	ctl.stressTestParam = make(common.StressTestParam)
+	ctl.isolateNodes = make(sets.String)
+}
+
 func (ctl *EventController) initControllerChan() {
 	ctl.events = make(chan string, eventChanLength)
 	ctl.signalChan = make(chan *pb.ProcessManageSignal, 1)
@@ -202,9 +220,12 @@ func (ctl *EventController) initControllerChan() {
 	ctl.reportRecoverStrategyChan = make(chan *pb.RecoverStrategyRequest, 1)
 	ctl.reportStatusChan = make(chan *pb.RecoverStatusRequest, 1)
 	ctl.scheduleResultChan = make(chan bool, 1)
-	ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
+	ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, eventChanLength)
 	ctl.switchRankList = make(chan *pb.SwitchRankList, 1)
 	ctl.switchRankResult = make(chan *pb.SwitchResult, 1)
+	ctl.stressTestNotifyChan = make(chan *pb.StressTestRankParams, 1)
+	ctl.stressTestResponse = make(chan *pb.StressTestResponse, eventChanLength)
+	ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
 }
 
 func (ctl *EventController) cleanControllerSlice() {
@@ -226,6 +247,9 @@ func (ctl *EventController) closeControllerChan() {
 	close(ctl.switchNicResponse)
 	close(ctl.switchRankList)
 	close(ctl.switchRankResult)
+	close(ctl.stressTestNotifyChan)
+	close(ctl.stressTestResponse)
+	close(ctl.stressTestResult)
 }
 
 func (ctl *EventController) selectKeepAlive(ctx context.Context, sendChan chan *pb.ProcessManageSignal) bool {
@@ -492,13 +516,8 @@ func (ctl *EventController) handleSendResult(signal *pb.ProcessManageSignal, err
 		return
 	}
 	if err != nil {
-		if ctl.isSwitchingNic() {
-			defer catchException()
-			ctl.switchNicResponse <- &pb.SwitchNicResponse{
-				Msg:   "switch nic failed, send signal failed",
-				JobID: ctl.jobInfo.JobId,
-			}
-		}
+		defer catchException()
+		ctl.replyOMResponse("switch nic failed, send signal failed")
 		ctl.addEvent(common.NotifyFailEvent)
 		return
 	}

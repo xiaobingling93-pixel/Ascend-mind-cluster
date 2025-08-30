@@ -483,6 +483,34 @@ func NotifySwitchNicSendRetry(stream pb.Recover_SubscribeNotifySwitchServer,
 	return err
 }
 
+// StressTestResponseSendRetry send signal util send success or retry times upper retryTimes
+func StressTestResponseSendRetry(stream pb.Recover_SubscribeStressTestResponseServer,
+	signal *pb.StressTestResponse, retryTimes int) error {
+	var err error
+	for i := 0; i < retryTimes; i++ {
+		err = stream.Send(signal)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(time.Duration(i+1) * time.Second)
+	}
+	return err
+}
+
+// NotifyStressTestSendRetry send stress test signal util send success or retry times upper retryTimes
+func NotifyStressTestSendRetry(stream pb.Recover_SubscribeNotifyExecStressTestServer,
+	signal *pb.StressTestRankParams, retryTimes int) error {
+	var err error
+	for i := 0; i < retryTimes; i++ {
+		err = stream.Send(signal)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(time.Duration(i+1) * time.Second)
+	}
+	return err
+}
+
 // CalculateStringDivInt calculate div result, dividend is of type string
 func CalculateStringDivInt(dividendStr string, divisor int) int {
 	if divisor <= 0 {
