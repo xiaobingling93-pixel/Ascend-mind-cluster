@@ -19,18 +19,22 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Recover_Init_FullMethodName                         = "/Recover/Init"
-	Recover_Register_FullMethodName                     = "/Recover/Register"
-	Recover_SubscribeProcessManageSignal_FullMethodName = "/Recover/SubscribeProcessManageSignal"
-	Recover_ReportStopComplete_FullMethodName           = "/Recover/ReportStopComplete"
-	Recover_ReportRecoverStrategy_FullMethodName        = "/Recover/ReportRecoverStrategy"
-	Recover_ReportRecoverStatus_FullMethodName          = "/Recover/ReportRecoverStatus"
-	Recover_ReportProcessFault_FullMethodName           = "/Recover/ReportProcessFault"
-	Recover_SwitchNicTrack_FullMethodName               = "/Recover/SwitchNicTrack"
-	Recover_SubscribeSwitchNicSignal_FullMethodName     = "/Recover/SubscribeSwitchNicSignal"
-	Recover_SubscribeNotifySwitch_FullMethodName        = "/Recover/SubscribeNotifySwitch"
-	Recover_ReplySwitchNicResult_FullMethodName         = "/Recover/ReplySwitchNicResult"
-	Recover_HealthCheck_FullMethodName                  = "/Recover/HealthCheck"
+	Recover_Init_FullMethodName                          = "/Recover/Init"
+	Recover_Register_FullMethodName                      = "/Recover/Register"
+	Recover_SubscribeProcessManageSignal_FullMethodName  = "/Recover/SubscribeProcessManageSignal"
+	Recover_ReportStopComplete_FullMethodName            = "/Recover/ReportStopComplete"
+	Recover_ReportRecoverStrategy_FullMethodName         = "/Recover/ReportRecoverStrategy"
+	Recover_ReportRecoverStatus_FullMethodName           = "/Recover/ReportRecoverStatus"
+	Recover_ReportProcessFault_FullMethodName            = "/Recover/ReportProcessFault"
+	Recover_SwitchNicTrack_FullMethodName                = "/Recover/SwitchNicTrack"
+	Recover_SubscribeSwitchNicSignal_FullMethodName      = "/Recover/SubscribeSwitchNicSignal"
+	Recover_SubscribeNotifySwitch_FullMethodName         = "/Recover/SubscribeNotifySwitch"
+	Recover_ReplySwitchNicResult_FullMethodName          = "/Recover/ReplySwitchNicResult"
+	Recover_HealthCheck_FullMethodName                   = "/Recover/HealthCheck"
+	Recover_StressTest_FullMethodName                    = "/Recover/StressTest"
+	Recover_SubscribeStressTestResponse_FullMethodName   = "/Recover/SubscribeStressTestResponse"
+	Recover_SubscribeNotifyExecStressTest_FullMethodName = "/Recover/SubscribeNotifyExecStressTest"
+	Recover_ReplyStressTestResult_FullMethodName         = "/Recover/ReplyStressTestResult"
 )
 
 // RecoverClient is the client API for Recover service.
@@ -49,6 +53,10 @@ type RecoverClient interface {
 	SubscribeNotifySwitch(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (Recover_SubscribeNotifySwitchClient, error)
 	ReplySwitchNicResult(ctx context.Context, in *SwitchResult, opts ...grpc.CallOption) (*Status, error)
 	HealthCheck(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*Status, error)
+	StressTest(ctx context.Context, in *StressTestParam, opts ...grpc.CallOption) (*Status, error)
+	SubscribeStressTestResponse(ctx context.Context, in *StressTestRequest, opts ...grpc.CallOption) (Recover_SubscribeStressTestResponseClient, error)
+	SubscribeNotifyExecStressTest(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (Recover_SubscribeNotifyExecStressTestClient, error)
+	ReplyStressTestResult(ctx context.Context, in *StressTestResult, opts ...grpc.CallOption) (*Status, error)
 }
 
 type recoverClient struct {
@@ -236,6 +244,88 @@ func (c *recoverClient) HealthCheck(ctx context.Context, in *ClientInfo, opts ..
 	return out, nil
 }
 
+func (c *recoverClient) StressTest(ctx context.Context, in *StressTestParam, opts ...grpc.CallOption) (*Status, error) {
+	out := new(Status)
+	err := c.cc.Invoke(ctx, Recover_StressTest_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recoverClient) SubscribeStressTestResponse(ctx context.Context, in *StressTestRequest, opts ...grpc.CallOption) (Recover_SubscribeStressTestResponseClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Recover_ServiceDesc.Streams[3], Recover_SubscribeStressTestResponse_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &recoverSubscribeStressTestResponseClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Recover_SubscribeStressTestResponseClient interface {
+	Recv() (*StressTestResponse, error)
+	grpc.ClientStream
+}
+
+type recoverSubscribeStressTestResponseClient struct {
+	grpc.ClientStream
+}
+
+func (x *recoverSubscribeStressTestResponseClient) Recv() (*StressTestResponse, error) {
+	m := new(StressTestResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *recoverClient) SubscribeNotifyExecStressTest(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (Recover_SubscribeNotifyExecStressTestClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Recover_ServiceDesc.Streams[4], Recover_SubscribeNotifyExecStressTest_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &recoverSubscribeNotifyExecStressTestClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Recover_SubscribeNotifyExecStressTestClient interface {
+	Recv() (*StressTestRankParams, error)
+	grpc.ClientStream
+}
+
+type recoverSubscribeNotifyExecStressTestClient struct {
+	grpc.ClientStream
+}
+
+func (x *recoverSubscribeNotifyExecStressTestClient) Recv() (*StressTestRankParams, error) {
+	m := new(StressTestRankParams)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *recoverClient) ReplyStressTestResult(ctx context.Context, in *StressTestResult, opts ...grpc.CallOption) (*Status, error) {
+	out := new(Status)
+	err := c.cc.Invoke(ctx, Recover_ReplyStressTestResult_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RecoverServer is the server API for Recover service.
 // All implementations must embed UnimplementedRecoverServer
 // for forward compatibility
@@ -252,6 +342,10 @@ type RecoverServer interface {
 	SubscribeNotifySwitch(*ClientInfo, Recover_SubscribeNotifySwitchServer) error
 	ReplySwitchNicResult(context.Context, *SwitchResult) (*Status, error)
 	HealthCheck(context.Context, *ClientInfo) (*Status, error)
+	StressTest(context.Context, *StressTestParam) (*Status, error)
+	SubscribeStressTestResponse(*StressTestRequest, Recover_SubscribeStressTestResponseServer) error
+	SubscribeNotifyExecStressTest(*ClientInfo, Recover_SubscribeNotifyExecStressTestServer) error
+	ReplyStressTestResult(context.Context, *StressTestResult) (*Status, error)
 	mustEmbedUnimplementedRecoverServer()
 }
 
@@ -294,6 +388,18 @@ func (UnimplementedRecoverServer) ReplySwitchNicResult(context.Context, *SwitchR
 }
 func (UnimplementedRecoverServer) HealthCheck(context.Context, *ClientInfo) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
+}
+func (UnimplementedRecoverServer) StressTest(context.Context, *StressTestParam) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StressTest not implemented")
+}
+func (UnimplementedRecoverServer) SubscribeStressTestResponse(*StressTestRequest, Recover_SubscribeStressTestResponseServer) error {
+	return status.Errorf(codes.Unimplemented, "method SubscribeStressTestResponse not implemented")
+}
+func (UnimplementedRecoverServer) SubscribeNotifyExecStressTest(*ClientInfo, Recover_SubscribeNotifyExecStressTestServer) error {
+	return status.Errorf(codes.Unimplemented, "method SubscribeNotifyExecStressTest not implemented")
+}
+func (UnimplementedRecoverServer) ReplyStressTestResult(context.Context, *StressTestResult) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplyStressTestResult not implemented")
 }
 func (UnimplementedRecoverServer) mustEmbedUnimplementedRecoverServer() {}
 
@@ -533,6 +639,84 @@ func _Recover_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Recover_StressTest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StressTestParam)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecoverServer).StressTest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Recover_StressTest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecoverServer).StressTest(ctx, req.(*StressTestParam))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Recover_SubscribeStressTestResponse_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StressTestRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RecoverServer).SubscribeStressTestResponse(m, &recoverSubscribeStressTestResponseServer{stream})
+}
+
+type Recover_SubscribeStressTestResponseServer interface {
+	Send(*StressTestResponse) error
+	grpc.ServerStream
+}
+
+type recoverSubscribeStressTestResponseServer struct {
+	grpc.ServerStream
+}
+
+func (x *recoverSubscribeStressTestResponseServer) Send(m *StressTestResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Recover_SubscribeNotifyExecStressTest_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ClientInfo)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RecoverServer).SubscribeNotifyExecStressTest(m, &recoverSubscribeNotifyExecStressTestServer{stream})
+}
+
+type Recover_SubscribeNotifyExecStressTestServer interface {
+	Send(*StressTestRankParams) error
+	grpc.ServerStream
+}
+
+type recoverSubscribeNotifyExecStressTestServer struct {
+	grpc.ServerStream
+}
+
+func (x *recoverSubscribeNotifyExecStressTestServer) Send(m *StressTestRankParams) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Recover_ReplyStressTestResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StressTestResult)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecoverServer).ReplyStressTestResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Recover_ReplyStressTestResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecoverServer).ReplyStressTestResult(ctx, req.(*StressTestResult))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Recover_ServiceDesc is the grpc.ServiceDesc for Recover service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -576,6 +760,14 @@ var Recover_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "HealthCheck",
 			Handler:    _Recover_HealthCheck_Handler,
 		},
+		{
+			MethodName: "StressTest",
+			Handler:    _Recover_StressTest_Handler,
+		},
+		{
+			MethodName: "ReplyStressTestResult",
+			Handler:    _Recover_ReplyStressTestResult_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -591,6 +783,16 @@ var Recover_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "SubscribeNotifySwitch",
 			Handler:       _Recover_SubscribeNotifySwitch_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribeStressTestResponse",
+			Handler:       _Recover_SubscribeStressTestResponse_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribeNotifyExecStressTest",
+			Handler:       _Recover_SubscribeNotifyExecStressTest_Handler,
 			ServerStreams: true,
 		},
 	},
