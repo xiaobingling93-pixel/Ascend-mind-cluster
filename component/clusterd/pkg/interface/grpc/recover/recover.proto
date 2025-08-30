@@ -65,13 +65,6 @@ message SwitchNics {
   map<string, DeviceList> nicOps = 2;
 }
 
-message SwitchStatus {
-  string jobID = 1;
-  string rankID = 2;
-  bool res = 3;
-  string msg = 4;
-}
-
 message DeviceList {
   repeated  string dev = 1;
   repeated  bool op = 2;
@@ -88,6 +81,44 @@ message SwitchResult {
   bool result = 2;
 }
 
+message StressOpList {
+  repeated int64 ops = 1;
+}
+
+message StressTestParam {
+  string jobID = 1;
+  map<string, StressOpList> stressParam = 2;  //  stressParam: {NodeName: [ops]}
+  repeated int64 allNodesOps = 3;
+}
+
+message StressTestRequest{
+  string jobID = 1;
+}
+
+message StressTestResponse{
+  string jobID = 1;
+  string msg = 2;
+}
+
+message StressTestRankParams {
+  map<string, StressOpList> stressParam = 1;  //  stressParam: {RankID: [ops]}
+  string jobId = 2;
+}
+
+message StressTestResult {
+  string jobId = 1;
+  map<string, StressTestRankResult> stressResult = 2;  //  rankResult: {RankID: result}
+}
+
+message StressTestRankResult {
+  map<string, StressTestOpResult> rankResult= 1;  //  opResult: {OpName: result}
+}
+
+message StressTestOpResult {
+  string code = 1;
+  string result = 2;
+}
+
 service Recover {
   rpc Init(ClientInfo) returns (Status) {}
   rpc Register(ClientInfo) returns (Status) {}
@@ -101,4 +132,9 @@ service Recover {
   rpc SubscribeNotifySwitch(ClientInfo) returns (stream SwitchRankList) {}
   rpc ReplySwitchNicResult(SwitchResult) returns (Status) {}
   rpc HealthCheck(ClientInfo) returns (Status) {}
+
+  rpc StressTest(StressTestParam) returns (Status) {}
+  rpc SubscribeStressTestResponse(StressTestRequest) returns (stream StressTestResponse) {}
+  rpc SubscribeNotifyExecStressTest(ClientInfo) returns (stream StressTestRankParams) {}
+  rpc ReplyStressTestResult(StressTestResult) returns (Status) {}
 }
