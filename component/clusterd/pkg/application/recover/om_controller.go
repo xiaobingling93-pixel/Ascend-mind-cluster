@@ -58,7 +58,7 @@ func (ctl *EventController) handleWaitPauseTrainComplete() (string, common.RespC
 		return "", common.OK, nil
 	case <-time.After(time.Duration(reportTimeoutMinutes) * time.Minute):
 		hwlog.RunLog.Errorf("wait report pause train complete timeout, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
-		ctl.replyOMResponse("switch nic failed, pause train timeout")
+		ctl.replyOMResponse("pause train timeout")
 		return common.ReportTimeoutEvent, common.WaitReportTimeout, nil
 	}
 }

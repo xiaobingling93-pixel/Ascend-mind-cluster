@@ -810,7 +810,7 @@ func TestIsStressTest(t *testing.T) {
 }
 
 func TestGetCtxAndStressTestNotifyChan(t *testing.T) {
-	convey.Convey("Testing getCtxAndSwitchNicNotifyChan", t, func() {
+	convey.Convey("Testing GetCtxAndStressTestNotifyChan", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)
 		serviceCtx := context.Background()
 		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
