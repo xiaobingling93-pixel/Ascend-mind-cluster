@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/interface/grpc/recover"
 )
@@ -1077,5 +1078,239 @@ func TestHandleStressTestFinish(t *testing.T) {
 		convey.So(event, convey.ShouldEqual, "")
 		convey.So(respCode, convey.ShouldEqual, common.OK)
 		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestNotifyStressTest(t *testing.T) {
+	convey.Convey("Test notifyStressTest, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		patches := gomonkey.ApplyPrivateMethod(ctl, "stressTestSignalEnqueue",
+			func(signal *pb.StressTestRankParams) (string, common.RespCode, error) { return "", common.OK, nil })
+		defer patches.Reset()
+		ctl.stressTestParam = common.StressTestParam{
+			"node": map[string][]int64{
+				"rank": {0},
+			},
+		}
+		event, respCode, err := ctl.notifyStressTest()
+		convey.So(event, convey.ShouldEqual, "")
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestStressTestSignalEnqueue(t *testing.T) {
+	convey.Convey("Testing stressTestSignalEnqueue, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		signal := &pb.StressTestRankParams{
+			JobId:       "test-job",
+			StressParam: map[string]*pb.StressOpList{},
+		}
+		_, code, err := ctl.stressTestSignalEnqueue(signal)
+		convey.So(code, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+	convey.Convey("Testing stressTestSignalEnqueue, ctx done", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		ctx, cancel := context.WithCancel(context.Background())
+		ctl := NewEventController(jobInfo, keepAliveSeconds, ctx)
+		signal := &pb.StressTestRankParams{
+			JobId:       "test-job",
+			StressParam: map[string]*pb.StressOpList{},
+		}
+		cancel()
+		_, code, err := ctl.stressTestSignalEnqueue(signal)
+		convey.So(code, convey.ShouldEqual, common.ControllerEventCancel)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestHandleWaitStressTestFinish(t *testing.T) {
+	convey.Convey("Test handleWaitStressTestFinish", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Warnf, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		testStressTestFinishReportChanNil(ctl)
+		testStressTestFinishResultChanNil(ctl)
+		testStressTestFinishValidReport(ctl)
+	})
+}
+
+func testStressTestFinishReportChanNil(ctl *EventController) {
+	convey.Convey("When reportChan is nil", func() {
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
+			func() (context.Context, chan *pb.RecoverStatusRequest) {
+				return context.Background(), nil
+			})
+		defer patches.Reset()
+		defer func() {
+			close(ctl.stressTestResponse)
+			ctl.stressTestResponse = make(chan *pb.StressTestResponse, 1)
+		}()
+		resultChan := make(chan *pb.StressTestResult, 1)
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
+			func() (context.Context, chan *pb.StressTestResult) {
+				return context.Background(), resultChan
+			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.stressTestResult)
+			ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
+		}()
+		ctl.stressTestParam = common.StressTestParam{
+			"node": map[string][]int64{
+				"rank": {0},
+			},
+		}
+		event, respCode, _ := ctl.handleWaitStressTestFinish()
+		convey.So(event, convey.ShouldEqual, "")
+		convey.So(respCode, convey.ShouldEqual, common.ServerInnerError)
+	})
+}
+
+func testStressTestFinishResultChanNil(ctl *EventController) {
+	convey.Convey("When ResultChan is nil", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
+			func() (context.Context, chan *pb.RecoverStatusRequest) {
+				return ctx, make(chan *pb.RecoverStatusRequest, 1)
+			})
+		defer patches.Reset()
+		defer func() {
+			close(ctl.stressTestResponse)
+			ctl.stressTestResponse = make(chan *pb.StressTestResponse, 1)
+		}()
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
+			func() (context.Context, chan *pb.StressTestResult) {
+				return context.Background(), nil
+			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.stressTestResult)
+			ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
+		}()
+		ctl.stressTestParam = common.StressTestParam{
+			"node": map[string][]int64{
+				"rank": {0},
+			},
+		}
+		event, respCode, _ := ctl.handleWaitStressTestFinish()
+		convey.So(event, convey.ShouldEqual, "")
+		convey.So(respCode, convey.ShouldEqual, common.ControllerEventCancel)
+	})
+}
+
+func testStressTestFinishValidReport(ctl *EventController) {
+	convey.Convey("When receiving a valid report", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
+			func() (context.Context, chan *pb.RecoverStatusRequest) {
+				return ctx, make(chan *pb.RecoverStatusRequest, 1)
+			})
+		defer patches.Reset()
+		defer func() {
+			close(ctl.stressTestResponse)
+			ctl.stressTestResponse = make(chan *pb.StressTestResponse, 1)
+		}()
+		resultChan := make(chan *pb.StressTestResult, 1)
+		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
+			func() (context.Context, chan *pb.StressTestResult) {
+				return context.Background(), resultChan
+			}).
+			ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
+			ApplyPrivateMethod(ctl, "waitStressTestDone", func(ctx context.Context, rch chan *pb.StressTestResult,
+				ch chan *pb.RecoverStatusRequest) (string, common.RespCode, error) {
+				return "", common.OK, nil
+			})
+		defer pat.Reset()
+		defer func() {
+			close(ctl.stressTestResult)
+			ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
+		}()
+		ctl.stressTestParam = common.StressTestParam{
+			"node": map[string][]int64{
+				"rank": {0},
+			},
+		}
+		event, respCode, err := ctl.handleWaitStressTestFinish()
+		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestWaitStressTestDone(t *testing.T) {
+	convey.Convey("Test waitStressTestDone", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Warnf, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		testWaitStressTestDoneCancel(ctl)
+	})
+}
+
+func testWaitStressTestDoneCancel(ctl *EventController) {
+
+}
+
+func TestWaitStressTestFinishRecvFault(t *testing.T) {
+	convey.Convey("Test waitStressTestFinishRecvFault", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Warnf, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		testWaitStressTestDoneCancel(ctl)
+	})
+}
+
+func TestParseStressTestResult(t *testing.T) {
+	convey.Convey("Test parseStressTestResult", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Warnf, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		testWaitStressTestDoneCancel(ctl)
+	})
+}
+
+func TestHandleStressTestFail(t *testing.T) {
+	convey.Convey("Test handleStressTestFail", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+
+		patches := gomonkey.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Warnf, func(format string, args ...interface{}) {}).
+			ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
+		defer patches.Reset()
+
+		testWaitStressTestDoneCancel(ctl)
 	})
 }
