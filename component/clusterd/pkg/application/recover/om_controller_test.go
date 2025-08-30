@@ -770,7 +770,7 @@ func TestReplyOMResponse(t *testing.T) {
 		})
 		ctl.replyOMResponse("test")
 		msg := <-ctl.stressTestResponse
-		convey.So(msg, convey.ShouldEqual, "test")
+		convey.So(msg.Msg, convey.ShouldEqual, "test")
 	})
 	convey.Convey("replyOMResponse, reply switch nic", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)
@@ -779,7 +779,7 @@ func TestReplyOMResponse(t *testing.T) {
 		ctl.setSwitchNicParam([]string{"test"}, []bool{true})
 		ctl.replyOMResponse("test")
 		msg := <-ctl.switchNicResponse
-		convey.So(msg, convey.ShouldEqual, "test")
+		convey.So(msg.Msg, convey.ShouldEqual, "test")
 	})
 }
 
