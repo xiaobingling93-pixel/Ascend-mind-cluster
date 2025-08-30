@@ -145,5 +145,5 @@ func TestGetClusterdAddr(t *testing.T) {
 		return anfWrongIp
 	})
 	addr, err = GetClusterdAddr()
-	convey.ShouldNotBeNil(err)
+	convey.ShouldBeNil(err)
 }

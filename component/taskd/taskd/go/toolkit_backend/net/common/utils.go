@@ -203,26 +203,8 @@ func CheckConfig(conf *TaskNetConfig) error {
 	return nil
 }
 
-// IsIPValid checks if the input string is a valid IP address.
-func IsIPValid(ipStr string) error {
-	parsedIp := net.ParseIP(ipStr)
-	if parsedIp == nil {
-		return errors.New("parse to ip failed")
-	}
-	if parsedIp.To4() == nil && parsedIp.To16() == nil {
-		return errors.New("not a valid ipv4 or ipv6 ip")
-	}
-	if parsedIp.IsUnspecified() {
-		return errors.New("is all zeros ip")
-	}
-	if parsedIp.IsMulticast() {
-		return errors.New("is multicast ip")
-	}
-	return nil
-}
-
-// GetIpFromAddr extracts the IP address from a string in the format "host:port".
-func GetIpFromAddr(addr string) string {
+// GetHostFromAddr extracts the IP address from a string in the format "host:port".
+func GetHostFromAddr(addr string) string {
 	ip, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return ""

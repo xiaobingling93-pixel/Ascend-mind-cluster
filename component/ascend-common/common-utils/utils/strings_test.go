@@ -69,3 +69,16 @@ func TestGetSha256Code(t *testing.T) {
 		convey.So(len(hashs), convey.ShouldEqual, byteLength)
 	})
 }
+
+func TestIsDigitString(t *testing.T) {
+	convey.Convey("test IsDigitString", t, func() {
+		convey.Convey("case IsDigitString is true", func() {
+			str := "123"
+			convey.ShouldBeTrue(IsDigitString(str))
+		})
+		convey.Convey("case IsDigitString is false", func() {
+			str := "123a"
+			convey.ShouldBeFalse(IsDigitString(str))
+		})
+	})
+}
