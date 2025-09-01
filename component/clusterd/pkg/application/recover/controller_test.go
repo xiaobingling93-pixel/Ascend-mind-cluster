@@ -3380,6 +3380,7 @@ func TestHandleWaitReportScaleInIsolateRanksStatusTimeout(t *testing.T) {
 			return chanTime
 		})
 	defer patchTime.Reset()
+	chanTime <- time.Now()
 	event, code, err := ctl.handleWaitReportScaleInIsolateRanksStatus()
 	assert.Equal(t, common.ReportTimeoutEvent, event)
 	assert.Equal(t, common.WaitReportTimeout, code)
