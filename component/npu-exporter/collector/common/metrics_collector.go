@@ -151,8 +151,6 @@ func UpdateCache[T any](n *NpuCollector, cacheKey string, localCache *sync.Map) 
 	}
 	if err != nil {
 		logger.Error(err)
-	} else {
-		logger.Infof(UpdateCachePattern, cacheKey)
 	}
 }
 

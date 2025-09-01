@@ -64,21 +64,10 @@ function mv_file() {
   sed -i "s/npu-exporter:.*/npu-exporter:${build_version}/" "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
   sed -i "s/npu-exporter:.*/npu-exporter:${build_version}/" "${TOP_DIR}"/output/npu-exporter-I2-1usoc-"${build_version}".yaml
   sed -i "s/ascend:.*/alan/" "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
-  sed -i "s/dcmi:.*/dcmiapi/" "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
   sed -i "s/310p:.*/I2/" "${TOP_DIR}"/output/npu-exporter-I2-1usoc-"${build_version}".yaml
   sed -i "s/310P:.*/I2/" "${TOP_DIR}"/output/npu-exporter-I2-1usoc-"${build_version}".yaml
   sed -i "s/ascend:.*/alan/" "${TOP_DIR}"/output/npu-exporter-I2-1usoc-"${build_version}".yaml
-  sed -i "s/dcmi:.*/dcmiapi/" "${TOP_DIR}"/output/npu-exporter-I2-1usoc-"${build_version}".yaml
-
-  sed -i "s/HwHiAiUser:.*/NpuUser/" "${TOP_DIR}"/build/${DOCKER_FILE_NAME}
-  sed -i "s/HwHiAiUser:.*/NpuUser/" "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME}
-  sed -i "s/HwDmUser:.*/NpuDmUser/" "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME}
-  sed -i "s/HwBaseUser:.*/NpuBaseUser/" "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME}
   sed -i "s/run_for_310P_1usoc.sh:.*/run_for_I2_1usoc.sh/" "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME}
-  sed -i "s/HwHiAiUser:.*/NpuUser/" "${TOP_DIR}"/build/${A200ISOC_RUN_SHELL}
-  sed -i "s/HwDmUser:.*/NpuDmUser/" "${TOP_DIR}"/build/${A200ISOC_RUN_SHELL}
-  sed -i "s/HwBaseUser:.*/NpuBaseUser/" "${TOP_DIR}"/build/${A200ISOC_RUN_SHELL}
-  sed -i "s/dcmi:.*/dcmiapi/" "${TOP_DIR}"/build/${A200ISOC_RUN_SHELL}
 
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME} "${TOP_DIR}"/output/${A200ISOC_DOCKER_FILE_NAME_CH}
