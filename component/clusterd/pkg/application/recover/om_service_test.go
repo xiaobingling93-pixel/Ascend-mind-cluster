@@ -532,13 +532,8 @@ func TestCheckStressTestParam(t *testing.T) {
 			Status: job.StatusJobRunning,
 			JobRankTable: constant.RankTable{
 				ServerList: []constant.ServerHccl{
-					{
-						ServerName: nodeName,
-						DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}},
-					},
-				},
-			},
-		}, true
+					{ServerName: nodeName, DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}}}},
+			}}, true
 	})
 	defer patches.Reset()
 	t.Run("param is nil", func(t *testing.T) {
@@ -581,13 +576,8 @@ func TestCheckStressTestParamOK(t *testing.T) {
 			Status: job.StatusJobRunning,
 			JobRankTable: constant.RankTable{
 				ServerList: []constant.ServerHccl{
-					{
-						ServerName: nodeName,
-						DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}},
-					},
-				},
-			},
-		}, true
+					{ServerName: nodeName, DeviceList: []constant.Device{{DeviceID: deviceID, RankID: rankID}}},
+				}}}, true
 	})
 	defer patches.Reset()
 	t.Run("check param ok, AllNodeOps is not empty", func(t *testing.T) {
