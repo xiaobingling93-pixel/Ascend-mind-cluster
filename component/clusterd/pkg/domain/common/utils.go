@@ -455,23 +455,12 @@ func CanRestartFaultProcess(jobId string, faultRank []constant.FaultRank) bool {
 	return true
 }
 
-// SwitchNicResponseSendRetry send signal util send success or retry times upper retryTimes
-func SwitchNicResponseSendRetry(stream pb.Recover_SubscribeSwitchNicSignalServer,
-	signal *pb.SwitchNicResponse, retryTimes int) error {
-	var err error
-	for i := 0; i < retryTimes; i++ {
-		err = stream.Send(signal)
-		if err == nil {
-			return nil
-		}
-		time.Sleep(time.Duration(i+1) * time.Second)
-	}
-	return err
+type StreamSender[T any] interface {
+	Send(*T) error
 }
 
-// NotifySwitchNicSendRetry send switch nic signal util send success or retry times upper retryTimes
-func NotifySwitchNicSendRetry(stream pb.Recover_SubscribeNotifySwitchServer,
-	signal *pb.SwitchRankList, retryTimes int) error {
+// SendWithRetry send signal util send success or retry times upper retryTimes
+func SendWithRetry[T any, S StreamSender[T]](stream S, signal *T, retryTimes int) error {
 	var err error
 	for i := 0; i < retryTimes; i++ {
 		err = stream.Send(signal)

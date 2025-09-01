@@ -6,11 +6,10 @@ package recover
 import (
 	"context"
 	"fmt"
-	"testing"
-
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
+	"testing"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/domain/common"
@@ -101,14 +100,14 @@ func TestSelectSwitchNicSendChannelReceiveSignal(t *testing.T) {
 		signal := &pb.SwitchNicResponse{JobID: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.SwitchNicResponseSendRetry,
-			func(stream pb.Recover_SubscribeSwitchNicSignalServer, signal *pb.SwitchNicResponse, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.SwitchRankList, *notifySwitchNicSender],
+			func(stream *notifySwitchNicSender, signal *pb.SwitchRankList, retryTimes int) error {
 				called = true
 				return nil
 			})
 		defer patchSendRetry.Reset()
 		ctl.selectSendSwitchNicResponseChan(ctx, sendChan, stream)
-		assert.True(t, called)
+		convey.ShouldBeTrue(called)
 	})
 }
 
@@ -184,6 +183,7 @@ func TestHandleWaitContinueTrainComplete(t *testing.T) {
 		testSwitchNicContextCanceled(ctl)
 		testSwitchNicTrainError(ctl)
 		testSwitchNicValidReport(ctl)
+		testStressTestValidReport(ctl)
 	})
 }
 
@@ -246,7 +246,7 @@ func testSwitchNicTrainError(ctl *EventController) {
 }
 
 func testSwitchNicValidReport(ctl *EventController) {
-	convey.Convey("When receiving a valid report", func() {
+	convey.Convey("When receiving a valid report, when switch nic", func() {
 		reportChan := make(chan *pb.RecoverStatusRequest, 1)
 		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: int32(common.OK)}}
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
@@ -254,12 +254,38 @@ func testSwitchNicValidReport(ctl *EventController) {
 				return context.Background(), reportChan
 			})
 		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isSwitchingNic",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
 		event, respCode, err := ctl.handleDecideContinueTrainComplete()
-		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
+		convey.So(event, convey.ShouldEqual, common.SwitchNicRecvContinueEvent)
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func testStressTestValidReport(ctl *EventController) {
+	convey.Convey("When receiving a valid report, when stress test", func() {
+		reportChan := make(chan *pb.RecoverStatusRequest, 1)
+		reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: int32(common.OK)}}
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndResultChan",
+			func() (context.Context, chan *pb.RecoverStatusRequest) {
+				return context.Background(), reportChan
+			})
+		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isStressTest",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
+		event, respCode, err := ctl.handleDecideContinueTrainComplete()
+		convey.So(event, convey.ShouldEqual, common.StressTestRecvContinueEvent)
 		convey.So(respCode, convey.ShouldEqual, common.OK)
 		convey.So(err, convey.ShouldBeNil)
 	})
@@ -495,6 +521,7 @@ func TestHandleWaitReportPauseTrainComplete(t *testing.T) {
 		testSwitchNicPauseTrainCanceled(ctl)
 		testSwitchNicPauseTrainError(ctl)
 		testSwitchNicPauseTrainValidReport(ctl)
+		testStressTestPauseTrainValidReport(ctl)
 	})
 }
 
@@ -557,7 +584,7 @@ func testSwitchNicPauseTrainError(ctl *EventController) {
 }
 
 func testSwitchNicPauseTrainValidReport(ctl *EventController) {
-	convey.Convey("When receiving a valid report", func() {
+	convey.Convey("When receiving a valid report, when switch nic", func() {
 		reportChan := make(chan *pb.StopCompleteRequest, 1)
 		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: int32(common.OK)}}
 		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
@@ -565,12 +592,38 @@ func testSwitchNicPauseTrainValidReport(ctl *EventController) {
 				return context.Background(), reportChan
 			})
 		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isSwitchingNic",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
 		defer func() {
 			close(ctl.switchNicResponse)
 			ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		}()
 		event, respCode, err := ctl.handleWaitPauseTrainComplete()
-		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
+		convey.So(event, convey.ShouldEqual, common.SwitchNicRecvPauseEvent)
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func testStressTestPauseTrainValidReport(ctl *EventController) {
+	convey.Convey("When receiving a valid report, when stress test", func() {
+		reportChan := make(chan *pb.StopCompleteRequest, 1)
+		reportChan <- &pb.StopCompleteRequest{Status: &pb.Status{Code: int32(common.OK)}}
+		patches := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStopCompleteChan",
+			func() (context.Context, chan *pb.StopCompleteRequest) {
+				return context.Background(), reportChan
+			})
+		defer patches.Reset()
+		patches2 := gomonkey.ApplyPrivateMethod(ctl, "isStressTest",
+			func() bool {
+				return true
+			})
+		defer patches2.Reset()
+		event, respCode, err := ctl.handleWaitPauseTrainComplete()
+		convey.So(event, convey.ShouldEqual, common.StressTestRecvPauseEvent)
 		convey.So(respCode, convey.ShouldEqual, common.OK)
 		convey.So(err, convey.ShouldBeNil)
 	})
@@ -661,6 +714,11 @@ func TestSelectNotifySwitchNicContextDone(t *testing.T) {
 	})
 }
 
+func fooSendWithRetry[T any, S common.StreamSender[T]](stream S, signal *T, retryTimes int) error {
+	signal = nil
+	return nil
+}
+
 func TestSelectNotifySwitchNicReceiveSignal(t *testing.T) {
 	convey.Convey("Test chan when receive signal from sendChan", t, func() {
 		jobID := "testJobId"
@@ -677,8 +735,8 @@ func TestSelectNotifySwitchNicReceiveSignal(t *testing.T) {
 		signal := &pb.SwitchRankList{JobId: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.NotifySwitchNicSendRetry,
-			func(stream pb.Recover_SubscribeNotifySwitchServer, signal *pb.SwitchRankList, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.SwitchRankList, *notifySwitchNicSender],
+			func(stream *notifySwitchNicSender, signal *pb.SwitchRankList, retryTimes int) error {
 				called = true
 				return nil
 			})
@@ -703,5 +761,335 @@ func TestSelectNotifySwitchNicClosed(t *testing.T) {
 		_, ok := <-sendChan
 		convey.So(ok, convey.ShouldBeFalse)
 		convey.So(res, convey.ShouldBeTrue)
+	})
+}
+
+func TestReplyOMResponse(t *testing.T) {
+	convey.Convey("replyOMResponse, reply stress test", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.setStressTestParam(common.StressTestParam{
+			"node": make(map[string][]int64),
+		})
+		ctl.replyOMResponse("test")
+		msg := <-ctl.stressTestResponse
+		convey.So(msg.Msg, convey.ShouldEqual, "test")
+	})
+	convey.Convey("replyOMResponse, reply switch nic", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.setSwitchNicParam([]string{"test"}, []bool{true})
+		ctl.replyOMResponse("test")
+		msg := <-ctl.switchNicResponse
+		convey.So(msg.Msg, convey.ShouldEqual, "test")
+	})
+}
+
+func TestSetStressTestParam(t *testing.T) {
+	t.Run("set param success ", func(t *testing.T) {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.setStressTestParam(common.StressTestParam{
+			"node": make(map[string][]int64),
+		})
+		assert.Equal(t, 1, len(ctl.stressTestParam))
+	})
+}
+
+func TestIsStressTest(t *testing.T) {
+	t.Run("is not stress test ", func(t *testing.T) {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		res := ctl.isStressTest()
+		assert.Equal(t, false, res)
+	})
+}
+
+func TestGetCtxAndStressTestNotifyChan(t *testing.T) {
+	convey.Convey("Testing GetCtxAndStressTestNotifyChan", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctx, ch := ctl.getCtxAndStressTestNotifyChan()
+		convey.So(ctx, convey.ShouldNotBeNil)
+		convey.So(ch, convey.ShouldNotBeNil)
+	})
+}
+
+func TestListenStressTestNotifyChannel(t *testing.T) {
+	convey.Convey("Test listenStressTestNotifyChannel", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{JobId: "test-job-id"},
+		}
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		sendChan := make(chan *pb.StressTestRankParams, 1)
+		patches.ApplyPrivateMethod(ctl, "getCtxAndStressTestNotifyChan",
+			func() (context.Context, chan *pb.StressTestRankParams) {
+				return ctx, sendChan
+			})
+		patches.ApplyPrivateMethod(ctl, "reset", func() {})
+		patches.ApplyPrivateMethod(ctl, "selectNotifyStressTest", func(_ context.Context,
+			_ chan *pb.StressTestRankParams, _ pb.Recover_SubscribeNotifyExecStressTestServer) bool {
+			return true
+		})
+
+		stream := &notifyStressTestSender{}
+		ctl.listenStressTestNotifyChannel(stream)
+		convey.So(true, convey.ShouldBeTrue)
+
+	})
+}
+
+func TestSelectNotifyStressTestNil(t *testing.T) {
+	convey.Convey("Test chan when sendChan is nil", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &notifyStressTestSender{}
+		res := ctl.selectNotifyStressTest(context.Background(), nil, stream)
+		convey.ShouldBeTrue(res)
+	})
+}
+
+func TestSelectNotifyStressTestContextDone(t *testing.T) {
+	convey.Convey("Test chan when context is done", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &notifyStressTestSender{}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		sendChan := make(chan *pb.StressTestRankParams)
+		res := ctl.selectNotifyStressTest(ctx, sendChan, stream)
+		convey.ShouldBeTrue(res)
+	})
+}
+
+func TestSelectNotifyStressTestReceiveSignal(t *testing.T) {
+	convey.Convey("Test chan when receive signal from sendChan", t, func() {
+		jobID := "testJobId"
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: jobID,
+			},
+		}
+		var rules []common.TransRule = ctl.getBaseRules()
+		ctl.state = common.NewStateMachine(common.InitState, rules)
+		stream := &notifyStressTestSender{}
+		ctx := context.Background()
+		sendChan := make(chan *pb.StressTestRankParams, 1)
+		signal := &pb.StressTestRankParams{JobId: jobID}
+		sendChan <- signal
+		called := false
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestRankParams, *notifyStressTestSender],
+			func(stream *notifyStressTestSender, signal *pb.StressTestRankParams, retryTimes int) error {
+				called = true
+				return nil
+			})
+		defer patchSendRetry.Reset()
+		ctl.selectNotifyStressTest(ctx, sendChan, stream)
+		convey.ShouldBeTrue(called)
+	})
+}
+
+func TestSelectNotifyStressTestClosed(t *testing.T) {
+	convey.Convey("Test Chan when sendChan is closed", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &notifyStressTestSender{}
+		ctx := context.Background()
+		sendChan := make(chan *pb.StressTestRankParams, 1)
+		close(sendChan)
+		res := ctl.selectNotifyStressTest(ctx, sendChan, stream)
+		_, ok := <-sendChan
+		convey.So(ok, convey.ShouldBeFalse)
+		convey.So(res, convey.ShouldBeTrue)
+	})
+}
+
+func TestSetStressTestResult(t *testing.T) {
+	convey.Convey("Test setStressTestResult ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.setStressTestResult(&pb.StressTestResult{
+			JobId: jobInfo.JobId,
+		})
+		ret := <-ctl.stressTestResult
+		convey.So(ret.JobId, convey.ShouldEqual, jobInfo.JobId)
+	})
+}
+
+func TestGetCtxAndStressTestResponseChan(t *testing.T) {
+	convey.Convey("Testing getCtxAndStressTestResponseChan, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctx, ch := ctl.getCtxAndStressTestResponseChan()
+		convey.So(ctx, convey.ShouldNotBeNil)
+		convey.So(ch, convey.ShouldNotBeNil)
+	})
+}
+
+func TestListenStressTestChannel(t *testing.T) {
+	convey.Convey("Test listenStressTestChannel", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{JobId: "test-job-id"},
+		}
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(hwlog.RunLog.Infof, func(format string, args ...interface{}) {})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		sendChan := make(chan *pb.StressTestResult, 1)
+		patches.ApplyPrivateMethod(ctl, "getCtxAndStressTestResponseChan",
+			func() (context.Context, chan *pb.StressTestResult) {
+				return ctx, sendChan
+			})
+		patches.ApplyPrivateMethod(ctl, "reset", func() {})
+		patches.ApplyPrivateMethod(ctl, "selectSendStressTestResponseChan", func(_ context.Context, _ chan *pb.StressTestResponse,
+			_ pb.Recover_SubscribeStressTestResponseServer) {
+			return
+		})
+
+		stream := &stressTestSender{}
+		ctl.listenStressTestChannel(stream)
+		convey.So(true, convey.ShouldBeTrue)
+
+	})
+}
+
+func TestSelectSendStressTestResponseChanNil(t *testing.T) {
+	convey.Convey("Test chan when sendChan is nil", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &stressTestSender{}
+		ctl.selectSendStressTestResponseChan(context.Background(), nil, stream)
+	})
+}
+
+func TestSelectSendStressTestResponseChanContextDone(t *testing.T) {
+	convey.Convey("Test chan when context is done", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &stressTestSender{}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		sendChan := make(chan *pb.StressTestResponse)
+		called := false
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestResponse, pb.Recover_SubscribeStressTestResponseServer],
+			func(stream pb.Recover_SubscribeStressTestResponseServer, signal *pb.StressTestResponse, retryTimes int) error {
+				called = true
+				return nil
+			})
+		defer patchSendRetry.Reset()
+		ctl.selectSendStressTestResponseChan(ctx, sendChan, stream)
+		convey.So(called, convey.ShouldBeFalse)
+	})
+}
+
+func TestSelectSendStressTestResponseChanReceiveSignal(t *testing.T) {
+	convey.Convey("Test chan when receive signal from sendChan", t, func() {
+		jobID := "testJobId"
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: jobID,
+			},
+		}
+		var rules []common.TransRule = ctl.getBaseRules()
+		ctl.state = common.NewStateMachine(common.InitState, rules)
+		stream := &stressTestSender{}
+		ctx := context.Background()
+		sendChan := make(chan *pb.StressTestResponse, 1)
+		signal := &pb.StressTestResponse{JobID: jobID}
+		sendChan <- signal
+		called := false
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestResponse, *stressTestSender],
+			func(stream *stressTestSender, signal *pb.StressTestResponse, retryTimes int) error {
+				called = true
+				return nil
+			})
+		defer patchSendRetry.Reset()
+		ctl.selectSendStressTestResponseChan(ctx, sendChan, stream)
+		convey.ShouldBeTrue(called)
+	})
+}
+
+func TestSelectSendStressTestResponseChanClosed(t *testing.T) {
+	convey.Convey("Test Chan when sendChan is closed", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{
+				JobId: "testJobId",
+			},
+		}
+		stream := &stressTestSender{}
+		ctx := context.Background()
+		sendChan := make(chan *pb.StressTestResponse, 1)
+		close(sendChan)
+		ctl.selectSendStressTestResponseChan(ctx, sendChan, stream)
+		_, ok := <-sendChan
+		convey.So(ok, convey.ShouldBeFalse)
+	})
+}
+
+func TestGetStressTestParam(t *testing.T) {
+	t.Run("get stress test param", func(t *testing.T) {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		res := ctl.getStressTestParam()
+		assert.NotNil(t, res)
+	})
+}
+
+func TestGetCtxAndStressTestResultChan(t *testing.T) {
+	convey.Convey("Testing getCtxAndStressTestResultChan, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctx, ch := ctl.getCtxAndStressTestResultChan()
+		convey.So(ctx, convey.ShouldNotBeNil)
+		convey.So(ch, convey.ShouldNotBeNil)
+	})
+}
+
+func TestHandleStressTestFinish(t *testing.T) {
+	convey.Convey("Test handleStressTestFinish, ok", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		patches := gomonkey.ApplyPrivateMethod(ctl, "reset", func() { return })
+		defer patches.Reset()
+		defer func() {
+			close(ctl.stressTestResult)
+			ctl.stressTestResult = make(chan *pb.StressTestResult, 1)
+		}()
+		event, respCode, err := ctl.handleStressTestFinish()
+		convey.So(event, convey.ShouldEqual, "")
+		convey.So(respCode, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
 	})
 }

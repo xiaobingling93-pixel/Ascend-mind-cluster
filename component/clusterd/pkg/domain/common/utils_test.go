@@ -599,27 +599,14 @@ func (s *failSwitchNicSender) Send(signal *pb.SwitchNicResponse) error {
 	return errors.New("fake error")
 }
 
-func TestSendSwitchNicRetry(t *testing.T) {
-	convey.Convey("Test SwitchNicResponseSendRetry", t, func() {
-		convey.Convey("case send success", func() {
-			err := SwitchNicResponseSendRetry(&successSwitchNicSender{}, nil, constant.RetryTime)
-			convey.So(err, convey.ShouldBeNil)
-		})
-		convey.Convey("case send fail", func() {
-			err := SwitchNicResponseSendRetry(&failSwitchNicSender{}, nil, constant.RetryTime)
-			convey.So(err, convey.ShouldNotBeNil)
-		})
-	})
-}
-
-func TestNotifySwitchNicSendRetry(t *testing.T) {
+func TestOMSendRetry(t *testing.T) {
 	convey.Convey("Test NotifySwitchNicSendRetry", t, func() {
 		convey.Convey("case send success", func() {
-			err := NotifySwitchNicSendRetry(&successNotifySwitchNicSender{}, nil, constant.RetryTime)
+			err := SendWithRetry[pb.SwitchRankList](&successNotifySwitchNicSender{}, nil, constant.RetryTime)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("case send fail", func() {
-			err := NotifySwitchNicSendRetry(&failNotifySwitchNicSender{}, nil, constant.RetryTime)
+			err := SendWithRetry[pb.SwitchRankList](&failNotifySwitchNicSender{}, nil, constant.RetryTime)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
