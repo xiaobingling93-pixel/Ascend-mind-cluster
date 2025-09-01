@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/utils"
 	"taskd/toolkit_backend/grpool"
 	"taskd/toolkit_backend/net/common"
 	"taskd/toolkit_backend/net/proto"
@@ -162,7 +163,7 @@ func limitQPS(ctx context.Context, req interface{},
 
 // startServer starts the gRPC server for the downstream endpoint.
 func (de *downStreamEndpoint) startServer() (*downStreamEndpoint, error) {
-	if err := common.IsIPValid(common.GetIpFromAddr(de.netInstance.config.ListenAddr)); err != nil {
+	if err := utils.IsHostValid(common.GetHostFromAddr(de.netInstance.config.ListenAddr)); err != nil {
 		return nil, err
 	}
 	listen, err := net.Listen("tcp", de.netInstance.config.ListenAddr)

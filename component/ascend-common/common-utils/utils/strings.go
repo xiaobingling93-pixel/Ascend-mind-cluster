@@ -18,6 +18,7 @@ package utils
 import (
 	"crypto/sha256"
 	"fmt"
+	"unicode"
 )
 
 const (
@@ -60,4 +61,17 @@ func ReverseString(s string) string {
 		runes[start], runes[end] = runes[end], runes[start]
 	}
 	return string(runes)
+}
+
+// IsDigitString return string is all digit
+func IsDigitString(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
 }

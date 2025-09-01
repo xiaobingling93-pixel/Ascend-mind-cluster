@@ -18,7 +18,7 @@ func (ctl *EventController) getExtendPreRules() []common.TransRule {
 	}
 }
 
-func (ctl *EventController) geStressTestRules() []common.TransRule {
+func (ctl *EventController) getStressTestRules() []common.TransRule {
 	return []common.TransRule{
 		{Src: common.InitState, Event: common.StartStressTest,
 			Dst: common.NotifyPauseTrainState, Handler: ctl.handleNotifyPauseTrain},
@@ -42,7 +42,7 @@ func (ctl *EventController) geStressTestRules() []common.TransRule {
 	}
 }
 
-func (ctl *EventController) geSwitchNicRules() []common.TransRule {
+func (ctl *EventController) getSwitchNicRules() []common.TransRule {
 	return []common.TransRule{
 		{Src: common.InitState, Event: common.StartSwitchNic,
 			Dst: common.NotifyPauseTrainState, Handler: ctl.handleNotifyPauseTrain},
@@ -69,7 +69,7 @@ func (ctl *EventController) geSwitchNicRules() []common.TransRule {
 	}
 }
 
-func (ctl *EventController) geOMRules() []common.TransRule {
+func (ctl *EventController) getOMRules() []common.TransRule {
 	return []common.TransRule{
 		{Src: common.NotifyPauseTrainState, Event: common.NotifySuccessEvent,
 			Dst: common.WaitReportPauseCompleteState, Handler: ctl.handleWaitPauseTrainComplete},
@@ -231,8 +231,8 @@ func (ctl *EventController) getBaseRules() []common.TransRule {
 	rules = append(rules, ctl.getExtendPreRules()...)
 	rules = append(rules, ctl.getFixRules()...)
 	rules = append(rules, ctl.getAfterRules()...)
-	rules = append(rules, ctl.geOMRules()...)
-	rules = append(rules, ctl.geSwitchNicRules()...)
-	rules = append(rules, ctl.geStressTestRules()...)
+	rules = append(rules, ctl.getOMRules()...)
+	rules = append(rules, ctl.getSwitchNicRules()...)
+	rules = append(rules, ctl.getStressTestRules()...)
 	return rules
 }

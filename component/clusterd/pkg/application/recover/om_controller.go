@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 // Package recover a series of service function
+// om is operation manager
 package recover
 
 import (
@@ -17,6 +18,10 @@ import (
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
+)
+
+const (
+	stressTestTimeout = 15 * 60 // seconds
 )
 
 const (
@@ -234,7 +239,7 @@ func (ctl *EventController) selectNotifySwitchNic(ctx context.Context, sendChan 
 			hwlog.RunLog.Infof("sendChan closed, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 			return true
 		}
-		err := common.NotifySwitchNicSendRetry(stream, signal, retryTimes)
+		err := common.SendWithRetry(stream, signal, retryTimes)
 		if err != nil {
 			hwlog.RunLog.Errorf("send switch nic signal failed, err=%v, jobId=%s", err, ctl.jobInfo.JobId)
 			ctl.replyOMResponse("send switch nic signal failed, please check manually")
@@ -265,7 +270,7 @@ func (ctl *EventController) selectSendSwitchNicResponseChan(ctx context.Context,
 			return
 		}
 		hwlog.RunLog.Infof("switch nic signal=%v, jobId=%s", signal, ctl.jobInfo.JobId)
-		err := common.SwitchNicResponseSendRetry(stream, signal, retryTimes)
+		err := common.SendWithRetry(stream, signal, retryTimes)
 		if err != nil {
 			hwlog.RunLog.Errorf("send switch nic signal failed, err=%v, jobId=%s", err, ctl.jobInfo.JobId)
 		}
@@ -382,8 +387,7 @@ func (ctl *EventController) listenStressTestNotifyChannel(stream pb.Recover_Subs
 	ctx, sendChan := ctl.getCtxAndStressTestNotifyChan()
 	hwlog.RunLog.Infof("start listen a new stress test send channel, jobId=%s", ctl.jobInfo.JobId)
 	for {
-		exit := ctl.selectNotifyStressTest(ctx, sendChan, stream)
-		if exit {
+		if ctl.selectNotifyStressTest(ctx, sendChan, stream) {
 			break
 		}
 	}
@@ -406,7 +410,7 @@ func (ctl *EventController) selectNotifyStressTest(ctx context.Context, sendChan
 			hwlog.RunLog.Infof("sendChan closed, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
 			return true
 		}
-		err := common.NotifyStressTestSendRetry(stream, signal, retryTimes)
+		err := common.SendWithRetry(stream, signal, retryTimes)
 		if err != nil {
 			hwlog.RunLog.Errorf("send stress test signal failed, err=%v, jobId=%s", err, ctl.jobInfo.JobId)
 			ctl.replyOMResponse("send stress test signal failed, please check manually")
@@ -627,7 +631,7 @@ func (ctl *EventController) selectSendStressTestResponseChan(ctx context.Context
 			return
 		}
 		hwlog.RunLog.Infof("stress test signal=%v, jobId=%s", signal, ctl.jobInfo.JobId)
-		err := common.StressTestResponseSendRetry(stream, signal, retryTimes)
+		err := common.SendWithRetry(stream, signal, retryTimes)
 		if err != nil {
 			hwlog.RunLog.Errorf("send stress test signal failed, err=%v, jobId=%s", err, ctl.jobInfo.JobId)
 		}

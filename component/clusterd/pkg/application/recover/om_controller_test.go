@@ -106,14 +106,14 @@ func TestSelectSwitchNicSendChannelReceiveSignal(t *testing.T) {
 		signal := &pb.SwitchNicResponse{JobID: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.SwitchNicResponseSendRetry,
-			func(stream pb.Recover_SubscribeSwitchNicSignalServer, signal *pb.SwitchNicResponse, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.SwitchRankList, *notifySwitchNicSender],
+			func(stream *notifySwitchNicSender, signal *pb.SwitchRankList, retryTimes int) error {
 				called = true
 				return nil
 			})
 		defer patchSendRetry.Reset()
 		ctl.selectSendSwitchNicResponseChan(ctx, sendChan, stream)
-		assert.True(t, called)
+		convey.ShouldBeTrue(called)
 	})
 }
 
@@ -720,6 +720,11 @@ func TestSelectNotifySwitchNicContextDone(t *testing.T) {
 	})
 }
 
+func fooSendWithRetry[T any, S common.StreamSender[T]](stream S, signal *T, retryTimes int) error {
+	signal = nil
+	return nil
+}
+
 func TestSelectNotifySwitchNicReceiveSignal(t *testing.T) {
 	convey.Convey("Test chan when receive signal from sendChan", t, func() {
 		jobID := "testJobId"
@@ -736,8 +741,8 @@ func TestSelectNotifySwitchNicReceiveSignal(t *testing.T) {
 		signal := &pb.SwitchRankList{JobId: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.NotifySwitchNicSendRetry,
-			func(stream pb.Recover_SubscribeNotifySwitchServer, signal *pb.SwitchRankList, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.SwitchRankList, *notifySwitchNicSender],
+			func(stream *notifySwitchNicSender, signal *pb.SwitchRankList, retryTimes int) error {
 				called = true
 				return nil
 			})
@@ -895,8 +900,8 @@ func TestSelectNotifyStressTestReceiveSignal(t *testing.T) {
 		signal := &pb.StressTestRankParams{JobId: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.NotifyStressTestSendRetry,
-			func(stream pb.Recover_SubscribeNotifyExecStressTestServer, signal *pb.StressTestRankParams, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestRankParams, *notifyStressTestSender],
+			func(stream *notifyStressTestSender, signal *pb.StressTestRankParams, retryTimes int) error {
 				called = true
 				return nil
 			})
@@ -1000,7 +1005,15 @@ func TestSelectSendStressTestResponseChanContextDone(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		sendChan := make(chan *pb.StressTestResponse)
+		called := false
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestResponse, pb.Recover_SubscribeStressTestResponseServer],
+			func(stream pb.Recover_SubscribeStressTestResponseServer, signal *pb.StressTestResponse, retryTimes int) error {
+				called = true
+				return nil
+			})
+		defer patchSendRetry.Reset()
 		ctl.selectSendStressTestResponseChan(ctx, sendChan, stream)
+		convey.So(called, convey.ShouldBeFalse)
 	})
 }
 
@@ -1012,20 +1025,22 @@ func TestSelectSendStressTestResponseChanReceiveSignal(t *testing.T) {
 				JobId: jobID,
 			},
 		}
+		var rules []common.TransRule = ctl.getBaseRules()
+		ctl.state = common.NewStateMachine(common.InitState, rules)
 		stream := &stressTestSender{}
 		ctx := context.Background()
 		sendChan := make(chan *pb.StressTestResponse, 1)
 		signal := &pb.StressTestResponse{JobID: jobID}
 		sendChan <- signal
 		called := false
-		patchSendRetry := gomonkey.ApplyFunc(common.StressTestResponseSendRetry,
-			func(stream pb.Recover_SubscribeStressTestResponseServer, signal *pb.StressTestResponse, retryTimes int) error {
+		patchSendRetry := gomonkey.ApplyFunc(common.SendWithRetry[pb.StressTestResponse, *stressTestSender],
+			func(stream *stressTestSender, signal *pb.StressTestResponse, retryTimes int) error {
 				called = true
 				return nil
 			})
 		defer patchSendRetry.Reset()
 		ctl.selectSendStressTestResponseChan(ctx, sendChan, stream)
-		assert.True(t, called)
+		convey.ShouldBeTrue(called)
 	})
 }
 

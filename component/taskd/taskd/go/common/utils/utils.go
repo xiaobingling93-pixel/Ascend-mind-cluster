@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -252,6 +251,7 @@ func ProfilingCmdToBizCode(cmd constant.ProfilingDomainCmd) int32 {
 	return constant.ProfilingAllCloseCmdCode
 }
 
+// GetClusterdAddr get clusterD svc host
 func GetClusterdAddr() (string, error) {
 	proxyIp := os.Getenv(constant.LocalProxyEnableEnv)
 	if proxyIp == constant.LocalProxyEnableOn {
@@ -259,9 +259,8 @@ func GetClusterdAddr() (string, error) {
 		return constant.LocalProxyIP + constant.ClusterdPort, nil
 	}
 	ipFromEnv := os.Getenv(constant.MindxServerIp)
-	parsedIP := net.ParseIP(ipFromEnv)
-	if parsedIP == nil {
-		return "", fmt.Errorf("%s is NOT a valid IP address", ipFromEnv)
+	if err := utils.IsHostValid(ipFromEnv); err != nil {
+		return "", err
 	}
 	return ipFromEnv + constant.ClusterdPort, nil
 }
