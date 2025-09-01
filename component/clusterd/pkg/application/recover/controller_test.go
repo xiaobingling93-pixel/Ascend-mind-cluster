@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"ascend-common/common-utils/hwlog"
@@ -1077,6 +1078,27 @@ func TestHandleDecideRecoverStrategy(t *testing.T) {
 		event, code, err := ctl.handleDecideRecoverStrategy()
 		convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
 		convey.So(code, convey.ShouldEqual, common.OK)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestHandleDecideRecoverStrategyNeedTryScaleInStrategy(t *testing.T) {
+	convey.Convey("Testing handleDecideRecoverStrategy", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		jobInfo.MindXConfigStrategies = []string{constant.ElasticTrainingStrategyName}
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.agentReportStrategies = []string{constant.ScaleInStrategyName}
+		reportChan := make(chan *pb.RecoverStatusRequest, 1)
+		scheduleResultChan := make(chan bool, 1)
+		ctl.reportStatusChan = reportChan
+		ctl.scheduleResultChan = scheduleResultChan
+		go func() {
+			scheduleResultChan <- false
+		}()
+		event, code, err := ctl.handleDecideRecoverStrategy()
+		convey.So(event, convey.ShouldEqual, common.NeedTryScaleInStrategyEvent)
+		convey.So(code, convey.ShouldEqual, common.ScheduleTimeout)
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
@@ -3343,4 +3365,73 @@ func TestEventControllerCanChooseScaleInStrategy(t *testing.T) {
 			assert.Equalf(t, tt.want, ctl.canChooseScaleInStrategy(), "canChooseScaleInStrategy()")
 		})
 	}
+}
+
+// TestHandleWaitReportScaleInIsolateRanksStatusTimeout tests when report timeout occurs.
+func TestHandleWaitReportScaleInIsolateRanksStatusTimeout(t *testing.T) {
+	ctl := &EventController{
+		jobInfo:           common.JobBaseInfo{JobId: "job-123"},
+		controllerContext: context.Background(),
+		reportStatusChan:  make(chan *pb.RecoverStatusRequest, 1),
+	}
+	chanTime := make(chan time.Time, 1)
+	patchTime := gomonkey.ApplyFunc(time.After,
+		func(_ time.Duration) <-chan time.Time {
+			return chanTime
+		})
+	defer patchTime.Reset()
+	event, code, err := ctl.handleWaitReportScaleInIsolateRanksStatus()
+	assert.Equal(t, common.ReportTimeoutEvent, event)
+	assert.Equal(t, common.WaitReportTimeout, code)
+	assert.NoError(t, err)
+}
+
+func TestEventControllerHandleNotifyScaleInStrategy(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{JobId: "job-123"},
+	}
+	mockGetNodeRankIdsByFaultRanks := gomonkey.ApplyFuncReturn(common.GetNodeRankIdsByFaultRanks, []string{}, nil)
+	defer mockGetNodeRankIdsByFaultRanks.Reset()
+	event, code, err := ctl.handleNotifyScaleInStrategy()
+	assert.Equal(t, "", event)
+	assert.Equal(t, common.SignalQueueBusy, code)
+	assert.Error(t, err)
+}
+
+func TestCheckWhetherPodVersionChangedFalse(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{JobId: "job-123"},
+		faultPodVersion: map[string]string{
+			"1": "1",
+		},
+	}
+	mockGetNodeRankIdsByFaultRanks := gomonkey.ApplyFuncReturn(pod.GetPodByRankIndex, v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "job-123",
+			Labels: make(map[string]string),
+		},
+	})
+	defer mockGetNodeRankIdsByFaultRanks.Reset()
+	result := ctl.checkWhetherPodVersionChanged()
+	assert.Equal(t, false, result)
+}
+
+func TestCheckWhetherPodVersionChangedTrue(t *testing.T) {
+	ctl := &EventController{
+		jobInfo: common.JobBaseInfo{JobId: "job-123"},
+		faultPodVersion: map[string]string{
+			"1": "1",
+		},
+	}
+	mockGetNodeRankIdsByFaultRanks := gomonkey.ApplyFuncReturn(pod.GetPodByRankIndex, v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "job-123",
+			Labels: map[string]string{
+				constant.PodVersion: "2",
+			},
+		},
+	})
+	defer mockGetNodeRankIdsByFaultRanks.Reset()
+	result := ctl.checkWhetherPodVersionChanged()
+	assert.Equal(t, true, result)
 }

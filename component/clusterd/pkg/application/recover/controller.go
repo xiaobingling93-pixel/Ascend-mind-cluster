@@ -1621,9 +1621,9 @@ func (ctl *EventController) handleDecideRecoverStrategy() (string, common.RespCo
 				hwlog.RunLog.Warnf("scheduleCh closed, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 				return "", common.OK, nil
 			}
-			if !scheduleSuccess && !ctl.supportTargetRecoverStrategy(constant.ScaleInStrategyName) {
+			if !scheduleSuccess && !ctl.supportTargetStrategy(constant.ElasticTrainingStrategyName) {
 				return common.ScheduleTimeoutEvent, common.ScheduleTimeout, nil
-			} else if !scheduleSuccess && ctl.supportTargetRecoverStrategy(constant.ScaleInStrategyName) {
+			} else if !scheduleSuccess && ctl.supportTargetStrategy(constant.ElasticTrainingStrategyName) {
 				return common.NeedTryScaleInStrategyEvent, common.ScheduleTimeout, nil
 			}
 			_, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, false,
@@ -1795,47 +1795,49 @@ func (ctl *EventController) handleWaitReportScaleInStatus() (string, common.Resp
 }
 
 func (ctl *EventController) handleScaleInRunningState() (string, common.RespCode, error) {
-	go func() {
-		for {
-			time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
-			hwlog.RunLog.Debugf("check job[%s] pg running and job completed", ctl.jobInfo.JobId)
-			jobObject := statistics.GetJob(ctl.jobInfo.JobId)
-			if jobObject == nil {
-				ctl.addEvent(common.FinishEvent)
-				return
-			}
-			if acJobInfo, ok := jobObject.(*v1.AscendJob); ok && (podgroup.IsSucceeded(acJobInfo.
-				Status) || podgroup.IsFailed(acJobInfo.Status)) {
-				hwlog.RunLog.Infof("job[%s] is succeeded or failed, IsSucceed: %v", ctl.jobInfo.JobId, podgroup.IsSucceeded(acJobInfo.
-					Status))
-				ctl.addEvent(common.FinishEvent)
-				return
-			}
-			if podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) && ctl.checkWhetherPodVersionChanged() {
-				break
-			}
-		}
-		signal := &pb.ProcessManageSignal{
-			Uuid:           ctl.uuid,
-			JobId:          ctl.jobInfo.JobId,
-			SignalType:     constant.ChangeStrategySignalType,
-			Actions:        changeStrategyActions,
-			ChangeStrategy: constant.ScaleOutStrategyName,
-			FaultRanks:     ctl.cacheNormalFault,
-			ExtraParams:    `{"scale-out-strategy": "DP"}`,
-		}
-		var err error
-		signal.NodeRankIds, err = common.GetNodeRankIdsByFaultRanks(ctl.jobInfo.JobId, signal.FaultRanks)
-		if err != nil {
-			hwlog.RunLog.Warnf("jobId=%s, GetNodeRankIdsByFaultRanks err:%v", ctl.jobInfo.JobId, err)
-		}
-		_, respCode, err := ctl.signalEnqueue(signal)
-		if err != nil || respCode != common.OK {
-			hwlog.RunLog.Warnf("failed to send scale-out signal, error: %v", err)
-			ctl.addEvent(common.NotifyFailEvent)
-		}
-	}()
+	go ctl.waitScaleOut()
 	return "", common.OK, nil
+}
+
+func (ctl *EventController) waitScaleOut() {
+	for {
+		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
+		hwlog.RunLog.Debugf("check job[%s] pg running and job completed", ctl.jobInfo.JobId)
+		jobObject := statistics.GetJob(ctl.jobInfo.JobId)
+		if jobObject == nil {
+			ctl.addEvent(common.FinishEvent)
+			return
+		}
+		if acJobInfo, ok := jobObject.(*v1.AscendJob); ok && (podgroup.IsSucceeded(acJobInfo.
+			Status) || podgroup.IsFailed(acJobInfo.Status)) {
+			hwlog.RunLog.Infof("job[%s] is succeeded or failed, IsSucceed: %v", ctl.jobInfo.JobId, podgroup.IsSucceeded(acJobInfo.
+				Status))
+			ctl.addEvent(common.FinishEvent)
+			return
+		}
+		if podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) && ctl.checkWhetherPodVersionChanged() {
+			break
+		}
+	}
+	signal := &pb.ProcessManageSignal{
+		Uuid:           ctl.uuid,
+		JobId:          ctl.jobInfo.JobId,
+		SignalType:     constant.ChangeStrategySignalType,
+		Actions:        changeStrategyActions,
+		ChangeStrategy: constant.ScaleOutStrategyName,
+		FaultRanks:     ctl.cacheNormalFault,
+		ExtraParams:    `{"scale-out-strategy": "DP"}`,
+	}
+	var err error
+	signal.NodeRankIds, err = common.GetNodeRankIdsByFaultRanks(ctl.jobInfo.JobId, signal.FaultRanks)
+	if err != nil {
+		hwlog.RunLog.Warnf("jobId=%s, GetNodeRankIdsByFaultRanks err:%v", ctl.jobInfo.JobId, err)
+	}
+	_, respCode, err := ctl.signalEnqueue(signal)
+	if err != nil || respCode != common.OK {
+		hwlog.RunLog.Warnf("failed to send scale-out signal, error: %v", err)
+		ctl.addEvent(common.NotifyFailEvent)
+	}
 }
 
 func (ctl *EventController) handleWaitReportScaleOutStatusState() (string, common.RespCode, error) {
