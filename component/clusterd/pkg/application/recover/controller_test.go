@@ -3373,6 +3373,7 @@ func TestHandleWaitReportScaleInIsolateRanksStatusTimeout(t *testing.T) {
 		jobInfo:           common.JobBaseInfo{JobId: "job-123"},
 		controllerContext: context.Background(),
 		reportStatusChan:  make(chan *pb.RecoverStatusRequest, 1),
+		state:             &common.StateMachine{},
 	}
 	chanTime := make(chan time.Time, 1)
 	patchTime := gomonkey.ApplyFunc(time.After,
