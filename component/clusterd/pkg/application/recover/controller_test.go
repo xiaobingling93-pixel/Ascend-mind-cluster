@@ -45,6 +45,22 @@ func init() {
 	}
 }
 
+type stressTestSender struct {
+	mockStream
+}
+
+func (s *stressTestSender) Send(signal *pb.StressTestResponse) error {
+	return nil
+}
+
+type notifyStressTestSender struct {
+	mockStream
+}
+
+func (s *notifyStressTestSender) Send(signal *pb.StressTestRankParams) error {
+	return nil
+}
+
 type sender struct {
 	mockStream
 }
@@ -438,6 +454,17 @@ func TestReset(t *testing.T) {
 		convey.So(ctl.faultPod, convey.ShouldHaveLength, 0)
 		convey.So(ctl.cacheNormalFault, convey.ShouldHaveLength, 0)
 		convey.So(ctl.cacheRetryFault, convey.ShouldHaveLength, 0)
+	})
+}
+
+func TestCleanControllerMap(t *testing.T) {
+	convey.Convey("Testing cleanControllerMapAndSet", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.cleanControllerMapAndSet()
+		convey.So(ctl.stressTestParam, convey.ShouldHaveLength, 0)
+		convey.So(ctl.isolateNodes, convey.ShouldHaveLength, 0)
 	})
 }
 
@@ -1746,7 +1773,7 @@ func testErrorSwitchNicCase(ctl *EventController) {
 		ctl.switchNicResponse = make(chan *pb.SwitchNicResponse, 1)
 		ctl.handleSendResult(signal, errors.New("test error"))
 		res := <-ctl.switchNicResponse
-		convey.So(res.Msg, convey.ShouldEqual, "switch nic failed, send signal failed")
+		convey.So(res.Msg, convey.ShouldEqual, "om failed, send signal failed")
 		convey.So(addedEvent, convey.ShouldEqual, common.NotifyFailEvent)
 	})
 }

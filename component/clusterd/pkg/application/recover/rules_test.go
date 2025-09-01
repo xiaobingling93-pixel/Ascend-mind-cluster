@@ -33,7 +33,15 @@ func TestGetRules(t *testing.T) {
 			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
 		})
 		convey.Convey("06-test getOMRules, should return slice", func() {
-			baseRules := ctl.geOMRules()
+			baseRules := ctl.getOMRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("06-test getSwitchNicRules, should return slice", func() {
+			baseRules := ctl.getSwitchNicRules()
+			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("07-test getStressTestRules, should return slice", func() {
+			baseRules := ctl.getStressTestRules()
 			convey.So(len(baseRules) > 0, convey.ShouldBeTrue)
 		})
 	})

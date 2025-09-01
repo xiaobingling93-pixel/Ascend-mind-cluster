@@ -77,8 +77,14 @@ const (
 	// NotifySwitchNicState notify switch nic
 	NotifySwitchNicState = "NotifySwitchNicState"
 
+	// NotifyStressTestState notify stress test
+	NotifyStressTestState = "NotifyStressTestState"
+
 	// WaitSwitchNicFinishedState wait switch nic finished
 	WaitSwitchNicFinishedState = "WaitSwitchNicFinishedState"
+
+	// WaitStressTestFinishedState wait stress test finished
+	WaitStressTestFinishedState = "WaitStressTestFinishedState"
 
 	// NotifyPauseTrainState notify process controller stop train
 	NotifyPauseTrainState = "NotifyPauseTrainState"

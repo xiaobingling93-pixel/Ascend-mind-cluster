@@ -62,3 +62,6 @@ type RecoverResult struct {
 	Code           RespCode
 	RecoverSuccess bool
 }
+
+// StressTestParam node -> rank -> ops
+type StressTestParam map[string]map[string][]int64
