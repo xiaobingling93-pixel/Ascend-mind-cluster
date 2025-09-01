@@ -1180,7 +1180,11 @@ func testStressTestFinishReportChanNil(ctl *EventController) {
 		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
 			func() (context.Context, chan *pb.StressTestResult) {
 				return context.Background(), resultChan
-			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {})
+			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
+			ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
+				operator string) (*v1.ConfigMap, error) {
+				return &v1.ConfigMap{}, nil
+			})
 		defer pat.Reset()
 		defer func() {
 			close(ctl.stressTestResult)
@@ -1211,7 +1215,11 @@ func testStressTestFinishResultChanNil(ctl *EventController) {
 		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
 			func() (context.Context, chan *pb.StressTestResult) {
 				return context.Background(), nil
-			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {})
+			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
+			ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
+				operator string) (*v1.ConfigMap, error) {
+				return &v1.ConfigMap{}, nil
+			})
 		defer pat.Reset()
 		defer func() {
 			close(ctl.stressTestResult)
@@ -1250,7 +1258,10 @@ func testStressTestFinishValidReport(ctl *EventController) {
 			ApplyPrivateMethod(ctl, "waitStressTestDone", func(ctx context.Context, rch chan *pb.StressTestResult,
 				ch chan *pb.RecoverStatusRequest) (string, common.RespCode, error) {
 				return "", common.OK, nil
-			})
+			}).ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
+			operator string) (*v1.ConfigMap, error) {
+			return &v1.ConfigMap{}, nil
+		})
 		defer pat.Reset()
 		defer func() {
 			close(ctl.stressTestResult)
@@ -1296,8 +1307,8 @@ func testWaitStressTestDoneCancel(ctl *EventController) {
 		close(recoverChan)
 	}()
 	event, respCode, err := ctl.waitStressTestDone(ctx, resultChan, recoverChan)
-	convey.So(event, convey.ShouldEqual, common.ControllerEventCancel)
-	convey.So(respCode, convey.ShouldEqual, "")
+	convey.So(event, convey.ShouldEqual, "")
+	convey.So(respCode, convey.ShouldEqual, common.ControllerEventCancel)
 	convey.So(err, convey.ShouldBeNil)
 }
 
@@ -1385,8 +1396,8 @@ func testWaitStressTestFinishRecvFaultCancel(ctl *EventController) {
 		close(resultChan)
 	}()
 	event, respCode, err := ctl.waitStressTestFinishRecvFault(ctx, resultChan)
-	convey.So(event, convey.ShouldEqual, common.ControllerEventCancel)
-	convey.So(respCode, convey.ShouldEqual, "")
+	convey.So(event, convey.ShouldEqual, "")
+	convey.So(respCode, convey.ShouldEqual, common.ControllerEventCancel)
 	convey.So(err, convey.ShouldBeNil)
 }
 
@@ -1486,7 +1497,7 @@ func TestHandleStressTestFail(t *testing.T) {
 		}).ApplyPrivateMethod(ctl, "signalEnqueue", func(signal *pb.ProcessManageSignal) (string, common.RespCode, error) {
 			return "", common.OK, nil
 		}).ApplyPrivateMethod(ctl, "saveCacheFault", func(faults []*pb.FaultRank) {}).
-			ApplyFunc(kube.RetryPatchNodeAnnotation, func(nodeName string, annotations map[string]string) error {
+			ApplyFunc(kube.RetryPatchNodeAnnotation, func(nodeName string, retryTimes int, annotations map[string]string) error {
 				return nil
 			})
 		defer patches.Reset()
