@@ -377,32 +377,32 @@ func TestStressTestCanNotDoStressTest(t *testing.T) {
 }
 
 func TestStressTestOperationSuccess(t *testing.T) {
-	patches := gomonkey.NewPatches()
-	ctx := context.Background()
-	jobID := "jobID"
-	nodeName := "nodeName"
-	deviceID := "device"
-	rankID := "1"
-	patches.ApplyFunc(job.GetJobCache, func(jobKey string) (constant.JobInfo, bool) {
-		return constant.JobInfo{
-			Status: job.StatusJobRunning,
-			JobRankTable: constant.RankTable{
-				ServerList: []constant.ServerHccl{
-					{
-						ServerName: nodeName,
-						DeviceList: []constant.Device{
-							{
-								DeviceID: deviceID,
-								RankID:   rankID,
+	t.Run("stress test operation success", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		ctx := context.Background()
+		jobID := "jobID"
+		nodeName := "nodeName"
+		deviceID := "device"
+		rankID := "1"
+		patches.ApplyFunc(job.GetJobCache, func(jobKey string) (constant.JobInfo, bool) {
+			return constant.JobInfo{
+				Status: job.StatusJobRunning,
+				JobRankTable: constant.RankTable{
+					ServerList: []constant.ServerHccl{
+						{
+							ServerName: nodeName,
+							DeviceList: []constant.Device{
+								{
+									DeviceID: deviceID,
+									RankID:   rankID,
+								},
 							},
 						},
 					},
 				},
-			},
-		}, true
-	})
-	defer patches.Reset()
-	t.Run("stress test operation success", func(t *testing.T) {
+			}, true
+		})
+		defer patches.Reset()
 		s := fakeService()
 		s.eventCtl[jobID] = &EventController{state: common.NewStateMachine(common.InitState, nil)}
 		patches.ApplyPrivateMethod(s, "checkStressTestParam", func(params *pb.StressTestParam) (bool, string) {
@@ -483,8 +483,63 @@ func TestSubscribeStressTestResponse(t *testing.T) {
 			})
 		defer patch.Reset()
 		s.eventCtl[info.JobID] = &EventController{}
-		s.eventCtl[info.JobID].globalSwitchRankIDs = []string{"1"}
+		s.eventCtl[info.JobID].stressTestParam = common.StressTestParam{
+			"node": map[string][]int64{
+				"rank": {0},
+			},
+		}
 		err := s.SubscribeStressTestResponse(info, nil)
 		assert.Nil(t, err)
+	})
+}
+
+func TestGetNodeRankOpsMap(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	jobID := "jobID"
+	nodeName := "nodeName"
+	deviceID := "device"
+	rankID := "1"
+	patches.ApplyFunc(job.GetJobCache, func(jobKey string) (constant.JobInfo, bool) {
+		return constant.JobInfo{
+			Status: job.StatusJobRunning,
+			JobRankTable: constant.RankTable{
+				ServerList: []constant.ServerHccl{
+					{
+						ServerName: nodeName,
+						DeviceList: []constant.Device{
+							{
+								DeviceID: deviceID,
+								RankID:   rankID,
+							},
+						},
+					},
+				},
+			},
+		}, true
+	})
+	defer patches.Reset()
+	t.Run("getNodeRankOpsMap, allNodesOps not empty", func(t *testing.T) {
+		s := fakeService()
+		s.eventCtl[jobID] = &EventController{state: common.NewStateMachine(common.InitState, nil)}
+		param := &pb.StressTestParam{
+			JobID:       jobID,
+			AllNodesOps: []int64{0},
+		}
+		nodeRankMap := s.getNodeRankOpsMap(param)
+		assert.Equal(t, 1, len(nodeRankMap))
+	})
+	t.Run("getNodeRankOpsMap, StressParam not empty", func(t *testing.T) {
+		s := fakeService()
+		s.eventCtl[jobID] = &EventController{state: common.NewStateMachine(common.InitState, nil)}
+		param := &pb.StressTestParam{
+			JobID: jobID,
+			StressParam: map[string]*pb.StressOpList{
+				nodeName: {
+					Ops: []int64{0},
+				},
+			},
+		}
+		nodeRankMap := s.getNodeRankOpsMap(param)
+		assert.Equal(t, 1, len(nodeRankMap))
 	})
 }
