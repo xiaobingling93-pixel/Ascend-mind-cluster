@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/smartystreets/goconvey/convey"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager"
 	"ascend-common/devmanager/common"
@@ -79,29 +80,29 @@ func buildTestCase(name string, collectorType colcommon.MetricsCollector, device
 func TestIsSupported(t *testing.T) {
 	n := mockNewNpuCollector()
 	cases := []testCase{
-		buildTestCase("DdrCollector: testIsSupported on Ascend310", &DdrCollector{}, common.Ascend310, true),
-		buildTestCase("DdrCollector: testIsSupported on Ascend310P", &DdrCollector{}, common.Ascend310P, true),
-		buildTestCase("DdrCollector: testIsSupported on Ascend910", &DdrCollector{}, common.Ascend910, true),
-		buildTestCase("DdrCollector: testIsSupported on Ascend910B", &DdrCollector{}, common.Ascend910B, false),
-		buildTestCase("DdrCollector: testIsSupported on Ascend910A3", &DdrCollector{}, common.Ascend910A3, false),
+		buildTestCase("DdrCollector: testIsSupported on Ascend310", &DdrCollector{}, api.ASCEND310, true),
+		buildTestCase("DdrCollector: testIsSupported on Ascend310P", &DdrCollector{}, api.ASCEND310P, true),
+		buildTestCase("DdrCollector: testIsSupported on Ascend910", &DdrCollector{}, api.ASCEND910, true),
+		buildTestCase("DdrCollector: testIsSupported on Ascend910B", &DdrCollector{}, api.ASCEND910B, false),
+		buildTestCase("DdrCollector: testIsSupported on Ascend910A3", &DdrCollector{}, api.ASCEND910A3, false),
 
-		buildTestCase("HccsCollector: testIsSupported on Ascend310", &HccsCollector{}, common.Ascend310, false),
-		buildTestCase("HccsCollector: testIsSupported on Ascend310P", &HccsCollector{}, common.Ascend310P, false),
-		buildTestCase("HccsCollector: testIsSupported on Ascend910", &HccsCollector{}, common.Ascend910, false),
-		buildTestCase("HccsCollector: testIsSupported on Ascend910B", &HccsCollector{}, common.Ascend910B, true),
-		buildTestCase("HccsCollector: testIsSupported on Ascend910A3", &HccsCollector{}, common.Ascend910A3, true),
+		buildTestCase("HccsCollector: testIsSupported on Ascend310", &HccsCollector{}, api.ASCEND310, false),
+		buildTestCase("HccsCollector: testIsSupported on Ascend310P", &HccsCollector{}, api.ASCEND310P, false),
+		buildTestCase("HccsCollector: testIsSupported on Ascend910", &HccsCollector{}, api.ASCEND910, false),
+		buildTestCase("HccsCollector: testIsSupported on Ascend910B", &HccsCollector{}, api.ASCEND910B, true),
+		buildTestCase("HccsCollector: testIsSupported on Ascend910A3", &HccsCollector{}, api.ASCEND910A3, true),
 
-		buildTestCase("SioCollector: testIsSupported on Ascend310", &SioCollector{}, common.Ascend310, false),
-		buildTestCase("SioCollector: testIsSupported on Ascend310P", &SioCollector{}, common.Ascend310P, false),
-		buildTestCase("SioCollector: testIsSupported on Ascend910", &SioCollector{}, common.Ascend910, false),
-		buildTestCase("SioCollector: testIsSupported on Ascend910B", &SioCollector{}, common.Ascend910B, false),
-		buildTestCase("SioCollector: testIsSupported on Ascend910A3", &SioCollector{}, common.Ascend910A3, true),
+		buildTestCase("SioCollector: testIsSupported on Ascend310", &SioCollector{}, api.ASCEND310, false),
+		buildTestCase("SioCollector: testIsSupported on Ascend310P", &SioCollector{}, api.ASCEND310P, false),
+		buildTestCase("SioCollector: testIsSupported on Ascend910", &SioCollector{}, api.ASCEND910, false),
+		buildTestCase("SioCollector: testIsSupported on Ascend910B", &SioCollector{}, api.ASCEND910B, false),
+		buildTestCase("SioCollector: testIsSupported on Ascend910A3", &SioCollector{}, api.ASCEND910A3, true),
 
-		buildTestCase("VnpuCollector: testIsSupported on Ascend310", &VnpuCollector{}, common.Ascend310, false),
-		buildTestCase("VnpuCollector: testIsSupported on Ascend310P", &VnpuCollector{}, common.Ascend310P, true),
-		buildTestCase("VnpuCollector: testIsSupported on Ascend910", &VnpuCollector{}, common.Ascend910, false),
-		buildTestCase("VnpuCollector: testIsSupported on Ascend910B", &VnpuCollector{}, common.Ascend910B, false),
-		buildTestCase("VnpuCollector: testIsSupported on Ascend910A3", &VnpuCollector{}, common.Ascend910A3, false),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend310", &VnpuCollector{}, api.ASCEND310, false),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend310P", &VnpuCollector{}, api.ASCEND310P, true),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend910", &VnpuCollector{}, api.ASCEND910, false),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend910B", &VnpuCollector{}, api.ASCEND910B, false),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend910A3", &VnpuCollector{}, api.ASCEND910A3, false),
 	}
 
 	for _, c := range cases {
@@ -481,7 +482,7 @@ func mockGetNPUChipList() []colcommon.HuaWeiAIChip {
 			DeviceID: id,
 			LogicID:  id,
 			ChipInfo: &common.ChipInfo{
-				Name:    common.Ascend910,
+				Name:    api.ASCEND910,
 				Type:    "Ascend",
 				Version: "V1",
 			},
@@ -538,7 +539,7 @@ func createChip() colcommon.HuaWeiAIChip {
 		DeviceID: 0,
 		LogicID:  0,
 		ChipInfo: &common.ChipInfo{
-			Name:    common.Ascend910,
+			Name:    api.ASCEND910,
 			Type:    "Ascend",
 			Version: "V1",
 		},

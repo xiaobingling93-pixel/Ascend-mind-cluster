@@ -22,7 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"ascend-common/devmanager/common"
+	"ascend-common/api"
 	"huawei.com/npu-exporter/v6/collector/container"
 	"huawei.com/npu-exporter/v6/utils/logger"
 )
@@ -108,7 +108,7 @@ func (c *MetricsCollectorAdapter) UpdateTelegraf(fieldsMap map[string]map[string
 
 // PreCollect pre handle before collect
 func (c *MetricsCollectorAdapter) PreCollect(n *NpuCollector, chipList []HuaWeiAIChip) {
-	if strings.Contains(n.Dmgr.GetDevType(), common.Ascend910) {
+	if strings.Contains(n.Dmgr.GetDevType(), api.ASCEND910) {
 		c.Is910Series = true
 	}
 }

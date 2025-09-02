@@ -25,9 +25,9 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/smartystreets/goconvey/convey"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager"
-	"ascend-common/devmanager/common"
 	colcommon "huawei.com/npu-exporter/v6/collector/common"
 	"huawei.com/npu-exporter/v6/collector/container"
 	"huawei.com/npu-exporter/v6/collector/metrics"
@@ -70,13 +70,13 @@ func TestGather(t *testing.T) {
 		deviceType  string
 		expectedTag string
 	}{
-		{name: common.Ascend910A3,
-			deviceType:  common.Ascend910A3,
-			expectedTag: common.Ascend910,
+		{name: api.ASCEND910A3,
+			deviceType:  api.ASCEND910A3,
+			expectedTag: api.ASCEND910,
 		},
-		{name: common.Ascend310P,
-			deviceType:  common.Ascend310P,
-			expectedTag: common.Ascend310P,
+		{name: api.ASCEND310P,
+			deviceType:  api.ASCEND310P,
+			expectedTag: api.ASCEND310P,
 		},
 	}
 	npu := &WatchNPU{

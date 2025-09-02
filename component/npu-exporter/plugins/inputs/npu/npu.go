@@ -22,7 +22,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 
-	"ascend-common/devmanager/common"
+	"ascend-common/api"
 	colcommon "huawei.com/npu-exporter/v6/collector/common"
 	"huawei.com/npu-exporter/v6/collector/container"
 	"huawei.com/npu-exporter/v6/utils/logger"
@@ -52,9 +52,9 @@ func (npu *WatchNPU) Gather(acc telegraf.Accumulator) error {
 	const devName = "ascend"
 
 	devTagValue := ""
-	if cardType := npu.collector.Dmgr.GetDevType(); cardType == common.Ascend910A3 || cardType == common.Ascend910B ||
-		cardType == common.Ascend910 {
-		devTagValue = strings.ToLower(common.Ascend910)
+	if cardType := npu.collector.Dmgr.GetDevType(); cardType == api.ASCEND910A3 || cardType == api.ASCEND910B ||
+		cardType == api.ASCEND910 {
+		devTagValue = strings.ToLower(api.ASCEND910)
 	} else {
 		devTagValue = strings.ToLower(cardType)
 	}

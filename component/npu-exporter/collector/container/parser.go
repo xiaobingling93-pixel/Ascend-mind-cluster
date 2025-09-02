@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/common-utils/utils"
 	"huawei.com/npu-exporter/v6/collector/container/isula"
@@ -36,13 +37,12 @@ import (
 )
 
 const (
-	namespaceMoby     = "moby"   // Docker
-	namespaceK8s      = "k8s.io" // CRI + Containerd
-	sliceLen8         = 8
-	ascendDeviceInfo  = "ASCEND_VISIBLE_DEVICES"
-	ascendEnvPart     = 2
-	charDevice        = "c"
-	devicePathPattern = `^/dev/davinci\d+$`
+	namespaceMoby    = "moby"   // Docker
+	namespaceK8s     = "k8s.io" // CRI + Containerd
+	sliceLen8        = 8
+	ascendDeviceInfo = "VISIBLE_DEVICES"
+	ascendEnvPart    = 2
+	charDevice       = "c"
 
 	minus                            = "-"
 	comma                            = ","
@@ -604,7 +604,7 @@ func filterNPUDevicesInIsula(containerInfo isula.ContainerJson) ([]int, error) {
 	devIDs := make([]int, 0, sliceLen8)
 	devices := containerInfo.HostConfig.Devices
 	for _, dev := range devices {
-		Id, err := getDevIdFromPath(devicePathPattern, dev.PathInContainer)
+		Id, err := getDevIdFromPath(api.DevicePathPattern, dev.PathInContainer)
 		if err != nil {
 			logger.Warn(err)
 			continue
