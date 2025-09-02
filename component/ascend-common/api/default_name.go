@@ -13,6 +13,14 @@ const (
 
 	// PodAnnotationAscendReal pod annotation ascend real
 	PodAnnotationAscendReal = "huawei.com/AscendReal"
+
+	// Ascend brand name
+	Ascend = "Ascend"
+	// AscendJob job kind is AscendJob
+	AscendJob = "AscendJob"
+
+	// AscendOperator ascend-Operator
+	AscendOperator = "ascend-Operator"
 )
 
 // common 910
@@ -25,6 +33,12 @@ const (
 	Ascend910APattern = `^910`
 	// HuaweiAscend910 ascend 910 chip with prefix
 	HuaweiAscend910 = "huawei.com/Ascend910"
+	// Ascend910MinuxPrefix name prefix of ascend 910 chip
+	Ascend910MinuxPrefix = "Ascend910-"
+	// Ascend910MinuxCase minus type of ascend 910 chip
+	Ascend910MinuxCase = "ascend-910"
+	// Ascend910No 910 chip number
+	Ascend910No = "910"
 )
 
 // common 910 A2
@@ -79,6 +93,43 @@ const (
 	Use310PMixedInsert = "use310PMixedInsert"
 	// Ascend310PMix dp use310PMixedInsert parameter usage
 	Ascend310PMix = "ascend310P-V, ascend310P-VPro, ascend310P-IPro"
+)
+
+// docker runtime
+const (
+	// AscendDockerRuntime ascend-docker-runtime
+	AscendDockerRuntime = "ascend-docker-runtime"
+	// AscendDockerHook ascend-docker-hook
+	AscendDockerHook = "ascend-docker-hook"
+	// AscendDockerDestroy ascend-docker-destroy
+	AscendDockerDestroy = "ascend-docker-destroy"
+	// AscendDockerCli ascend-docker-cli
+	AscendDockerCli = "ascend-docker-cli"
+
+	// AscendDockerRuntimeEnv env variable
+	AscendDockerRuntimeEnv = "ASCEND_DOCKER_RUNTIME"
+	// AscendVisibleDevicesEnv env variable
+	AscendVisibleDevicesEnv = "ASCEND_VISIBLE_DEVICES"
+	// AscendRuntimeOptionsEnv env variable
+	AscendRuntimeOptionsEnv = "ASCEND_RUNTIME_OPTIONS"
+	// AscendRuntimeMountsEnv env variable
+	AscendRuntimeMountsEnv = "ASCEND_RUNTIME_MOUNTS"
+	// AscendAllowLinkEnv env variable
+	AscendAllowLinkEnv = "ASCEND_ALLOW_LINK"
+	// AscendVnpuSpescEnv env variable
+	AscendVnpuSpescEnv = "ASCEND_VNPU_SPECS"
+
+	// RunTimeLogDir dir path of runtime
+	RunTimeLogDir = "/var/log/ascend-docker-runtime/"
+	// HookRunLogPath run log path of hook
+	HookRunLogPath = "/var/log/ascend-docker-runtime/hook-run.log"
+	// InstallHelperRunLogPath run log path of install helper
+	InstallHelperRunLogPath = "/var/log/ascend-docker-runtime/install-helper-run.log"
+	// RunTimeRunLogPath run log path of runtime
+	RunTimeRunLogPath = "/var/log/ascend-docker-runtime/runtime-run.log"
+
+	// RunTimeDConfigPath config path
+	RunTimeDConfigPath = "/etc/ascend-docker-runtime.d"
 )
 
 // npu exporter
