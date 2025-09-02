@@ -62,7 +62,7 @@ var (
 )
 var (
 	supportedPcieDevices = map[string]bool{
-		api.ASCEND910B: true,
+		api.Ascend910B: true,
 	}
 )
 

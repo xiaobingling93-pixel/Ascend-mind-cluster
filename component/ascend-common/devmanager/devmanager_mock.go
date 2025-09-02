@@ -57,7 +57,7 @@ func (d *DeviceManagerMock) ShutDown() error {
 
 // GetDevType return mock type
 func (d *DeviceManagerMock) GetDevType() string {
-	return api.ASCEND910
+	return api.Ascend910
 }
 
 // GetDeviceCount get npu device count

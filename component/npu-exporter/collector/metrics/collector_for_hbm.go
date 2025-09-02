@@ -53,9 +53,9 @@ var (
 
 var (
 	supportedHbmDevices = map[string]bool{
-		api.ASCEND910:   true,
-		api.ASCEND910B:  true,
-		api.ASCEND910A3: true,
+		api.Ascend910:   true,
+		api.Ascend910B:  true,
+		api.Ascend910A3: true,
 	}
 )
 

@@ -29,7 +29,7 @@ type DeviceManager910A3MockErr struct {
 
 // GetDevType return mock type
 func (d *DeviceManager910A3MockErr) GetDevType() string {
-	return api.ASCEND910A3
+	return api.Ascend910A3
 }
 
 // GetHccsStatisticInfo get hccs statistic info

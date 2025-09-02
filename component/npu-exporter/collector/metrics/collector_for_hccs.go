@@ -39,8 +39,8 @@ var (
 	hccsBWTotalRx       *prometheus.Desc = nil
 
 	supportedHccsDevices = map[string]bool{
-		api.ASCEND910B:  true,
-		api.ASCEND910A3: true,
+		api.Ascend910B:  true,
+		api.Ascend910A3: true,
 	}
 )
 
@@ -145,7 +145,7 @@ func (c *HccsCollector) PreCollect(n *colcommon.NpuCollector, chipList []colcomm
 	}
 	chipOne := chipList[0]
 	devType := n.Dmgr.GetDevType()
-	if devType == api.ASCEND910B || common.IsA900A3SuperPod(chipOne.MainBoardId) ||
+	if devType == api.Ascend910B || common.IsA900A3SuperPod(chipOne.MainBoardId) ||
 		common.Is800IA3Chip(chipOne.MainBoardId) {
 		// A2 or A900A3 SuperPod or 800IA3 begin at 1st bit
 		c.hccsBeginIndex = num1

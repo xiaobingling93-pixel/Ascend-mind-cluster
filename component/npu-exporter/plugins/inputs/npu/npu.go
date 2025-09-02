@@ -52,9 +52,9 @@ func (npu *WatchNPU) Gather(acc telegraf.Accumulator) error {
 	const devName = "ascend"
 
 	devTagValue := ""
-	if cardType := npu.collector.Dmgr.GetDevType(); cardType == api.ASCEND910A3 || cardType == api.ASCEND910B ||
-		cardType == api.ASCEND910 {
-		devTagValue = strings.ToLower(api.ASCEND910)
+	if cardType := npu.collector.Dmgr.GetDevType(); cardType == api.Ascend910A3 || cardType == api.Ascend910B ||
+		cardType == api.Ascend910 {
+		devTagValue = strings.ToLower(api.Ascend910)
 	} else {
 		devTagValue = strings.ToLower(cardType)
 	}

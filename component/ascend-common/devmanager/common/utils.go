@@ -139,19 +139,19 @@ func IsValidHccspingMeshOperate(operate HccspingMeshOperate) error {
 // GetDeviceTypeByChipName get device type by chipName
 func GetDeviceTypeByChipName(chipName string) string {
 	if strings.Contains(chipName, "310P") {
-		return api.ASCEND310P
+		return api.Ascend310P
 	}
 	if strings.Contains(chipName, "310B") {
-		return api.ASCEND310B
+		return api.Ascend310B
 	}
 	if strings.Contains(chipName, "310") {
-		return api.ASCEND310
+		return api.Ascend310
 	}
 	if reg910B.MatchString(chipName) {
-		return api.ASCEND910B
+		return api.Ascend910B
 	}
 	if reg910A.MatchString(chipName) {
-		return api.ASCEND910
+		return api.Ascend910
 	}
 	return ""
 }
@@ -176,11 +176,11 @@ func get310PTemplateNameList() map[string]struct{} {
 func IsValidTemplateName(devType, templateName string) bool {
 	isTemplateNameValid := false
 	switch devType {
-	case api.ASCEND310P:
+	case api.Ascend310P:
 		_, isTemplateNameValid = get310PTemplateNameList()[templateName]
-	case api.ASCEND910:
+	case api.Ascend910:
 		_, isTemplateNameValid = get910TemplateNameList()[templateName]
-	case api.ASCEND910B:
+	case api.Ascend910B:
 		_, isTemplateNameValid = get910BTemplateNameList()[templateName]
 	default:
 	}
@@ -514,7 +514,7 @@ func deepCopySlice(slice interface{}) interface{} {
 func GetDevType(chipName string, boardId uint32) string {
 	var devType string
 	if Is910A3Chip(boardId) {
-		devType = api.ASCEND910A3
+		devType = api.Ascend910A3
 	} else {
 		devType = GetDeviceTypeByChipName(chipName)
 	}

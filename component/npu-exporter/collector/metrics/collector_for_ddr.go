@@ -33,8 +33,8 @@ var (
 	descUsedMemory  = colcommon.BuildDesc("npu_chip_info_used_memory", "the npu used memory")
 
 	notSupportedDdrDevices = map[string]bool{
-		api.ASCEND910B:  true,
-		api.ASCEND910A3: true,
+		api.Ascend910B:  true,
+		api.Ascend910A3: true,
 	}
 )
 

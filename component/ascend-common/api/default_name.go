@@ -12,20 +12,17 @@ const (
 	ResourceNamePrefix = "huawei.com/"
 
 	// Ascend910 for 910 chip
-	Ascend910 = "ascend910"
-
-	// ASCEND310 ascend 310 chip
-	ASCEND310 = "Ascend310"
-	// ASCEND310P ascend 310P chip
-	ASCEND310P = "Ascend310P"
-	// ASCEND310B ascend 310B chip
-	ASCEND310B = "Ascend310B"
-	// ASCEND910 ascend 910 chip
-	ASCEND910 = "Ascend910"
-	// ASCEND910B ascend 910B chip
-	ASCEND910B = "Ascend910B"
-	// ASCEND910A3 ascend 910A3 chip
-	ASCEND910A3 = "Ascend910A3"
+	Ascend910 = "Ascend910"
+	// Ascend910B ascend 910B chip
+	Ascend910B = "Ascend910B"
+	// Ascend910A3 ascend 910A3 chip
+	Ascend910A3 = "Ascend910A3"
+	// Ascend310 ascend 310 chip
+	Ascend310 = "Ascend310"
+	// Ascend310P ascend 310P chip
+	Ascend310P = "Ascend310P"
+	// Ascend310B ascend 310B chip
+	Ascend310B = "Ascend310B"
 )
 
 // device plugin

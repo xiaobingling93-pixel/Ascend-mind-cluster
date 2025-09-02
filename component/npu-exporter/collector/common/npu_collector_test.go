@@ -340,21 +340,21 @@ func TestGetChipListWithVNPU(t *testing.T) {
 	chip := HuaWeiAIChip{}
 	tests := []chipsCase{
 		{name: "TestGetChipListWithVNPU_310p_no_vnpu",
-			devType: api.ASCEND310P,
+			devType: api.Ascend310P,
 			buildChips: func() {
 				chip = createChip()
 			},
 			expectValue: 1,
 		},
 		{name: "TestGetChipListWithVNPU_310p_2_vnpus",
-			devType: api.ASCEND310P,
+			devType: api.Ascend310P,
 			buildChips: func() {
 				chip = createValidVnpuChip()
 			},
 			expectValue: num2,
 		},
 		{name: "TestGetChipListWithVNPU_910",
-			devType: api.ASCEND910,
+			devType: api.Ascend910,
 			buildChips: func() {
 				chip = createChip()
 			},
@@ -408,7 +408,7 @@ func createChip() HuaWeiAIChip {
 		DeviceID: 0,
 		LogicID:  0,
 		ChipInfo: &common.ChipInfo{
-			Name:    api.ASCEND910,
+			Name:    api.Ascend910,
 			Type:    "Ascend",
 			Version: "V1",
 		},
@@ -424,12 +424,12 @@ func TestSetPCIeBusInfo(t *testing.T) {
 		expectValue  string
 	}{{
 		name:         "TestSetPCIeBusInfo_910",
-		productTypes: []string{api.ASCEND910},
+		productTypes: []string{api.Ascend910},
 		err:          nil,
 		expectValue:  mockPcieBus,
 	}, {
 		name:         "TestSetPCIeBusInfo_910_err",
-		productTypes: []string{api.ASCEND910},
+		productTypes: []string{api.Ascend910},
 		err:          mockErr,
 		expectValue:  "",
 	}, {

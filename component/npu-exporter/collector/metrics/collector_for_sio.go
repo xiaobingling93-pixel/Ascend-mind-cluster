@@ -35,7 +35,7 @@ var (
 )
 var (
 	supportedSioDevices = map[string]bool{
-		api.ASCEND910A3: true,
+		api.Ascend910A3: true,
 	}
 )
 

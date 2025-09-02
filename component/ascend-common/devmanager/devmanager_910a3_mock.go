@@ -26,5 +26,5 @@ type DeviceManager910A3Mock struct {
 
 // GetDevType return mock type
 func (d *DeviceManager910A3Mock) GetDevType() string {
-	return api.ASCEND910A3
+	return api.Ascend910A3
 }

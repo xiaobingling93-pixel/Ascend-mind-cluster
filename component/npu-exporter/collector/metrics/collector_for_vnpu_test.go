@@ -39,7 +39,7 @@ const (
 func TestVnpuCollectorIsSupported(t *testing.T) {
 	n := mockNewNpuCollector()
 	cases := []testCase{
-		buildTestCase("VnpuCollector: testIsSupported on Ascend310P", &VnpuCollector{}, api.ASCEND310P, true),
+		buildTestCase("VnpuCollector: testIsSupported on Ascend310P", &VnpuCollector{}, api.Ascend310P, true),
 		buildTestCase("VnpuCollector: testIsSupported on other type", &VnpuCollector{}, "OTHER", false),
 	}
 

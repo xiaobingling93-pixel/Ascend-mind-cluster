@@ -70,13 +70,13 @@ func TestGather(t *testing.T) {
 		deviceType  string
 		expectedTag string
 	}{
-		{name: api.ASCEND910A3,
-			deviceType:  api.ASCEND910A3,
-			expectedTag: api.ASCEND910,
+		{name: api.Ascend910A3,
+			deviceType:  api.Ascend910A3,
+			expectedTag: api.Ascend910,
 		},
-		{name: api.ASCEND310P,
-			deviceType:  api.ASCEND310P,
-			expectedTag: api.ASCEND310P,
+		{name: api.Ascend310P,
+			deviceType:  api.Ascend310P,
+			expectedTag: api.Ascend310P,
 		},
 	}
 	npu := &WatchNPU{
