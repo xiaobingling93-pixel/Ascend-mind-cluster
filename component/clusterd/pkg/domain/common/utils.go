@@ -113,9 +113,8 @@ func GetRecoverBaseInfo(name, namespace string) (RecoverConfig, RespCode, error)
 			config.MindXConfigStrategies = append(config.MindXConfigStrategies, strategy)
 		}
 	}
-	if pg.Labels != nil &&
-		(pg.Labels[constant.JobReschedulingStrategyKey] == constant.JobReschedulingStrategyGraceValue ||
-			pg.Labels[constant.JobReschedulingStrategyKey] == constant.JobReschedulingStrategyForceValue) {
+	if pg.Labels[constant.JobReschedulingStrategyKey] == constant.JobReschedulingStrategyGraceValue ||
+		pg.Labels[constant.JobReschedulingStrategyKey] == constant.JobReschedulingStrategyForceValue {
 		config.MindXConfigStrategies = append(config.MindXConfigStrategies, constant.JobReschedulingStrategyName)
 	}
 	if pg.Labels != nil &&
@@ -497,13 +496,13 @@ func CalculateStringDivInt(dividendStr string, divisor int) int {
 }
 
 // GetPodRanks return a dict, key is fault pod rank, value ""
-func GetPodRanks(jobId string, rankList []string) (map[string]string, error) {
-	podMap := make(map[string]string)
+func GetPodRanks(jobId string, rankList []string) (map[string]struct{}, error) {
 	devicePerNode := pod.GetPodDeviceNumByJobId(jobId)
 	if devicePerNode <= 0 {
 		hwlog.RunLog.Errorf("get device num per pod failed, jobId: %s", jobId)
 		return nil, fmt.Errorf("get device num per pod failed, jobId: %s", jobId)
 	}
+	podMap := make(map[string]struct{})
 	for _, rank := range rankList {
 		faultRank, err := strconv.Atoi(rank)
 		if err != nil {
@@ -512,7 +511,7 @@ func GetPodRanks(jobId string, rankList []string) (map[string]string, error) {
 		}
 		faultPodRank := faultRank / devicePerNode
 		podRank := strconv.Itoa(faultPodRank)
-		podMap[podRank] = ""
+		podMap[podRank] = struct{}{}
 	}
 	return podMap, nil
 }
@@ -538,15 +537,15 @@ func GetPodVersion(jobId string, podRankList map[string]string) map[string]strin
 
 // GetNodeRankIdsByRankIds returns the job's node rank id list by global rank id list
 func GetNodeRankIdsByRankIds(jobId string, rankIds []string) ([]string, error) {
-	nodeRankIds := make([]string, 0)
 	if len(rankIds) == 0 {
-		return nodeRankIds, nil
+		return nil, nil
 	}
 	faultPod, err := GetPodRanks(jobId, rankIds)
 	if err != nil {
 		hwlog.RunLog.Errorf("jobId=%s, get pod map err:%v", jobId, err)
-		return nodeRankIds, err
+		return nil, err
 	}
+	nodeRankIds := make([]string, 0)
 	for nodeRankId, _ := range faultPod {
 		nodeRankIds = append(nodeRankIds, nodeRankId)
 	}

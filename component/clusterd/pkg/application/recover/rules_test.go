@@ -4,10 +4,10 @@
 package recover
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetRules(t *testing.T) {

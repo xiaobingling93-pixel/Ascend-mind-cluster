@@ -898,7 +898,7 @@ func TestGetPodRanks(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    map[string]string
+		want    map[string]struct{}
 		wantErr bool
 	}{
 		{
@@ -906,7 +906,7 @@ func TestGetPodRanks(t *testing.T) {
 			args: args{
 				rankList: []string{"a", "1"},
 			},
-			want:    map[string]string{"1": ""},
+			want:    map[string]struct{}{"1": {}},
 			wantErr: false,
 		},
 	}
@@ -960,8 +960,8 @@ func TestGetPodVersion(t *testing.T) {
 func TestGetNodeRankIdsByRankIdsSuccess(t *testing.T) {
 	// Mock GetPodRanks to return sample data
 	patch := gomonkey.ApplyFunc(GetPodRanks,
-		func(_ string, _ []string) (map[string]string, error) {
-			return map[string]string{"node-1": "rank-1", "node-2": "rank-2"}, nil
+		func(_ string, _ []string) (map[string]struct{}, error) {
+			return map[string]struct{}{"node-1": {}, "node-2": {}}, nil
 		})
 	defer patch.Reset()
 
@@ -974,7 +974,7 @@ func TestGetNodeRankIdsByRankIdsSuccess(t *testing.T) {
 func TestGetNodeRankIdsByRankIdsFail(t *testing.T) {
 	// Mock GetPodRanks to return error
 	patch := gomonkey.ApplyFunc(GetPodRanks,
-		func(_ string, _ []string) (map[string]string, error) {
+		func(_ string, _ []string) (map[string]struct{}, error) {
 			return nil, errors.New("db_error")
 		})
 	defer patch.Reset()

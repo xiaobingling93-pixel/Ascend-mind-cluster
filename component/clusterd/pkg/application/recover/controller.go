@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	k8s_util "github.com/kubeflow/common/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -374,17 +375,15 @@ func (ctl *EventController) supportTargetStrategy(recoverStrategy string) bool {
 	if !ctl.configTargetStrategy(recoverStrategy) {
 		return false
 	}
-	agentSupport := false
 	if recoverStrategy == constant.ElasticTrainingStrategyName {
 		recoverStrategy = constant.ScaleInStrategyName
 	}
 	for _, strategy := range ctl.agentReportStrategies {
 		if strategy == recoverStrategy {
-			agentSupport = true
-			break
+			return true
 		}
 	}
-	return agentSupport
+	return false
 }
 
 func (ctl *EventController) configTargetStrategy(recoverStrategy string) bool {
@@ -1793,9 +1792,9 @@ func (ctl *EventController) waitScaleOut() {
 			ctl.addEvent(common.FinishEvent)
 			return
 		}
-		if acJobInfo, ok := jobObject.(*v1.AscendJob); ok && (podgroup.IsSucceeded(acJobInfo.
-			Status) || podgroup.IsFailed(acJobInfo.Status)) {
-			hwlog.RunLog.Infof("job[%s] is succeeded or failed, IsSucceed: %v", ctl.jobInfo.JobId, podgroup.IsSucceeded(acJobInfo.
+		if acJobInfo, ok := jobObject.(*v1.AscendJob); ok && (k8s_util.IsSucceeded(acJobInfo.
+			Status) || k8s_util.IsFailed(acJobInfo.Status)) {
+			hwlog.RunLog.Infof("job[%s] is succeeded or failed, IsSucceed: %v", ctl.jobInfo.JobId, k8s_util.IsSucceeded(acJobInfo.
 				Status))
 			ctl.addEvent(common.FinishEvent)
 			return

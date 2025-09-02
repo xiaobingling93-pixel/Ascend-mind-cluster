@@ -309,6 +309,7 @@ const (
 	// ChangeStrategyAction change_strategy action
 	ChangeStrategyAction = "change_strategy"
 	// DefaultWaitRescheduleTimeout default reschedule timeout before executing arf or dp scale-in strategy
+	// (Unit: second)
 	DefaultWaitRescheduleTimeout = 270
 	// WaitRescheduleTimeoutKey is the key of WaitRescheduleTimeout
 	WaitRescheduleTimeoutKey = "wait-reschedule-timeout"
@@ -317,7 +318,7 @@ const (
 	DefaultWaitRescheduleTimeoutBeforeDeployStrategy = 20
 	// MindIOWaitTimeKey is the key of wait time before deploy strategy
 	MindIOWaitTimeKey = "MINDIO_WAIT_MINDX_TIME"
-	// MindIOWaitTimeMax is the max wait time
+	// MindIOWaitTimeMax is the max wait time (Unit: second)
 	MindIOWaitTimeMax = 3600
 	// DifferenceTime is the difference with timeout env
 	DifferenceTime = 10
