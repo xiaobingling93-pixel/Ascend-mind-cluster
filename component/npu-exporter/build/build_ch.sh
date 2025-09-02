@@ -1,6 +1,6 @@
 #!/bin/bash
 # Perform  build npu-exporter
-# Copyright @ Huawei Technologies CO., Ltd. 2020-2023. All rights reserved
+# Copyright @ Huawei Technologies CO., Ltd. 2025-2025. All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

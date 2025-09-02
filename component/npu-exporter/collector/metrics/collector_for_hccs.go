@@ -177,7 +177,7 @@ func promUpdateHccsBwInfo(ch chan<- prometheus.Metric, cache hccsCache, c *HccsC
 		return
 	}
 	if c.hccsBeginIndex < 0 {
-		logger.Errorf("invalid %s BeginIndex %v", api.Hccs, c.hccsBeginIndex)
+		logger.Errorf("invalid %sBeginIndex %v", api.Hccs, c.hccsBeginIndex)
 		return
 	}
 	for i := c.hccsBeginIndex; i < MaxHccsNum; i++ {
@@ -197,7 +197,7 @@ func promUpdateHccsStatisticInfo(ch chan<- prometheus.Metric, cache hccsCache, c
 		return
 	}
 	if c.hccsBeginIndex < 0 {
-		logger.Errorf("invalid %s BeginIndex %v", api.Hccs, c.hccsBeginIndex)
+		logger.Errorf("invalid %sBeginIndex %v", api.Hccs, c.hccsBeginIndex)
 		return
 	}
 	for i := c.hccsBeginIndex; i < MaxHccsNum; i++ {
