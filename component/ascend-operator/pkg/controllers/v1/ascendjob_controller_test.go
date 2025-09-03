@@ -267,7 +267,8 @@ func newCommonContainer() corev1.Container {
 func newCommonAscendJob() *mindxdlv1.AscendJob {
 	return &mindxdlv1.AscendJob{
 		TypeMeta: metav1.TypeMeta{
-			Kind: "AscendJob",
+			Kind:       "AscendJob",
+			APIVersion: acJobApiversion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "ascendjob-test",
