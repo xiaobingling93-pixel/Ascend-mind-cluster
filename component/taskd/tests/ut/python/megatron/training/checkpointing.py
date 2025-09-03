@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2025, Huawei Technologies Co., Ltd. All rights reserved.
-def get_rng_state():
+def get_rng_state(rng_state):
     return None
 
 
-def set_checkpoint_version():
+def set_checkpoint_version(version):
     pass
 
 
-def check_checkpoint_args():
+def check_checkpoint_args(checkpoint_args):
     pass
 
 
@@ -17,7 +17,7 @@ def get_checkpoint_version():
     return None
 
 
-def fix_query_key_value_ordering():
+def fix_query_key_value_ordering(model, checkpoint_version):
     pass
 
 
