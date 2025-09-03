@@ -16,15 +16,23 @@
 # ==============================================================================
 from . import (
     repair_callback,
+    scale_in_rebuild_callback,
+    rollback_callback,
     scale_out_rebuild_process_group_callback,
+    register_callback,
     common,
     constant,
     optimizer,
 )
+from .register_callback import register_callbacks
 
 __all__ = [
     "repair_callback",
+    "scale_in_rebuild_callback",
+    "rollback_callback",
     "scale_out_rebuild_process_group_callback",
+    "register_callbacks",
+    "register_callback",
     "common",
     "constant",
     "optimizer",
