@@ -4,11 +4,11 @@
 import array
 
 
-def print_rank_0():
+def print_rank_0(msg):
     pass
 
 
-def unwrap_model():
+def unwrap_model(model):
     pass
 
 
@@ -18,7 +18,7 @@ def calc_params_l2_norm():
 
 class test_optimizer():
     @staticmethod
-    def numpy(self):
+    def numpy():
         return array.array('i', [1, 2, 3])
 
     def send_optim_param_state(self, dest_rank, group, optim_idx):

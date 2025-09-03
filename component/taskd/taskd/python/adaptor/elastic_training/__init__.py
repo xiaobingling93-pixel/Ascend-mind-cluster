@@ -15,12 +15,16 @@
 # limitations under the License.
 # ==============================================================================
 from . import (
+    repair_callback,
+    scale_out_rebuild_process_group_callback,
     common,
     constant,
     optimizer,
 )
 
 __all__ = [
+    "repair_callback",
+    "scale_out_rebuild_process_group_callback",
     "common",
     "constant",
     "optimizer",
