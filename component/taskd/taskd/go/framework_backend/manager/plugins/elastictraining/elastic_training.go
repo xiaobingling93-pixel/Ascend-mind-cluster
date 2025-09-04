@@ -113,7 +113,7 @@ func (s *elasticTrainingPlugin) PullMsg() ([]infrastructure.Msg, error) {
 		hwlog.RunLog.Warn("signalInfo is nil")
 		return nil, nil
 	}
-	if _, ok := s.HasSendMessages[s.signalInfo.Uuid]; ok {
+	if _, ok := s.HasSendMessages[s.signalInfo.SignalType+s.signalInfo.Command[constant.Actions]]; ok {
 		hwlog.RunLog.Debugf("the signal info has dealed, signal info: %v", s.signalInfo)
 		return nil, nil
 	}
@@ -122,7 +122,7 @@ func (s *elasticTrainingPlugin) PullMsg() ([]infrastructure.Msg, error) {
 		SignalType == clusterdconstant.FaultNodesExitSignalType {
 		msgs = append(msgs, s.signalInfo.GetMsgs()...)
 	}
-	s.HasSendMessages[s.signalInfo.Uuid] = ""
+	s.HasSendMessages[s.signalInfo.SignalType+s.signalInfo.Command[constant.Actions]] = ""
 	hwlog.RunLog.Infof("pull msgs: %+v", msgs)
 	return msgs, nil
 }

@@ -356,9 +356,9 @@ func getTestElasticTrainingPluginPullMsgTests2() []testElasticTrainingPluginPull
 				signalInfo: &pluginutils.SignalInfo{
 					Uuid: "test-uuid",
 				},
-				HasSendMessages: map[string]string{"test-uuid": ""},
+				HasSendMessages: map[string]string{utils.ObjToString([]string{}): ""},
 			},
-			want:    nil,
+			want:    make([]infrastructure.Msg, 0),
 			wantErr: false},
 	}
 }
@@ -380,7 +380,7 @@ func TestElasticTrainingPluginPullMsg(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("elasticTrainingPlugin.PullMsg() = %v, want %v", got, tt.want)
+				t.Errorf("elasticTrainingPlugin.PullMsg() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

@@ -337,4 +337,6 @@ const (
 	DifferenceTime = 10
 	// RankZeroNodeId is "0"
 	RankZeroNodeId = "0"
+	// PodRankIndexAnno annotation value is rank index of the pod
+	PodRankIndexAnno = "hccl/rankIndex"
 )

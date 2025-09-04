@@ -1392,6 +1392,9 @@ func TestCheckWhetherPodVersionChangedFalse(t *testing.T) {
 		faultPod: map[string]string{
 			"1": "1",
 		},
+		prePod: map[string]string{
+			"1": "1",
+		},
 	}
 	mockGetNodeRankIdsByFaultRanks := gomonkey.ApplyFuncReturn(pod.GetPodByRankIndex, v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1408,6 +1411,9 @@ func TestCheckWhetherPodVersionChangedTrue(t *testing.T) {
 	ctl := &EventController{
 		jobInfo: common.JobBaseInfo{JobId: "job-123"},
 		faultPod: map[string]string{
+			"1": "1",
+		},
+		prePod: map[string]string{
 			"1": "1",
 		},
 	}

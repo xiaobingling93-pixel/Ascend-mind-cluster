@@ -150,7 +150,7 @@ def recv_rank_repair(recv_rank_repair_args: send_or_recieve_rank_repair_args, ne
     # combine state_dict and once load, fix precision problem
     state_dict = tft_optimizer_data_repair.temp_memory_ckpt
     load_memory_ckpt(train_args[MODEL_INDEX], train_args[OPTIM_INDEX], train_args[SCHEDULER_INDEX], state_dict,
-                     None, rank)
+                     None)
 
     for idx, src_rank in enumerate(recv_rank_repair_args.src_ranks):
         dest_rank, optim_idx = recv_rank_repair_args.dest_ranks[idx], recv_rank_repair_args.optim_idxs[idx]
