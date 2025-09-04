@@ -55,7 +55,7 @@ def scale_in_rebuild_callback(new_dp_ranks: list, new_world_ranks: list, args, p
     for _, timer in timers._timers.items():
         timer.set_barrier_group(common.SCALE_IN_WORLD_GROUP)
         timer.reset()
-    ttp_logger.LOGGER.info(f"rank:{cur_rank}, dp_cp:{torch.distributed.get_process_group_ranks(new_dp_cp_group)},"
+    ttp_logger.LOGGER.info(f"rank:{cur_rank},"
                            f"zit_is_fault_replica_rank:{common.zit_is_fault_replica_rank()},"
                            f"zit_fault_rank_in_dp_cp_replica_group:{common.zit_fault_rank_in_dp_cp_replica_group()},"
                            f"FAULT_REPLICA_RANK:{common.FAULT_REPLICA_RANK}")

@@ -65,6 +65,7 @@ type EventController struct {
 	faultFlushing               bool
 	keepAliveSecond             int
 	uuid                        string
+	prePod                      map[string]string
 	faultPod                    map[string]string
 	events                      chan string
 	latestStrategy              []string
@@ -116,6 +117,7 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		keepAliveSecond:             keepAlive,
 		uuid:                        "",
 		faultPod:                    make(map[string]string),
+		prePod:                      make(map[string]string),
 		events:                      make(chan string, eventChanLength),
 		latestStrategy:              []string{},
 		latestRecoverResult:         []*pb.RecoverStatusRequest{},
@@ -147,10 +149,23 @@ func NewEventController(jobInfo common.JobBaseInfo, keepAlive int, serviceCtx co
 		currentHotSwitchFaultPodId:  "",
 		currentHotSwitchBackupPodId: "",
 	}
+	ctl.updatePrePod()
 	var rules []common.TransRule = ctl.getBaseRules()
 	ctl.state = common.NewStateMachine(common.InitState, rules)
 	ctl.controllerContext, ctl.ctxCancelFunc = context.WithCancel(ctl.serviceContext)
 	return ctl
+}
+
+func (ctl *EventController) updatePrePod() {
+	pods := pod.GetPodByJobId(ctl.jobInfo.JobId)
+	for _, pod := range pods {
+		if pod.Name == "" {
+			hwlog.RunLog.Warnf("job pod %s has empty name", ctl.jobInfo.JobId)
+			continue
+		}
+		podRankIndex := pod.Annotations[constant.PodRankIndexAnno]
+		ctl.prePod[podRankIndex] = string(pod.UID)
+	}
 }
 
 // GetFaultPod get fault pod
@@ -211,6 +226,7 @@ func (ctl *EventController) reset(stop bool) {
 	ctl.uuid = ""
 	ctl.latestStrategy = ctl.latestStrategy[:0]
 	ctl.faultPod = make(map[string]string)
+	ctl.updatePrePod()
 	if !ctl.isChanClosed {
 		ctl.closeControllerChan()
 		ctl.isChanClosed = true
@@ -1555,7 +1571,8 @@ func (ctl *EventController) listenScheduleResult() {
 	}
 	pgRunning := true
 	start := time.Now().Unix()
-	for !podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) {
+	for !podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) ||
+		(!ctl.restartFaultProcess && !ctl.checkWhetherPodChanged()) {
 		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
 		if ctl.jobCanceled {
 			return
@@ -1571,6 +1588,7 @@ func (ctl *EventController) listenScheduleResult() {
 			break
 		}
 	}
+	hwlog.RunLog.Infof("job %s ScheduleResult %v", ctl.jobInfo.JobId, pgRunning)
 	ctl.pgStatusEnqueue(pgRunning)
 }
 
@@ -1912,14 +1930,19 @@ func (ctl *EventController) whetherHasEnoughResource() bool {
 }
 
 func (ctl *EventController) checkWhetherPodChanged() bool {
-	for podRank, podId := range ctl.faultPod {
+	hasChanged := false
+	for podRank, _ := range ctl.faultPod {
 		pod := pod.GetPodByRankIndex(ctl.jobInfo.JobId, podRank)
 		if pod.Name == "" {
 			continue
 		}
-		return podId != string(pod.UID)
+		hwlog.RunLog.Debugf("node rank %s prePod id %s now pod id %s", podRank, ctl.prePod[podRank], string(pod.UID))
+		if ctl.prePod[podRank] != string(pod.UID) {
+			hasChanged = true
+			ctl.prePod[podRank] = string(pod.UID)
+		}
 	}
-	return false
+	return hasChanged
 }
 
 func (ctl *EventController) ChangePodStatus(status corev1.PodPhase) {

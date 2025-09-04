@@ -314,7 +314,7 @@ func (ctl *EventController) getDPScaleStrategyRules() []common.TransRule {
 
 		{Src: common.ScaleInRunningState, Event: common.NotifyScaleOutStrategySuccessEvent,
 			Dst: common.WaitReportScaleOutStatusState, Handler: ctl.handleWaitReportScaleOutStatusState},
-		{Src: common.WaitReportScaleOutStatusState, Event: common.NotifyScaleOutStrategySuccessEvent,
+		{Src: common.WaitReportScaleOutStatusState, Event: common.ReceiveReportEvent,
 			Dst: common.CheckRecoverResultState, Handler: ctl.handleCheckRecoverResult},
 		{Src: common.WaitReportScaleOutStatusState, Event: common.ReportTimeoutEvent,
 			Dst: common.FaultClearState, Handler: ctl.handleFaultClear},

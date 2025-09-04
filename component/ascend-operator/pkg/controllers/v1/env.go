@@ -337,5 +337,6 @@ func addElasticTrainingEnv(env map[string]string, trainEnv sets.String, framewor
 		hwlog.RunLog.Warn("elastic-training strategy only support pytorch framework")
 		return
 	}
+	env[api.ProcessRecoverEnv] = api.EnableFunc
 	trainEnv.Insert(api.ElasticTraining)
 }
