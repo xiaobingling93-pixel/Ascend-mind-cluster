@@ -140,6 +140,7 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 	subHealthyHotSwitch := faultInfo.HealthyState == constant.SubHealthyState && controller.jobInfo.HotSwitch
 	grpcFormatFaults := s.getGrpcFormatFaults(faultInfo, controller)
 	if len(grpcFormatFaults) == 0 {
+		hwlog.RunLog.Debugf("job %s has no new faults", faultInfo.JobId)
 		return
 	}
 	hwlog.RunLog.Infof("jobId=%s, fault center fault info change format to grpcFormat, faults=%s",
