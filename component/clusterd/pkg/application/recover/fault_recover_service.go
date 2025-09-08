@@ -140,6 +140,7 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 
 	var grpcFormatFaults []*pb.FaultRank = nil
 	subHealthyHotSwitch := faultInfo.HealthyState == constant.SubHealthyState && controller.jobInfo.HotSwitch
+	hasNewFaultPod := false
 	for _, info := range faultInfo.FaultList {
 		if info.PodUid == "" || info.PodRank == "" {
 			hwlog.RunLog.Warnf("invalid pod info, podId=%s, podRank=%s", info.PodUid, info.PodRank)
@@ -147,6 +148,12 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 		}
 		faultPod := make(map[string]string)
 		faultPod[info.PodRank] = info.PodUid
+		_, ok := controller.faultPod[info.PodRank]
+		if controller.state.GetState() != common.InitState && controller.state.GetState() != common.ScaleInRunningState && ok {
+			hwlog.RunLog.Debugf("job %s fault pod has deal", controller.jobInfo.JobId)
+			continue
+		}
+		hasNewFaultPod = true
 		controller.mergeFaultPod(faultPod)
 		hwlog.RunLog.Debugf("mergeFaultPod: %v", faultPod)
 		fault := &pb.FaultRank{
@@ -160,6 +167,9 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 			fault.FaultType = constant.HcclFaultType
 		}
 		grpcFormatFaults = append(grpcFormatFaults, fault)
+	}
+	if !hasNewFaultPod {
+		return
 	}
 	hwlog.RunLog.Infof("jobId=%s, fault center fault info change format to grpcFormat, faults=%s",
 		controller.jobInfo.JobId, common.Faults2String(grpcFormatFaults))

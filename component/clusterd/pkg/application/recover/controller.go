@@ -1576,6 +1576,7 @@ func (ctl *EventController) listenScheduleResult() {
 	}
 	pgRunning := true
 	start := time.Now().Unix()
+	hwlog.RunLog.Infof("job %s begin listenScheduleResult, timeout: %v", ctl.jobInfo.JobId, podReschedulingTimeout)
 	for !podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) ||
 		(!ctl.restartFaultProcess && !ctl.checkWhetherPodChanged()) {
 		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
