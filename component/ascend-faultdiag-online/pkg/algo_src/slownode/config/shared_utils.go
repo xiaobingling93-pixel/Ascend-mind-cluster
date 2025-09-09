@@ -81,12 +81,14 @@ func CheckExistDirectoryOrFile(path string, fileOrDir bool, level string, jobNam
 func GetLocalIP() (string, error) {
 	// 获取环境变量 XDL_IP
 	xdlIp := os.Getenv(xdlIpField)
-	// 如果环境变量存在，直接返回
+	// 如果环境变量存在且格式正确，则直接返回
 	if xdlIp != "" {
-		return xdlIp, nil
+		if checkIp := net.ParseIP(xdlIp); checkIp != nil && checkIp.To4() != nil {
+			return xdlIp, nil
+		}
 	}
-	// 如果没有环境变量，输出警告并调用 GetLocalIP 获取本地 IP
-	hwlog.RunLog.Warnf("[SLOWNODE ALGO]environment variable not set:%v", xdlIpField)
+	// 如果没有环境变量或者格式不正确，输出警告并调用 GetLocalIP 获取本地 IP
+	hwlog.RunLog.Warnf("[SLOWNODE ALGO]environment variable isn't set or isn't a valid IPv4 address:%v", xdlIpField)
 	// 获取本地所有网络接口的地址
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
