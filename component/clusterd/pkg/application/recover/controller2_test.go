@@ -1474,8 +1474,8 @@ func testSupportStrategyAndRunning(t *testing.T) {
 			},
 			scheduleResultChan: make(chan bool, 1),
 		}
-		gomonkey.ApplyFuncReturn(podgroup.JudgeIsRunningByJobKey, true)
-
+		patch := gomonkey.ApplyFuncReturn(podgroup.JudgeIsRunningByJobKey, true)
+		defer patch.Reset()
 		ctl.listenScheduleResult()
 		convey.So(len(ctl.scheduleResultChan), convey.ShouldEqual, 1)
 		convey.So(<-ctl.scheduleResultChan, convey.ShouldBeTrue)
