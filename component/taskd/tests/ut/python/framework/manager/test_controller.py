@@ -21,10 +21,6 @@ import os
 import sys
 import ctypes
 from unittest.mock import MagicMock, patch
-
-cur_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.join(cur_dir, "../../"))
-
 from taskd.python.utils.log import run_log
 from taskd.python.toolkit.constants import constants
 from taskd.python.cython_api import cython_api
