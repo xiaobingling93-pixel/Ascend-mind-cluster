@@ -115,6 +115,7 @@ class TestController(unittest.TestCase):
             action=TEST_ACTION,
             code=200,
             msg=TEST_MESSAGE,
+            timeout=0,
             strategy=TEST_STRATEGY,
             params=TEST_PARAM
         )
@@ -134,6 +135,7 @@ class TestController(unittest.TestCase):
             msg=TEST_MESSAGE,
             strategy=TEST_STRATEGY,
             params=TEST_PARAM,
+            timeout=0,
             actions=["action1", "action2"],
             strategy_list=["strategy1", "strategy2"],
             fault_ranks={1: 2, 3: 4}
@@ -265,6 +267,7 @@ class TestController(unittest.TestCase):
         test_data = ControllerMessage(
             action="test_action",
             code=200,
+            timeout=0,
             msg="test message",
             strategy="test_strategy",
             params="test_params"
@@ -279,7 +282,7 @@ class TestController(unittest.TestCase):
 
         self.mock_log_info.assert_called_with("do action unknown_action err, err=action unknown_action unregistered, "
                                               "data=ControllerMessage(action='test_action', code=200, msg='test message', "
-                                              "strategy='test_strategy', params='test_params', actions=[], strategy_list=[], fault_ranks={})")
+                                              "strategy='test_strategy', params='test_params', timeout=0, actions=[], strategy_list=[], fault_ranks={})")
 
     def test_restart_controller(self):
         with patch('taskd.python.framework.manager.controller.init_controller') as mock_init_controller, \
@@ -344,6 +347,7 @@ class TestController(unittest.TestCase):
         test_message = ControllerMessage(
             action="test_action",
             code=200,
+            timeout=0,
             msg="test message",
             strategy="test_strategy",
             params="test_params"
@@ -359,6 +363,7 @@ class TestController(unittest.TestCase):
         test_message = ControllerMessage(
             action="test_action",
             code=200,
+            timeout=0,
             msg="test message",
             strategy="test_strategy",
             params="test_params"
@@ -374,6 +379,7 @@ class TestController(unittest.TestCase):
         test_message = ControllerMessage(
             action="test_action",
             code=200,
+            timeout=0,
             msg="test message",
             strategy="test_strategy",
             params="test_params"
@@ -391,6 +397,7 @@ class TestController(unittest.TestCase):
         test_message = ControllerMessage(
             action="test_action",
             code=200,
+            timeout=0,
             msg="test message",
             strategy="test_strategy",
             params="test_params"
