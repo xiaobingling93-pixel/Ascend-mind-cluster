@@ -64,4 +64,6 @@ type ControllerMessage struct {
 	FaultRanks map[int]int `json:"fault_ranks,omitempty"`
 	// Params indicate the controller params
 	Params string `json:"params,omitempty"`
+	// Timeout indicate the controller timeout
+	Timeout int64 `json:"timeout,omitempty"`
 }

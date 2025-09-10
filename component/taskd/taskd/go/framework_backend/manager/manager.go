@@ -529,13 +529,17 @@ func (m *BaseManager) enqueueProcessManageSignal(processManageSignal *pb.Process
 			constant.ExtraParams:    processManageSignal.ExtraParams,
 		}
 	}
-
+	role := constant.ClusterRole
+	if processManageSignal.SignalType == clusterd_constant.WaitStartAgentSignalType ||
+		processManageSignal.SignalType == clusterd_constant.ContinueStartAgentSignalType {
+		role = common.MgrRole
+	}
 	message := storage.BaseMessage{
 		Header: storage.MsgHeader{
 			BizType: "default",
 			Uuid:    uuid.New().String(),
 			Src: &common.Position{
-				Role:       constant.ClusterRole,
+				Role:       role,
 				ServerRank: serverRank,
 			},
 			Timestamp: time.Now(),

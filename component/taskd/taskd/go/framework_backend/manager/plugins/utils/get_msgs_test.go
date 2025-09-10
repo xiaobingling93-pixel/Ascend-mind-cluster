@@ -87,7 +87,9 @@ func getSignalInfoGetMsgsTestWant() []infrastructure.Msg {
 			Extension: map[string]string{
 				constant.SignalType: "",
 				constant.Actions:    utils.ObjToString([]string{clusterdconstant.StopAction}),
-				constant.FaultRanks: ""}}}, {
+				constant.FaultRanks: "",
+				constant.Timeout:    "0",
+			}}}, {
 		Receiver: []string{common.AgentRole + "1"},
 		Body: storage.MsgBody{
 			MsgType: constant.Action,
@@ -103,7 +105,9 @@ func getSignalInfoGetMsgsTestWant() []infrastructure.Msg {
 				Extension: map[string]string{
 					constant.SignalType: "",
 					constant.Actions:    utils.ObjToString([]string{clusterdconstant.OnGlobalRankAction}),
-					constant.FaultRanks: ""}}}, {
+					constant.FaultRanks: "",
+					constant.Timeout:    "0",
+				}}}, {
 			Receiver: []string{common.AgentRole + "1"},
 			Body: storage.MsgBody{
 				MsgType: constant.Action,

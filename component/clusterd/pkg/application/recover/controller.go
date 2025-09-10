@@ -40,10 +40,12 @@ const (
 
 var (
 	saveAndExitActions            = []string{"save_and_exit"}
-	stopTrainActions              = []string{"stop_train"}
-	pauseTrainActions             = []string{"pause_train"}
-	globalFaultActions            = []string{"on_global_rank"}
-	changeStrategyActions         = []string{"change_strategy"}
+	stopTrainActions              = []string{constant.StopAction}
+	pauseTrainActions             = []string{constant.PauseTrainAction}
+	pauseStartAgentActions        = []string{constant.PauseStartAgent}
+	continueStartAgentActions     = []string{constant.ContinueStartAgent}
+	globalFaultActions            = []string{constant.OnGlobalRankAction}
+	changeStrategyActions         = []string{constant.ChangeStrategyAction}
 	hotSwitchActions              = []string{"hot switch"}
 	stopHotSwitchActions          = []string{"stop switch"}
 	newPodRunningActions          = []string{"new pod running"}
@@ -580,6 +582,12 @@ func (ctl *EventController) getCtxAndSignalChan() (context.Context, chan *pb.Pro
 }
 
 func (ctl *EventController) handleSendResult(signal *pb.ProcessManageSignal, err error) {
+	if signal.SignalType == constant.KeepAliveSignalType {
+		return
+	}
+	if signal.SignalType == constant.WaitStartAgentSignalType {
+		return
+	}
 	if signal.SignalType == constant.KillMasterSignalType {
 		ctl.addEvent(common.FinishEvent)
 		return
@@ -625,9 +633,7 @@ func (ctl *EventController) selectSendChannel(ctx context.Context, sendChan chan
 	case signal, ok := <-sendChan:
 		if ok {
 			err := common.SendRetry(stream, signal, retryTimes)
-			if signal.SignalType != constant.KeepAliveSignalType {
-				ctl.handleSendResult(signal, err)
-			}
+			ctl.handleSendResult(signal, err)
 			return false
 		} else {
 			hwlog.RunLog.Infof("sendChan closed, jobId=%s break listen sendChan", ctl.jobInfo.JobId)

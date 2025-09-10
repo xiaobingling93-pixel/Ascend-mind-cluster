@@ -11,7 +11,6 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/api/core/v1"
 
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
@@ -1185,10 +1184,10 @@ func testStressTestFinishReportChanNil(ctl *EventController) {
 		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
 			func() (context.Context, chan *pb.StressTestResult) {
 				return context.Background(), resultChan
-			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
-			ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
-				operator string) (*v1.ConfigMap, error) {
-				return &v1.ConfigMap{}, nil
+			}).
+			ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
+			ApplyPrivateMethod(ctl, "sendAgentSignal", func(action []string) {
+				return
 			})
 		defer pat.Reset()
 		defer func() {
@@ -1220,10 +1219,10 @@ func testStressTestFinishResultChanNil(ctl *EventController) {
 		pat := gomonkey.ApplyPrivateMethod(ctl, "getCtxAndStressTestResultChan",
 			func() (context.Context, chan *pb.StressTestResult) {
 				return context.Background(), nil
-			}).ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
-			ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
-				operator string) (*v1.ConfigMap, error) {
-				return &v1.ConfigMap{}, nil
+			}).
+			ApplyFunc(faultmanager.FilterStressTestFault, func(jobID string, nodes []string, val bool) {}).
+			ApplyPrivateMethod(ctl, "sendAgentSignal", func(action []string) {
+				return
 			})
 		defer pat.Reset()
 		defer func() {
@@ -1263,10 +1262,10 @@ func testStressTestFinishValidReport(ctl *EventController) {
 			ApplyPrivateMethod(ctl, "waitStressTestDone", func(ctx context.Context, rch chan *pb.StressTestResult,
 				ch chan *pb.RecoverStatusRequest) (string, common.RespCode, error) {
 				return "", common.OK, nil
-			}).ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
-			operator string) (*v1.ConfigMap, error) {
-			return &v1.ConfigMap{}, nil
-		})
+			}).
+			ApplyPrivateMethod(ctl, "sendAgentSignal", func(action []string) {
+				return
+			})
 		defer pat.Reset()
 		defer func() {
 			close(ctl.stressTestResult)
@@ -1346,10 +1345,7 @@ func testWaitStressTestResultrChanFalse(ctl *EventController) {
 	patches := gomonkey.ApplyPrivateMethod(ctl, "parseStressTestResult",
 		func(result *pb.StressTestResult) (bool, string) {
 			return false, "failed"
-		}).ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
-		operator string) (*v1.ConfigMap, error) {
-		return &v1.ConfigMap{}, nil
-	})
+		})
 	defer patches.Reset()
 	defer func() {
 		close(resultChan)
@@ -1367,10 +1363,7 @@ func testWaitStressTestResultrChanTrue(ctl *EventController) {
 	patches := gomonkey.ApplyPrivateMethod(ctl, "parseStressTestResult",
 		func(result *pb.StressTestResult) (bool, string) {
 			return true, ""
-		}).ApplyFunc(common.RetryWriteResetCM, func(taskName, nameSpace string, faultRankList []string, restartFaultProcess bool,
-		operator string) (*v1.ConfigMap, error) {
-		return &v1.ConfigMap{}, nil
-	})
+		})
 	defer patches.Reset()
 	defer func() {
 		close(resultChan)
@@ -1380,6 +1373,22 @@ func testWaitStressTestResultrChanTrue(ctl *EventController) {
 	event, _, err := ctl.waitStressTestDone(context.Background(), resultChan, recoverChan)
 	convey.So(event, convey.ShouldEqual, common.ReceiveReportEvent)
 	convey.So(err, convey.ShouldBeNil)
+}
+
+func TestSendPauseStartTrainSignal(t *testing.T) {
+	convey.Convey("Test sendAgentSignal", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		called := false
+		patches := gomonkey.ApplyPrivateMethod(ctl, "signalEnqueue", func(signal *pb.ProcessManageSignal) (string, common.RespCode, error) {
+			called = true
+			return "", common.OK, nil
+		})
+		ctl.sendAgentSignal(constant.WaitStartAgentSignalType, pauseStartAgentActions)
+		defer patches.Reset()
+		convey.So(called, convey.ShouldBeTrue)
+	})
 }
 
 func TestWaitStressTestFinishRecvFault(t *testing.T) {
@@ -1442,7 +1451,8 @@ func TestParseStressTestResult(t *testing.T) {
 				},
 			},
 		}, true
-	}).ApplyPrivateMethod(ctl, "saveCacheFault", func(faults []*pb.FaultRank) {})
+	}).ApplyPrivateMethod(ctl, "saveCacheFault", func(faults []*pb.FaultRank) {}).
+		ApplyPrivateMethod(ctl, "sendAgentSignal", func(signalType string, action []string) {})
 	defer patches.Reset()
 	convey.Convey("Test parseStressTestResult, has fault", t, func() {
 		result := &pb.StressTestResult{

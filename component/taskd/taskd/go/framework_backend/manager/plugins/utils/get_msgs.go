@@ -16,6 +16,8 @@
 package utils
 
 import (
+	"strconv"
+
 	clusterdconstant "clusterd/pkg/common/constant"
 	"taskd/common/constant"
 	"taskd/common/utils"
@@ -43,6 +45,8 @@ func (s *SignalInfo) GetMsgs() []infrastructure.Msg {
 	for _, action := range s.Actions {
 		if action == clusterdconstant.StopAction {
 			msgs = append(msgs, s.getStopTrainActionMsgs()...)
+		} else if action == clusterdconstant.PauseTrainAction {
+			msgs = append(msgs, s.getPauseTrainActionMsgs()...)
 		} else if action == clusterdconstant.FaultNodesExitAction {
 			msgs = append(msgs, s.getFaultNodesExitActionMsgs()...)
 		} else if action == clusterdconstant.OnGlobalRankAction {
@@ -56,6 +60,24 @@ func (s *SignalInfo) GetMsgs() []infrastructure.Msg {
 	return msgs
 }
 
+func (s *SignalInfo) getPauseTrainActionMsgs() []infrastructure.Msg {
+	return []infrastructure.Msg{
+		{
+			Receiver: []string{constant.ControllerName},
+			Body: storage.MsgBody{
+				MsgType: constant.Action,
+				Code:    constant.ProcessManageRecoverSignal,
+				Extension: map[string]string{
+					constant.SignalType: s.SignalType,
+					constant.Actions:    utils.ObjToString([]string{clusterdconstant.PauseTrainAction}),
+					constant.FaultRanks: s.Command[constant.FaultRanks],
+					constant.Timeout:    strconv.FormatInt(s.Timeout, constant.Dec),
+				},
+			},
+		},
+	}
+}
+
 func (s *SignalInfo) getStopTrainActionMsgs() []infrastructure.Msg {
 	return []infrastructure.Msg{
 		{
@@ -67,6 +89,7 @@ func (s *SignalInfo) getStopTrainActionMsgs() []infrastructure.Msg {
 					constant.SignalType: s.SignalType,
 					constant.Actions:    utils.ObjToString([]string{clusterdconstant.StopAction}),
 					constant.FaultRanks: s.Command[constant.FaultRanks],
+					constant.Timeout:    strconv.FormatInt(s.Timeout, constant.Dec),
 				},
 			},
 		},
@@ -121,6 +144,7 @@ func (s *SignalInfo) getOnGlobalRankActionMsgs() []infrastructure.Msg {
 					constant.SignalType: s.SignalType,
 					constant.Actions:    utils.ObjToString([]string{clusterdconstant.OnGlobalRankAction}),
 					constant.FaultRanks: s.Command[constant.FaultRanks],
+					constant.Timeout:    strconv.FormatInt(s.Timeout, constant.Dec),
 				},
 			},
 		},

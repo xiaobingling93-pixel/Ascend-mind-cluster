@@ -20,7 +20,7 @@ import (
 	"strconv"
 
 	"ascend-common/common-utils/hwlog"
-	clusterd_constant "clusterd/pkg/common/constant"
+	clusterdconstant "clusterd/pkg/common/constant"
 	"taskd/common/constant"
 	"taskd/common/utils"
 	"taskd/framework_backend/manager/infrastructure"
@@ -40,6 +40,7 @@ type RecoverPlugin struct {
 	recoverInPlace  bool
 	uuid            string
 	saveAndExit     bool
+	doAction        bool
 }
 
 // NewRecoverPlugin new recover plugin
@@ -84,19 +85,21 @@ func (rp *RecoverPlugin) Predicate(shot storage.SnapShot) (infrastructure.Predic
 				constant.ResumeTrainingAfterFaultStream: ""}}, nil
 	}
 	strategy := clusterInfo.Command[constant.ChangeStrategy]
-	if rp.uuid == clusterInfo.Command[constant.Uuid] && strategy == rp.recoverStrategy {
+	if rp.uuid == clusterInfo.Command[constant.Uuid] && strategy == rp.recoverStrategy && !rp.doAction {
 		rp.resetPluginInfo()
 		hwlog.RunLog.Infof("recover strategy not change, uuid:%v strategy:%v", rp.uuid, rp.recoverStrategy)
 		return infrastructure.PredicateResult{
 			PluginName: rp.Name(), CandidateStatus: constant.UnselectStatus, PredicateStream: nil}, nil
 	}
-	if strategy == clusterd_constant.ProcessRetryStrategyName ||
-		strategy == clusterd_constant.ProcessRecoverStrategyName ||
-		strategy == clusterd_constant.ProcessDumpStrategyName {
-		hwlog.RunLog.Infof("recover strategy in recover/retry/dump, strtegy:%v", strategy)
+	if strategy == clusterdconstant.ProcessRetryStrategyName ||
+		strategy == clusterdconstant.ProcessRecoverStrategyName ||
+		strategy == clusterdconstant.ProcessDumpStrategyName ||
+		strategy == clusterdconstant.ProcessContinueTrain {
+		hwlog.RunLog.Infof("recover strategy in recover/retry/dump/continue, strtegy:%v", strategy)
 		rp.recoverStrategy = strategy
+		rp.doAction = true
 	} else {
-		hwlog.RunLog.Infof("recover strategy not in recover/retry/dump, strtegy:%v", strategy)
+		hwlog.RunLog.Infof("recover strategy not in recover/retry/dump/continue, strtegy:%v", strategy)
 		return infrastructure.PredicateResult{
 			PluginName: rp.Name(), CandidateStatus: constant.UnselectStatus, PredicateStream: nil}, nil
 	}
@@ -118,22 +121,27 @@ func (rp *RecoverPlugin) Handle() (infrastructure.HandleResult, error) {
 	rp.processStatus = constant.HandleStageProcess
 	if rp.saveAndExit {
 		rp.buildSaveAndExitMessage()
+		rp.doAction = false
 		rp.resetPluginInfo()
 		return infrastructure.HandleResult{Stage: constant.HandleStageFinal}, nil
 	}
-	if rp.recoverStrategy == clusterd_constant.ProcessDumpStrategyName ||
-		rp.recoverStrategy == clusterd_constant.ProcessRetryStrategyName {
+	if rp.recoverStrategy == clusterdconstant.ProcessDumpStrategyName ||
+		rp.recoverStrategy == clusterdconstant.ProcessRetryStrategyName ||
+		rp.recoverStrategy == clusterdconstant.ProcessContinueTrain {
 		rp.buildControllerMessage()
+		rp.doAction = false
 		rp.resetPluginInfo()
 		return infrastructure.HandleResult{Stage: constant.HandleStageFinal}, nil
 	}
 	if rp.msgSend {
 		rp.buildControllerMessage()
+		rp.doAction = false
 		rp.resetPluginInfo()
 		return infrastructure.HandleResult{Stage: constant.HandleStageFinal}, nil
 	}
 	if rp.recoverInPlace {
 		rp.buildControllerMessage()
+		rp.doAction = false
 		for _, node := range rp.faultNode {
 			rp.pullMsgs = append(rp.pullMsgs, infrastructure.Msg{
 				Receiver: []string{common.AgentRole + node},
@@ -172,6 +180,7 @@ func (rp *RecoverPlugin) buildControllerMessage() {
 			},
 		},
 	})
+	hwlog.RunLog.Infof("build controller message, rp.pullMsgs: %v", rp.pullMsgs)
 }
 
 // Handle handle recover plugin
@@ -220,8 +229,8 @@ func (rp *RecoverPlugin) getClusterInfo(shot storage.SnapShot) error {
 		return err
 	}
 	rp.actions = actions
-	rp.recoverInPlace = clusterInfo.Command[constant.ExtraParams] == clusterd_constant.ProcessRecoverInPlaceStrategyName
-	hwlog.RunLog.Infof("recover in place: %v", rp.recoverInPlace)
+	rp.recoverInPlace = clusterInfo.Command[constant.ExtraParams] == clusterdconstant.ProcessRecoverInPlaceStrategyName
+	hwlog.RunLog.Infof("recover in place: %v, rp.actions = %v", rp.recoverInPlace, actions)
 	rp.uuid = clusterInfo.Command[constant.Uuid]
 	return nil
 }
@@ -232,7 +241,7 @@ func (rp *RecoverPlugin) checkSaveAndExit(shot storage.SnapShot) bool {
 		hwlog.RunLog.Info("cluster info not found")
 		return false
 	}
-	if clusterInfo.Command[constant.SignalType] == clusterd_constant.SaveAndExitSignalType &&
+	if clusterInfo.Command[constant.SignalType] == clusterdconstant.SaveAndExitSignalType &&
 		rp.uuid != clusterInfo.Command[constant.Uuid] {
 		hwlog.RunLog.Infof("receiver save and exit signal, uuid:%v", clusterInfo.Command[constant.Uuid])
 		rp.uuid = clusterInfo.Command[constant.Uuid]

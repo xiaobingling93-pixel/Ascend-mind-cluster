@@ -25,6 +25,7 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -224,12 +225,18 @@ func (b *BusinessStreamProcessor) distributedToController(msg infrastructure.Msg
 		hwlog.RunLog.Warnf("unmarshal faultRanks failed: %s", err.Error())
 		faultRanks = make(map[int]int)
 	}
+	timeout, err := strconv.ParseInt(msg.Body.Extension[constant.Timeout], constant.Dec, constant.BitSize64)
+	if err != nil {
+		hwlog.RunLog.Warnf("unmarshal timeout failed: %s", err.Error())
+		timeout = 0
+	}
 	strategy := msg.Body.Extension[constant.ChangeStrategy]
 	params := msg.Body.Extension[constant.ExtraParams]
 	message := &constant.ControllerMessage{
 		Actions:    actions,
 		FaultRanks: faultRanks,
 		Strategy:   strategy,
+		Timeout:    timeout,
 		Params:     params,
 	}
 	msgJSON, err := json.Marshal(message)
