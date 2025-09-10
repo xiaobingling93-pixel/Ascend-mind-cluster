@@ -35,6 +35,10 @@ func (mpc *MsgProcessor) managerHandler(dataPool *storage.DataPool, msg storage.
 			mgrInfo.Status[constant.ReportRestartTime] = msg.Body.Message
 			return nil
 		}
+		if msg.Body.Code == constant.ProcessManageRecoverSignal {
+			mgrInfo.Status[constant.Actions] = msg.Body.Extension[constant.Actions]
+			mgrInfo.Status[constant.SignalType] = msg.Body.Extension[constant.SignalType]
+		}
 		if msg.Body.Code == constant.FaultRecoverCode {
 			mgrInfo.Status[constant.FaultRecover] = msg.Body.Message
 		}

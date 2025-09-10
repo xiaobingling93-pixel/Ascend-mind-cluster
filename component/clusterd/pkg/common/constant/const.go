@@ -21,6 +21,10 @@ const (
 	FaultNodesExitSignalType = "faultNodesExit"
 	// HotSwitchSignalType hot switch
 	HotSwitchSignalType = "hot-switch"
+	// WaitStartAgentSignalType pause start train signal type
+	WaitStartAgentSignalType = "pauseStartAgent"
+	// ContinueStartAgentSignalType continue start train signal type
+	ContinueStartAgentSignalType = "continueStartAgent"
 )
 
 // recover strategy name
@@ -315,8 +319,14 @@ const (
 	FaultNodesRestartAction = "fault_nodes_restart"
 	// OnGlobalRankAction on_global_rank action
 	OnGlobalRankAction = "on_global_rank"
+	// ContinueStartAgent continue start agent action
+	ContinueStartAgent = "continue_start_agent"
+	// PauseStartAgent pause start agent action
+	PauseStartAgent = "pause_start_agent"
 	// StopAction stop_train action
 	StopAction = "stop_train"
+	// PauseTrainAction pause_train action
+	PauseTrainAction = "pause_train"
 	// ChangeStrategyAction change_strategy action
 	ChangeStrategyAction = "change_strategy"
 	// DefaultWaitRescheduleTimeout default reschedule timeout before executing arf or dp scale-in strategy

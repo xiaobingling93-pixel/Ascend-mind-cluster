@@ -1754,7 +1754,8 @@ func TestHandleSendResult(t *testing.T) {
 
 		patches := gomonkey.ApplyFunc(hwlog.RunLog.Errorf, func(format string, args ...interface{}) {})
 		defer patches.Reset()
-
+		testKeepAliveSignalTypeSignal(ctl)
+		testWaitStartAgentSignalType(ctl)
 		testKillMasterSignal(ctl)
 		testErrorCase(ctl)
 		testErrorSwitchNicCase(ctl)
@@ -1765,6 +1766,32 @@ func TestHandleSendResult(t *testing.T) {
 		testChangeStrategyExit(ctl)
 		testUnsupportedStrategy(ctl)
 		testChangeStrategyContinue(ctl)
+	})
+}
+
+func testKeepAliveSignalTypeSignal(ctl *EventController) {
+	convey.Convey("When signal type is KeepAliveSignalTypeSignal", func() {
+		signal := &pb.ProcessManageSignal{SignalType: constant.KeepAliveSignalType}
+		addedEvent := ""
+		patches := gomonkey.ApplyPrivateMethod(ctl, "addEvent", func(ctl *EventController, event string) {
+			addedEvent = "event"
+		})
+		defer patches.Reset()
+		ctl.handleSendResult(signal, nil)
+		convey.So(addedEvent, convey.ShouldEqual, "")
+	})
+}
+
+func testWaitStartAgentSignalType(ctl *EventController) {
+	convey.Convey("When signal type is WaitStartAgentSignalType", func() {
+		signal := &pb.ProcessManageSignal{SignalType: constant.WaitStartAgentSignalType}
+		addedEvent := ""
+		patches := gomonkey.ApplyPrivateMethod(ctl, "addEvent", func(ctl *EventController, event string) {
+			addedEvent = "event"
+		})
+		defer patches.Reset()
+		ctl.handleSendResult(signal, nil)
+		convey.So(addedEvent, convey.ShouldEqual, "")
 	})
 }
 

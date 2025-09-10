@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	"ascend-common/common-utils/hwlog"
+	clusterdconstant "clusterd/pkg/common/constant"
 	"taskd/common/constant"
 	"taskd/common/utils"
 	"taskd/framework_backend/manager/infrastructure/storage"
@@ -179,6 +180,9 @@ func (mhd *MsgHandler) responseAgentRestartTimes(msg storage.BaseMessage) {
 		hwlog.RunLog.Errorf("responseAgentRestartTimes: failed to get manager info, err: %v", err)
 		return
 	}
+	if mhd.shouldStartAgent(msg, mgrInfo) {
+		return
+	}
 	mgrRestartTimes := 0
 	if restartTimeStr, exists := mgrInfo.Status[constant.ReportRestartTime]; exists && restartTimeStr != "" {
 		var parseErr error
@@ -210,6 +214,22 @@ func (mhd *MsgHandler) responseAgentRestartTimes(msg storage.BaseMessage) {
 	}
 	hwlog.RunLog.Infof("responseAgentRestartTimes: sending response with restart times %d", restartTimes)
 	mhd.SendMsgUseGrpc(msg.Header.BizType, utils.ObjToString(msgBody), msg.Header.Src)
+}
+
+func (mhd *MsgHandler) shouldStartAgent(msg storage.BaseMessage, mgrInfo *storage.MgrInfo) bool {
+	if mgrInfo.Status[constant.SignalType] == clusterdconstant.WaitStartAgentSignalType {
+		hwlog.RunLog.Infof("recv: wait start agent signal: %v", mgrInfo.Status[constant.SignalType])
+		// wait start agent signal, enqueue msg
+		err := mhd.MsgQueue.Enqueue(msg)
+		if err != nil {
+			hwlog.RunLog.Errorf("enqueue msg failed: %v", err)
+		}
+		return true
+	}
+	if mgrInfo.Status[constant.SignalType] == clusterdconstant.ContinueStartAgentSignalType {
+		hwlog.RunLog.Infof("recv: continue start agent signal: %v", mgrInfo.Status[constant.SignalType])
+	}
+	return false
 }
 
 func (mhd *MsgHandler) receiver(tool *net.NetInstance, ctx context.Context) {
