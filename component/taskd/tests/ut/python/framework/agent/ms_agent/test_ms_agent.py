@@ -56,7 +56,8 @@ class TestMsAgent(unittest.TestCase):
     @patch.object(MsAgent, 'handle_message')
     @patch.object(MsAgent, 'update_rank_status')
     @patch.object(MsAgent, 'report_fault_rank')
-    def test_start(self, mock_report, mock_update, mock_handle, mock_check_net, mock_sleep,
+    @patch.object(MsAgent, 'start_worker')
+    def test_start(self, mock_start_worker, mock_report,mock_update, mock_handle, mock_check_net, mock_sleep,
                    mock_init_net, mock_calc_rank):
         mock_calc_rank.return_value = [0, 1]
         self.agent._func_map['MONITOR'].return_value = {
@@ -73,9 +74,9 @@ class TestMsAgent(unittest.TestCase):
                 self.agent.start()
 
         mock_calc_rank.assert_called_once()
+        mock_start_worker.assert_called_once()
         mock_init_net.assert_called_once_with(self.network_config, self.agent.msg_queue, self.logger)
         mock_check_net.assert_called_once()
-        self.agent._func_map['START_ALL_WORKER'].assert_called_once()
         
         mock_sleep.assert_called_once_with(1)
         mock_handle.assert_called_once()

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/faultdomain"
-	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/grpc/recover"
@@ -30,6 +28,7 @@ import (
 const (
 	normalFaultValue = "software"
 	retryFaultValue  = "retry-fault"
+	maxFaultPodLen   = 10
 )
 
 // FaultRecoverService is a service for fault recover
@@ -138,7 +137,7 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 	}
 	hwlog.ResetErrCnt(constant.SubHealthyState, controller.jobInfo.JobId)
 	subHealthyHotSwitch := faultInfo.HealthyState == constant.SubHealthyState && controller.jobInfo.HotSwitch
-	grpcFormatFaults := s.getGrpcFormatFaults(faultInfo, controller)
+	grpcFormatFaults, isMasterFault := s.getGrpcFormatFaults(faultInfo, controller)
 	if len(grpcFormatFaults) == 0 {
 		hwlog.RunLog.Debugf("job %s has no new faults", faultInfo.JobId)
 		return
@@ -148,20 +147,23 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 	controller.saveCacheFault(grpcFormatFaults)
 	controller.healthState = faultInfo.HealthyState
 	controller.restartFaultProcess = common.CanRestartFaultProcess(faultInfo.JobId, faultInfo.FaultList)
-	dealWithForceRelease(controller, faultInfo, grpcFormatFaults)
 	if subHealthyHotSwitch {
-		handleSubHealthyFault(controller, grpcFormatFaults)
+		handleSubHealthyFault(controller, grpcFormatFaults, isMasterFault)
 		return
 	}
 	controller.addEvent(common.FaultOccurEvent)
 }
 
-func (s *FaultRecoverService) getGrpcFormatFaults(faultInfo constant.JobFaultInfo, controller *EventController) []*pb.FaultRank {
+func (s *FaultRecoverService) getGrpcFormatFaults(faultInfo constant.JobFaultInfo, controller *EventController) ([]*pb.FaultRank, bool) {
 	grpcFormatFaults := make([]*pb.FaultRank, 0)
+	isMasterFault := false
 	for _, info := range faultInfo.FaultList {
 		if info.PodUid == "" || info.PodRank == "" {
 			hwlog.RunLog.Warnf("invalid pod info, podId=%s, podRank=%s", info.PodUid, info.PodRank)
 			continue
+		}
+		if info.PodRank == api.MasterPodRank {
+			isMasterFault = true
 		}
 		faultPod := make(map[string]string)
 		faultPod[info.PodRank] = info.PodUid
@@ -186,12 +188,11 @@ func (s *FaultRecoverService) getGrpcFormatFaults(faultInfo constant.JobFaultInf
 		}
 		grpcFormatFaults = append(grpcFormatFaults, fault)
 	}
-	return grpcFormatFaults
+	return grpcFormatFaults, isMasterFault
 }
 
-func handleSubHealthyFault(ctl *EventController, faults []*pb.FaultRank) {
-	faultPods := ctl.GetFaultPod()
-	if _, exists := faultPods[api.MasterPodRank]; exists {
+func handleSubHealthyFault(ctl *EventController, faults []*pb.FaultRank, isMasterFault bool) {
+	if isMasterFault {
 		// log max 3 times
 		hwlog.RunLog.ErrorfWithLimit(constant.SubHealthyState, ctl.jobInfo.JobId+api.MasterPodRank,
 			"fault occour on master node, skip this fault, podRank: %v,faults: %v", api.MasterPodRank, faults)
@@ -199,40 +200,18 @@ func handleSubHealthyFault(ctl *EventController, faults []*pb.FaultRank) {
 	}
 	hwlog.ResetErrCnt(constant.SubHealthyState, ctl.jobInfo.JobId+api.MasterPodRank)
 
+	faultPods := ctl.GetFaultPod()
+	if len(faultPods) > maxFaultPodLen {
+		hwlog.RunLog.Warnf("too much fault pods,change subhealthy strategy to ignore, "+
+			"maxFaultPod: %v, current fault pods len: %v", maxFaultPodLen, len(faultPods))
+		ctl.jobInfo.HotSwitch = false
+		ctl.jobInfo.SubHealthyStrategy = constant.SubHealthyIngore
+		return
+	}
+
 	if len(faults) > 0 {
 		ctl.addEvent(common.BeginHotSwitchEvent)
 	}
-}
-
-func dealWithForceRelease(controller *EventController, faultInfo constant.JobFaultInfo, grpcFormatFaults []*pb.FaultRank) {
-	if len(grpcFormatFaults) == 0 {
-		return
-	}
-	faultNodes, ok := isNeedForceReleaseFault(faultInfo)
-	if !ok {
-		return
-	}
-	hwlog.RunLog.Infof("jobId=%s force release", controller.jobInfo.JobId)
-	faultInfos := job.GetJobFaultSdIdAndNodeName(controller.jobInfo.JobId, faultNodes)
-	if faultInfos == nil {
-		return
-	}
-	kube.CreateOrUpdateSuperPodFaultInfo(controller.jobInfo.JobId, faultInfos)
-	time.Sleep(constant.ReleaseTimeOut)
-}
-
-func isNeedForceReleaseFault(faultInfo constant.JobFaultInfo) (map[string]struct{}, bool) {
-	faultNodes := make(map[string]struct{})
-	for _, faultDevice := range faultInfo.FaultDevice {
-		if strings.Contains(faultDevice.FaultCode, constant.CardDropFault) ||
-			faultDevice.DeviceType == constant.FaultTypeNode || faultDevice.DeviceType == constant.SwitchFaultType {
-			faultNodes[faultDevice.ServerName] = struct{}{}
-		}
-	}
-	if len(faultNodes) == 0 {
-		return faultNodes, false
-	}
-	return faultNodes, true
 }
 
 func (s *FaultRecoverService) skipHandleSubHealthyFaults(ctl *EventController,
@@ -249,15 +228,6 @@ func (s *FaultRecoverService) skipHandleSubHealthyFaults(ctl *EventController,
 			ctl.jobInfo.SubHealthyStrategy = constant.SubHealthyIngore
 			return true
 		}
-
-		const maxFaultPodLen = 10
-		faultPods := ctl.GetFaultPod()
-		if len(faultPods) > maxFaultPodLen {
-			hwlog.RunLog.Warnf("too much fault pods,change subhealthy strategy to ignore,fault pods len: %v", len(faultPods))
-			ctl.jobInfo.HotSwitch = false
-			ctl.jobInfo.SubHealthyStrategy = constant.SubHealthyIngore
-			return true
-		}
 		return false
 	}
 	// sub health and not hotswitch scene , if graceExit is false, skip
@@ -268,17 +238,6 @@ func (s *FaultRecoverService) skipHandleSubHealthyFaults(ctl *EventController,
 	if !ctl.onlySupportDumpStrategy() {
 		return true
 	}
-	return false
-}
-
-func isMasterSubhealthHotSwitchFault(subHealthyHotSwitch bool, info constant.FaultRank) bool {
-	if subHealthyHotSwitch && info.PodRank == api.MasterPodRank {
-		// log max 3 times
-		hwlog.RunLog.ErrorfWithLimit(constant.SubHealthyState, info.PodRank,
-			"fault occour on master node,skip this fault, podRank: %v,rankId: %v", info.PodRank, info.RankId)
-		return true
-	}
-	hwlog.ResetErrCnt(constant.SubHealthyState, info.PodRank)
 	return false
 }
 

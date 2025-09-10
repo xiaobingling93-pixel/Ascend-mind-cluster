@@ -90,8 +90,9 @@ func (s *stopTrainingPlugin) Handle() (infrastructure.HandleResult, error) {
 			return infrastructure.HandleResult{Stage: constant.HandleStageException}, nil
 		}
 	}
-	if s.signalInfo.SignalType == clusterdconstant.GlobalFaultSignalType {
-		hwlog.RunLog.Info("get global fault signal, need to release token")
+	if s.signalInfo.SignalType == clusterdconstant.GlobalFaultSignalType ||
+		s.signalInfo.SignalType == clusterdconstant.ChangeStrategySignalType {
+		hwlog.RunLog.Info("get release token signal, need to release token")
 		s.hasToken = false
 		s.HasSendMessages = make(map[string]string)
 		return infrastructure.HandleResult{Stage: constant.HandleStageFinal}, nil

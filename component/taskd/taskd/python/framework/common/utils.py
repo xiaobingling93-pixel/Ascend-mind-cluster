@@ -14,10 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from taskd.api.taskd_manager_api import init_taskd_manager, start_taskd_manager
-from taskd.api.taskd_worker_api import init_taskd_worker, start_taskd_worker
-from taskd.api.taskd_agent_api import init_taskd_agent, start_taskd_agent, register_func
-from taskd.api.taskd_proxy_api import init_taskd_proxy, destroy_taskd_proxy
 
-__all__ = ['init_taskd_manager', 'start_taskd_manager', 'init_taskd_worker', 'start_taskd_worker',
-           'init_taskd_agent', 'start_taskd_agent', 'register_func', 'init_taskd_proxy', 'destroy_taskd_proxy']
+import os
+
+from taskd.python.toolkit.constants import constants
+from taskd.python.utils.log import run_log
+
+
+def get_hccl_switch_nic_timeout():
+    timeout = os.getenv(constants.HCCL_CONNECT_TIMEOUT)
+    if timeout is None:
+        return constants.SWITCH_NIC_DEFAULT_TIMEOUT
+    try:
+        timeout = int(timeout)
+        if timeout <= 0:
+            run_log.warning("HCCL_CONNECT_TIMEOUT is invalid")
+            return constants.SWITCH_NIC_DEFAULT_TIMEOUT
+        return min(int(timeout * 2.5), constants.SWITCH_NIC_MAX_TIMEOUT)
+    except Exception as err:
+        run_log.warning(f"get HCCL_CONNECT_TIMEOUT failed, {err}")
+        return constants.SWITCH_NIC_DEFAULT_TIMEOUT

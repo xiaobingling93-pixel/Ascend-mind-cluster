@@ -64,7 +64,7 @@ class PtAgent(BaseAgent):
         run_log.info("[%s] starting workers for entrypoint: %s", role, spec.get_entrypoint_name())
         self.start_worker()
         self.update_agent_info()
-        monitor_interval = spec.monitor_interval
+        monitor_interval = constants.MONITOR_INTERVAL
 
         while True:
             self.send_message_to_manager('KEEP_ALIVE', 0, AgentReportInfo())

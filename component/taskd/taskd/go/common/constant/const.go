@@ -21,6 +21,11 @@ import (
 )
 
 const (
+	Hex = 16
+	Dec = 10
+)
+
+const (
 	// LogFilePathEnv for log file path environment
 	LogFilePathEnv = "TASKD_LOG_PATH"
 	// LogFileName default log file name

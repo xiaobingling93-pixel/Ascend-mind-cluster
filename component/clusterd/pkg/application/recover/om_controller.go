@@ -453,13 +453,7 @@ func (ctl *EventController) handleWaitStressTestFinish() (string, common.RespCod
 	}
 	faultmanager.FilterStressTestFault(ctl.jobInfo.JobId, nodes, true)
 	defer faultmanager.FilterStressTestFault(ctl.jobInfo.JobId, nodes, false)
-	cm, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil, false,
-		constant.NotifyFaultFlushingOperation)
-	if err != nil {
-		hwlog.RunLog.Errorf("notify agent faultFlushing error, err=%v", err)
-	} else {
-		hwlog.RunLog.Infof("write configmap FaultFlushing success, %s", cm.Data[constant.ResetInfoCMDataKey])
-	}
+	ctl.sendAgentSignal(constant.WaitStartAgentSignalType, pauseStartAgentActions)
 	ctx, ch := ctl.getCtxAndResultChan()
 	if ch == nil {
 		hwlog.RunLog.Infof("jobId=%s, reportChan is nil", ctl.jobInfo.JobId)
@@ -475,6 +469,23 @@ func (ctl *EventController) handleWaitStressTestFinish() (string, common.RespCod
 	return ctl.waitStressTestDone(ctx, rch, ch)
 }
 
+func (ctl *EventController) sendAgentSignal(signalType string, action []string) {
+	ctl.uuid = common.NewEventId(randomLen)
+	signal := &pb.ProcessManageSignal{
+		Uuid:           ctl.uuid,
+		JobId:          ctl.jobInfo.JobId,
+		SignalType:     signalType,
+		Actions:        action,
+		ChangeStrategy: "",
+	}
+	_, _, err := ctl.signalEnqueue(signal)
+	if err != nil {
+		hwlog.RunLog.Errorf("send signalType=%s failed, err=%v, jobId=%s", signalType, err, ctl.jobInfo.JobId)
+		return
+	}
+	hwlog.RunLog.Infof("send signalType=%s, jobId=%s", signalType, ctl.jobInfo.JobId)
+}
+
 func (ctl *EventController) waitStressTestDone(ctx context.Context, rch chan *pb.StressTestResult,
 	ch chan *pb.RecoverStatusRequest) (string, common.RespCode, error) {
 	select {
@@ -482,10 +493,6 @@ func (ctl *EventController) waitStressTestDone(ctx context.Context, rch chan *pb
 		hwlog.RunLog.Warnf("controller context canceled, jobId=%s, uuid=%s", ctl.jobInfo.JobId, ctl.uuid)
 		return "", common.ControllerEventCancel, nil
 	case req := <-rch:
-		if _, err := common.RetryWriteResetCM(ctl.jobInfo.JobName, ctl.jobInfo.Namespace, nil,
-			false, constant.ClearOperation); err != nil {
-			hwlog.RunLog.Errorf("notify agent faultFlushing error, err=%v", err)
-		}
 		ok, msg := ctl.parseStressTestResult(req)
 		if !ok {
 			ctl.replyOMResponse(msg)
@@ -507,6 +514,7 @@ func (ctl *EventController) waitStressTestDone(ctx context.Context, rch chan *pb
 
 func (ctl *EventController) parseStressTestResult(result *pb.StressTestResult) (bool, string) {
 	hwlog.RunLog.Infof("jobId=%s, StressTestResult is %v", result.JobId, result.StressResult)
+	ctl.sendAgentSignal(constant.ContinueStartAgentSignalType, continueStartAgentActions)
 	jobInfo, ok := job.GetJobCache(result.JobId)
 	if !ok {
 		hwlog.RunLog.Errorf("get job cache failed, jobId=%s", result.JobId)

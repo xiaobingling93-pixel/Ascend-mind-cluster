@@ -263,7 +263,9 @@ func TestStopTrainingPluginPullMsg(t *testing.T) {
 				Extension: map[string]string{
 					constant.SignalType: clusterdconstant.GlobalFaultSignalType,
 					constant.Actions:    utils.ObjToString([]string{clusterdconstant.OnGlobalRankAction}),
-					constant.FaultRanks: ""}}}},
+					constant.FaultRanks: "",
+					constant.Timeout:    "0",
+				}}}},
 		wantErr: false}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

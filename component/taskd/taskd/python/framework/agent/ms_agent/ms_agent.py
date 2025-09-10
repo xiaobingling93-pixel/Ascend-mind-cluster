@@ -45,7 +45,7 @@ class MsAgent(BaseAgent):
     def __init__(self, network_config, logger):
         super().__init__()
         self.all_rank_succeed = False
-        self.monitor_interval = 1
+        self.monitor_interval = constants.MONITOR_INTERVAL
         self.node_rank = os.getenv("MS_NODE_RANK")
         self.rank_pids = []
         self.node_global_rank_ids = []
@@ -62,6 +62,22 @@ class MsAgent(BaseAgent):
         self.rank_status = ''
         self.local_rank_to_pid = {}
 
+    def start_worker(self, start_worker_func):
+        time_use = 0
+        run_log.info(f"agent {self.node_rank} start worker")
+        self.send_message_to_manager('STATUS', constants.RESTARTTIMESCODE, "1")
+        while True:
+            try:
+                item = self.msg_queue.get_nowait()
+                if item.code == constants.STARTAGENTCODE:
+                    start_worker_func()
+                    break
+            except queue.Empty:
+                run_log.debug('msg_queue is empty')
+            time.sleep(1)
+            if time_use > constants.INIT_TIMEOUT:
+                raise RuntimeError("start_worker timeout")
+
     def start(self):
         kill_worker_func = self._func_map.get(constants.KILL_ALL_WORKER_CALLBACK_NAME)
         start_worker_func = self._func_map.get(constants.START_ALL_WORKER_CALLBACK_NAME)
@@ -73,7 +89,7 @@ class MsAgent(BaseAgent):
         self.node_global_rank_ids = calculate_global_rank()
         init_network_client(self.network_config, self.msg_queue, self.logger)
         self.check_network()
-        start_worker_func()
+        self.start_worker(start_worker_func)
 
         while True:
             self.send_message_to_manager('KEEP_ALIVE', 0, AgentReportInfo())

@@ -40,10 +40,12 @@ const (
 
 var (
 	saveAndExitActions            = []string{"save_and_exit"}
-	stopTrainActions              = []string{"stop_train"}
-	pauseTrainActions             = []string{"pause_train"}
-	globalFaultActions            = []string{"on_global_rank"}
-	changeStrategyActions         = []string{"change_strategy"}
+	stopTrainActions              = []string{constant.StopAction}
+	pauseTrainActions             = []string{constant.PauseTrainAction}
+	pauseStartAgentActions        = []string{constant.PauseStartAgent}
+	continueStartAgentActions     = []string{constant.ContinueStartAgent}
+	globalFaultActions            = []string{constant.OnGlobalRankAction}
+	changeStrategyActions         = []string{constant.ChangeStrategyAction}
 	hotSwitchActions              = []string{"hot switch"}
 	stopHotSwitchActions          = []string{"stop switch"}
 	newPodRunningActions          = []string{"new pod running"}
@@ -580,6 +582,12 @@ func (ctl *EventController) getCtxAndSignalChan() (context.Context, chan *pb.Pro
 }
 
 func (ctl *EventController) handleSendResult(signal *pb.ProcessManageSignal, err error) {
+	if signal.SignalType == constant.KeepAliveSignalType {
+		return
+	}
+	if signal.SignalType == constant.WaitStartAgentSignalType {
+		return
+	}
 	if signal.SignalType == constant.KillMasterSignalType {
 		ctl.addEvent(common.FinishEvent)
 		return
@@ -625,9 +633,7 @@ func (ctl *EventController) selectSendChannel(ctx context.Context, sendChan chan
 	case signal, ok := <-sendChan:
 		if ok {
 			err := common.SendRetry(stream, signal, retryTimes)
-			if signal.SignalType != constant.KeepAliveSignalType {
-				ctl.handleSendResult(signal, err)
-			}
+			ctl.handleSendResult(signal, err)
 			return false
 		} else {
 			hwlog.RunLog.Infof("sendChan closed, jobId=%s break listen sendChan", ctl.jobInfo.JobId)
@@ -1023,6 +1029,7 @@ func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, 
 	if len(retryFaults) > 0 {
 		return ctl.notifyFaultForRetryFaultCase(retryFaults, normalFaults)
 	}
+	ctl.dealWithForceRelease()
 	// strategy includes recover-in-place and fault can be restored in place, then check if fault disappears.
 	// If fault does not disappear after 15 seconds, can not choose recover-in-place strategy
 	if ctl.restartFaultProcess && ctl.hasRecoverInPlaceStrategy() {
@@ -1033,6 +1040,20 @@ func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, 
 		}
 	}
 	return ctl.notifyFaultForNormalFaultCase(retryFaults, normalFaults)
+}
+
+func (ctl *EventController) dealWithForceRelease() {
+	hwlog.RunLog.Infof("jobId=%s force release", ctl.jobInfo.JobId)
+	faultPods := ctl.GetFaultPod()
+	hwlog.RunLog.Infof("jobId=%s force release nodes %v", ctl.jobInfo.JobId, faultPods)
+	faultInfos := job.GetJobFaultSdIdAndNodeName(ctl.jobInfo.JobId, faultPods)
+	if faultInfos == nil {
+		hwlog.RunLog.Warnf("jobId=%s force release faultInfos is nil ", ctl.jobInfo.JobId)
+		return
+	}
+	kube.CreateOrUpdateSuperPodFaultInfo(ctl.jobInfo.JobId, faultInfos)
+	// wait noded force release ipc resource
+	time.Sleep(constant.ReleaseTimeOut)
 }
 
 func (ctl *EventController) firstChooseStrategy() string {

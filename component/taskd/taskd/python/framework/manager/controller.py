@@ -20,15 +20,16 @@ import os
 import time
 from dataclasses import dataclass, field, asdict
 from typing import Dict
+
 from taskd.python.cython_api import cython_api
+from taskd.python.framework.common.utils import get_hccl_switch_nic_timeout
 from taskd.python.toolkit.constants import constants
 from taskd.python.utils.log import run_log
 from mindio_ttp.controller_ttp import (tft_init_controller, tft_start_controller,
-                                           tft_notify_controller_dump, tft_notify_controller_stop_train,
-                                           tft_register_mindx_callback, tft_notify_controller_on_global_rank,
-                                           tft_notify_controller_change_strategy, tft_destroy_controller,
-                                           tft_query_high_availability_switch)
-
+                                       tft_notify_controller_dump, tft_notify_controller_stop_train,
+                                       tft_register_mindx_callback, tft_notify_controller_on_global_rank,
+                                       tft_notify_controller_change_strategy, tft_destroy_controller,
+                                       tft_query_high_availability_switch)
 
 action_func_map = {
             constants.SAVE_AND_EXIT: tft_notify_controller_dump,
@@ -46,6 +47,7 @@ class ControllerMessage:
     msg: str
     strategy: str
     params: str
+    timeout: int
     actions: list = field(default_factory=list)
     strategy_list: list = field(default_factory=list)
     fault_ranks: Dict[int, int] = field(default_factory=dict)
@@ -134,7 +136,8 @@ def backend_send_callback(data_ptr) -> int:
             strategy=data_json.get("strategy", ""),
             strategy_list=data_json.get("strategy_list", []),
             fault_ranks=msg_fault_ranks,
-            params=data_json.get("params", "")
+            params=data_json.get("params", ""),
+            timeout=data_json.get("timeout", 0)
         )
     except Exception as e:
         run_log.error(f"backend_callback parse message failed, reason: {e}")
@@ -161,10 +164,19 @@ def send_msg_to_controller(action, data):
             raise Exception(f"action {action} unregistered")
         if action == 'save_and_exit':
             func()
+        elif action == "pause_train":
+            timeout = data.timeout
+            if timeout == 0:
+                timeout = get_hccl_switch_nic_timeout()
+            func(data.fault_ranks, constants.STOP_TRAIN_PAUSE, timeout)
+            run_log.info(f"will pause train, timeout={timeout}")
         elif action == 'stop_train':
             func(data.fault_ranks, constants.STOP_TRAIN_ABORT)
         elif action == 'on_global_rank':
-            func(data.fault_ranks)
+            if data.timeout == 0:
+                func(data.fault_ranks)
+            else:
+                func(data.fault_ranks, data.timeout)
         elif action == 'change_strategy':
             func(data.strategy, data.params)
 
@@ -181,10 +193,8 @@ def restart_controller():
     run_log.info("restart controller finish")
 
 
-def report_stop_complete(code: int, msg: str, fault_ranks: dict) -> int:
-    info = (f"call ReportStopComplete, msg:{msg}, "
-            f"fault_ranks={fault_ranks}")
-    run_log.info(info)
+def report_stop_complete(code: int, msg: str, fault_ranks: dict):
+    run_log.info(f"call ReportStopComplete, msg:{msg}, fault_ranks={fault_ranks}")
     message = ControllerMessage(
         actions=[],
         action="stop_complete",
@@ -193,14 +203,14 @@ def report_stop_complete(code: int, msg: str, fault_ranks: dict) -> int:
         fault_ranks=fault_ranks,
         strategy="",
         strategy_list=[],
-        params=""
+        params="",
+        timeout=0
     )
     controller_send_to_backend(message)
 
 
-def report_recover_strategy(fault_ranks: dict, strategy_list: list) -> int:
-    info = (f"call ReportRecoverStrategy, fault_ranks:{fault_ranks}, strategy_list:{strategy_list}")
-    run_log.info(info)
+def report_recover_strategy(fault_ranks: dict, strategy_list: list):
+    run_log.info(f"call ReportRecoverStrategy, fault_ranks:{fault_ranks}, strategy_list:{strategy_list}")
     message = ControllerMessage(
         actions=[],
         action="recover_strategy",
@@ -209,14 +219,15 @@ def report_recover_strategy(fault_ranks: dict, strategy_list: list) -> int:
         fault_ranks=fault_ranks,
         strategy_list=strategy_list,
         strategy="",
-        params=""
+        params="",
+        timeout=0
+
     )
     controller_send_to_backend(message)
     
 
-def report_recover_status(code: int, msg: str, fault_ranks: dict, strategy: str) -> int:
-    info = (f"call ReportRecoverStatus, strategy: {strategy}, msg: {msg}")
-    run_log.info(info)
+def report_recover_status(code: int, msg: str, fault_ranks: dict, strategy: str):
+    run_log.info(f"call ReportRecoverStatus, strategy: {strategy}, msg: {msg}")
     message = ControllerMessage(
         actions=[],
         action="recover_status",
@@ -225,14 +236,14 @@ def report_recover_status(code: int, msg: str, fault_ranks: dict, strategy: str)
         fault_ranks=fault_ranks,
         strategy=strategy,
         strategy_list=[],
-        params=""
+        params="",
+        timeout=0
     )
     controller_send_to_backend(message)
     
 
-def report_process_fault(fault_ranks: dict) -> int:
-    info = (f"call ReportProcessFault, fault_ranks:{fault_ranks}")
-    run_log.info(info)
+def report_process_fault(fault_ranks: dict):
+    run_log.info(f"call ReportProcessFault, fault_ranks:{fault_ranks}")
     message = ControllerMessage(
         actions=[],
         action="process_fault",
@@ -241,13 +252,15 @@ def report_process_fault(fault_ranks: dict) -> int:
         fault_ranks=fault_ranks,
         strategy="",
         strategy_list=[],
-        params=""
+        params="",
+        timeout=0
     )
     controller_send_to_backend(message)
     
     
 def controller_send_to_backend(message):
     msg_json = json.dumps(asdict(message)).encode('utf-8')
+    run_log.info(f"controller_send_to_backend msg_json: {msg_json}")
     try:
         if cython_api.lib is None:
             run_log.error(f'controller_send_to_backend cython_api.lib is None')
