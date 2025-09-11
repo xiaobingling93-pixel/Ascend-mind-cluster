@@ -36,6 +36,7 @@ import (
 const (
 	agent0Name = "0"
 	agent1Name = "1"
+	testLen    = 2
 )
 
 func getRecoverPlugin() *RecoverPlugin {
@@ -57,11 +58,20 @@ func getDemoSnapshot() storage.SnapShot {
 func getSnapshotWithClusterInfo() storage.SnapShot {
 	snapshot := getDemoSnapshot()
 	faultRanks := map[int]int{0: 0, 1: 1}
-	faultRanksStr, _ := json.Marshal(faultRanks)
+	faultRanksStr, err := json.Marshal(faultRanks)
+	if err != nil {
+		hwlog.RunLog.Error("test marshal faultRanks failed")
+	}
 	nodeIds := []string{agent0Name}
-	nodeIdsStr, _ := json.Marshal(nodeIds)
+	nodeIdsStr, err := json.Marshal(nodeIds)
+	if err != nil {
+		hwlog.RunLog.Error("test marshal faultRanks failed")
+	}
 	actions := []string{clusterdconstant.ChangeStrategyAction}
-	actionsStr, _ := json.Marshal(actions)
+	actionsStr, err := json.Marshal(actions)
+	if err != nil {
+		hwlog.RunLog.Error("test marshal actions failed")
+	}
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.FaultRanks] = string(faultRanksStr)
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.NodeRankIds] = string(nodeIdsStr)
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.Actions] = string(actionsStr)
@@ -73,7 +83,10 @@ func getSnapshotWithClusterInfo() storage.SnapShot {
 func getSnapshotWithSaveAndExit() storage.SnapShot {
 	snapshot := getDemoSnapshot()
 	nodeIds := []string{agent0Name}
-	nodeIdsStr, _ := json.Marshal(nodeIds)
+	nodeIdsStr, err := json.Marshal(nodeIds)
+	if err != nil {
+		hwlog.RunLog.Error("test marshal nodeIds failed")
+	}
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.SignalType] = clusterdconstant.SaveAndExitSignalType
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.Uuid] = "save-exit-uuid"
 	snapshot.ClusterInfos.Clusters[constant.ClusterDRank].Command[constant.NodeRankIds] = string(nodeIdsStr)
@@ -148,7 +161,7 @@ func TestGetClusterInfo(t *testing.T) {
 		snapshot := getSnapshotWithClusterInfo()
 		err := plugin.getClusterInfo(snapshot)
 		convey.ShouldBeNil(err)
-		convey.ShouldEqual(len(plugin.faultRanks), 2)
+		convey.ShouldEqual(len(plugin.faultRanks), testLen)
 		convey.ShouldEqual(len(plugin.faultNode), 1)
 		convey.ShouldEqual(len(plugin.actions), 1)
 		convey.ShouldEqual(plugin.uuid, "test-uuid")
@@ -218,7 +231,7 @@ func TestBuildSaveAndExitMessage(t *testing.T) {
 		plugin := getRecoverPlugin()
 		plugin.faultNode = []string{agent0Name}
 		plugin.buildSaveAndExitMessage()
-		convey.ShouldEqual(len(plugin.pullMsgs), 2)
+		convey.ShouldEqual(len(plugin.pullMsgs), testLen)
 		convey.ShouldEqual(plugin.pullMsgs[0].Receiver[0], constant.ControllerName)
 		convey.ShouldEqual(plugin.pullMsgs[1].Receiver[0], common.AgentRole+agent0Name)
 	})
