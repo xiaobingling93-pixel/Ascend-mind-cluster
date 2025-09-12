@@ -690,6 +690,7 @@ type testSubHealthyCase struct {
 	faultInfo               constant.JobFaultInfo
 	mockFramework           string
 	mockOnlySupportDump     bool
+	state                   string
 	expectedResult          bool
 	expectHotSwitchDisabled bool
 }
@@ -794,11 +795,27 @@ func buildTestCases2() []testSubHealthyCase {
 		},
 	}
 }
+func buildTestCases3() []testSubHealthyCase {
+	return []testSubHealthyCase{
+		{name: "skip when state machine is in annother state",
+			controller: &EventController{
+				jobInfo: common.JobBaseInfo{
+					Framework: constant.PtFramework,
+				},
+			},
+			faultInfo:               constant.JobFaultInfo{HealthyState: constant.SubHealthyState},
+			state:                   common.FaultOccurEvent,
+			expectedResult:          true,
+			expectHotSwitchDisabled: false,
+		},
+	}
+}
 
 func TestSkipHandleSubHealthyFaults(t *testing.T) {
 	var tests []testSubHealthyCase
 	tests = append(tests, buildTestCases1()...)
 	tests = append(tests, buildTestCases2()...)
+	tests = append(tests, buildTestCases3()...)
 
 	for _, tt := range tests {
 		convey.Convey(tt.name, t, func() {
@@ -807,6 +824,10 @@ func TestSkipHandleSubHealthyFaults(t *testing.T) {
 			patch.ApplyPrivateMethod(tt.controller, "onlySupportDumpStrategy", func() bool {
 				return tt.mockOnlySupportDump
 			})
+			tt.controller.state = common.NewStateMachine(common.InitState, nil)
+			if tt.state != "" {
+				tt.controller.state = common.NewStateMachine(tt.state, nil)
+			}
 			result := (&FaultRecoverService{}).skipHandleSubHealthyFaults(tt.controller, tt.faultInfo)
 			convey.So(result, convey.ShouldEqual, tt.expectedResult)
 			if tt.expectHotSwitchDisabled {

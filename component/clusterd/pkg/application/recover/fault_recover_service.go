@@ -212,11 +212,18 @@ func (s *FaultRecoverService) skipHandleSubHealthyFaults(ctl *EventController,
 
 func skipHandleSubHealthyHotSwitch(ctl *EventController, faultInfo constant.JobFaultInfo) bool {
 	if ctl.jobInfo.Framework != constant.PtFramework {
-		hwlog.RunLog.Warnf("subhealthy hotswitch only support pytorch framework,current framework is:%v ", ctl.jobInfo.Framework)
+		hwlog.RunLog.Warnf("subhealthy hotswitch only support pytorch framework,current is:%v ", ctl.jobInfo.Framework)
 		ctl.jobInfo.HotSwitch = false
 		ctl.jobInfo.SubHealthyStrategy = constant.SubHealthyIngore
 		return true
 	}
+	// If it is in another state machine process, skip for this time
+	if ctl.state.GetState() != common.InitState {
+		hwlog.RunLog.ErrorfWithLimit(constant.SubHealthyState, ctl.jobInfo.JobId,
+			"not handle subhealth hotswitch when state machine is in another state, jobId=%s", ctl.jobInfo.JobId)
+		return true
+	}
+	hwlog.ResetErrCnt(constant.SubHealthyState, ctl.jobInfo.JobId)
 	newFaultRankList := make([]constant.FaultRank, 0)
 	faultPods := map[string]struct{}{}
 	for _, info := range faultInfo.FaultList {
