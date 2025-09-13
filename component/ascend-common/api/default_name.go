@@ -20,6 +20,8 @@ const (
 	Ascend = "Ascend"
 	// AscendJob job kind is AscendJob
 	AscendJob = "AscendJob"
+	// AscendJobsLowerCase for ascend jobs lowercase
+	AscendJobsLowerCase = "ascendjobs"
 
 	// AscendOperator ascend-Operator
 	AscendOperator = "ascend-Operator"
