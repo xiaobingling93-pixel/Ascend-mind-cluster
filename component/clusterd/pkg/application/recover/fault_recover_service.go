@@ -226,6 +226,7 @@ func skipHandleSubHealthyHotSwitch(ctl *EventController, faultInfo constant.JobF
 	hwlog.ResetErrCnt(constant.SubHealthyState, ctl.jobInfo.JobId)
 	newFaultRankList := make([]constant.FaultRank, 0)
 	faultPods := map[string]struct{}{}
+	currentHandlePod := ""
 	for _, info := range faultInfo.FaultList {
 		if info.PodUid == "" || info.PodRank == "" {
 			hwlog.RunLog.Warnf("invalid pod info, podId=%s, podRank=%s", info.PodUid, info.PodRank)
@@ -235,6 +236,12 @@ func skipHandleSubHealthyHotSwitch(ctl *EventController, faultInfo constant.JobF
 			continue
 		}
 		faultPods[info.PodRank] = struct{}{}
+		if currentHandlePod == "" {
+			currentHandlePod = info.PodUid
+		}
+		if info.PodUid != currentHandlePod {
+			continue
+		}
 		newFaultRankList = append(newFaultRankList, info)
 	}
 	if len(newFaultRankList) == 0 {
