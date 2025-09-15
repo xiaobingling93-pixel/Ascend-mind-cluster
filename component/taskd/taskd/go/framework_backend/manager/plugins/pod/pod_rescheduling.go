@@ -37,6 +37,7 @@ type PodReschedulingPlugin struct {
 	uuid             string
 	exitStratrgy     bool
 	actions          []string
+	handleMap        map[string]string
 }
 
 var (
@@ -53,6 +54,7 @@ func NewPodReschedulingPlugin() infrastructure.ManagerPlugin {
 		faultAgentStatus: make(map[string]bool),
 		restartTimes:     defaultTimes,
 		actions:          make([]string, 0),
+		handleMap:        make(map[string]string),
 	}
 }
 
@@ -64,6 +66,9 @@ func (pod *PodReschedulingPlugin) Name() string {
 // Handle handle pod rescheduling plugin
 func (pod *PodReschedulingPlugin) Handle() (infrastructure.HandleResult, error) {
 	pod.processStatus = constant.HandleStageProcess
+	if pod.uuid != "" {
+		pod.handleMap[pod.uuid] = constant.HandleDone
+	}
 	exitReceiver := make([]string, 0)
 	restartReceiver := make([]string, 0)
 	for agentName, faultStatus := range pod.faultAgentStatus {
@@ -247,7 +252,7 @@ func (pod *PodReschedulingPlugin) checkExitStrategy(shot storage.SnapShot) (infr
 			PluginName: pod.Name(), CandidateStatus: constant.UnselectStatus, PredicateStream: nil}, nil
 	}
 	clusterUuid := clusterInfo.Command[constant.Uuid]
-	if pod.uuid == clusterUuid {
+	if pod.uuid == clusterUuid && pod.handleMap[clusterUuid] == constant.HandleDone {
 		hwlog.RunLog.Debug("cluster uuid not change")
 		return infrastructure.PredicateResult{
 			PluginName: pod.Name(), CandidateStatus: constant.UnselectStatus, PredicateStream: nil}, nil

@@ -405,4 +405,6 @@ const (
 	DestroyController = "destroy_controller"
 	// SaveAndExit save and exit
 	SaveAndExit = "save_and_exit"
+	// HandleDone handle done
+	HandleDone = "done"
 )
