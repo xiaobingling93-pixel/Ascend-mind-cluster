@@ -136,7 +136,7 @@ func (asTask *NPUTask) EvictJobByTask(ssn *framework.Session, reason string, tas
 
 // UpdatePodPendingReason update pod pending reason.
 func (asTask *NPUTask) UpdatePodPendingReason(taskInfo *api.TaskInfo, reasonTmp string) error {
-	if asTask == nil {
+	if asTask == nil || taskInfo == nil {
 		klog.V(LogErrorLev).Infof("UpdatePodPendingReason failed: %s.", ArgumentError)
 		return fmt.Errorf(ArgumentError)
 	}
