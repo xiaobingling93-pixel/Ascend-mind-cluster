@@ -72,8 +72,8 @@ func (j *JobCollectorMgr) JobCollector(ctx context.Context) {
 
 // ACJobInfoCollector collector acJob info
 func ACJobInfoCollector(oldInfo, newInfo *v1.AscendJob, operator string) {
-	if oldInfo == nil || newInfo == nil {
-		hwlog.RunLog.Error("oldInfo or newInfo is nil")
+	if newInfo == nil {
+		hwlog.RunLog.Error("newInfo is nil")
 		return
 	}
 	switch operator {
@@ -105,8 +105,8 @@ func acJobMessage(oldJobInfo, newJobInfo *v1.AscendJob, operator string) {
 
 // VCJobInfoCollector collector acJob info
 func VCJobInfoCollector(oldInfo, newInfo *v1alpha1.Job, operator string) {
-	if oldInfo == nil || newInfo == nil {
-		hwlog.RunLog.Error("oldInfo or newInfo is nil")
+	if newInfo == nil {
+		hwlog.RunLog.Error("newInfo is nil")
 		return
 	}
 	switch operator {
