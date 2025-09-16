@@ -132,6 +132,11 @@ func TestPodCollector(t *testing.T) {
 	convey.Convey("test PodCollector", t, func() {
 		oldPod := getDemoPod(podName1, podNameSpace1, podUid1, podRank1)
 		newPod := getDemoPod(podName1, podNameSpace1, podUid1, podRank1)
+		convey.Convey("test pod info is nil", func() {
+			PodCollector(oldPod, nil, constant.AddOperator)
+			convey.So(len(pod.GetPodByJobId(jobUid1)), convey.ShouldEqual, 0)
+			convey.So(len(pod.GetSimplePodByJobId(jobUid1)), convey.ShouldEqual, 0)
+		})
 		convey.Convey("test add pod message", func() {
 			PodCollector(oldPod, newPod, constant.AddOperator)
 			convey.So(len(pod.GetPodByJobId(jobUid1)), convey.ShouldEqual, 1)

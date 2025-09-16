@@ -37,8 +37,8 @@ func PodGroupCollector(oldPGInfo, newPGInfo *v1beta1.PodGroup, operator string) 
 
 // PodCollector collector pod info
 func PodCollector(oldPodInfo, newPodInfo *v1.Pod, operator string) {
-	if oldPodInfo == nil || newPodInfo == nil {
-		hwlog.RunLog.Error("oldPodInfo or newPodInfo is nil")
+	if newPodInfo == nil {
+		hwlog.RunLog.Error("newPodInfo is nil")
 		return
 	}
 	switch operator {
@@ -55,6 +55,9 @@ func PodCollector(oldPodInfo, newPodInfo *v1.Pod, operator string) {
 }
 
 func refreshCmWhenPodRescheduleInPlace(oldPodInfo, newPodInfo *v1.Pod) {
+	if oldPodInfo == nil || newPodInfo == nil {
+		return
+	}
 	if oldPodInfo.Annotations[api.RescheduleInPlaceKey] == "" &&
 		newPodInfo.Annotations[api.RescheduleInPlaceKey] == api.RescheduleInPlaceValue {
 		hwlog.RunLog.Infof("refresh cm when pod %s reschedule in place", newPodInfo.Name)
