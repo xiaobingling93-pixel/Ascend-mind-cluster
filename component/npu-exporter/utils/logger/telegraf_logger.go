@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/influxdata/telegraf"
 
@@ -26,6 +27,11 @@ import (
 )
 
 var defaultTelegrafLogPath = "/var/log/mindx-dl/npu-exporter/npu-plugin.log"
+var dangerousChars = map[string]string{
+	"\n": "\\n",
+	"\r": "\\r",
+	"\t": "\\t",
+}
 
 type telegrafLogger struct {
 	acc telegraf.Accumulator
@@ -43,7 +49,10 @@ func (c *telegrafLogger) log(ctx context.Context, level Level, args ...interface
 
 // logf logs with specified level and format
 func (c *telegrafLogger) logf(ctx context.Context, level Level, format string, args ...interface{}) {
-
+	sanitized := format
+	for char, replacement := range dangerousChars {
+		sanitized = strings.ReplaceAll(sanitized, char, replacement)
+	}
 	if level < InfoLevel || c.acc == nil {
 		fn, ok := logfFuncs[level]
 		if !ok {
@@ -51,11 +60,11 @@ func (c *telegrafLogger) logf(ctx context.Context, level Level, format string, a
 			return
 		}
 
-		fn(hwlog.DeepIncrease(ctx), format, args...)
+		fn(hwlog.DeepIncrease(ctx), sanitized, args...)
 		return
 	}
 
-	c.acc.AddError(errors.New(fmt.Sprintf(format, args...)))
+	c.acc.AddError(errors.New(fmt.Sprintf(sanitized, args...)))
 }
 
 // LogfWithOptions print log info with options
