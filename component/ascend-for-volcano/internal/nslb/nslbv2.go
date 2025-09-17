@@ -328,7 +328,7 @@ func (th *TorHandlerV2) setNslbV2PodAnnotation(task *api.TaskInfo, nodeName stri
 		task.Pod.Annotations[isHealthy] = strconv.Itoa(tor.IsHealthy)
 	}
 	defer func() {
-		if task.Pod.Annotations[isSharedTor] == strconv.Itoa(sharedTor) {
+		if tor != nil && task.Pod.Annotations[isSharedTor] == strconv.Itoa(sharedTor) {
 			task.Pod.Annotations[SharedTorIp] = tor.IP
 		}
 	}()

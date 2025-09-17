@@ -41,12 +41,14 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 
 // setDefaultPort sets the default ports for mindxdl container.
 func setDefaultPort(spec *v1.PodSpec) {
+	if spec == nil || len(spec.Containers) == 0 {
+		return
+	}
 	index := 0
 	for i, container := range spec.Containers {
 		if container.Name == api.DefaultContainerName {
 			index = i
 			break
-
 		}
 	}
 	hasASJobPort := false
@@ -114,6 +116,9 @@ func SetDefaultsAscendJob(job *AscendJob) {
 	setTypeNamesToCamelCase(job)
 
 	for _, spec := range job.Spec.ReplicaSpecs {
+		if spec == nil {
+			continue
+		}
 		// Set default replicas to 1.
 		setDefaultReplicas(spec)
 		// Set default port to ml container.

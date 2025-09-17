@@ -87,6 +87,9 @@ func (sJob SchedulerJobAttr) IsLargeModelJob() bool {
 
 // IsTorAffinityJob check job is tor affinity job
 func (sJob *SchedulerJobAttr) IsTorAffinityJob() bool {
+	if sJob == nil {
+		return false
+	}
 	if k, ok := sJob.Label[TorAffinityKey]; ok && (k == LargeModelTag || k == NormalSchema) {
 		return true
 	}
@@ -95,6 +98,9 @@ func (sJob *SchedulerJobAttr) IsTorAffinityJob() bool {
 
 // IsJobHasTorAffinityLabel check job has tor affinity label
 func (sJob *SchedulerJobAttr) IsJobHasTorAffinityLabel() bool {
+	if sJob == nil {
+		return false
+	}
 	k, ok := sJob.Label[TorAffinityKey]
 	return ok && k != NullTag
 }
@@ -104,6 +110,9 @@ func (sJob *SchedulerJobAttr) IsJobHasTorAffinityLabel() bool {
 // static segmentation: huawei.com/Ascend910-Y.
 // no segmentation: huawei.com/Ascend910.
 func (nJob *NPUJob) IsVJob() bool {
+	if nJob == nil {
+		return false
+	}
 	if len(strings.Split(nJob.ReqNPUName, "-")) > 1 {
 		return true
 	}

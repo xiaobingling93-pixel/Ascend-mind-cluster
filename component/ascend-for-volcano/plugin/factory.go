@@ -122,6 +122,9 @@ func (sHandle *ScheduleHandler) initJobScheduleInfoRecorder() {
 }
 
 func getOwnerInfo(jobInfo *api.JobInfo, vf VolcanoFrame) (OwnerInfo, error) {
+	if jobInfo == nil {
+		return OwnerInfo{}, errors.New(util.ArgumentError)
+	}
 	owner := getPodGroupOwnerRef(jobInfo.PodGroup.PodGroup)
 	if owner.Kind != ReplicaSetType {
 		return OwnerInfo{OwnerReference: owner}, nil

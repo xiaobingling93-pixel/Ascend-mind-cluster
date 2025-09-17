@@ -54,6 +54,7 @@ char *FormatLogMessage(char *format, ...)
     va_start(list, format);
     char *buf = (char *)malloc(size);
     if (buf == NULL) {
+        va_end(list);
         return NULL;
     }
     ret = vsnprintf_s(buf, size, size - 1, format, list);
