@@ -16,6 +16,7 @@
 package cluster
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"ascend-faultdiag-online/pkg/core/config"
@@ -30,6 +32,7 @@ import (
 	"ascend-faultdiag-online/pkg/model/slownode"
 	"ascend-faultdiag-online/pkg/service/servicefunc/slownode/slownodejob"
 	"ascend-faultdiag-online/pkg/utils/constants"
+	"ascend-faultdiag-online/pkg/utils/k8s"
 )
 
 func TestWaitNodeReport(t *testing.T) {
@@ -140,6 +143,165 @@ func testJobProcessorWithCase2(job *slownode.Job) {
 			JobProcessor(nil, job, watch.Bookmark)
 		})
 		convey.So(output, convey.ShouldEqual, "")
+	})
+}
+
+func TestCreateOrUpdateCM(t *testing.T) {
+	convey.Convey("Test createOrUpdateCM", t, func() {
+		testCreateOrUpdateCMWithNilCtx()
+		testCreateOrUpdateCMWithUnmarshalFailed()
+		testCreateOrUpdateCMWithNilK8s()
+		testCreateOrUpdateCMWithFailed()
+		testCreateOrUpdateCMWithSuccess()
+	})
+}
+
+func testCreateOrUpdateCMWithNilCtx() {
+	convey.Convey("should return error when ctx is nil", func() {
+		p := jobProcessor{}
+		err := p.createOrUpdateCM()
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldEqual, "createOrUpdateCM failed: ctx is nil")
+	})
+}
+
+func testCreateOrUpdateCMWithUnmarshalFailed() {
+	convey.Convey("should return error when unmarshall failed", func() {
+		patch := gomonkey.ApplyFunc(json.MarshalIndent, func(v any, prefix, indent string) ([]byte, error) {
+			return nil, fmt.Errorf("mock marshal failed")
+		})
+		defer patch.Reset()
+		p := jobProcessor{
+			ctx: ctxGenerator(),
+		}
+		err := p.createOrUpdateCM()
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldEqual, "mock marshal failed")
+	})
+}
+
+func testCreateOrUpdateCMWithNilK8s() {
+	convey.Convey("should return error when get k8s client failed", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			return nil, fmt.Errorf("mock get k8s client failed")
+		})
+		defer patch.Reset()
+		p := jobProcessor{
+			ctx: ctxGenerator(),
+			job: ctxGenerator().Job,
+		}
+		err := p.createOrUpdateCM()
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldEqual, "mock get k8s client failed")
+	})
+}
+
+func testCreateOrUpdateCMWithFailed() {
+	convey.Convey("should return error when CreateOrUpdateConfigMap failed", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			return &k8s.Client{}, nil
+		})
+		patch.ApplyMethod(
+			reflect.TypeOf(&k8s.Client{}),
+			"CreateOrUpdateConfigMap",
+			func(*k8s.Client, *v1.ConfigMap) error {
+				return fmt.Errorf("mock CreateOrUpdateConfigMap failed")
+			})
+		defer patch.Reset()
+		p := jobProcessor{
+			ctx: ctxGenerator(),
+			job: ctxGenerator().Job,
+		}
+		err := p.createOrUpdateCM()
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldEqual, "mock CreateOrUpdateConfigMap failed")
+	})
+}
+
+func testCreateOrUpdateCMWithSuccess() {
+	convey.Convey("should create or update cm successfully", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			return &k8s.Client{}, nil
+		})
+		patch.ApplyMethod(
+			reflect.TypeOf(&k8s.Client{}),
+			"CreateOrUpdateConfigMap",
+			func(*k8s.Client, *v1.ConfigMap) error {
+				return nil
+			})
+		defer patch.Reset()
+		p := jobProcessor{
+			ctx: ctxGenerator(),
+			job: ctxGenerator().Job,
+		}
+		err := p.createOrUpdateCM()
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestDeleteCM(t *testing.T) {
+	convey.Convey("Test deleteCM", t, func() {
+		testDeleteCMWithNilCtx()
+		testDeleteCMWithNilK8s()
+		testDeleteCMWithFailed()
+		testDeleteCMWithSuccess()
+	})
+}
+
+func testDeleteCMWithNilCtx() {
+	convey.Convey("ctx is nil", func() {
+		p := jobProcessor{job: ctxGenerator().Job}
+		p.deleteCM()
+	})
+}
+func testDeleteCMWithNilK8s() {
+	convey.Convey("k8s is nil", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			fmt.Print("mock get k8s client failed")
+			return nil, fmt.Errorf("mock get k8s client failed")
+		})
+		defer patch.Reset()
+		p := jobProcessor{ctx: ctxGenerator(), job: ctxGenerator().Job}
+		output := captureOutput(func() {
+			p.deleteCM()
+		})
+		convey.So(output, convey.ShouldContainSubstring, "mock get k8s client failed")
+	})
+}
+func testDeleteCMWithFailed() {
+	convey.Convey("DeleteConfigMap failed", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			return &k8s.Client{}, nil
+		})
+		patch.ApplyMethod(
+			reflect.TypeOf(&k8s.Client{}),
+			"DeleteConfigMap",
+			func(*k8s.Client, string, string) error {
+				fmt.Println("mock DeleteConfigMap failed")
+				return fmt.Errorf("mock DeleteConfigMap failed")
+			})
+		defer patch.Reset()
+		p := jobProcessor{ctx: ctxGenerator(), job: ctxGenerator().Job}
+		output := captureOutput(func() {
+			p.deleteCM()
+		})
+		convey.So(output, convey.ShouldContainSubstring, "mock DeleteConfigMap failed")
+	})
+}
+func testDeleteCMWithSuccess() {
+	convey.Convey("delete cm successfully", func() {
+		patch := gomonkey.ApplyFunc(k8s.GetClient, func() (*k8s.Client, error) {
+			return &k8s.Client{}, nil
+		})
+		patch.ApplyMethod(
+			reflect.TypeOf(&k8s.Client{}),
+			"DeleteConfigMap",
+			func(*k8s.Client, string, string) error {
+				return nil
+			})
+		defer patch.Reset()
+		p := jobProcessor{ctx: ctxGenerator(), job: ctxGenerator().Job}
+		p.deleteCM()
 	})
 }
 
