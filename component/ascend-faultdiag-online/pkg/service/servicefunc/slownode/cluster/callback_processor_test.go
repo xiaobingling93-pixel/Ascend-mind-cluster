@@ -93,10 +93,11 @@ func TestAlgoCallbackProcessor(t *testing.T) {
 			AlgoCallbackProcessor(message)
 		})
 		convey.Convey("normal", func() {
-			mock := gomonkey.ApplyFunc(
-				profilingDataProcessor,
-				func(*slownodejob.JobContext, *slownode.ClusterAlgoResult) {
-					fmt.Println("call profilingDataProcessor")
+			mock := gomonkey.ApplyPrivateMethod(
+				reflect.TypeOf(&degradationProcessor{}),
+				"handle",
+				func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {
+					fmt.Println("call degradationProcessor handle")
 				},
 			)
 			defer mock.Reset()
@@ -105,7 +106,7 @@ func TestAlgoCallbackProcessor(t *testing.T) {
 			output := captureOutput(func() {
 				AlgoCallbackProcessor(message)
 			})
-			convey.So(output, convey.ShouldContainSubstring, "call profilingDataProcessor")
+			convey.So(output, convey.ShouldContainSubstring, "call degradationProcessor handle")
 		})
 	})
 }
@@ -175,15 +176,8 @@ func testNormal() {
 
 }
 
-// close the inline opt by: go env -w GOFLAGS="-gcflags=-l"
-func TestProfilingDataProcessor(t *testing.T) {
-	ctx := &slownodejob.JobContext{
-		Job: &slownode.Job{},
-	}
-	ctx.Job.JobId = "test-job-id"
-	ctx.Job.JobName = "test-job-name"
+func mockFunc(ctx *slownodejob.JobContext) *gomonkey.Patches {
 	patches := gomonkey.NewPatches()
-	defer patches.Reset()
 	patches.ApplyMethod(reflect.TypeOf(ctx), "StartHeavyProfiling", func(_ *slownodejob.JobContext) {
 		setUnexportedFiled(ctx, "isStartedHeavyProfiling", true)
 	})
@@ -191,10 +185,21 @@ func TestProfilingDataProcessor(t *testing.T) {
 		setUnexportedFiled(ctx, "isStartedHeavyProfiling", false)
 		ctx.AlgoRes = make([]*slownode.ClusterAlgoResult, 0)
 	})
-	patches.ApplyFunc(reportSlowNode, func(*slownodejob.JobContext, *slownode.ClusterAlgoResult) {})
-	convey.Convey("TestClusterProcessProfiling", t, func() {
+	return patches
+}
+
+// close the inline opt by: go env -w GOFLAGS="-gcflags=-l"
+func TestDegradationProcessor1(t *testing.T) {
+	ctx := ctxGenerator()
+	patches := mockFunc(ctx)
+	defer patches.Reset()
+	patches.ApplyPrivateMethod(
+		reflect.TypeOf(&degradationProcessor{}),
+		"reportSlowNode",
+		func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {})
+	convey.Convey("TestDegradationProcessor1", t, func() {
 		testNoSlow(ctx)
-		testIsSlow(ctx)
+		testIsSlowCase(ctx)
 		testRecovery(ctx)
 		testStartHeavyProfiling(ctx)
 	})
@@ -203,52 +208,70 @@ func TestProfilingDataProcessor(t *testing.T) {
 func testNoSlow(ctx *slownodejob.JobContext) {
 	result := &slownode.ClusterAlgoResult{}
 	result.IsSlow = 0
-	profilingDataProcessor(ctx, result)
+	processor := newDegradationProcessor(ctx, result)
+	processor.handle()
 	convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
 	ctx.IsDegradation = true
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
 }
 
-func testIsSlow(ctx *slownodejob.JobContext) {
+func testIsSlowCase(ctx *slownodejob.JobContext) {
 	var num2 = 2
+	var callReportSlowNodeCount int
+	patch := gomonkey.ApplyPrivateMethod(
+		reflect.TypeOf(&degradationProcessor{}),
+		"reportSlowNode",
+		func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {
+			callReportSlowNodeCount++
+		},
+	)
+	defer patch.Reset()
 	result := &slownode.ClusterAlgoResult{}
 	result.IsSlow = 1
-	profilingDataProcessor(ctx, result)
+	processor := newDegradationProcessor(ctx, result)
+	processor.handle()
 	// start heavy profiling
 	convey.So(len(ctx.AlgoRes), convey.ShouldEqual, 1)
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
 	// one more time, no need to start heavy profiling again
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	convey.So(len(ctx.AlgoRes), convey.ShouldEqual, num2)
 	// 3 times degradation, stop heavy profiling
 	for i := 0; i < 3; i++ {
-		profilingDataProcessor(ctx, result)
+		processor.handle()
 	}
 	convey.So(len(ctx.AlgoRes), convey.ShouldEqual, 0)
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
 	convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+	convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+	// rank ids exists, call reportSlowNode
+	result.SlowCalculateRanks = []int{0}
+	processor.handle()
+	convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+	convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
 }
 
 func testRecovery(ctx *slownodejob.JobContext) {
 	var count = 4
 	result := &slownode.ClusterAlgoResult{}
 	result.IsSlow = 0
+	processor := newDegradationProcessor(ctx, result)
 	// recovery, stop heavy profiling
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
 	convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
 	// no slow in the 5 times degradation
 	result.IsSlow = 1
 	for i := 0; i < count; i++ {
-		profilingDataProcessor(ctx, result)
+		processor.handle()
 	}
 	convey.So(len(ctx.AlgoRes), convey.ShouldEqual, count)
 	convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
 	// IsSlow is 0, stop heavy profiling
 	result.IsSlow = 0
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
 	convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
 }
@@ -256,24 +279,102 @@ func testRecovery(ctx *slownodejob.JobContext) {
 func testStartHeavyProfiling(ctx *slownodejob.JobContext) {
 	result := &slownode.ClusterAlgoResult{}
 	result.IsSlow = 0
+	processor := newDegradationProcessor(ctx, result)
 	// clear
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	// is slow, start heavy profiling
 	result.IsSlow = 1
-	profilingDataProcessor(ctx, result)
+	processor.handle()
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
 	// 5 times isSlow, Degradation, stop heavy profiling
 	for i := 0; i < 4; i++ {
-		profilingDataProcessor(ctx, result)
+		processor.handle()
 	}
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
 	convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
 	// 100 times isSlow, ignore it
 	for i := 0; i < 100; i++ {
-		profilingDataProcessor(ctx, result)
+		processor.handle()
 	}
 	convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
 	convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+}
+
+func TestDegradationProcessor2(t *testing.T) {
+	// no rank ids, no call reportSlowNode
+	// got rankd ids during heavy profiling, call reportSlowNode
+	// no more need to call reportSlowNode after called once
+	ctx := ctxGenerator()
+	patches := mockFunc(ctx)
+	defer patches.Reset()
+	var callReportSlowNodeCount int
+	patches.ApplyPrivateMethod(
+		reflect.TypeOf(&degradationProcessor{}),
+		"reportSlowNode",
+		func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {
+			callReportSlowNodeCount++
+		})
+	convey.Convey("test got SlowCalculateRanks during heavy profiling", t, func() {
+		result := &slownode.ClusterAlgoResult{}
+		result.IsSlow = 1
+		processor := newDegradationProcessor(ctx, result)
+		// start heavy profiling
+		processor.handle()
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+		// 4 times degradation, stop heavy profiling
+		result.SlowCalculateRanks = []int{0}
+		for i := 0; i < 4; i++ {
+			processor.handle()
+		}
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
+		convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
+		// 100 times degradation, no need to call reportSlowNode again
+		for i := 0; i < 100; i++ {
+			processor.handle()
+		}
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
+	})
+}
+
+func TestDegradationProcessor3(t *testing.T) {
+	ctx := ctxGenerator()
+	patches := mockFunc(ctx)
+	defer patches.Reset()
+	var callReportSlowNodeCount int
+	patches.ApplyPrivateMethod(
+		reflect.TypeOf(&degradationProcessor{}),
+		"reportSlowNode",
+		func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {
+			callReportSlowNodeCount++
+		})
+	convey.Convey("test got SlowCalculateRanks after heavy profiling", t, func() {
+		callReportSlowNodeCount = 0
+		result := &slownode.ClusterAlgoResult{}
+		result.IsSlow = 1
+		processor := newDegradationProcessor(ctx, result)
+		// start heavy profiling
+		processor.handle()
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+		// 4 times degradation, stop heavy profiling
+		for i := 0; i < 4; i++ {
+			processor.handle()
+		}
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
+		convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+		// got rank ids, call reportSlowNode
+		result.SlowCalculateRanks = []int{0}
+		processor.handle()
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
+		// 100 times degradation, no need to call reportSlowNode again
+		for i := 0; i < 100; i++ {
+			processor.handle()
+		}
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
+	})
 }
 
 func TestReportSlowNodet(t *testing.T) {
@@ -281,6 +382,7 @@ func TestReportSlowNodet(t *testing.T) {
 	ctx.Job.JobId = "test_job_id"
 	ctx.Job.JobName = "test_job_name"
 	result := &slownode.ClusterAlgoResult{}
+	processor := newDegradationProcessor(ctx, result)
 	convey.Convey("test reportSlowNode", t, func() {
 		convey.Convey("get grpc client failed", func() {
 			mock := gomonkey.ApplyFunc(grpc.GetClient, func() (*grpc.Client, error) {
@@ -289,7 +391,7 @@ func TestReportSlowNodet(t *testing.T) {
 			})
 			defer mock.Reset()
 			output := captureOutput(func() {
-				reportSlowNode(ctx, result)
+				processor.reportSlowNode()
 			})
 			convey.So(output, convey.ShouldContainSubstring, "mock get client failed")
 		})
@@ -307,7 +409,7 @@ func TestReportSlowNodet(t *testing.T) {
 				})
 			defer mock.Reset()
 			output := captureOutput(func() {
-				reportSlowNode(ctx, result)
+				processor.reportSlowNode()
 			})
 			convey.So(output, convey.ShouldContainSubstring, "mock ReportFault failed")
 		})
@@ -317,6 +419,6 @@ func TestReportSlowNodet(t *testing.T) {
 			func(*grpc.Client, []*pubfault.Fault) error {
 				return nil
 			})
-		reportSlowNode(ctx, result)
+		processor.reportSlowNode()
 	})
 }

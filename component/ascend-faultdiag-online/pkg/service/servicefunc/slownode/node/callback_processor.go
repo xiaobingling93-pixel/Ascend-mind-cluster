@@ -56,15 +56,15 @@ func AlgoCallbackProcessor(message string) {
 			nodeResult.JobId)
 		return
 	}
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", ctx.Job.JobName, ctx.Job.JobId)
 	if nodeResult.IsSlow == constants.IsDegradation {
-		hwlog.RunLog.Infof("%s detected node: %v degradation", logPrefix, nodeResult.NodeRank)
+		hwlog.RunLog.Infof("%s detected node: %v is degradation, slow rank ids: %v",
+			ctx.LogPrefix(), nodeResult.NodeRank, nodeResult.SlowCalculateRanks)
 	}
 	nodeResult.JobName = ctx.Job.JobName
 	nodeResult.Namespace = ctx.Job.Namespace
 	cmName := fmt.Sprintf("%s-%s-%s", constants.NodeAlgoResultPrefix, nodeResult.JobId, nodeResult.NodeRank)
 	if err := callbackReport(&nodeResult, cmName, constants.NodeAlgoResultCMKey, ctx); err != nil {
-		hwlog.RunLog.Errorf("%s reported node algo result failed: %v", logPrefix, err)
+		hwlog.RunLog.Errorf("%s reported node algo result failed: %v", ctx.LogPrefix(), err)
 	}
 }
 

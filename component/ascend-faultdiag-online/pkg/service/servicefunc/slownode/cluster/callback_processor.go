@@ -19,7 +19,6 @@ package cluster
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"time"
 
@@ -61,7 +60,7 @@ func AlgoCallbackProcessor(message string) {
 			result.JobName, result.JobId)
 		return
 	}
-	profilingDataProcessor(ctx, &result)
+	newDegradationProcessor(ctx, &result).handle()
 }
 
 // ParallelGroupInfoCallbackProcessor process the callback data from data parse
@@ -84,67 +83,116 @@ func ParallelGroupInfoCallbackProcessor(message string) {
 	}
 }
 
-func profilingDataProcessor(ctx *slownodejob.JobContext, result *slownode.ClusterAlgoResult) {
-	logPrefix := fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, jobId=%s)", ctx.Job.JobName, ctx.Job.JobId)
-	if result.IsSlow != constants.IsDegradation {
-		if ctx.IsDegradation {
-			// this means the degradation is recovery after the heavy profiling
-			hwlog.RunLog.Infof("%s detected node is not degradation, set the sign of degradation is false", logPrefix)
-			ctx.IsDegradation = false
-			reportSlowNode(ctx, result)
-		}
-		if ctx.IsStartedHeavyProfiling() {
-			// this means algo result is not slow during the heavy profiling
-			hwlog.RunLog.Infof("%s detected node is not degradation, stop heavy profiling", logPrefix)
-			ctx.StopHeavyProfiling()
-		}
-		return
-	}
-	if ctx.IsDegradation {
-		// this means got the degradation result, but the ctx has been record it
-		hwlog.RunLog.Infof("%s in cluster got degradation, no need to start heavy profiling", logPrefix)
-		return
-	}
+type degradationProcessor struct {
+	ctx    *slownodejob.JobContext
+	result *slownode.ClusterAlgoResult
+}
 
-	ctx.AddAlgoRecord(result)
-	if !ctx.IsStartedHeavyProfiling() {
-		hwlog.RunLog.Infof("%s detected node is degradation, start heavy profiling", logPrefix)
-		ctx.StartHeavyProfiling()
-		return
-	}
-	degradation := slicetool.Filter(ctx.AlgoRes, func(record *slownode.ClusterAlgoResult) bool {
-		return record.IsSlow == constants.IsDegradation
-	})
-	if len(degradation) >= maxDegradationCount {
-		hwlog.RunLog.Infof("%s in cluster got degradation", logPrefix)
-		ctx.IsDegradation = true
-		reportSlowNode(ctx, result)
-		ctx.StopHeavyProfiling()
+func newDegradationProcessor(ctx *slownodejob.JobContext, result *slownode.ClusterAlgoResult) *degradationProcessor {
+	return &degradationProcessor{
+		ctx:    ctx,
+		result: result,
 	}
 }
 
-func reportSlowNode(ctx *slownodejob.JobContext, result *slownode.ClusterAlgoResult) {
+func (p *degradationProcessor) handle() {
+	// 1. process the non degradation case
+	if p.result.IsSlow != constants.IsDegradation {
+		p.handleNonDegradation()
+		return
+	}
+
+	// 2. process the degradation case
+	if p.ctx.IsDegradation {
+		p.handleExistingDegradation()
+		return
+	}
+
+	// 3. process the new degradation case
+	p.handleNewDegradation()
+}
+
+func (p *degradationProcessor) handleNonDegradation() {
+	if p.ctx.IsDegradation {
+		// process the recovery case
+		hwlog.RunLog.Infof("%s detected node is not degradation, set the sign of degradation is false",
+			p.ctx.LogPrefix())
+		p.ctx.IsDegradation = false
+		p.reportSlowNode()
+	}
+
+	if p.ctx.IsStartedHeavyProfiling() {
+		// detect algo result is not slow during the heavy profiling
+		hwlog.RunLog.Infof("%s detected node is not degradation, stop heavy profiling", p.ctx.LogPrefix())
+		p.ctx.StopHeavyProfiling()
+	}
+}
+
+func (p *degradationProcessor) handleNewDegradation() {
+	p.ctx.AddAlgoRecord(p.result)
+
+	// start heavy profiling
+	if !p.ctx.IsStartedHeavyProfiling() {
+		hwlog.RunLog.Infof("%s detected node is degradation, start heavy profiling", p.ctx.LogPrefix())
+		p.ctx.StartHeavyProfiling()
+		return
+	}
+
+	// check if confirmed degradation
+	degradation := slicetool.Filter(p.ctx.AlgoRes, func(record *slownode.ClusterAlgoResult) bool {
+		return record.IsSlow == constants.IsDegradation
+	})
+	if len(degradation) >= maxDegradationCount {
+		p.confirmedDegradation()
+	}
+}
+
+func (p *degradationProcessor) handleExistingDegradation() {
+	hwlog.RunLog.Infof("%s in cluster got degradation, no need to start heavy profiling", p.ctx.LogPrefix())
+
+	// report if needed
+	if p.ctx.NeedReport() && len(p.result.SlowCalculateRanks) != 0 {
+		p.reportSlowNode()
+		p.ctx.SetNeedReport(false)
+	}
+}
+
+func (p *degradationProcessor) confirmedDegradation() {
+	hwlog.RunLog.Infof("%s in cluster got degradation, slow rank ids: %v",
+		p.ctx.LogPrefix(), p.result.SlowCalculateRanks)
+
+	p.ctx.IsDegradation = true
+	p.ctx.SetNeedReport(true)
+
+	// report slow node only slow rank ids exist
+	if len(p.result.SlowCalculateRanks) != 0 {
+		p.reportSlowNode()
+		p.ctx.SetNeedReport(false)
+	}
+	p.ctx.StopHeavyProfiling()
+}
+
+func (p *degradationProcessor) reportSlowNode() {
 	grpcClient, err := grpc.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]get grpc client failed: %s", err)
 		return
 	}
 	var fc = recoveryFaultCode
-	if result.IsSlow == constants.IsDegradation {
+	if p.result.IsSlow == constants.IsDegradation {
 		fc = faultCode
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) got hostname failed: %s",
-			ctx.Job.JobName, ctx.Job.JobId, err)
+		hwlog.RunLog.Errorf("%s got hostname failed: %s", p.ctx.LogPrefix(), err)
 	}
-	var deviceIds = make([]int32, len(result.SlowCalculateRanks))
-	for i, v := range result.SlowCalculateRanks {
+	var deviceIds = make([]int32, len(p.result.SlowCalculateRanks))
+	for i, v := range p.result.SlowCalculateRanks {
 		deviceIds[i] = int32(v)
 	}
 	var fault = []*pubfault.Fault{
 		{
-			FaultId:       ctx.Job.JobId,
+			FaultId:       p.ctx.Job.JobId,
 			FaultType:     "Node",
 			FaultCode:     fc,
 			FaultTime:     time.Now().UnixMilli(),
@@ -159,10 +207,8 @@ func reportSlowNode(ctx *slownodejob.JobContext, result *slownode.ClusterAlgoRes
 			Description: "",
 		}}
 	if err := grpcClient.ReportFault(fault); err != nil {
-		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) report slow node detection failed: %s",
-			ctx.Job.JobName, ctx.Job.JobId, err)
+		hwlog.RunLog.Errorf("%s report slow node detection failed: %s", p.ctx.LogPrefix(), err)
 	} else {
-		hwlog.RunLog.Infof("[FD-OL SLOWNODE]job(name=%s, jobId=%s) report slow node detection: %+v successfully",
-			ctx.Job.JobName, ctx.Job.JobId, fault)
+		hwlog.RunLog.Infof("%s report slow node detection: %+v successfully", p.ctx.LogPrefix(), fault)
 	}
 }

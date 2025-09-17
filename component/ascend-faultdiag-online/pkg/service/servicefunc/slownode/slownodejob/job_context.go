@@ -45,6 +45,8 @@ type cluster struct {
 	NodeReportSignal chan struct{}
 	// rescheduleCount the reschedule count of training job
 	rescheduleCount int
+	// whether need report slow node rank ids or not
+	needReport bool
 }
 
 // AddAlgoRecord add the slow node algo result in JobContext
@@ -104,6 +106,18 @@ func (c *cluster) GetRescheduleCount() int {
 func (c *cluster) SetRescheduleCount(count int) {
 	c.mu.Lock()
 	c.rescheduleCount = count
+	defer c.mu.Unlock()
+}
+
+func (c *cluster) NeedReport() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.needReport
+}
+
+func (c *cluster) SetNeedReport(need bool) {
+	c.mu.Lock()
+	c.needReport = need
 	defer c.mu.Unlock()
 }
 
