@@ -39,10 +39,11 @@ func RegisterParseCallback(callback coreModel.CallbackFunc) {
 // DealParseCallback 处理清洗回调
 func DealParseCallback(snpCtxSlice []*context.SnpRankContext, parseJobInfo *model.ParseJobInfo) {
 	callbackPollerFunc := func() (bool, error) {
-		if err := parseCallback(snpCtxSlice, parseJobInfo.JobName, parseJobInfo.JobId); err != nil {
+		stopCallback, err := parseCallback(snpCtxSlice, parseJobInfo.JobName, parseJobInfo.JobId)
+		if err != nil {
 			hwlog.RunLog.Error("[SLOWNODE PARSE]Failed to process parse callback result:", err)
 		}
-		return false, nil
+		return stopCallback, nil
 	}
 	parseJobInfo.JobWg.Add(1)
 	go func(jobId string) {
@@ -56,7 +57,7 @@ func DealParseCallback(snpCtxSlice []*context.SnpRankContext, parseJobInfo *mode
 	}(parseJobInfo.JobId)
 }
 
-func parseCallback(snpCtxSlice []*context.SnpRankContext, jobName string, jobId string) error {
+func parseCallback(snpCtxSlice []*context.SnpRankContext, jobName string, jobId string) (bool, error) {
 	minStepCount := int64(math.MaxInt64)
 	rankIds := make([]string, 0)
 	for _, snpCtx := range snpCtxSlice {
@@ -66,10 +67,11 @@ func parseCallback(snpCtxSlice []*context.SnpRankContext, jobName string, jobId 
 		}
 		rankIds = append(rankIds, snpCtx.RankId)
 	}
+	stopCallback := minStepCount >= constants.ClosStep
 	if err := processParseResult(jobName, jobId, minStepCount, rankIds); err != nil {
-		return err
+		return stopCallback, err
 	}
-	return nil
+	return stopCallback, nil
 }
 
 func processParseResult(jobName string, jobId string, stepCount int64, rankIds []string) error {

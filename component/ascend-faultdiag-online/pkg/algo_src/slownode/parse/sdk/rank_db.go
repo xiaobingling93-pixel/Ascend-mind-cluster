@@ -50,7 +50,7 @@ func initSnpCtx(rankDir string, traffic int64, jobId string) *context.SnpRankCon
 			DbCtx:  db.NewSqliteDbCtx(parserConfig.DbFilePath),
 			Config: parserConfig,
 		},
-		JsonDataQue:  make(chan *model.JsonData, dataQueMaxSize),
+		JsonDataQue:  make(chan []*model.JsonData, dataQueMaxSize),
 		InsertSqlQue: make(chan string, sqlQueMaxSize),
 		JobId:        jobId,
 		RankId:       filepath.Base(rankDir),

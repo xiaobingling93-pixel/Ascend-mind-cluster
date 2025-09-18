@@ -55,6 +55,5 @@ func ParseData(ctxData *contextdata.SnpRankContextData, perStepId int64) error {
 	if err = writecsv.WriteIterateDelay(iterateDelay, ctxData.CsvCtx.StepTimeCsvFileHandler); err != nil {
 		return err
 	}
-	ctxData.StepCount += int64(len(startEndNsList))
 	return nil
 }

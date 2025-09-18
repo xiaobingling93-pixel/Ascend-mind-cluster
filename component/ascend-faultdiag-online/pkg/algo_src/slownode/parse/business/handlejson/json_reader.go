@@ -24,9 +24,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
+	"ascend-common/common-utils/hwlog"
+	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/common/constants"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/context"
+	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/context/contextdata"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/model"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils"
 )
@@ -52,21 +56,19 @@ func StartReadJson(snpRankCtx *context.SnpRankContext, parseCtx *ParseFileContex
 					time.Sleep(pollWaitTime)
 					continue
 				}
-				jsonData, err := readJsonData(snpRankCtx.ContextData.Config.RankDir, parseCtx.CurFile)
+				jsonDataSlice, err := readJsonData(snpRankCtx.ContextData, parseCtx.CurFile)
 				if err != nil {
 					time.Sleep(pollWaitTime)
 					continue
 				}
-				for _, data := range jsonData {
-					snpRankCtx.JsonDataQue <- data
-				}
+				snpRankCtx.JsonDataQue <- jsonDataSlice
 			}
 		}
 	}()
 }
 
-func readJsonData(rankDir string, curFile *TimeStampFile) ([]*model.JsonData, error) {
-	lines, newOffset, err := utils.ReadLinesFromOffset(filepath.Join(rankDir, curFile.Name), curFile.Offset)
+func readJsonData(ctxData *contextdata.SnpRankContextData, curFile *TimeStampFile) ([]*model.JsonData, error) {
+	lines, newOffset, err := utils.ReadLinesFromOffset(filepath.Join(ctxData.Config.RankDir, curFile.Name), curFile.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("read profile %s failed: %v", curFile.Name, err)
 	}
@@ -78,9 +80,30 @@ func readJsonData(rankDir string, curFile *TimeStampFile) ([]*model.JsonData, er
 			curFile.Offset -= int64(len(line))
 			break
 		}
+		if data == nil {
+			continue
+		}
 		res = append(res, data)
+		updateStepCount(data.Name, ctxData)
 	}
 	return res, nil
+}
+
+func updateStepCount(name string, ctxData *contextdata.SnpRankContextData) {
+	if !strings.Contains(strings.ToLower(name), constants.StepWord) {
+		return
+	}
+	if ctxData.StepCount >= constants.ClosStep {
+		return
+	}
+	stepId, err := utils.SplitNum(name)
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to parse the 'Name' field, error: %v", err)
+		return
+	}
+	ctxData.StepCount = stepId
+	hwlog.RunLog.Infof("[SLOWNODE PARSE]Read step count: %d, rank num is: %s",
+		stepId, filepath.Base(ctxData.Config.RankDir))
 }
 
 func updateCurFile(rankDir string, curFile *TimeStampFile, jobStartTime int64) (bool, error) {
