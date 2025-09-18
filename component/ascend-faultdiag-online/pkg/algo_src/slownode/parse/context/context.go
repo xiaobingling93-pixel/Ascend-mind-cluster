@@ -25,7 +25,7 @@ import (
 // SnpRankContext 慢节点单个Rank清洗上下文
 type SnpRankContext struct {
 	ContextData  *contextdata.SnpRankContextData
-	JsonDataQue  chan *model.JsonData
+	JsonDataQue  chan []*model.JsonData
 	InsertSqlQue chan string
 	JobId        string
 	RankId       string

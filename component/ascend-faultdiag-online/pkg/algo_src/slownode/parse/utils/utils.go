@@ -18,9 +18,14 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/common/constants"
 )
+
+const splitLen = 2
 
 // ToStringList 将变量列表转为string列表
 func ToStringList(srcList []any) []string {
@@ -160,4 +165,17 @@ func SubtractAndDedupe[T comparable](slice1, slice2 []T) []T {
 		}
 	}
 	return result
+}
+
+// SplitNum 切分字符串获取第一个数字（e.g: "step 1" --> 1）
+func SplitNum(data string) (int64, error) {
+	parts := strings.Fields(data)
+	if len(parts) < splitLen {
+		return 0, fmt.Errorf("failed to split data: %s", data)
+	}
+	stepId, err := strconv.ParseInt(parts[1], constants.DecimalMark, constants.Base64Mark)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert data: %v", err)
+	}
+	return stepId, nil
 }

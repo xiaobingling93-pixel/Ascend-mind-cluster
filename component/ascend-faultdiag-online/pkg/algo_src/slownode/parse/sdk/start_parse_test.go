@@ -255,7 +255,7 @@ func createOneRow(index int64, startTime int64, endTime int64) []model.JsonData 
 		createData("default", index+idOne, fmt.Sprintf("step %d", (index+idOne)/perStep), startTime, endTime),
 		createData("communication", index+idTwo, name137, startTime, endTime)...)
 	jsonData = append(jsonData, createData("default", index+idThree, "dataloader", startTime, endTime)...)
-	jsonData = append(jsonData, createData("communication", index+idFour, name137, startTime, endTime)...)
+	jsonData = append(jsonData, createData("default", index+idFour, "save_checkpoint", startTime, endTime)...)
 	// 构造pp算子数据
 	jsonData = append(jsonData, createData("communication", index+idFive, nameHCCLSend136, startTime, endTime)...)
 	return jsonData
@@ -265,38 +265,25 @@ func createData(domain string, id int64, name string, startTime int64, endTime i
 	redundantTime := int64(rand.Intn(1) + 100000) // 增加一个冗余，区分device和host
 	startTimeFlag := 16
 	endTimeFlag := 32
+	// dataloader和save_checkpoint开始结束标志为2和4
 	if name == "dataloader" || name == "save_checkpoint" {
 		startTimeFlag = 2
 		endTimeFlag = 4
 	}
 	data := []model.JsonData{
-		// device
-		{Kind: 1, Flag: startTimeFlag, SourceKind: 1, Timestamp: startTime, Id: id,
-			MSPTIObjectId: model.ObjectId{
-				Pt: model.Pt{ProcessId: 0, ThreadId: 6}, Ds: model.Ds{DeviceId: 0, StreamId: 6},
-			},
-			Name:   name,
-			Domain: domain,
-		},
-		{Kind: 1, Flag: endTimeFlag, SourceKind: 1, Timestamp: endTime, Id: id,
-			MSPTIObjectId: model.ObjectId{
-				Pt: model.Pt{ProcessId: 0, ThreadId: 6}, Ds: model.Ds{DeviceId: 0, StreamId: 6},
-			},
-			Name: "", Domain: "",
-		},
 		// host
-		{Kind: 1, Flag: startTimeFlag, SourceKind: 0, Timestamp: startTime, Id: id,
-			MSPTIObjectId: model.ObjectId{
-				Pt: model.Pt{ProcessId: 58463, ThreadId: 61196}, Ds: model.Ds{DeviceId: 58463, StreamId: 61196},
-			},
-			Name: "", Domain: "",
-		},
-		{Kind: 1, Flag: endTimeFlag, SourceKind: 0, Timestamp: endTime + redundantTime, Id: id,
-			MSPTIObjectId: model.ObjectId{
-				Pt: model.Pt{ProcessId: 58463, ThreadId: 61196}, Ds: model.Ds{DeviceId: 58463, StreamId: 61196},
-			},
-			Name: "", Domain: "",
-		},
+		{Kind: 1, Flag: startTimeFlag, SourceKind: 0, Timestamp: startTime, Id: id, Name: name, Domain: domain},
+		{Kind: 1, Flag: endTimeFlag, SourceKind: 0, Timestamp: endTime, Id: id, Name: "", Domain: ""},
+	}
+	// dataloader和save_checkpoint没有device侧数据
+	if name != "dataloader" && name != "save_checkpoint" {
+		// device
+		data = append(data, model.JsonData{
+			Kind: 1, Flag: startTimeFlag, SourceKind: 1, Timestamp: startTime, Id: id, Name: "", Domain: "",
+		})
+		data = append(data, model.JsonData{
+			Kind: 1, Flag: endTimeFlag, SourceKind: 1, Timestamp: endTime + redundantTime, Id: id, Name: "", Domain: "",
+		})
 	}
 	return data
 }

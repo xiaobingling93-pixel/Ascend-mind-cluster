@@ -19,11 +19,11 @@ package handlejson
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/common/constants"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/model"
+	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils"
 )
 
 // processDeviceData 处理Device的JSON数据
@@ -76,15 +76,9 @@ func setCommOpData(cacheData *CacheData, jsonData *model.JsonData) error {
 }
 
 func setStepTimeData(cacheData *CacheData, jsonData *model.JsonData) error {
-	nameParts := strings.Fields(jsonData.Name)
-	// name e.g: "step 1"
-	const splitLen = 2
-	if len(nameParts) < splitLen {
-		return fmt.Errorf("failed to parse the 'Name' field, the 'Name' is: %s", jsonData.Name)
-	}
-	stepId, err := strconv.ParseInt(nameParts[1], constants.DecimalMark, constants.Base64Mark)
+	stepId, err := utils.SplitNum(jsonData.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert the name: %v", err)
+		return fmt.Errorf("failed to parse the 'Name' field, error: %v", err)
 	}
 	if cacheData.stepTime == nil {
 		cacheData.stepTime = &model.StepTime{

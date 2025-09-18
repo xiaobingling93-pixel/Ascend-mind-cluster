@@ -106,4 +106,7 @@ const (
 
 	// FileMaxSize max size for a file
 	FileMaxSize int64 = 1024 * 1024 * 1024 // 1GB
+
+	// ClosStep 关闭重型采集step
+	ClosStep = 21
 )

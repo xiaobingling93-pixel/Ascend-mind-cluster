@@ -73,11 +73,11 @@ func setMSTXEventsData(cacheData *CacheData, jsonData *model.JsonData) error {
 			EndNs: constants.DefaultNameIndex,
 		}
 	}
-	startTimeFlag := constants.FlagMarkerStartWithHost
-	endTimeFlag := constants.FlagMarkerEndWithHost
-	if jsonData.Name == constants.ForwardWord {
-		startTimeFlag = constants.FlagMarkerStartWithDevice
-		endTimeFlag = constants.FlagMarkerEndWithDevice
+	startTimeFlag := constants.FlagMarkerStartWithDevice
+	endTimeFlag := constants.FlagMarkerEndWithDevice
+	if jsonData.Name == constants.CKPTWord || jsonData.Name == constants.DataLoaderWord {
+		startTimeFlag = constants.FlagMarkerStartWithHost
+		endTimeFlag = constants.FlagMarkerEndWithHost
 	}
 
 	if jsonData.Flag == startTimeFlag {

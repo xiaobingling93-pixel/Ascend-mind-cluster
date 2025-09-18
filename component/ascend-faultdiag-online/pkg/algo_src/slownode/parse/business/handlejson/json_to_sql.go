@@ -44,16 +44,21 @@ func parseJsonData(snpRankCtx *context.SnpRankContext, parseFileCtx *ParseFileCo
 			if !ok {
 				return
 			}
-		case jsonData, ok := <-snpRankCtx.JsonDataQue:
+		case jsonDataSlice, ok := <-snpRankCtx.JsonDataQue:
 			if !ok {
 				return
 			}
-			err := updateJsonData(jsonData, snpRankCtx.ContextData.DbCtx, parseFileCtx)
-			if err != nil {
-				continue
-			}
-			parseFileCtx.DealJsonData(jsonData)
+			dealData(jsonDataSlice, snpRankCtx.ContextData.DbCtx, parseFileCtx)
 		}
+	}
+}
+
+func dealData(jsonDataSlice []*model.JsonData, dbCtx *db.SnpDbContext, parseFileCtx *ParseFileContext) {
+	for _, jsonData := range jsonDataSlice {
+		if err := updateJsonData(jsonData, dbCtx, parseFileCtx); err != nil {
+			continue
+		}
+		parseFileCtx.DealJsonData(jsonData)
 	}
 }
 

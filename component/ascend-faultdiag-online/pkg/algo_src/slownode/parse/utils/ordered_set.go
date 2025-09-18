@@ -50,7 +50,11 @@ func (s *OrderedIDSet) Remove(id int64) bool {
 		return false
 	}
 
-	s.ids = append(s.ids[:idx], s.ids[idx+1:]...)
+	if idx+1 < int64(len(s.ids)) {
+		s.ids = append(s.ids[:idx], s.ids[idx+1:]...)
+	} else {
+		s.ids = s.ids[:idx]
+	}
 	delete(s.idMap, id)
 
 	return true
