@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,6 +75,17 @@ func TestPodGroupCollector(t *testing.T) {
 			PodGroupCollector(oldPGInfo, newPGInfo, "illegal")
 			_, ok := uniqueQueue.Load(podgroup.GetJobKeyByPG(newPGInfo))
 			convey.So(ok, convey.ShouldEqual, false)
+		})
+		convey.Convey("test PodGroupCollector when newPGInfo is nil", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			saveCall := false
+			patches.ApplyFunc(podgroup.SavePodGroup, func(pgInfo *v1beta1.PodGroup) {
+				saveCall = true
+			})
+			uniqueQueue = sync.Map{}
+			PodGroupCollector(oldPGInfo, nil, "illegal")
+			convey.So(saveCall, convey.ShouldBeFalse)
 		})
 	})
 }

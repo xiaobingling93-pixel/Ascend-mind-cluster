@@ -18,8 +18,8 @@ import (
 
 // PodGroupCollector collector podGroup info
 func PodGroupCollector(oldPGInfo, newPGInfo *v1beta1.PodGroup, operator string) {
-	if oldPGInfo == nil || newPGInfo == nil {
-		hwlog.RunLog.Error("oldPGInfo or newPGInfo is nil")
+	if newPGInfo == nil {
+		hwlog.RunLog.Error("newPGInfo is nil")
 		return
 	}
 	switch operator {
