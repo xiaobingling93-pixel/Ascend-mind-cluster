@@ -37,7 +37,7 @@ class Manager:
     def init_taskd_manager(self, config: dict) -> bool:
         if os.getenv(constants.PROCESS_RECOVER) == constants.SWITCH_ON:
             config[constants.FAULT_RECOVER] = constants.SWITCH_ON
-        if os.getenv(constants.TASKD_PROCESS_ENABLE) != constants.SWITCH_OFF:
+        if os.getenv(constants.TASKD_PROCESS_ENABLE) == constants.SWITCH_ON:
             config[constants.TASKD_ENABLE] = constants.SWITCH_ON
         self.config = config
         if cython_api.lib is None:
