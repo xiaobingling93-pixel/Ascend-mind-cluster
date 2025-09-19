@@ -72,19 +72,10 @@ func TestCreateVDevice(t *testing.T) {
 	process := specs.Process{}
 	spec := specs.Spec{Process: &process}
 	spec.Process.Env = []string{}
-	backups := 2
-	logMaxAge := 365
-	fileMaxSize := 2
-	runLogConfig := hwlog.LogConfig{
-		LogFileName: "./test/run.log",
-		LogLevel:    0,
-		MaxBackups:  backups,
-		FileMaxSize: fileMaxSize,
-		MaxAge:      logMaxAge,
+	hwLogConfig := hwlog.LogConfig{
+		OnlyToStdout: true,
 	}
-	if err := hwlog.InitRunLogger(&runLogConfig, context.Background()); err != nil {
-		t.Fatalf("hwlog init failed, error is %v", err)
-	}
+	hwlog.InitRunLogger(&hwLogConfig, context.Background())
 
 	// no split, all ok
 	deviceIdList := make([]int, 0)

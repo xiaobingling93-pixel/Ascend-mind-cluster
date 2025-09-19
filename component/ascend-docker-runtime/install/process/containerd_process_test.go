@@ -39,7 +39,7 @@ var testError = errors.New("test")
 // TestContainerdProcess tests the function ContainerdProcess
 func TestContainerdProcess(t *testing.T) {
 	tests := getTestDockerProcessCases()
-	initTestLog(t)
+	initTestLog()
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			if tt.Name == "success case 4" {
@@ -170,20 +170,11 @@ func TestContainerdProcess5(t *testing.T) {
 	})
 }
 
-func initTestLog(t *testing.T) {
-	backups := 2
-	logMaxAge := 365
-	fileMaxSize := 2
-	runLogConfig := hwlog.LogConfig{
-		LogFileName: "./test/run.log",
-		LogLevel:    0,
-		MaxBackups:  backups,
-		FileMaxSize: fileMaxSize,
-		MaxAge:      logMaxAge,
+func initTestLog() {
+	hwLogConfig := hwlog.LogConfig{
+		OnlyToStdout: true,
 	}
-	if err := hwlog.InitRunLogger(&runLogConfig, context.Background()); err != nil {
-		t.Fatalf("hwlog init failed, error is %v", err)
-	}
+	hwlog.InitRunLogger(&hwLogConfig, context.Background())
 }
 
 // TestEditContainerdConfig tests the function editContainerdConfig
