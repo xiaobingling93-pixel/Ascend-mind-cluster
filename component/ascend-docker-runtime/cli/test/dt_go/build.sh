@@ -26,6 +26,7 @@ function execute_test() {
   cd ${TOP_DIR}
   if ! (go test  -mod=mod -gcflags=-l -v -coverprofile cov.out ${TOP_DIR}/... >./$file_input); then
     echo '****** go test cases error! ******'
+    cat ./$file_input
     exit 1
   else
     echo ${file_detail_output}

@@ -465,3 +465,21 @@ func TestLoadOriginJson1(t *testing.T) {
 		})
 	})
 }
+
+// TestSetReserveDefaultRuntime tests the function setReserveDefaultRuntime
+func TestSetReserveDefaultRuntime(t *testing.T) {
+	convey.Convey("test setReserveDefaultRuntime", t, func() {
+		convey.Convey("01-over slice length, reserveDefaultRuntime should be false", func() {
+			command := []string{"1", "2"}
+			reserveDefaultRuntime = false
+			setReserveDefaultRuntime(command)
+			convey.So(reserveDefaultRuntime, convey.ShouldBeFalse)
+		})
+		convey.Convey("02-command is yes, reserveDefaultRuntime should be true", func() {
+			command := []string{"yes", "2", "3"}
+			setReserveDefaultRuntime(command)
+			defer func() { reserveDefaultRuntime = false }()
+			convey.So(reserveDefaultRuntime, convey.ShouldBeTrue)
+		})
+	})
+}
