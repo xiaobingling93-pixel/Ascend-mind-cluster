@@ -401,7 +401,7 @@ func getFaultListInfoByRelationFault(jobId, nodeName string, server *constant.Se
 				continue
 			}
 			faultRank.FaultCode = fault.FaultCode
-			faultRank.FaultLevel = convertRelationFaultLevel(fault.FaultLevel)
+			faultRank.FaultLevel = convertRelationFaultLevel(fault.ExecutedStrategy)
 			faultList = append(faultList, faultRank)
 			continue
 		}
@@ -416,7 +416,7 @@ func getFaultListInfoByRelationFault(jobId, nodeName string, server *constant.Se
 				continue
 			}
 			faultRank.FaultCode = fault.FaultCode
-			faultRank.FaultLevel = convertRelationFaultLevel(fault.FaultLevel)
+			faultRank.FaultLevel = convertRelationFaultLevel(fault.ExecutedStrategy)
 			faultList = append(faultList, faultRank)
 		}
 	}
