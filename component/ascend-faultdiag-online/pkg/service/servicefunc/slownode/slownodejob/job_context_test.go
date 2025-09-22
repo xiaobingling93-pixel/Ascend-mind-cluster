@@ -85,3 +85,38 @@ func TestAllNodesReported(t *testing.T) {
 		})
 	})
 }
+
+func TestStartAndStop(t *testing.T) {
+	job := &slownode.Job{}
+	ctx := NewJobContext(job, enum.Node)
+	var slowRankIds = []int{0, 1, 2}
+	var rescheduleCount = 1
+	convey.Convey("test Start and stop", t, func() {
+		convey.Convey("start job", func() {
+			ctx.Start()
+			convey.So(ctx.IsRunning(), convey.ShouldBeTrue)
+			convey.So(ctx.Step(), convey.ShouldEqual, InitialStep)
+			convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
+			convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
+			convey.So(ctx.cluster.NeedReport(), convey.ShouldBeFalse)
+			convey.So(ctx.GetSlowRankIds(), convey.ShouldBeEmpty)
+			ctx.SetNeedReport(true)
+			ctx.SetSlowRankIds(slowRankIds)
+			ctx.SetRescheduleCount(rescheduleCount)
+			convey.So(ctx.cluster.NeedReport(), convey.ShouldBeTrue)
+			convey.So(reflect.DeepEqual(ctx.GetSlowRankIds(), slowRankIds), convey.ShouldBeTrue)
+			convey.So(ctx.GetRescheduleCount(), convey.ShouldEqual, rescheduleCount)
+
+		})
+		convey.Convey("stop job", func() {
+			ctx.Stop()
+			convey.So(ctx.IsRunning(), convey.ShouldBeFalse)
+			convey.So(ctx.Step(), convey.ShouldEqual, InitialStep)
+			convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
+			convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
+			convey.So(ctx.cluster.NeedReport(), convey.ShouldBeFalse)
+			convey.So(ctx.GetSlowRankIds(), convey.ShouldBeEmpty)
+			convey.So(ctx.GetRescheduleCount(), convey.ShouldEqual, rescheduleCount)
+		})
+	})
+}

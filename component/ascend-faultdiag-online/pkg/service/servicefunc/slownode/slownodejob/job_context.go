@@ -47,6 +47,8 @@ type cluster struct {
 	rescheduleCount int
 	// whether need report slow node rank ids or not
 	needReport bool
+	// slowRankIds the slow rank ids to be reported
+	slowRankIds []int
 }
 
 // AddAlgoRecord add the slow node algo result in JobContext
@@ -109,16 +111,39 @@ func (c *cluster) SetRescheduleCount(count int) {
 	defer c.mu.Unlock()
 }
 
+// NeedReport returns whether need report slow node rank ids or not
 func (c *cluster) NeedReport() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.needReport
 }
 
+// SetNeedReport sets whether need report slow node rank ids or not
 func (c *cluster) SetNeedReport(need bool) {
 	c.mu.Lock()
 	c.needReport = need
 	defer c.mu.Unlock()
+}
+
+// GetSlowRankIds returns the slow rank ids to be reported
+func (c *cluster) GetSlowRankIds() []int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.slowRankIds
+}
+
+// SetSlowRankIds sets the slow rank ids to be reported
+func (c *cluster) SetSlowRankIds(rankIds []int) {
+	c.mu.Lock()
+	c.slowRankIds = rankIds
+	c.mu.Unlock()
+}
+
+// ClearSlowRankIds clears the slow rank ids
+func (c *cluster) ClearSlowRankIds() {
+	c.mu.Lock()
+	c.slowRankIds = []int{}
+	c.mu.Unlock()
 }
 
 type node struct {
@@ -158,7 +183,8 @@ func NewJobContext(job *slownode.Job, deployment enum.DeployMode) *JobContext {
 		isRunning:  false,
 		step:       InitialStep,
 		cluster: cluster{
-			AlgoRes: make([]*slownode.ClusterAlgoResult, 0),
+			AlgoRes:     make([]*slownode.ClusterAlgoResult, 0),
+			slowRankIds: make([]int, 0),
 		},
 	}
 	return ctx
@@ -176,6 +202,8 @@ func (ctx *JobContext) Start() {
 	ctx.NodeReportSignal = make(chan struct{}, channelCapacity)
 	ctx.IsDegradation = false
 	ctx.isStartedHeavyProfiling = false
+	ctx.cluster.ClearSlowRankIds()
+	ctx.cluster.SetNeedReport(false)
 }
 
 // Stop the job
@@ -190,6 +218,8 @@ func (ctx *JobContext) Stop() {
 		ctx.NodeReportSignal = make(chan struct{}, channelCapacity)
 		ctx.IsDegradation = false
 		ctx.isStartedHeavyProfiling = false
+		ctx.cluster.ClearSlowRankIds()
+		ctx.cluster.SetNeedReport(false)
 	}
 }
 
