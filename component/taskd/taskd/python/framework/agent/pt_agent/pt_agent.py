@@ -15,6 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 import json
+import os
 import time
 import queue
 from typing import Dict
@@ -146,6 +147,7 @@ class PtAgent(BaseAgent):
         except ValueError as e:
             run_log.error(f"Convert fault_ranks to int failed: {e}")
             return
+        os.environ[constants.RESTART_FAULT_PROCESS_TYPE_ENV] = "worker"
         run_log.info(f"fault_ranks is {int_fault_ranks}")
         fault_workers = get_fault_workers(self.pt_instance._worker_group, int_fault_ranks)
         self._func_map.get('RESTART')(fault_workers)

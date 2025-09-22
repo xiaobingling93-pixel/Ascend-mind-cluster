@@ -26,6 +26,9 @@ RESET_CONFIG_PATH = "/user/restore/reset/config/reset.json"
 RANK_TABLE_VERSION_PATH = "/user/serverid/devindex/config/version"
 ENABLE_RANKTABLE_ENV = "RANK_TABLE_FILE"
 ENABLE_RESTART_FAULT_PROCESS_ENV = "ENABLE_RESTART_FAULT_PROCESS"
+# An environment variable used to tell mindio the restart type. The value can be "pod" or "worker"
+# "pod": it means restart the agent; "worker": it means only restarting the process without exiting the agent
+RESTART_FAULT_PROCESS_TYPE_ENV = "RESTART_FAULT_PROCESS_TYPE"
 RESTART_TYPE_PATH = "/user/restore/reset/config/restartType"
 MAX_INT16 = 32767
 MAX_FILE_SIZE = 1024 * 1024
