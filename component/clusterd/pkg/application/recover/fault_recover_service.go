@@ -163,6 +163,9 @@ func (s *FaultRecoverService) getGrpcFormatFaults(faultInfo constant.JobFaultInf
 			hwlog.RunLog.Warnf("invalid pod info, podId=%s, podRank=%s", info.PodUid, info.PodRank)
 			continue
 		}
+		if faultInfo.HealthyState != constant.SubHealthyState && info.FaultLevel == constant.SubHealthFault {
+			continue
+		}
 		faultPod := make(map[string]string)
 		faultPod[info.PodRank] = info.PodUid
 		_, ok := controller.faultPod[info.PodRank]

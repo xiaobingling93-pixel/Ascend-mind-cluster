@@ -1972,9 +1972,11 @@ func (ctl *EventController) whetherHasEnoughResource() bool {
 	for !podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) || !ctl.checkWhetherPodChanged() {
 		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
 		if time.Now().Unix()-start > int64(podReschedulingTimeout) {
+			hwlog.RunLog.Infof("job %s has not enough resource to reschedule", ctl.jobInfo.JobId)
 			return false
 		}
 	}
+	hwlog.RunLog.Infof("job %s has enough resource to reschedule", ctl.jobInfo.JobId)
 	return true
 }
 
