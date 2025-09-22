@@ -837,3 +837,40 @@ func TestSkipHandleSubHealthyFaults(t *testing.T) {
 		})
 	}
 }
+
+func TestGetGrpcFormatFaults(t *testing.T) {
+	convey.Convey("TestGetGrpcFormatFaults - Normal Cases", t, func() {
+		svr := &FaultRecoverService{}
+		ctl := &EventController{
+			faultPod:       map[string]string{"0": ""},
+			jobInfo:        common.JobBaseInfo{JobId: "test-job"},
+			latestStrategy: []string{constant.ScaleInStrategyName},
+		}
+		convey.Convey("01-Normal case", func() {
+			faultInfo := constant.JobFaultInfo{
+				HealthyState: constant.UnHealthyState,
+				FaultList: []constant.FaultRank{
+					{PodUid: "", PodRank: "0", RankId: "rank1"},
+					{PodUid: "pod3", PodRank: "", RankId: "rank3"},
+					{PodUid: "pod1", PodRank: "1", RankId: "rank1", FaultLevel: constant.SubHealthFault},
+					{PodUid: "pod0", PodRank: "0", RankId: "rank0"},
+					{PodUid: "pod2", PodRank: "2", RankId: "rank2",
+						FaultCode: constant.UceFaultCode, DoStepRetry: true},
+					{PodUid: "pod4", PodRank: "4", RankId: "rank4",
+						FaultCode: constant.HcclRetryFaultCode, DoStepRetry: true},
+					{PodUid: "pod5", PodRank: "5", RankId: "rank5"},
+				},
+			}
+
+			result := svr.getGrpcFormatFaults(faultInfo, ctl)
+			expectedResultLength := 3
+			convey.So(len(result), convey.ShouldEqual, expectedResultLength)
+			convey.So(result[0].RankId, convey.ShouldEqual, "rank2")
+			convey.So(result[0].FaultType, convey.ShouldEqual, constant.UceFaultType)
+			convey.So(result[1].RankId, convey.ShouldEqual, "rank4")
+			convey.So(result[1].FaultType, convey.ShouldEqual, constant.HcclFaultType)
+			convey.So(result[2].RankId, convey.ShouldEqual, "rank5")
+			convey.So(result[2].FaultType, convey.ShouldEqual, constant.NormalFaultType)
+		})
+	})
+}
