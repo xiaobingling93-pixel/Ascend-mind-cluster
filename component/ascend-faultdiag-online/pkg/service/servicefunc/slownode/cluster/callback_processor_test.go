@@ -377,6 +377,52 @@ func TestDegradationProcessor3(t *testing.T) {
 	})
 }
 
+func TestDegradationProcessor4(t *testing.T) {
+	// test got SlowCalculateRanks after heavy profiling
+	// slow ranks recovered, report recovery
+	ctx := ctxGenerator()
+	patches := mockFunc(ctx)
+	defer patches.Reset()
+	var callReportSlowNodeCount int = 0
+	var num2 = 2
+	patches.ApplyPrivateMethod(
+		reflect.TypeOf(&degradationProcessor{}),
+		"reportSlowNode",
+		func(degradationProcessor, *slownodejob.JobContext, *slownode.ClusterAlgoResult) {
+			callReportSlowNodeCount++
+		})
+	convey.Convey("test got slow rank ids then recovery", t, func() {
+		callReportSlowNodeCount = 0
+		result := &slownode.ClusterAlgoResult{}
+		result.IsSlow = 1
+		processor := newDegradationProcessor(ctx, result)
+		// start heavy profiling
+		processor.handle()
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+		// 4 times degradation, stop heavy profiling
+		for i := 0; i < 4; i++ {
+			processor.handle()
+		}
+		convey.So(ctx.IsStartedHeavyProfiling(), convey.ShouldBeFalse)
+		convey.So(ctx.IsDegradation, convey.ShouldBeTrue)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 0)
+		// got rank ids, call reportSlowNode
+		var slowRankIds = []int{0}
+		result.SlowCalculateRanks = slowRankIds
+		processor.handle()
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, 1)
+		convey.So(reflect.DeepEqual(ctx.GetSlowRankIds(), slowRankIds), convey.ShouldBeTrue)
+		// recovery, call reportSlowNode
+		result.IsSlow = 0
+		result.SlowCalculateRanks = []int{}
+		processor.handle()
+		convey.So(ctx.IsDegradation, convey.ShouldBeFalse)
+		convey.So(callReportSlowNodeCount, convey.ShouldEqual, num2)
+		convey.So(reflect.DeepEqual(ctx.GetSlowRankIds(), slowRankIds), convey.ShouldBeTrue)
+	})
+}
+
 func TestReportSlowNodet(t *testing.T) {
 	ctx := &slownodejob.JobContext{Job: &slownode.Job{}}
 	ctx.Job.JobId = "test_job_id"

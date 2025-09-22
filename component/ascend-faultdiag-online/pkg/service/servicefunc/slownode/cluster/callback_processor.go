@@ -152,8 +152,9 @@ func (p *degradationProcessor) handleExistingDegradation() {
 
 	// report if needed
 	if p.ctx.NeedReport() && len(p.result.SlowCalculateRanks) != 0 {
-		p.reportSlowNode()
 		p.ctx.SetNeedReport(false)
+		p.ctx.SetSlowRankIds(p.result.SlowCalculateRanks)
+		p.reportSlowNode()
 	}
 }
 
@@ -166,8 +167,9 @@ func (p *degradationProcessor) confirmedDegradation() {
 
 	// report slow node only slow rank ids exist
 	if len(p.result.SlowCalculateRanks) != 0 {
-		p.reportSlowNode()
+		p.ctx.SetSlowRankIds(p.result.SlowCalculateRanks)
 		p.ctx.SetNeedReport(false)
+		p.reportSlowNode()
 	}
 	p.ctx.StopHeavyProfiling()
 }
@@ -186,8 +188,8 @@ func (p *degradationProcessor) reportSlowNode() {
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got hostname failed: %s", p.ctx.LogPrefix(), err)
 	}
-	var deviceIds = make([]int32, len(p.result.SlowCalculateRanks))
-	for i, v := range p.result.SlowCalculateRanks {
+	var deviceIds = make([]int32, len(p.ctx.GetSlowRankIds()))
+	for i, v := range p.ctx.GetSlowRankIds() {
 		deviceIds[i] = int32(v)
 	}
 	var fault = []*pubfault.Fault{
