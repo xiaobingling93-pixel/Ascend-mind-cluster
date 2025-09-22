@@ -73,7 +73,7 @@ func readJsonData(ctxData *contextdata.SnpRankContextData, curFile *TimeStampFil
 		return nil, fmt.Errorf("read profile %s failed: %v", curFile.Name, err)
 	}
 	curFile.Offset = newOffset
-	var res []*model.JsonData
+	var res []*model.JsonData = nil
 	for _, line := range lines {
 		var data *model.JsonData
 		if err := json.Unmarshal([]byte(line), &data); err != nil { // 转json失败，说明这里还没完整写完一行，回退游标

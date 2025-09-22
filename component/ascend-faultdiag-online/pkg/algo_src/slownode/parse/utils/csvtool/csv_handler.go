@@ -72,7 +72,7 @@ func NewCSVHandler(filePath string, mode enum.FileMode, perm os.FileMode) (*CSVH
 
 // WriteRow 写入单行 CSV 数据（自动加锁）
 func (ch *CSVHandler) WriteRow(record []string) error {
-	var err error
+	var err error = nil
 	ch.openFile.mu.Lock()
 	defer func(err error) {
 		if err != nil {
@@ -98,7 +98,7 @@ func (ch *CSVHandler) WriteRow(record []string) error {
 
 // WriteAll 写入多行 CSV 数据（原子操作）
 func (ch *CSVHandler) WriteAll(records [][]string) error {
-	var err error
+	var err error = nil
 	ch.openFile.mu.Lock()
 	defer func(err error) {
 		if err != nil {
