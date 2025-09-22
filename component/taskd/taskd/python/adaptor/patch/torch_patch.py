@@ -31,7 +31,7 @@ from torch.distributed.elastic.multiprocessing import PContext, start_processes
 from taskd.python.utils.log import run_log
 from taskd.api.taskd_proxy_api import init_taskd_proxy
 from taskd.api.taskd_agent_api import init_taskd_agent, start_taskd_agent, register_func
-from taskd.python.toolkit.constants.constants import SLEEP_GAP, MAX_INI16
+from taskd.python.toolkit.constants.constants import SLEEP_GAP, MAX_INI16, RESTART_FAULT_PROCESS_TYPE_ENV
 from taskd.python.framework.common.type import CONFIG_UPSTREAMIP_KEY, LOCAL_HOST, CONFIG_FRAMEWORK_KEY
 from taskd.python.framework.agent.pt_agent.pt_agent import get_pids
 
@@ -163,6 +163,7 @@ def get_worker_env(local_rank, master_addr, master_port, restart_count, spec, us
         "TORCH_NCCL_ASYNC_ERROR_HANDLING": os.getenv(
             "TORCH_NCCL_ASYNC_ERROR_HANDLING", str(1)
         ),
+        RESTART_FAULT_PROCESS_TYPE_ENV: os.getenv(RESTART_FAULT_PROCESS_TYPE_ENV, "pod"),
     }
     if "OMP_NUM_THREADS" in os.environ:
         worker_env["OMP_NUM_THREADS"] = os.environ["OMP_NUM_THREADS"]
@@ -259,6 +260,7 @@ def patch_invoke_run(self, role: str = DEFAULT_ROLE) -> RunResult:
     register_func('MONITOR', self._monitor_workers)
     register_func('RESTART', self._restart_workers)
     run_log.info("start taskd agent")
+    os.environ[RESTART_FAULT_PROCESS_TYPE_ENV] = "pod"
     return start_taskd_agent()
 
 
