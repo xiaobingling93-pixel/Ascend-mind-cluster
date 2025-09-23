@@ -330,10 +330,10 @@ func getJobBaseInfo(jobId string) (common.JobBaseInfo, common.RespCode, error) {
 		return common.JobBaseInfo{}, code,
 			fmt.Errorf("get job(uid=%s) base info err:%v", jobId, err)
 	}
-	if config.ProcessRecoverEnable == false {
-		hwlog.RunLog.Errorf("process recover enable does not open, jobId=%s", jobId)
+	if config.ProcessRecoverEnable == false && config.HotSwitch == false {
+		hwlog.RunLog.Errorf("process recover enable and subhealthy hotswtich does not open, jobId=%s", jobId)
 		return common.JobBaseInfo{}, common.ProcessRecoverEnableOff,
-			fmt.Errorf("job(uid=%s) process-recover-enable not open:%v", jobId, err)
+			fmt.Errorf("job(uid=%s) process-recover-enable and subhealthy hotswtich not open:%v", jobId, err)
 	}
 	pg := podgroup.GetPodGroup(jobId)
 	framework := podgroup.GetModelFramework(&pg)

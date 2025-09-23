@@ -167,6 +167,7 @@ func (r *ASJobReconciler) setPytorchEnv(pi *podInfo, podTemplate *corev1.PodTemp
 			addEnvValue(podTemplate, ptMasterPort, pi.port, i)
 			addEnvValue(podTemplate, ptRank, strconv.Itoa(pi.rank), i)
 			addProcessRecoverEnv(pi, podTemplate, i, api.PytorchFramework)
+			addSubHealthyEnv(pi, podTemplate, i, api.PytorchFramework)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
 		}
 	}
@@ -235,11 +236,27 @@ func addMSPodScheduleEnv(pi *podInfo, pod *corev1.PodTemplateSpec, containerInde
 	addEnvValue(pod, api.MsRecoverEnv, `'{`+api.MsRscStrategy+`}'`, containerIndex)
 }
 
+func addSubHealthyEnv(pi *podInfo, pod *corev1.PodTemplateSpec, containerIndex int, framework string) {
+	strategy := getSubHealthyStrategy(pi.job)
+	if strategy != api.SubHealthyHotSwitch {
+		return
+	}
+	if framework != api.PytorchFramework {
+		hwlog.RunLog.Warnf("subhealth hotswitch only support pytorch framework,current: %v", framework)
+		return
+	}
+	doAddProcessRecoverEnv(pi, pod, containerIndex, framework, api.ExitStrategy)
+}
+
 func addProcessRecoverEnv(pi *podInfo, pod *corev1.PodTemplateSpec, containerIndex int, framework string) {
 	strategies := getJobRecoverStrategy(pi.job)
 	if strategies == "" {
 		return
 	}
+	doAddProcessRecoverEnv(pi, pod, containerIndex, framework, strategies)
+}
+
+func doAddProcessRecoverEnv(pi *podInfo, pod *corev1.PodTemplateSpec, containerIndex int, framework string, strategies string) {
 	env := make(map[string]string)
 	trainEnv := make(sets.String)
 	for _, strategy := range strings.Split(strategies, ",") {

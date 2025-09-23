@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/smartystreets/goconvey/convey"
 	corev1 "k8s.io/api/core/v1"
@@ -429,4 +430,50 @@ func TestAddMSPodScheduleEnv(t *testing.T) {
 			convey.So(len(podTemp.Spec.Containers[0].Env), convey.ShouldEqual, 0)
 		})
 	})
+}
+
+func TestAddSubHealthyEnv(t *testing.T) {
+	pi := &podInfo{job: &mindxdlv1.AscendJob{ObjectMeta: metav1.ObjectMeta{UID: "test-uid"}}}
+	podTemplate := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: api.DefaultContainerName, Env: []corev1.EnvVar{}}}},
+	}
+	containerIndex := 0
+	const num3 = 3
+	cases := []struct {
+		name           string
+		strategy       string
+		expectedEnvLen int
+		expectedEnvs   map[string]string
+	}{
+		{name: "No strategy",
+			strategy:       "",
+			expectedEnvLen: 0,
+			expectedEnvs:   map[string]string{}},
+		{name: "SubHealthyHotSwitch strategy",
+			strategy:       api.SubHealthyHotSwitch,
+			expectedEnvLen: num3,
+			expectedEnvs: map[string]string{
+				api.ProcessRecoverEnv: api.EnableFunc,
+				api.ElasticRecoverEnv: api.EnableFlag,
+				api.HighAvailableEnv:  api.RecoverStrategy,
+			}},
+	}
+	for _, tc := range cases {
+		convey.Convey("When strategy is "+tc.name, t, func() {
+			patch := gomonkey.ApplyFunc(getSubHealthyStrategy, func(job *mindxdlv1.AscendJob) string {
+				return tc.strategy
+			})
+			defer patch.Reset()
+
+			addSubHealthyEnv(pi, podTemplate, containerIndex, api.PytorchFramework)
+			convey.So(len(podTemplate.Spec.Containers[containerIndex].Env), convey.ShouldEqual, tc.expectedEnvLen)
+			envMap := make(map[string]string)
+			for _, env := range podTemplate.Spec.Containers[containerIndex].Env {
+				envMap[env.Name] = env.Value
+			}
+			for k, v := range tc.expectedEnvs {
+				convey.So(envMap[k], convey.ShouldEqual, v)
+			}
+		})
+	}
 }
