@@ -243,8 +243,8 @@ func (ctl *EventController) cleanStateWhenFailed() (string, common.RespCode, err
 	newPodName := faultPod.Annotations[api.BackupNewPodNameKey]
 	newPod, exists := pod.GetPodByJobIdAndPodName(ctl.jobInfo.JobId, newPodName)
 	if !exists {
-		hwlog.RunLog.Errorf("hotSwitch: newPod %s not exists in informer", faultPod.Name)
-		return "", common.ServerInnerError, err
+		hwlog.RunLog.Errorf("hotSwitch: newPod %s not exists in informer", newPodName)
+		return "", common.ServerInnerError, fmt.Errorf("newPod %s not exists", newPodName)
 	}
 	err = kube.RetryPatchPodAnnotations(newPod.Name, newPod.Namespace, api.DefaultRetryTimes,
 		map[string]string{api.NeedOperatorOpeKey: api.OpeTypeDelete})
