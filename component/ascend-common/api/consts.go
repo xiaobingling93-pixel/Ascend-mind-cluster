@@ -195,3 +195,10 @@ const (
 	// MaxDeviceResetTimeout max device reset timeout is 600 seconds
 	MaxDeviceResetTimeout = 600
 )
+
+const (
+	// SubHealthyStrategy config in pod group label for subHealthy fault strategy
+	SubHealthyStrategy = "subHealthyStrategy"
+	// SubHealthyHotSwitch strategy name of hot switch
+	SubHealthyHotSwitch = "hotSwitch"
+)

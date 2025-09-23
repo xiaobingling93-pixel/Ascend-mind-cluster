@@ -482,6 +482,16 @@ func getJobRecoverStrategy(ascendJob *mindxdlv1.AscendJob) string {
 	return ""
 }
 
+func getSubHealthyStrategy(ascendJob *mindxdlv1.AscendJob) string {
+	if ascendJob == nil {
+		return ""
+	}
+	if k, ok := ascendJob.Labels[api.SubHealthyStrategy]; ok {
+		return k
+	}
+	return ""
+}
+
 func isPodScheduleStrategy(ascendJob *mindxdlv1.AscendJob) bool {
 	if ascendJob == nil {
 		return false

@@ -822,3 +822,46 @@ func TestASJobReconcilerDeletePendingPodsDeleteFailure(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 }
+
+func TestGetSubHealthyStrategy(t *testing.T) {
+	cases := []struct {
+		name           string
+		labels         map[string]string
+		expectedResult string
+	}{
+		{name: "Nil job",
+			labels:         nil,
+			expectedResult: ""},
+		{name: "Nil labels",
+			labels:         nil,
+			expectedResult: ""},
+		{name: "Empty labels",
+			labels:         map[string]string{},
+			expectedResult: ""},
+		{name: "SubHealthyStrategy annotation not present",
+			labels:         map[string]string{"other-annotation": "value"},
+			expectedResult: ""},
+		{name: "SubHealthyStrategy annotation present with empty value",
+			labels:         map[string]string{api.SubHealthyStrategy: ""},
+			expectedResult: ""},
+		{name: "SubHealthyStrategy annotation present with value",
+			labels:         map[string]string{api.SubHealthyStrategy: api.SubHealthyHotSwitch},
+			expectedResult: api.SubHealthyHotSwitch},
+		{name: "SubHealthyStrategy annotation present with custom value",
+			labels:         map[string]string{api.SubHealthyStrategy: "custom-value"},
+			expectedResult: "custom-value"},
+	}
+
+	for _, tc := range cases {
+		convey.Convey("When "+tc.name, t, func() {
+			var job *mindxdlv1.AscendJob
+			if tc.name == "Nil job" {
+				job = nil
+			} else {
+				job = &mindxdlv1.AscendJob{ObjectMeta: metav1.ObjectMeta{Labels: tc.labels}}
+			}
+			result := getSubHealthyStrategy(job)
+			convey.So(result, convey.ShouldEqual, tc.expectedResult)
+		})
+	}
+}
