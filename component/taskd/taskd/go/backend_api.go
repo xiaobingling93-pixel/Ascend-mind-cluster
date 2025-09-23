@@ -173,7 +173,7 @@ func SyncSendMessage(toolPtr uintptr, msgJSON *C.char) C.int {
 		return C.int(-1)
 	}
 	if goMessage.Dst != nil {
-		tool.GetNetworkerLogger().Infof("py sync send message, dstRole=%s, dstSrvRank=%s, DstProcessRank=%s",
+		tool.GetNetworkerLogger().Debugf("py sync send message, dstRole=%s, dstSrvRank=%s, DstProcessRank=%s",
 			goMessage.Dst.Role, goMessage.Dst.ServerRank, goMessage.Dst.ProcessRank)
 	}
 	_, err = tool.SyncSendMessage(goMessage.Uuid, goMessage.BizType, goMessage.Body, goMessage.Dst)
@@ -199,7 +199,7 @@ func AsyncSendMessage(toolPtr uintptr, msgJSON *C.char) C.int {
 		return C.int(-1)
 	}
 	if goMessage.Dst != nil {
-		tool.GetNetworkerLogger().Infof("py async send message, dstRole=%s, dstSrvRank=%s, DstProcessRank=%s",
+		tool.GetNetworkerLogger().Debugf("py async send message, dstRole=%s, dstSrvRank=%s, DstProcessRank=%s",
 			goMessage.Dst.Role, goMessage.Dst.ServerRank, goMessage.Dst.ProcessRank)
 	}
 	err = tool.AsyncSendMessage(goMessage.Uuid, goMessage.BizType, goMessage.Body, goMessage.Dst)
