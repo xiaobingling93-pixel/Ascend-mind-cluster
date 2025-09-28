@@ -2075,3 +2075,53 @@ func TestHandleWaitRestartAllProcessPlatFormModeTrue(t *testing.T) {
 		t.Errorf("Expected event %s, but got %s", common.RestartProcessFinishEvent, event)
 	}
 }
+
+func TestChangePodStatus(t *testing.T) {
+	controller := &EventController{}
+	testCases := []struct {
+		name        string
+		channelNil  bool
+		podStatus   v1.PodPhase
+		expectPanic bool
+	}{
+		{name: "should not panic when channel is nil",
+			channelNil:  true,
+			podStatus:   v1.PodRunning,
+			expectPanic: false},
+		{name: "should successfully send PodRunning status when channel is not nil",
+			channelNil:  false,
+			podStatus:   v1.PodRunning,
+			expectPanic: false},
+		{name: "should successfully send PodPending status when channel is not nil",
+			channelNil:  false,
+			podStatus:   v1.PodPending,
+			expectPanic: false},
+		{name: "should successfully send PodFailed status when channel is not nil",
+			channelNil:  false,
+			podStatus:   v1.PodFailed,
+			expectPanic: false},
+	}
+
+	for _, tc := range testCases {
+		convey.Convey(tc.name, t, func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			testChan := make(chan v1.PodPhase, 1)
+			defer close(testChan)
+			if tc.channelNil {
+				patchGetCtxAndNewStatusMonitorChan(patches, controller, nil, nil)
+			} else {
+				patchGetCtxAndNewStatusMonitorChan(patches, controller, nil, testChan)
+			}
+			controller.ChangePodStatus(tc.podStatus)
+			if !tc.channelNil {
+				select {
+				case status := <-testChan:
+					convey.So(status, convey.ShouldEqual, tc.podStatus)
+				default:
+					t.Error("Channel should have received the status")
+				}
+			}
+		})
+	}
+}

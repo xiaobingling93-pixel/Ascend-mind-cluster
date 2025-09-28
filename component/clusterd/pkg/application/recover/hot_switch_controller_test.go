@@ -4,8 +4,10 @@
 package recover
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
@@ -508,20 +510,20 @@ func TestNotifyCreateNewPod(t *testing.T) {
 func buildHotSwitchTestCases3() []hotSwitchTestCaseB {
 	testCases := []hotSwitchTestCaseB{
 		{
-			name:         "no fault pods",
+			name:         "should return OK when no fault pods",
 			faultPods:    map[string]string{},
 			expectedCode: common.OK,
 			expectError:  false,
 		},
 		{
-			name:         "pod not exist",
+			name:         "should return OK when pod not exist",
 			faultPods:    map[string]string{"0": "test-pod-id"},
 			podExist:     false,
 			expectedCode: common.OK,
 			expectError:  false,
 		},
 		{
-			name:         "patch annotation failed",
+			name:         "should return OK when patch annotation failed",
 			faultPods:    map[string]string{"0": "test-pod-id"},
 			podExist:     true,
 			patchErr:     errors.New("patch failed"),
@@ -529,12 +531,318 @@ func buildHotSwitchTestCases3() []hotSwitchTestCaseB {
 			expectError:  false,
 		},
 		{
-			name:         "success",
+			name:         "should return OK when success",
 			faultPods:    map[string]string{"0": "test-pod-id"},
 			podExist:     true,
 			patchErr:     nil,
 			expectedCode: common.OK,
 			expectError:  false,
+		},
+	}
+	return testCases
+}
+
+type hotSwitchTestCaseC struct {
+	name             string
+	chanNil          bool
+	channelClosed    bool
+	contextCanceled  bool
+	timeout          bool
+	strategies       []string
+	expectedCode     common.RespCode
+	expectedCtlEvent string
+	expectedRtnEvent string
+	expectError      bool
+	responseCode     int32
+	podStatus        v1.PodPhase
+}
+
+func TestWaitReportPauseTrainResult(t *testing.T) {
+	controller := &EventController{uuid: "test-uuid", jobInfo: common.JobBaseInfo{JobId: "test-job-id"}}
+	testCases := buildHotSwitchTestCases4()
+	for _, tc := range testCases {
+		convey.Convey(tc.name, t, func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			strategyChan := make(chan *pb.RecoverStrategyRequest, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			if tc.chanNil {
+				patchGetCtxAndReportRecoverStrategyChan(patches, controller, ctx, nil)
+			} else {
+				patchGetCtxAndReportRecoverStrategyChan(patches, controller, ctx, strategyChan)
+			}
+			if tc.channelClosed {
+				close(strategyChan)
+			} else if tc.contextCanceled {
+				cancel()
+			} else if tc.timeout {
+				patchTimeOut(patches)
+			} else {
+				safeWriteToChannel(t, strategyChan, &pb.RecoverStrategyRequest{Strategies: tc.strategies})
+			}
+			eventAdded := ""
+			patches.ApplyPrivateMethod(controller, "addEvent", func(_ *EventController, event string) {
+				eventAdded = event
+			})
+			event, code, err := controller.waitReportPauseTrainResult()
+			convey.So(code, convey.ShouldEqual, tc.expectedCode)
+			convey.So(event, convey.ShouldEqual, tc.expectedRtnEvent)
+			convey.So(eventAdded, convey.ShouldEqual, tc.expectedCtlEvent)
+			if tc.expectError {
+				convey.So(err, convey.ShouldNotBeNil)
+			} else {
+				convey.So(err, convey.ShouldBeNil)
+			}
+			if !tc.contextCanceled && ctx.Err() == nil {
+				cancel()
+			}
+			if !tc.channelClosed {
+				close(strategyChan)
+			}
+		})
+	}
+}
+
+func patchTimeOut(patches *gomonkey.Patches) *gomonkey.Patches {
+	return patches.ApplyFunc(time.After, func(d time.Duration) <-chan time.Time {
+		ch := make(chan time.Time, 1)
+		ch <- time.Time{}
+		return ch
+	})
+}
+
+func patchGetCtxAndReportRecoverStrategyChan(patches *gomonkey.Patches, controller *EventController,
+	ctx context.Context, strategyChan chan *pb.RecoverStrategyRequest) *gomonkey.Patches {
+	return patches.ApplyPrivateMethod(controller, "getCtxAndReportRecoverStrategyChan",
+		func(*EventController) (context.Context, chan *pb.RecoverStrategyRequest) {
+			return ctx, strategyChan
+		})
+}
+
+func buildHotSwitchTestCases4() []hotSwitchTestCaseC {
+	testCases := []hotSwitchTestCaseC{
+		{name: "should return server inner error when strategy channel is nil",
+			chanNil:      true,
+			expectedCode: common.ServerInnerError,
+			expectError:  true,
+		}, {
+			name:          "should return OK when channel closed",
+			channelClosed: true,
+			expectedCode:  common.OK,
+			expectError:   false,
+		}, {
+			name:            "should return controller event cancel when context canceled",
+			contextCanceled: true,
+			expectedCode:    common.ControllerEventCancel,
+			expectError:     false,
+		}, {
+			name:             "should return wait report timeout when timeout occurs",
+			timeout:          true,
+			expectedCode:     common.WaitReportTimeout,
+			expectedRtnEvent: common.ReportTimeoutEvent,
+			expectError:      false,
+		}, {
+			name:             "should add exit event when strategies is empty",
+			strategies:       []string{},
+			expectedCode:     common.OK,
+			expectedCtlEvent: common.ExitEvent,
+			expectedRtnEvent: "",
+			expectError:      false,
+		}, {
+			name:             "should add exit event when exit strategy is received",
+			strategies:       []string{constant.ProcessExitStrategyName},
+			expectedCode:     common.OK,
+			expectedCtlEvent: common.ExitEvent,
+			expectedRtnEvent: "",
+			expectError:      false,
+		}, {
+			name:             "should add migration event when migration strategy is received",
+			strategies:       []string{"migration"},
+			expectedCode:     common.OK,
+			expectedCtlEvent: common.MigrationEvent,
+			expectedRtnEvent: "",
+			expectError:      false,
+		},
+	}
+	return testCases
+}
+
+func safeWriteToChannel[T any](t *testing.T, ch chan T, value T) {
+	select {
+	case ch <- value:
+		t.Logf("write to channel success")
+	default:
+		t.Errorf("write to channel failed: channel is full or nil")
+	}
+}
+
+func TestHandleWaitReportRestartTrainStatus(t *testing.T) {
+	controller := &EventController{uuid: "test-uuid", jobInfo: common.JobBaseInfo{JobId: "test-job-id"}}
+	testCases := buildHotSwitchTestCases5()
+	for _, tc := range testCases {
+		convey.Convey(tc.name, t, func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+
+			reportChan := make(chan *pb.RecoverStatusRequest, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			if tc.chanNil {
+				patchGetCtxAndResultChan(patches, controller, ctx, nil)
+			} else {
+				patchGetCtxAndResultChan(patches, controller, ctx, reportChan)
+			}
+			if tc.contextCanceled {
+				cancel()
+			} else if tc.timeout {
+				patchTimeOut(patches)
+			} else {
+				reportChan <- &pb.RecoverStatusRequest{Status: &pb.Status{Code: tc.responseCode}}
+			}
+			event, code, err := controller.handleWaitReportRestartTrainStatus()
+			convey.So(code, convey.ShouldEqual, tc.expectedCode)
+			convey.So(event, convey.ShouldEqual, tc.expectedRtnEvent)
+			if tc.expectError {
+				convey.So(err, convey.ShouldNotBeNil)
+			} else {
+				convey.So(err, convey.ShouldBeNil)
+			}
+			if !tc.contextCanceled && ctx.Err() == nil {
+				cancel()
+			}
+			close(reportChan)
+		})
+	}
+}
+
+func buildHotSwitchTestCases5() []hotSwitchTestCaseC {
+	testCases := []hotSwitchTestCaseC{
+		{
+			name:             "should return OK and restart failed event when report channel is nil",
+			chanNil:          true,
+			expectedCode:     common.OK,
+			expectedRtnEvent: common.RestartFaildEvent,
+			expectError:      false,
+		},
+		{
+			name:            "should return controller event cancel when context canceled",
+			contextCanceled: true,
+			expectedCode:    common.ControllerEventCancel,
+			expectError:     false,
+		},
+		{
+			name:             "should return wait report timeout when timeout occurs",
+			timeout:          true,
+			expectedCode:     common.WaitReportTimeout,
+			expectedRtnEvent: common.ReportTimeoutEvent,
+			expectError:      false,
+		},
+		{
+			name:             "should return OK and restart failed event when unrecoverable retry error received",
+			responseCode:     int32(common.UnRecoverableRetryError),
+			expectedCode:     common.OK,
+			expectedRtnEvent: common.RestartFaildEvent,
+			expectError:      false,
+		},
+		{
+			name:             "should return OK and restart success event when success response received",
+			responseCode:     int32(common.OK),
+			expectedCode:     common.OK,
+			expectedRtnEvent: common.RestartSuccessEvent,
+			expectError:      false,
+		},
+		{
+			name:             "should return OK when unexpected response code received",
+			responseCode:     int32(999),
+			expectedCode:     common.OK,
+			expectedRtnEvent: "",
+			expectError:      false,
+		},
+	}
+	return testCases
+}
+
+func patchGetCtxAndResultChan(patches *gomonkey.Patches, controller *EventController, ctx context.Context, reportChan chan *pb.RecoverStatusRequest) *gomonkey.Patches {
+	return patches.ApplyPrivateMethod(controller, "getCtxAndResultChan", func(*EventController) (context.Context, chan *pb.RecoverStatusRequest) {
+		return ctx, reportChan
+	})
+}
+
+func patchGetCtxAndNewStatusMonitorChan(patches *gomonkey.Patches, controller *EventController, ctx context.Context, podPhase chan v1.PodPhase) *gomonkey.Patches {
+	return patches.ApplyPrivateMethod(controller, "getCtxAndNewStatusMonitorChan", func(*EventController) (context.Context, chan v1.PodPhase) {
+		return ctx, podPhase
+	})
+}
+
+func TestMonitorNewPodStatus(t *testing.T) {
+	controller := &EventController{uuid: "test-uuid", jobInfo: common.JobBaseInfo{JobId: "test-job-id"}}
+	testCases := buildHotSwitchTestCases6()
+	for _, tc := range testCases {
+		convey.Convey(tc.name, t, func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			statusChan := make(chan v1.PodPhase, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			eventAdded := ""
+			patches.ApplyPrivateMethod(controller, "addEvent", func(_ *EventController, event string) {
+				eventAdded = event
+			})
+			if tc.chanNil {
+				patchGetCtxAndNewStatusMonitorChan(patches, controller, ctx, nil)
+			} else {
+				patchGetCtxAndNewStatusMonitorChan(patches, controller, ctx, statusChan)
+			}
+
+			if tc.channelClosed {
+				close(statusChan)
+			} else if tc.contextCanceled {
+				cancel()
+			} else if tc.timeout {
+				patchTimeOut(patches)
+			} else if tc.podStatus != "" {
+				safeWriteToChannel(t, statusChan, tc.podStatus)
+			}
+			monitorNewPodStatus(controller)
+			if tc.expectedCtlEvent != "" {
+				convey.So(eventAdded, convey.ShouldEqual, tc.expectedCtlEvent)
+			}
+			if !tc.contextCanceled && ctx.Err() == nil {
+				cancel()
+			}
+			if !tc.channelClosed && !tc.chanNil {
+				close(statusChan)
+			}
+		})
+	}
+}
+
+func buildHotSwitchTestCases6() []hotSwitchTestCaseC {
+	testCases := []hotSwitchTestCaseC{
+		{
+			name:    "should not panic when channel is nil",
+			chanNil: true,
+		},
+		{
+			name:          "should not panic when channel closed",
+			channelClosed: true,
+		},
+		{
+			name:            "should not panic when context canceled",
+			contextCanceled: true,
+		},
+		{
+			name:             "should add new pod timeout event when timeout occurs",
+			timeout:          true,
+			expectedCtlEvent: common.NewPodTimeoutEvent,
+		},
+		{
+			name:             "should add new pod running event when pod running success",
+			podStatus:        v1.PodRunning,
+			expectedCtlEvent: common.NewPodRunningEvent,
+		},
+		{
+			name:             "should add new pod running event when pod in other status",
+			podStatus:        v1.PodPending,
+			expectedCtlEvent: common.NewPodRunningEvent,
 		},
 	}
 	return testCases
