@@ -329,6 +329,7 @@ func (pod *PodReschedulingPlugin) checkExitStrategy(shot storage.SnapShot) (infr
 func (pod *PodReschedulingPlugin) checkResetConfig() bool {
 	retryTime, err := pod.getCmRetryTims()
 	if err != nil {
+		hwlog.RunLog.Errorf("get cm retry time failed, err: %v", err)
 		return false
 	}
 	if pod.oldRetryTimes != retryTime {
@@ -343,17 +344,14 @@ func (pod *PodReschedulingPlugin) checkResetConfig() bool {
 func (pod *PodReschedulingPlugin) getCmRetryTims() (int, error) {
 	configBytes, err := commonutils.LoadFile(constant.ResetConfigPath)
 	if err != nil {
-		hwlog.RunLog.Errorf("load reset config file failed, err: %v", err)
 		return 0, err
 	}
 	var result api.ResetCmInfo
 	err = json.Unmarshal(configBytes, &result)
 	if err != nil {
-		hwlog.RunLog.Errorf("unmarshal reset config failed, err: %v", err)
 		return 0, err
 	}
 	if result.RetryTime < 0 {
-		hwlog.RunLog.Errorf("retry time is negative, retryTime: %v", result.RetryTime)
 		return 0, errors.New("retry time is negative")
 	}
 	return result.RetryTime, nil
