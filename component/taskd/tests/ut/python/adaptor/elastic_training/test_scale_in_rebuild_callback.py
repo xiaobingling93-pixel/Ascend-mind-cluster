@@ -114,6 +114,14 @@ class TestScaleInRebuildCallback(unittest.TestCase):
         self.assertEqual(1, tft_replica_group.DP_CP_REPLICA_GROUP_GLOO)
         self.assertFalse(common.FAULT_RANK_IN_DP_CP_REPLICA_GROUP)
 
+    @patch('torch.distributed.get_rank')
+    def test_build_scale_in_dp_cp_replica_group_not_build(self, mock_get_rank):
+        mock_get_rank.return_value = 24
+        common.IS_FAULT_REPLICA_RANK = True
+        scale_in_rebuild_callback.build_scale_in_dp_cp_replica_group([0, 1], False, False,
+                                                                     [0, 1, 2, 3])
+        self.assertFalse(common.IS_FAULT_REPLICA_RANK)
+
 
 if __name__ == '__main__':
     unittest.main()

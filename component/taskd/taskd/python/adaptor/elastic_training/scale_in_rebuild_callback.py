@@ -24,6 +24,7 @@ from mindio_ttp.controller_ttp import ttp_logger
 from mindio_ttp.adaptor import tft_replica_group, utils
 
 from . import common
+from .common import destroy_sub_process_group
 
 
 def scale_in_rebuild_callback(new_dp_ranks: list, new_world_ranks: list, args, params: str):
@@ -209,23 +210,17 @@ def build_new_dp_cp_group(fault_idxs):
                 ttp_logger.LOGGER.info(f"rank:{rank}, dp_ranks:{dp_ranks}")
                 group = torch.distributed.new_group(dp_ranks, use_local_synchronization=True)
                 group_gloo = torch.distributed.new_group(dp_ranks, backend='gloo', use_local_synchronization=True)
+                destroy_sub_process_group(mpu._DATA_PARALLEL_GROUP)
+                destroy_sub_process_group(mpu._DATA_PARALLEL_GROUP_GLOO)
                 mpu._DATA_PARALLEL_GROUP = group
                 mpu._DATA_PARALLEL_GROUP_GLOO = group_gloo
                 mpu._DATA_PARALLEL_GLOBAL_RANKS = dp_ranks
                 get_args().data_parallel_size = len(dp_ranks)
-
-        # build new dp_cp group
-        for j in range(tensor_model_parallel_size):
-            dp_cp_ranks = list(range(start_rank + j, end_rank, tensor_model_parallel_size))
-            dp_cp_ranks = delete_ranks_from_src_by_ids(dp_cp_ranks, reversed_idxs)
-            if rank in dp_cp_ranks:
-                ttp_logger.LOGGER.info(f"rank:{rank}, dp_ranks:{mpu._DATA_PARALLEL_GLOBAL_RANKS},"
-                                       f" dp_cp_ranks:{dp_cp_ranks}")
-                dp_cp_group = torch.distributed.new_group(dp_cp_ranks, use_local_synchronization=True)
-                group_gloo = torch.distributed.new_group(dp_cp_ranks, backend='gloo', use_local_synchronization=True)
-                mpu._DATA_PARALLEL_GROUP_WITH_CP = dp_cp_group
+                destroy_sub_process_group(mpu._DATA_PARALLEL_GROUP_WITH_CP)
+                destroy_sub_process_group(mpu._DATA_PARALLEL_GROUP_WITH_CP_GLOO)
+                mpu._DATA_PARALLEL_GROUP_WITH_CP = group
                 mpu._DATA_PARALLEL_GROUP_WITH_CP_GLOO = group_gloo
-                mpu._DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = dp_cp_ranks
+                mpu._DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = dp_ranks
 
 
 def delete_ranks_from_src_by_ids(src_ranks, reversed_idxs):
@@ -237,6 +232,12 @@ def delete_ranks_from_src_by_ids(src_ranks, reversed_idxs):
 def build_scale_in_dp_cp_replica_group(fault_local_idxs, fault_first_group,
                                        both_replica_group_fault, changed_old_dp_ranks):
     replica_group_size = len(changed_old_dp_ranks) // tft_replica_group.ttp_get_replica_dp_num()
+    if not both_replica_group_fault and len(fault_local_idxs) == replica_group_size:
+        rank = torch.distributed.get_rank()
+        common.IS_FAULT_REPLICA_RANK = False
+        ttp_logger.LOGGER.info(f"rank {rank} the full replica group is fault, length of fault_local_idxs"
+                               f" is {len(fault_local_idxs)}, common.IS_FAULT_REPLICA_RANK is {common.IS_FAULT_REPLICA_RANK}")
+        return
     ranks_left = changed_old_dp_ranks[:replica_group_size]
     ranks_right = changed_old_dp_ranks[replica_group_size:]
     for fault_local_idx in fault_local_idxs:
@@ -257,6 +258,8 @@ def create_scale_in_replica_group(fault_first_group, ranks_left, ranks_right):
         common.SCALE_IN_DP_CP_REPLICA_GROUP = group_left
         common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO = group_left_gloo
         if not common.IS_FAULT_REPLICA_RANK:
+            destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP)
+            destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP_GLOO)
             tft_replica_group.DP_CP_REPLICA_GROUP = common.SCALE_IN_DP_CP_REPLICA_GROUP
             tft_replica_group.DP_CP_REPLICA_GROUP_GLOO = common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO
     elif not fault_first_group and rank in ranks_right:
@@ -267,6 +270,8 @@ def create_scale_in_replica_group(fault_first_group, ranks_left, ranks_right):
         common.SCALE_IN_DP_CP_REPLICA_GROUP = group_right
         common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO = group_right_gloo
         if not common.IS_FAULT_REPLICA_RANK:
+            destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP)
+            destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP_GLOO)
             tft_replica_group.DP_CP_REPLICA_GROUP = common.SCALE_IN_DP_CP_REPLICA_GROUP
             tft_replica_group.DP_CP_REPLICA_GROUP_GLOO = common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO
 
@@ -284,5 +289,7 @@ def create_new_replica_group_for_changed_left(left_ranks):
     group_left = torch.distributed.new_group(left_ranks, use_local_synchronization=True)
     group_left_gloo = torch.distributed.new_group(left_ranks, backend="gloo",
                                                   use_local_synchronization=True)
+    destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP)
+    destroy_sub_process_group(tft_replica_group.DP_CP_REPLICA_GROUP_GLOO)
     tft_replica_group.DP_CP_REPLICA_GROUP = group_left
     tft_replica_group.DP_CP_REPLICA_GROUP_GLOO = group_left_gloo
