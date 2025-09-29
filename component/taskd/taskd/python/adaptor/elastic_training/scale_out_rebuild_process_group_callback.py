@@ -31,6 +31,7 @@ from mindio_ttp.framework_ttp.ttp_decorator import get_mindio_export_version
 from mindio_ttp.adaptor import tft_arf_group_repair, tft_replica_group
 
 from . import common
+from .common import destroy_sub_process_group
 
 
 def scale_out_rebuild_process_group_callback(fault_ranks: list, train_args, params: str):
@@ -74,7 +75,7 @@ def rebuild_process_group(args, timeout, nccl_comm_cfgs):
     ttp_logger.LOGGER.info(f"1.1 rank:{args.rank} destroy_all_process_group done")
     init_all_process_group(args)
     ttp_logger.LOGGER.info(f"1.2 rank:{args.rank} init_all_process_group done")
-    all_dp_ranks = init_data_parallel_group(args, timeout, nccl_comm_cfgs)
+    init_data_parallel_group(args, timeout, nccl_comm_cfgs)
     ttp_logger.LOGGER.info(f"1.3 rank:{args.rank} rebuild data parallel group done")
     all_dp_ranks_with_cp = init_data_parallel_with_cp_group(args, timeout, nccl_comm_cfgs)
     ttp_logger.LOGGER.info(f"1.4 rank:{args.rank} rebuild data parallel group with cp done")
@@ -92,9 +93,15 @@ def rebuild_process_group(args, timeout, nccl_comm_cfgs):
         ttp_logger.LOGGER.info(f"1.8 rank:{args.rank} rebuild pipeline parallel group done")
     else:
         destroy_sub_process_group(common.SCALE_IN_WORLD_GROUP)
+        common.SCALE_IN_WORLD_GROUP = None
         ttp_logger.LOGGER.info(f"1.9 rank:{args.rank} destroy scale in world group done")
     ttp_initialize_replica_dp_group(args.pipeline_model_parallel_size, args.tensor_model_parallel_size,
                                     args.context_parallel_size, args.expert_model_parallel_size, args.world_size)
+    destroy_sub_process_group(common.SCALE_IN_DP_CP_REPLICA_GROUP)
+    destroy_sub_process_group(common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO)
+    common.SCALE_IN_DP_CP_REPLICA_GROUP = None
+    common.SCALE_IN_DP_CP_REPLICA_GROUP_GLOO = None
+    ttp_logger.LOGGER.info(f"1.10 rank:{args.rank} destroy scale in replica group done")
     # build other group for gitee MindSpeed or MindSpeed-LLM
     if get_mindio_export_version() in ["MindSpeed", "MindSpeed-LLM"]:
         build_other_group(nccl_comm_cfgs)
@@ -134,22 +141,12 @@ def destroy_all_process_group(group=None):
             ttp_logger.LOGGER.warning(f"Failed to remove process group {pg} from _world.tags_to_pg")
 
 
-def destroy_sub_process_group(group):
-    if group is not None:
-        torch.distributed.destroy_process_group(group)
-
-
 def ttp_initialize_replica_dp_group(pipeline_model_parallel_size, tensor_model_parallel_size, context_parallel_size,
                                     expert_model_parallel_size, world_size):
     if pipeline_model_parallel_size == 0 or tensor_model_parallel_size == 0 or context_parallel_size == 0:
         raise ValueError("pipeline_model_parallel_size, tensor_model_parallel_size, context_parallel_size "
                          "should not be zero")
-    data_parallel_size: int = world_size // (pipeline_model_parallel_size * tensor_model_parallel_size
-                                             * context_parallel_size)
     num_pipeline_model_parallel_groups: int = world_size // pipeline_model_parallel_size
-    tensor_and_data_group_size_with_cp: int = tensor_model_parallel_size * data_parallel_size * context_parallel_size
-    num_tensor_and_data_groups_with_cp: int = world_size // tensor_and_data_group_size_with_cp
-    tensor_and_expert_group_size: int = tensor_model_parallel_size * expert_model_parallel_size
 
     args = get_args()
     cur_rank = torch.distributed.get_rank()
@@ -165,15 +162,6 @@ def ttp_initialize_replica_dp_group(pipeline_model_parallel_size, tensor_model_p
                 tft_replica_group.DP_CP_ORIGIN_RANKS = dp_cp_ranks
             if args.use_distributed_optimizer:
                 build_dp_cp_replica_group(dp_cp_ranks, cur_rank)
-    for i in range(num_tensor_and_data_groups_with_cp):
-        start_rank = i * tensor_and_data_group_size_with_cp
-        end_rank = (i + 1) * tensor_and_data_group_size_with_cp
-        for j in range(tensor_and_expert_group_size):
-            dp_ep_ranks = list(range(start_rank + j, end_rank, tensor_and_expert_group_size))
-            if cur_rank in dp_ep_ranks:
-                tft_replica_group.DP_EP_ORIGIN_RANKS = dp_ep_ranks
-            if args.use_distributed_optimizer:
-                build_dp_ep_replica_group(dp_ep_ranks, cur_rank)
 
 
 def build_dp_ep_replica_group(dp_ep_ranks: list, cur_rank):
