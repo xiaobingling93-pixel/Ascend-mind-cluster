@@ -33,10 +33,10 @@ import (
 )
 
 var (
-	// CmWatcher is a instance of cmWatcher
-	CmWatcher     *cmWatcher
-	cmWatcherCnce sync.Once
-	storage       = utils.NewStorage[*cmData]()
+	// cmWatcherInstance is a instance of cmWatcher
+	cmWatcherInstance *cmWatcher = nil
+	cmWatcherOnce     sync.Once
+	storage           = utils.NewStorage[*cmData]()
 )
 
 type callbackFunc func(oldObj, newObj *corev1.ConfigMap, op watch.EventType)
@@ -60,13 +60,13 @@ type cmWatcher struct {
 
 // GetCmWatcher return a singleton of cmWatcher
 func GetCmWatcher() *cmWatcher {
-	cmWatcherCnce.Do(func() {
-		CmWatcher = &cmWatcher{
+	cmWatcherOnce.Do(func() {
+		cmWatcherInstance = &cmWatcher{
 			watchers:    make(map[string]context.CancelFunc),
 			callbackMap: make(map[string][]callback),
 		}
 	})
-	return CmWatcher
+	return cmWatcherInstance
 }
 
 func (c *cmWatcher) keyGenerator(namespace, cmName string) string {
