@@ -41,7 +41,7 @@ func TestSubAndUnSub(t *testing.T) {
 	GetCmWatcher()
 	var count = 0
 	patch := gomonkey.ApplyPrivateMethod(
-		CmWatcher,
+		cmWatcherInstance,
 		"runInformer",
 		func(*cmWatcher, context.Context, string, string) {
 			count++
@@ -52,30 +52,30 @@ func TestSubAndUnSub(t *testing.T) {
 	var registerIds []string
 	convey.Convey("test sub and unsub", t, func() {
 		for i := 0; i < subCount; i++ {
-			registerIds = append(registerIds, CmWatcher.Subscribe(testNamespace1, testNamespace1, f))
+			registerIds = append(registerIds, cmWatcherInstance.Subscribe(testNamespace1, testNamespace1, f))
 		}
 		for i := 0; i < subCount; i++ {
-			registerIds = append(registerIds, CmWatcher.Subscribe(testNamespace2, testNamespace2, f))
+			registerIds = append(registerIds, cmWatcherInstance.Subscribe(testNamespace2, testNamespace2, f))
 		}
 		var length = 2
-		convey.So(len(CmWatcher.callbackMap), convey.ShouldEqual, length)
-		convey.So(len(CmWatcher.watchers), convey.ShouldEqual, length)
+		convey.So(len(cmWatcherInstance.callbackMap), convey.ShouldEqual, length)
+		convey.So(len(cmWatcherInstance.watchers), convey.ShouldEqual, length)
 		convey.So(len(registerIds), convey.ShouldEqual, length*subCount)
 		time.Sleep(time.Millisecond)
 		convey.So(count, convey.ShouldEqual, length)
 		for _, registerId := range registerIds {
-			CmWatcher.Unsubscribe(testNamespace1, testNamespace1, registerId)
-			CmWatcher.Unsubscribe(testNamespace2, testNamespace2, registerId)
+			cmWatcherInstance.Unsubscribe(testNamespace1, testNamespace1, registerId)
+			cmWatcherInstance.Unsubscribe(testNamespace2, testNamespace2, registerId)
 		}
-		convey.So(len(CmWatcher.callbackMap), convey.ShouldEqual, 0)
-		convey.So(len(CmWatcher.watchers), convey.ShouldEqual, 0)
+		convey.So(len(cmWatcherInstance.callbackMap), convey.ShouldEqual, 0)
+		convey.So(len(cmWatcherInstance.watchers), convey.ShouldEqual, 0)
 	})
 }
 
 func TestCmProcessor(t *testing.T) {
 	GetCmWatcher()
 	patch := gomonkey.ApplyPrivateMethod(
-		CmWatcher,
+		cmWatcherInstance,
 		"runInformer",
 		func(*cmWatcher, context.Context, string, string) {},
 	)
@@ -84,15 +84,15 @@ func TestCmProcessor(t *testing.T) {
 		// convert to configMap failed
 		wrongOldData := "xxx"
 		wrongNewData := "xxx"
-		CmWatcher.cmProcessor(wrongOldData, wrongNewData, watch.Added)
-		CmWatcher.cmProcessor(nil, wrongNewData, watch.Added)
+		cmWatcherInstance.cmProcessor(wrongOldData, wrongNewData, watch.Added)
+		cmWatcherInstance.cmProcessor(nil, wrongNewData, watch.Added)
 		newData := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testCmName1,
 				Namespace: testNamespace1,
 			},
 		}
-		CmWatcher.cmProcessor(nil, newData, watch.Added)
+		cmWatcherInstance.cmProcessor(nil, newData, watch.Added)
 		time.Sleep(time.Millisecond)
 
 		// sub
@@ -101,11 +101,11 @@ func TestCmProcessor(t *testing.T) {
 			assert.Equal(t, newObj.Namespace, testNamespace1)
 		}
 
-		registerId := CmWatcher.Subscribe(testNamespace1, testCmName1, f)
+		registerId := cmWatcherInstance.Subscribe(testNamespace1, testCmName1, f)
 		time.Sleep(time.Millisecond)
 		// unsub no data in storage
-		CmWatcher.Unsubscribe(testNamespace1, testCmName1, registerId)
-		_, ok := storage.Load(CmWatcher.keyGenerator(testNamespace1, testCmName1))
+		cmWatcherInstance.Unsubscribe(testNamespace1, testCmName1, registerId)
+		_, ok := storage.Load(cmWatcherInstance.keyGenerator(testNamespace1, testCmName1))
 		convey.So(ok, convey.ShouldBeFalse)
 	})
 }
