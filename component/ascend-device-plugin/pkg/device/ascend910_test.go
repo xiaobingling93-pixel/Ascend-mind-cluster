@@ -225,21 +225,27 @@ func TestHotResetHandler(t *testing.T) {
 		manager.hotResetManager = &HotResetTools{
 			globalDevFaultInfo: mockDevFaultInfoL4(),
 		}
+		isHotResetOn = false
 		err := manager.hotResetHandler(mockGroupDevice())
+		convey.So(isHotResetOn, convey.ShouldBeFalse)
 		convey.So(err, convey.ShouldBeNil)
 
 		// have L5 error, device busy, reset should be down
 		manager.hotResetManager = &HotResetTools{
 			globalDevFaultInfo: mockDevFaultInfoL5(),
 		}
+		isHotResetOn = false
 		err = manager.hotResetHandler(mockGroupDevice())
+		convey.So(isHotResetOn, convey.ShouldBeFalse)
 		convey.So(err, convey.ShouldBeNil)
 
 		// no L4 L5 error, device busy, reset should be down
 		manager.hotResetManager = &HotResetTools{
 			globalDevFaultInfo: mockDevFaultInfoNoL4L5(),
 		}
+		isHotResetOn = false
 		err = manager.hotResetHandler(mockGroupDevice())
+		convey.So(isHotResetOn, convey.ShouldBeFalse)
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
@@ -504,6 +510,7 @@ func TestSetAllDevUnhealthyOnRing(t *testing.T) {
 		common.ParamOption.RealCardType = api.Ascend910B
 
 		// no reset device situation
+		isHotResetOn = false
 		err := manager.setAllDevUnhealthyOnRing(devList)
 		for i := 0; i < 8; i++ {
 			convey.So(devStatusList[i].Health, convey.ShouldEqual, v1beta1.Healthy)
@@ -514,6 +521,7 @@ func TestSetAllDevUnhealthyOnRing(t *testing.T) {
 		// is doing hot reset situation
 		convey.So(inResetDev, convey.ShouldEqual, -1)
 		inResetDev = 0
+		isHotResetOn = true
 		err = manager.setAllDevUnhealthyOnRing(devList)
 		for i := 0; i < 8; i++ {
 			convey.So(devStatusList[i].NetworkHealth, convey.ShouldEqual, v1beta1.Unhealthy)
@@ -526,6 +534,7 @@ func TestSetAllDevUnhealthyOnRing(t *testing.T) {
 					return nil
 				})
 			defer patch1.Reset()
+			isHotResetOn = false
 			err := manager.setAllDevUnhealthyOnRing(devList)
 			convey.So(err, convey.ShouldBeNil)
 		})
@@ -652,7 +661,8 @@ func TestProcessAllTask(t *testing.T) {
 			ApplyPrivateMethod(&HwAscend910Manager{}, "runProcessTask",
 				func(*HwAscend910Manager, string, int, *common.TaskResetInfo, map[string][]*common.NpuDevice) error {
 					return nil
-				})
+				}).
+			ApplyGlobalVar(&isHotResetOn, false)
 		defer patch.Reset()
 		manager.hotResetManager = &HotResetTools{
 			allTaskDevFaultInfo: map[string][]*common.TaskDevInfo{
@@ -1913,6 +1923,8 @@ func TestPolicyLevelHandle(t *testing.T) {
 			convey.So(handle, convey.ShouldBeFalse)
 		})
 		convey.Convey("02-policy level is 5,should return false", func() {
+			mockVar := gomonkey.ApplyGlobalVar(&isHotResetOn, false)
+			defer mockVar.Reset()
 			handle := policyLevelHandle("", taskName, common.ResetErrorLevel)
 			convey.So(handle, convey.ShouldBeFalse)
 		})
@@ -1957,35 +1969,30 @@ func TestRunProcessTask(t *testing.T) {
 		ApplyPrivateMethod(&HwAscend910Manager{}, "resetProcess",
 			func(*HwAscend910Manager, string, *common.TaskResetInfo, map[string][]*common.NpuDevice) { return })
 	defer mockFunc.Reset()
-	const sleepTime = 50 * time.Millisecond
 	convey.Convey("test runProcessTask", t, func() {
 		resetInfo := &common.TaskResetInfo{RankList: make([]*common.TaskDevInfo, 0)}
 		convey.Convey("01-policy level is 2, call restartRequestProcess, should return nil", func() {
 			manager := createFake910Manager()
 			manager.hotResetManager = &HotResetTools{}
 			err := manager.runProcessTask(taskName, common.RestartRequestErrorLevel, resetInfo, nil)
-			time.Sleep(sleepTime)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("02-policy level is 3, call restartProcess, should return nil", func() {
 			manager := createFake910Manager()
 			manager.hotResetManager = &HotResetTools{}
 			err := manager.runProcessTask(taskName, common.RestartErrorLevel, resetInfo, nil)
-			time.Sleep(sleepTime)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("03-policy level is 5, call resetProcess, should return nil", func() {
 			manager := createFake910Manager()
 			manager.hotResetManager = &HotResetTools{}
 			err := manager.runProcessTask(taskName, common.ResetErrorLevel, resetInfo, nil)
-			time.Sleep(sleepTime)
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("04-policy level is 6, call resetProcess, should return nil", func() {
 			manager := createFake910Manager()
 			manager.hotResetManager = &HotResetTools{}
 			err := manager.runProcessTask(taskName, common.IsolateErrorLevel, resetInfo, nil)
-			time.Sleep(sleepTime)
 			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
@@ -2648,7 +2655,6 @@ func TestExecOutBandReset(t *testing.T) {
 			}, []ResetDevice{})
 			convey.So(err, convey.ShouldBeNil)
 		})
-		time.Sleep(sleepTime)
 	})
 }
 
@@ -3080,101 +3086,4 @@ func TestGetDevFaultInfo(t *testing.T) {
 			convey.So(result, convey.ShouldResemble, tt.expectedResult)
 		})
 	}
-}
-
-func TestTryDeviceReset(t *testing.T) {
-	convey.Convey("Test tryDeviceReset", t, func() {
-		manager := NewHwAscend910Manager()
-		resetDevs := []*common.NpuDevice{{LogicID: 0}, {LogicID: 1}}
-
-		convey.Convey("when all devices reset successfully", func() {
-			patches := gomonkey.ApplyPrivateMethod(manager, "startUpHotReset", func(_ *HwAscend910Manager,
-				_ map[string][]*common.NpuDevice, _ *common.DevFaultInfo, _ *common.NpuDevice) error {
-				return nil
-			})
-			defer patches.Reset()
-			var wg sync.WaitGroup
-			wg.Add(len(resetDevs))
-			for _, dev := range resetDevs {
-				go func(d *common.NpuDevice) {
-					defer wg.Done()
-					_ = manager.tryDeviceReset(nil, []*common.NpuDevice{d}, make([]*common.DevFaultInfo, 1))
-				}(dev)
-			}
-			wg.Wait()
-			_, exists := resetDevMap.Load(0)
-			convey.So(exists, convey.ShouldBeFalse)
-		})
-
-		convey.Convey("when reset partially fails", func() {
-			patches := gomonkey.ApplyPrivateMethod(
-				manager, "startUpHotReset", func(_ *HwAscend910Manager,
-					_ map[string][]*common.NpuDevice, _ *common.DevFaultInfo, dev *common.NpuDevice) error {
-					if dev.LogicID == 0 {
-						return errors.New("mock error")
-					}
-					return nil
-				})
-			defer patches.Reset()
-			var wg sync.WaitGroup
-			wg.Add(len(resetDevs))
-			for _, dev := range resetDevs {
-				go func(d *common.NpuDevice) {
-					defer wg.Done()
-					_ = manager.tryDeviceReset(nil, []*common.NpuDevice{d}, make([]*common.DevFaultInfo, 1))
-				}(dev)
-			}
-			wg.Wait()
-			_, exists := resetDevMap.Load(1)
-			convey.So(exists, convey.ShouldBeFalse)
-		})
-	})
-}
-
-// TestCheckFaultIsExist tests the checkFaultIsExist function
-func TestCheckFaultIsExist(t *testing.T) {
-	manager := createFake910Manager()
-	manager.hotResetManager = &HotResetTools{}
-
-	convey.Convey("Test checkFaultIsExist", t, func() {
-		convey.Convey("01-no ascend 910 device, should return true", func() {
-			classifyDevs := map[string][]*common.NpuDevice{}
-			result := manager.checkFaultIsExist(classifyDevs, &common.NpuDevice{})
-			convey.So(result, convey.ShouldBeTrue)
-		})
-
-		convey.Convey("02-get reset index failed, should return true", func() {
-			patch := gomonkey.ApplyPrivateMethod(manager, "getResetIndex",
-				func(dev *common.NpuDevice) (int32, error) {
-					return -1, testErr
-				})
-			defer patch.Reset()
-			classifyDevs := map[string][]*common.NpuDevice{
-				api.Ascend910: {
-					{LogicID: 0},
-				},
-			}
-			result := manager.checkFaultIsExist(classifyDevs, &common.NpuDevice{LogicID: 0})
-			convey.So(result, convey.ShouldBeTrue)
-		})
-
-		convey.Convey("03-fault device exists in the same ring, should return true", func() {
-			patch := gomonkey.ApplyPrivateMethod(manager, "getResetIndex",
-				func(dev *common.NpuDevice) (int32, error) {
-					return 0, nil
-				})
-			defer patch.Reset()
-			patch.ApplyMethodReturn(manager.hotResetManager, "GetGlobalDevFaultInfo", &common.DevFaultInfo{}, nil)
-			defer patch.Reset()
-			classifyDevs := map[string][]*common.NpuDevice{
-				api.Ascend910: {
-					{LogicID: 0},
-					{LogicID: 1},
-				},
-			}
-			result := manager.checkFaultIsExist(classifyDevs, &common.NpuDevice{LogicID: 0})
-			convey.So(result, convey.ShouldBeTrue)
-		})
-
-	})
 }
