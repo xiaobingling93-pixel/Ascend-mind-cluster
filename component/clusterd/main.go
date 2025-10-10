@@ -136,6 +136,7 @@ func main() {
 	if !checkParameters() {
 		return
 	}
+	hwlog.RunLog.Infof("clusterd starting and the version is %s", BuildVersion)
 	if err := initK8sServer(); err != nil {
 		hwlog.RunLog.Errorf("init k8s servers failed, error: %v", err)
 		return
