@@ -16,7 +16,11 @@
 #define BASIC_H
 
 #include <sys/types.h>
+#ifdef __cplusplus
+#include <climits>
+#else
 #include <limits.h>
+#endif
 
 #define DEFAULT_DIR_MODE      0755
 #define DEFAULT_LOG_MODE      0600

@@ -14,7 +14,7 @@
  */
 #include <string>
 #include <iostream>
-#include <limits.h>
+#include <climits>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -70,10 +70,10 @@ extern "C" bool TakeNthWord(char **pLine, unsigned int n, char **word);
 extern "C" bool CheckRootDir(char **pLine);
 extern "C" bool GetFileSubsetAndCheck(const char *basePath, const size_t basePathLen);
 extern "C" bool CheckExistsFile(const char* filePath, const size_t filePathLen,
-               const size_t maxFileSzieMb, const bool checkWgroup);
+                                const size_t maxFileSizeMb, const bool checkWgroup);
 extern "C" int VerifyPathInfo(const struct PathInfo* pathInfo);
 extern "C" bool CheckExternalFile(const char* filePath, const size_t filePathLen,
-               const size_t maxFileSzieMb, const bool checkOwner);
+                                  const size_t maxFileSizeMb, const bool checkOwner);
 extern "C" int LogLoop(const char* filename);
 extern "C" void Logger(const char *msg, int level, int screen);
 extern "C" int EnterNsByPath(const char *path, int nsType);
