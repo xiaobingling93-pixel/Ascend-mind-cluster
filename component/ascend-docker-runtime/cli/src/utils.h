@@ -30,10 +30,10 @@ int MakeDirWithParent(const char *path, mode_t mode);
 int MakeMountPoints(const char *path, mode_t mode);
 bool IsValidChar(const char c);
 bool CheckExternalFile(const char* filePath, const size_t filePathLen,
-    const size_t maxFileSzieMb, const bool checkOwner);
+    const size_t maxFileSizeMb, const bool checkOwner);
 bool GetFileSubsetAndCheck(const char *basePath, const size_t basePathLen);
 bool CheckExistsFile(const char* filePath, const size_t filePathLen,
-    const size_t maxFileSzieMb, const bool checkWgroup);
+    const size_t maxFileSizeMb, const bool checkWgroup);
 bool CheckOpenedFile(FILE* fp, const long maxSize, const bool checkOwner);
 bool GetAllowLink(void);
 void SetAllowLink(bool value);

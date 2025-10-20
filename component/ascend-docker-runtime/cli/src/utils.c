@@ -245,9 +245,9 @@ static bool CheckParentDir(const char* filePath, const size_t filePathLen,
 }
 
 static bool CheckLegality(const char* filePath, const size_t filePathLen,
-    const unsigned long long maxFileSzieMb, const bool checkOwner)
+    const unsigned long long maxFileSizeMb, const bool checkOwner)
 {
-    const unsigned long long maxFileSzieB = maxFileSzieMb * 1024 * 1024;
+    const unsigned long long maxFileSizeB = maxFileSizeMb * 1024 * 1024;
     char buf[PATH_MAX] = {0};
     if (strncpy_s(buf, sizeof(buf), filePath, filePathLen) != EOK) {
         return false;
@@ -258,7 +258,7 @@ static bool CheckLegality(const char* filePath, const size_t filePathLen,
         ((S_ISREG(fileStat.st_mode) == 0) && (S_ISDIR(fileStat.st_mode) == 0))) {
         return ShowExceptionInfo("filePath does not exist or is not a file/dir!");
     }
-    if ((maxFileSzieMb > 0) && (fileStat.st_size >= maxFileSzieB)) { // 文件大小超限，日志文件不校验大小，由轮滚机制保护
+    if ((maxFileSizeMb > 0) && (fileStat.st_size >= maxFileSizeB)) { // 文件大小超限，日志文件不校验大小，由轮滚机制保护
         return ShowExceptionInfo("fileSize out of bounds!");
     }
     return CheckParentDir(filePath, filePathLen, fileStat, checkOwner);
@@ -278,7 +278,7 @@ bool IsValidChar(const char c)
 }
 
 bool CheckExternalFile(const char* filePath, const size_t filePathLen,
-    const size_t maxFileSzieMb, const bool checkOwner)
+    const size_t maxFileSizeMb, const bool checkOwner)
 {
     if ((filePathLen > PATH_MAX) || (filePathLen <= 0)) { // 长度越界
         return ShowExceptionInfo("filePathLen out of bounds!");
@@ -288,11 +288,11 @@ bool CheckExternalFile(const char* filePath, const size_t filePathLen,
             return ShowExceptionInfo("filePath has an illegal character!");
         }
     }
-    return CheckLegality(filePath, filePathLen, maxFileSzieMb, checkOwner);
+    return CheckLegality(filePath, filePathLen, maxFileSizeMb, checkOwner);
 }
 
 bool CheckExistsFile(const char* filePath, const size_t filePathLen,
-    const size_t maxFileSzieMb, const bool checkWgroup)
+    const size_t maxFileSizeMb, const bool checkWgroup)
 {
     struct stat fileStat;
     if (lstat(filePath, &fileStat) != 0) {
@@ -302,7 +302,7 @@ bool CheckExistsFile(const char* filePath, const size_t filePathLen,
         return false;
     }
     g_checkWgroup = checkWgroup;
-    if (!CheckExternalFile(filePath, filePathLen, maxFileSzieMb, true)) {
+    if (!CheckExternalFile(filePath, filePathLen, maxFileSizeMb, true)) {
         g_checkWgroup = true;
         return false;
     }
@@ -329,9 +329,9 @@ bool CheckOpenedFile(FILE* fp, const long maxSize, const bool checkOwner)
 }
 
 static bool CheckFileSubset(const char* filePath, const size_t filePathLen,
-    const size_t maxFileSzieMb)
+    const size_t maxFileSizeMb)
 {
-    const unsigned long long maxFileSzieB = maxFileSzieMb * 1024 * 1024;
+    const unsigned long long maxFileSizeB = maxFileSizeMb * 1024 * 1024;
     int iLoop;
     if ((filePathLen > PATH_MAX) || (filePathLen <= 0)) { // 长度越界
         return ShowExceptionInfo("filePathLen out of bounds!");
@@ -348,7 +348,7 @@ static bool CheckFileSubset(const char* filePath, const size_t filePathLen,
     if (!g_allowLink && S_ISLNK(fileStat.st_mode) != 0) { // 存在软链接
         return ShowExceptionInfo("filePath is symbolic link!");
     }
-    if (fileStat.st_size >= maxFileSzieB) { // 文件大小超限
+    if (fileStat.st_size >= maxFileSizeB) { // 文件大小超限
         return ShowExceptionInfo("fileSize out of bounds!");
     }
     return true;
@@ -381,8 +381,8 @@ bool GetFileSubsetAndCheck(const char *basePath, const size_t basePathLen)
             return ShowExceptionInfo("Strcat failed!");
         }
         if (ptr->d_type == DT_REG) { // 文件
-            const size_t maxFileSzieMb = 150; // max 150 MB
-            if (!CheckFileSubset(base, strlen(base), maxFileSzieMb)) {
+            const size_t maxFileSizeMb = 150; // max 150 MB
+            if (!CheckFileSubset(base, strlen(base), maxFileSizeMb)) {
                 closedir(dir);
                 return false;
             }
