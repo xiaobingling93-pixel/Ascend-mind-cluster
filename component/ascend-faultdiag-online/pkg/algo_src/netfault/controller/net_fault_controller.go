@@ -394,7 +394,7 @@ func getCurSuperPodDetectionInterval(conf map[string]any, superPodFilePath strin
 		detectionInterval = defaultDetectionInterval
 	} else {
 		intervalDigit, ok := interval.(int)
-		if !ok {
+		if !ok || intervalDigit <= 0 {
 			hwlog.RunLog.Warnf("%s config period field format error", superPodFilePath)
 			detectionInterval = defaultDetectionInterval
 		} else {

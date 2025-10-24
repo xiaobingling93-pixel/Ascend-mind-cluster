@@ -26,6 +26,7 @@ import (
 
 	"ascend-common/common-utils/utils"
 	"ascend-faultdiag-online/pkg/core/model/enum"
+	"ascend-faultdiag-online/pkg/utils/constants"
 	"ascend-faultdiag-online/pkg/utils/slicetool"
 )
 
@@ -57,12 +58,13 @@ func paramCheck(config *FaultDiagConfig) error {
 		return fmt.Errorf("config wrong param: queue size %d must great than 0", config.QueueSize)
 	}
 	if config.Mode == enum.Cluster {
-		if config.NodeReportTimeout <= 0 {
-			return fmt.Errorf("config wrong param: node report timeout %d must great than 0", config.NodeReportTimeout)
+		if config.NodeReportTimeout <= 0 || config.NodeReportTimeout > constants.OneDaySeconds {
+			return fmt.Errorf("config wrong param: node report timeout %d must greater than 0 and less than %d",
+				config.NodeReportTimeout, constants.OneDaySeconds)
 		}
-		if config.AllNodesReportTimeout <= 0 {
-			return fmt.Errorf("config wrong param: all nodes report timeout %d must great than 0",
-				config.AllNodesReportTimeout)
+		if config.AllNodesReportTimeout <= 0 || config.AllNodesReportTimeout > constants.OneDaySeconds {
+			return fmt.Errorf("config wrong param: all nodes report timeout %d must greater than 0 and less than %d",
+				config.AllNodesReportTimeout, constants.OneDaySeconds)
 		}
 	}
 	return nil
