@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	workerselector = "workerselector"
+	workerSelector = "workerselector"
 	workerNodeTag  = "dls-worker-node"
+	perPageNumber  = 500
 )
 
 var (
@@ -48,7 +49,7 @@ type Client struct {
 	ClientSet kubernetes.Interface
 }
 
-// GetClientK8s get the singleton instance of ClientK8s
+// GetClient K8s get the singleton instance of ClientK8s
 func GetClient() (*Client, error) {
 	once.Do(func() {
 		var clientCfg *rest.Config
@@ -129,7 +130,7 @@ func (c *Client) DeleteConfigMap(cmName, cmNamespace string) error {
 }
 
 // GetWorkerNodesIPByLabel get all the ips of all the nodes
-func (c *Client) GetWorkerNodesIPByLabel(labelName, lableValue string) ([]string, error) {
+func (c *Client) GetWorkerNodesIPByLabel(labelName, labelValue string) ([]string, error) {
 	nodes, err := c.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -137,7 +138,7 @@ func (c *Client) GetWorkerNodesIPByLabel(labelName, lableValue string) ([]string
 	var ips []string
 	for _, node := range nodes.Items {
 		labels := node.Labels
-		if labels[workerselector] != workerNodeTag || labels[labelName] != lableValue {
+		if labels[workerSelector] != workerNodeTag || labels[labelName] != labelValue {
 			continue
 		}
 		for _, addr := range node.Status.Addresses {
@@ -165,12 +166,28 @@ func (c *Client) GetLabels() (map[string]string, error) {
 
 // GetConfigMapNum get the current number of config map, include all namespaces
 func (c *Client) GetConfigMapNum() (int, error) {
-	cms, err := c.ClientSet.CoreV1().ConfigMaps("").List(context.TODO(), metav1.ListOptions{
-		ResourceVersion: "0", // read from cache
-		Limit:           1,   // only need total numbers, no need to get the content
-	})
-	if err != nil {
-		return 0, err
+	var total int
+	continueToken := ""
+	for {
+		// 分页查询：每次最多查 500 个，通过 Continue  token 迭代
+		cms, err := c.ClientSet.CoreV1().ConfigMaps("").List(context.TODO(), metav1.ListOptions{
+			ResourceVersion: "0",           // read from cache
+			Limit:           perPageNumber, // number of items per page, adjustable
+			Continue:        continueToken, // pagination token
+		})
+		if err != nil {
+			return 0, fmt.Errorf("failed to get ConfigMap list: %v", err)
+		}
+
+		total += len(cms.Items)
+		// 若 Continue 为空，说明已遍历完所有资源
+		if cms.Continue == "" {
+			break
+		}
+		if total >= constants.MaxConfigMapNum {
+			break
+		}
+		continueToken = cms.Continue
 	}
-	return len(cms.Items), nil
+	return total, nil
 }

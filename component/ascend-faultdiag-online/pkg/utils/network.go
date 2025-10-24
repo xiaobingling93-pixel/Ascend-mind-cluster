@@ -53,5 +53,11 @@ func GetNodeIp() (string, error) {
 // GetClusterIp get the ip address of cluster pod
 func GetClusterIp() string {
 	podIP := os.Getenv(constants.PodIP)
-	return podIP
+	if podIP != "" {
+		if checkIp := net.ParseIP(podIP); checkIp != nil && checkIp.To4() != nil {
+			return podIP
+		}
+	}
+	hwlog.RunLog.Warnf("[FD-OL]%v environment variable isn't set or isn't a valid IPv4 address", constants.PodIP)
+	return ""
 }
