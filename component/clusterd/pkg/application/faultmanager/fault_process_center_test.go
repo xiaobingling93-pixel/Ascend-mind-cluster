@@ -30,7 +30,7 @@ func TestCallbackForReportNoRetryInfo(t *testing.T) {
 	t.Run("CallbackForReportNoRetryInfo", func(t *testing.T) {
 		currentTime := time.Now().UnixMilli()
 		CallbackForReportNoRetryInfo("job1", currentTime)
-		reportTime := collector.ReportInfoCollector.GetNoRetryReportTime("job1")
+		reportTime := collector.ReportInfoCollector.GetSingleProcessFaultReportTime("job1")
 		if reportTime != currentTime {
 			t.Error("report no retry info failed")
 		}

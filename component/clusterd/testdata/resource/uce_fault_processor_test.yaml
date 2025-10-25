@@ -69,136 +69,76 @@ node1:
     Ascend910-0:
       DeviceName: "Ascend910-0"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-1:
       DeviceName: "Ascend910-1"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-2:
       DeviceName: "Ascend910-2"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-3:
       DeviceName: "Ascend910-3"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-4:
       DeviceName: "Ascend910-4"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "1"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
 node2:
   NodeName: "node2"
   DeviceInfo:
     Ascend910-0:
       DeviceName: "Ascend910-0"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "1"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-1:
       DeviceName: "Ascend910-1"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-2:
       DeviceName: "Ascend910-2"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-3:
       DeviceName: "Ascend910-3"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
     Ascend910-4:
       DeviceName: "Ascend910-4"
       FaultDetail:
-        retry:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
-        normal:
-          FaultTime: 100000
-          RecoverTime: 9223372036854775807
-          CompleteTime: 9223372036854775807
-          FaultType: "0"
+        FaultTime: 100000
+        RecoverTime: 9223372036854775807
+        CompleteTime: 9223372036854775807
+        FaultType: "0"
 ---
 job1:
   node1:
@@ -272,36 +212,20 @@ job1:
         Ascend910-0:
           DeviceName: "Ascend910-0"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
     node2:
       NodeName: node2
       DeviceInfo:
         Ascend910-0:
           DeviceName: "Ascend910-0"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "1"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
 job2:
   JobId: job2
   RetryNode:
@@ -311,36 +235,20 @@ job2:
         Ascend910-1:
           DeviceName: "Ascend910-1"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
     node2:
       NodeName: node2
       DeviceInfo:
         Ascend910-1:
           DeviceName: "Ascend910-1"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
 job3:
   JobId: job3
   RetryNode:
@@ -350,36 +258,20 @@ job3:
         Ascend910-2:
           DeviceName: "Ascend910-2"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
     node2:
       NodeName: node2
       DeviceInfo:
         Ascend910-2:
           DeviceName: "Ascend910-2"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
 job4:
   JobId: job4
   RetryNode:
@@ -389,36 +281,20 @@ job4:
         Ascend910-3:
           DeviceName: "Ascend910-3"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
     node2:
       NodeName: node2
       DeviceInfo:
         Ascend910-3:
           DeviceName: "Ascend910-3"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
 job5:
   JobId: job5
   RetryNode:
@@ -428,33 +304,17 @@ job5:
         Ascend910-4:
           DeviceName: "Ascend910-4"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "1"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"
     node2:
       NodeName: node2
       DeviceInfo:
         Ascend910-4:
           DeviceName: "Ascend910-4"
           FaultDetail:
-            retry:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
-            normal:
-              FaultTime: 100000
-              RecoverTime: 9223372036854775807
-              CompleteTime: 9223372036854775807
-              ReportTime: 9223372036854775807
-              FaultType: "0"
+            FaultTime: 100000
+            RecoverTime: 9223372036854775807
+            CompleteTime: 9223372036854775807
+            FaultType: "0"

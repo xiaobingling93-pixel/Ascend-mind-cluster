@@ -342,11 +342,11 @@ func TestValidBusinessUceReportInfo(t *testing.T) {
 func TestCanDoStepRetry(t *testing.T) {
 	uceDeviceInfo := &constant.RetryDeviceInfo{
 		DeviceName: deviceName,
-		FaultDetail: map[string]constant.DeviceFaultDetail{constant.DeviceRetryFault: {
+		FaultDetail: constant.DeviceFaultDetail{
 			FaultTime:    time100Seconds,
 			RecoverTime:  time100Seconds + time1Seconds,
 			CompleteTime: 0,
-		}},
+		},
 	}
 	t.Run("TestCanDoStepRetry", func(t *testing.T) {
 		mockTime := time.Time{}
@@ -360,7 +360,7 @@ func TestCanDoStepRetry(t *testing.T) {
 			mockNow.Reset()
 			mockUnixMilli.Reset()
 		}()
-		detailInfo := uceDeviceInfo.FaultDetail[constant.DeviceRetryFault]
+		detailInfo := uceDeviceInfo.FaultDetail
 		if !CanDoStepRetry(&detailInfo) {
 			t.Error("TestCanDoStepRetry fail")
 		}

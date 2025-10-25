@@ -25,7 +25,7 @@ import (
 	batchv1 "ascend-common/api/ascend-operator/apis/batch/v1"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
-	"clusterd/pkg/application/faultmanager/cmprocess/retry"
+	"clusterd/pkg/application/faultmanager/cmprocess/recoverinplace"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/common"
 	"clusterd/pkg/domain/job"
@@ -1042,7 +1042,7 @@ func TestWaitNormalFaultRecovery(t *testing.T) {
 			convey.So(err, convey.ShouldBeNil)
 		})
 		convey.Convey("job has fault, should return error", func() {
-			patches.ApplyPrivateMethod(retry.RetryProcessor, "JobHasFault",
+			patches.ApplyPrivateMethod(recoverinplace.RecoverInplaceProcessor, "JobHasFault",
 				func(string) bool { return true })
 			err := ctl.waitNormalFaultRecovery()
 			convey.So(err, convey.ShouldNotBeNil)

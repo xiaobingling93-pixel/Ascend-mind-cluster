@@ -18,7 +18,7 @@ import (
 	"ascend-common/api/ascend-operator/apis/batch/v1"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/application/faultmanager"
-	"clusterd/pkg/application/faultmanager/cmprocess/retry"
+	"clusterd/pkg/application/faultmanager/cmprocess/recoverinplace"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/common"
@@ -1267,7 +1267,7 @@ func (ctl *EventController) waitNormalFaultRecovery() error {
 	startTime := time.Now().Unix()
 	for i := 0; i < constant.JobFaultDisappearRetryTimes; i++ {
 		time.Sleep(constant.JobFaultCheckPeriod * time.Second)
-		if !retry.RetryProcessor.JobHasFault(ctl.jobInfo.JobId) {
+		if !recoverinplace.RecoverInplaceProcessor.JobHasFault(ctl.jobInfo.JobId) {
 			hwlog.RunLog.Infof("fault disappear, jobId:%s", ctl.jobInfo.JobId)
 			return nil
 		}

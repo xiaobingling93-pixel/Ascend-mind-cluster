@@ -25,15 +25,15 @@ type JobReportInfoCollector struct {
 	// JobId->node->device->report_info
 	RetryMap map[string]map[string]map[string]constant.ReportInfo
 	// JobId->reportFaultTime
-	NoRetryMap map[string]int64
-	RwMutex    sync.RWMutex
+	SingleProcessMap map[string]int64
+	RwMutex          sync.RWMutex
 }
 
 func init() {
 	ReportInfoCollector = &JobReportInfoCollector{
-		RetryMap:   make(map[string]map[string]map[string]constant.ReportInfo),
-		NoRetryMap: make(map[string]int64),
-		RwMutex:    sync.RWMutex{},
+		RetryMap:         make(map[string]map[string]map[string]constant.ReportInfo),
+		SingleProcessMap: make(map[string]int64),
+		RwMutex:          sync.RWMutex{},
 	}
 }
 
@@ -64,12 +64,12 @@ func (reportInfos *JobReportInfoCollector) deleteInfo(jobId string, nodeName str
 	delete(reportInfos.RetryMap[jobId][nodeName], deviceName)
 }
 
-// GetNoRetryReportTime get no retry report time
-func (reportInfos *JobReportInfoCollector) GetNoRetryReportTime(jobId string) int64 {
+// GetSingleProcessFaultReportTime get single process fault report time
+func (reportInfos *JobReportInfoCollector) GetSingleProcessFaultReportTime(jobId string) int64 {
 	reportTime := constant.JobShouldReportFault
 	reportInfos.RwMutex.RLock()
 	defer reportInfos.RwMutex.RUnlock()
-	if time, ok := reportInfos.NoRetryMap[jobId]; ok {
+	if time, ok := reportInfos.SingleProcessMap[jobId]; ok {
 		return time
 	}
 	return reportTime
@@ -140,12 +140,12 @@ func (reportInfos *JobReportInfoCollector) ReportRetryInfo(jobId string, rankId 
 func (reportInfos *JobReportInfoCollector) ReportNoRetryInfo(jobId string, reportFaultTime int64) {
 	reportInfos.RwMutex.Lock()
 	defer reportInfos.RwMutex.Unlock()
-	noRetryMap := reportInfos.NoRetryMap
+	noRetryMap := reportInfos.SingleProcessMap
 	if noRetryMap == nil {
 		noRetryMap = make(map[string]int64)
 	}
 	noRetryMap[jobId] = reportFaultTime
-	reportInfos.NoRetryMap = noRetryMap
+	reportInfos.SingleProcessMap = noRetryMap
 	hwlog.RunLog.Infof("callbackForReportNoRetryInfo receive report info(%s, %d)", jobId, reportFaultTime)
-	hwlog.RunLog.Debugf("Current no retry reportInfo is %s", util.ObjToString(reportInfos.NoRetryMap))
+	hwlog.RunLog.Debugf("Current no retry reportInfo is %s", util.ObjToString(reportInfos.SingleProcessMap))
 }
