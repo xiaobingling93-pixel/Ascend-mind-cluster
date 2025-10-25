@@ -33,6 +33,10 @@ const (
 )
 
 func jobSummaryProcessor(jobSummary *model.JobSummary) {
+	if jobSummary == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]job summary is nil")
+		return
+	}
 	hwlog.RunLog.Infof("[FD-OL SLOWNODE]got job summary data, operator: %s, data: %+v", jobSummary.Operator, jobSummary)
 	// query context from local contextMap
 	var key = fmt.Sprintf("%s/%s", jobSummary.Namespace, jobSummary.JobName)
@@ -41,10 +45,13 @@ func jobSummaryProcessor(jobSummary *model.JobSummary) {
 		hwlog.RunLog.Warnf("[FD-OL SLOWNODE]no slow node context found, key: %s", key)
 		return
 	}
+	if ctx == nil || ctx.Job == nil {
+		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]invalid nil context or job, key: %s", key)
+		return
+	}
 	if ctx.Job.JobId != jobSummary.JobId {
 		// case 1: no jobId in ctx, update it -> start slow node job
-		hwlog.RunLog.Infof("[FD-OL SLOWNODE]job(name=%s, jobId=%s) detected jobId updated, update it to: %s ",
-			ctx.Job.JobName, ctx.Job.JobId, jobSummary.JobId)
+		hwlog.RunLog.Infof("%s detected jobId updated, update it to: %s ", ctx.LogPrefix(), jobSummary.JobId)
 		ctx.Job.JobId = jobSummary.JobId
 	}
 	ctx.UpdateTrainingJobStatus(jobSummary.JobStatus)

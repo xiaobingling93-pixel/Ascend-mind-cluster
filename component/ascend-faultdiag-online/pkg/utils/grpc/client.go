@@ -20,6 +20,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -105,7 +106,7 @@ func (c *Client) connect(host string) error {
 
 // Close is a function to close the grpc connection
 func (c *Client) Close() {
-	if c.conn == nil {
+	if c == nil || c.conn == nil {
 		return
 	}
 	c.conn.Close()
@@ -113,6 +114,9 @@ func (c *Client) Close() {
 
 // StartAllProfiling start all the profiling, including heavy&light profiling
 func (c *Client) StartAllProfiling(name, namespace string) error {
+	if c == nil {
+		return errors.New("grpc client is nil")
+	}
 	data := &profiling.DataTypeReq{
 		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
 		ProfilingSwitch: &profiling.ProfilingSwitch{
@@ -129,6 +133,9 @@ func (c *Client) StartAllProfiling(name, namespace string) error {
 
 // StopAllProfiling stop all the profiling, only occurs the job closes
 func (c *Client) StopAllProfiling(name, namespace string) error {
+	if c == nil {
+		return errors.New("grpc client is nil")
+	}
 	data := &profiling.DataTypeReq{
 		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
 		ProfilingSwitch: &profiling.ProfilingSwitch{
@@ -145,6 +152,9 @@ func (c *Client) StopAllProfiling(name, namespace string) error {
 
 // StartHeavyProfiling start the heavy profiling, it has big impact on the performance
 func (c *Client) StartHeavyProfiling(name, namespace string) error {
+	if c == nil {
+		return errors.New("grpc client is nil")
+	}
 	data := &profiling.DataTypeReq{
 		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
 		ProfilingSwitch: &profiling.ProfilingSwitch{
@@ -161,6 +171,9 @@ func (c *Client) StartHeavyProfiling(name, namespace string) error {
 
 // StopHeavyProfiling stop the heavy profiling, only keep the light profiling
 func (c *Client) StopHeavyProfiling(name, namespace string) error {
+	if c == nil {
+		return errors.New("grpc client is nil")
+	}
 	data := &profiling.DataTypeReq{
 		JobNsName: fmt.Sprintf("%s/%s", namespace, name),
 		ProfilingSwitch: &profiling.ProfilingSwitch{
@@ -184,6 +197,9 @@ func (c *Client) profilingSwitch(data *profiling.DataTypeReq) (*profiling.DataTy
 
 // ReportFault report fault to clusterd
 func (c *Client) ReportFault(faults []*pubfault.Fault) error {
+	if c == nil {
+		return errors.New("grpc client is nil")
+	}
 	req := pubfault.PublicFaultRequest{
 		Id:        uuid.New().String(),
 		Timestamp: time.Now().UnixMilli(),
@@ -198,6 +214,9 @@ func (c *Client) ReportFault(faults []*pubfault.Fault) error {
 
 // SendToPubFaultCenter send fault to public fault center
 func (c *Client) SendToPubFaultCenter(data *pubfault.PublicFaultRequest) (*pubfault.RespStatus, error) {
+	if c == nil {
+		return nil, errors.New("grpc client is nil")
+	}
 	return utils.Retry(func() (*pubfault.RespStatus, error) {
 		return c.pf.SendPublicFault(context.Background(), data)
 	}, nil)
@@ -285,7 +304,7 @@ func (c *Client) processJobSummary(stream job.Job_SubscribeJobSummarySignalClien
 		storage.Store(fmt.Sprintf("%s/%s", job.Namespace, job.JobName), job)
 		c.mu.Lock()
 		for _, cb := range c.callbacks {
-			if cb.jobName == data.JobName && cb.namespace == data.Namespace {
+			if cb.jobName == data.JobName && cb.namespace == data.Namespace && cb.f != nil {
 				go cb.f(job)
 			}
 		}
@@ -295,6 +314,9 @@ func (c *Client) processJobSummary(stream job.Job_SubscribeJobSummarySignalClien
 
 // SubscribeJobSummary will subscribe all the job summary
 func (c *Client) SubscribeJobSummary(jobName, namespace string, f func(job *model.JobSummary)) (string, error) {
+	if f == nil {
+		return "", errors.New("callback function is nil")
+	}
 	// add f to process list
 	registerId := uuid.New().String()
 	cb := callback{

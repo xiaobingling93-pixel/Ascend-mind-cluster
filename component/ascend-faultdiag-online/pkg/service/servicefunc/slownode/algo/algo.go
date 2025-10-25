@@ -67,25 +67,30 @@ func (a *Controller) request(command enum.Command) error {
 	if res.Status != enum.Success {
 		return errors.New(res.Msg)
 	}
-	hwlog.RunLog.Infof("[FD-OL SLOWNODE]job(name=%s, jobId=%s) %s slow node algo successfully",
-		a.ctx.Job.JobName, a.ctx.Job.JobId, command)
+	hwlog.RunLog.Infof("%s %s slow node algo successfully", a.ctx.LogPrefix(), command)
 	return nil
 }
 
 // Start start the slow node algorithm both for node and cluster
 func (a *Controller) Start() {
+	if a == nil || a.ctx == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]invalid nil algo controller or job context")
+		return
+	}
 	if err := a.request(enum.Start); err != nil {
-		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) started slow node algo failed: %v",
-			a.ctx.Job.JobName, a.ctx.Job.JobId, err)
+		hwlog.RunLog.Errorf("%s started slow node algo failed: %v", a.ctx.LogPrefix(), err)
 		return
 	}
 }
 
 // Stop stop the slow node algorithm both for node and cluster
 func (a *Controller) Stop() {
+	if a == nil || a.ctx == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]invalid nil algo controller or job context")
+		return
+	}
 	if err := a.request(enum.Stop); err != nil {
-		hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) stopped slow node algo failed: %v",
-			a.ctx.Job.JobName, a.ctx.Job.JobId, err)
+		hwlog.RunLog.Errorf("%s stopped slow node algo failed: %v", a.ctx.LogPrefix(), err)
 		return
 	}
 }

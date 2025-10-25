@@ -53,6 +53,9 @@ type cluster struct {
 
 // AddAlgoRecord add the slow node algo result in JobContext
 func (c *cluster) AddAlgoRecord(result *slownode.ClusterAlgoResult) {
+	if c == nil || result == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.AlgoRes) > recordsCapacity {
@@ -64,6 +67,9 @@ func (c *cluster) AddAlgoRecord(result *slownode.ClusterAlgoResult) {
 
 // AddRecords add the slow node algo result in JobContext
 func (c *cluster) UpdateTrainingJobStatus(status string) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.TrainingJobStatus = status
@@ -71,11 +77,17 @@ func (c *cluster) UpdateTrainingJobStatus(status string) {
 
 // AddReportedNodeIp adds the node IP to the parallel group info result
 func (c *cluster) AddReportedNodeIp(nodeIp string) {
+	if c == nil {
+		return
+	}
 	c.ReportedNodeIps.Store(nodeIp, struct{}{})
 }
 
 // GetReportedNodeIps returns the parallel group info result
 func (c *cluster) GetReportedNodeIps() []string {
+	if c == nil {
+		return nil
+	}
 	var nodeIps = make([]string, 0)
 	c.ReportedNodeIps.Range(func(key, _ any) bool {
 		nodeIp, ok := key.(string)
@@ -90,6 +102,9 @@ func (c *cluster) GetReportedNodeIps() []string {
 
 // TriggerMerge send a signal to merge the parallel group info
 func (c *cluster) TriggerMerge() {
+	if c == nil {
+		return
+	}
 	select {
 	case c.MergeParallelGroupInfoSignal <- struct{}{}:
 	default:
@@ -99,6 +114,9 @@ func (c *cluster) TriggerMerge() {
 
 // GetRescheduleCount get the reschedule count of the training job
 func (c *cluster) GetRescheduleCount() int {
+	if c == nil {
+		return 0
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.rescheduleCount
@@ -106,6 +124,9 @@ func (c *cluster) GetRescheduleCount() int {
 
 // SetRescheduleCount set the reschedule count of the training job
 func (c *cluster) SetRescheduleCount(count int) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	c.rescheduleCount = count
 	defer c.mu.Unlock()
@@ -113,6 +134,9 @@ func (c *cluster) SetRescheduleCount(count int) {
 
 // NeedReport returns whether need report slow node rank ids or not
 func (c *cluster) NeedReport() bool {
+	if c == nil {
+		return false
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.needReport
@@ -120,6 +144,9 @@ func (c *cluster) NeedReport() bool {
 
 // SetNeedReport sets whether need report slow node rank ids or not
 func (c *cluster) SetNeedReport(need bool) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	c.needReport = need
 	defer c.mu.Unlock()
@@ -127,6 +154,9 @@ func (c *cluster) SetNeedReport(need bool) {
 
 // GetSlowRankIds returns the slow rank ids to be reported
 func (c *cluster) GetSlowRankIds() []int {
+	if c == nil {
+		return nil
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.slowRankIds
@@ -134,6 +164,9 @@ func (c *cluster) GetSlowRankIds() []int {
 
 // SetSlowRankIds sets the slow rank ids to be reported
 func (c *cluster) SetSlowRankIds(rankIds []int) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	c.slowRankIds = rankIds
 	c.mu.Unlock()
@@ -141,6 +174,9 @@ func (c *cluster) SetSlowRankIds(rankIds []int) {
 
 // ClearSlowRankIds clears the slow rank ids
 func (c *cluster) ClearSlowRankIds() {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	c.slowRankIds = []int{}
 	c.mu.Unlock()
@@ -192,6 +228,9 @@ func NewJobContext(job *slownode.Job, deployment enum.DeployMode) *JobContext {
 
 // Start the job
 func (ctx *JobContext) Start() {
+	if ctx == nil {
+		return
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.StopChan = make(chan struct{}, channelCapacity)
@@ -208,6 +247,9 @@ func (ctx *JobContext) Start() {
 
 // Stop the job
 func (ctx *JobContext) Stop() {
+	if ctx == nil {
+		return
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	if ctx.isRunning {
@@ -225,6 +267,9 @@ func (ctx *JobContext) Stop() {
 
 // IsRunning check if the job is running
 func (ctx *JobContext) IsRunning() bool {
+	if ctx == nil {
+		return false
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	return ctx.isRunning
@@ -232,6 +277,9 @@ func (ctx *JobContext) IsRunning() bool {
 
 // AddStep add the step
 func (ctx *JobContext) AddStep() {
+	if ctx == nil {
+		return
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.step++
@@ -239,6 +287,9 @@ func (ctx *JobContext) AddStep() {
 
 // Step get the step
 func (ctx *JobContext) Step() Step {
+	if ctx == nil {
+		return InitialStep
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	return ctx.step
@@ -246,18 +297,27 @@ func (ctx *JobContext) Step() Step {
 
 // IsStartedHeavyProfiling returns a bool whether the heavy profiling starts or not
 func (ctx *JobContext) IsStartedHeavyProfiling() bool {
+	if ctx == nil {
+		return false
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	return ctx.isStartedHeavyProfiling
 }
 
 func (ctx *JobContext) LogPrefix() string {
+	if ctx == nil || ctx.Job == nil {
+		return "[FD-OL SLOWNODE]job(nil)"
+	}
 	return fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, namespace=%v, jobId=%s)",
 		ctx.Job.JobName, ctx.Job.Namespace, ctx.Job.JobId)
 }
 
 // StartAllProfiling start all the profiling
 func (ctx *JobContext) StartAllProfiling() {
+	if ctx == nil || ctx.Job == nil {
+		return
+	}
 	grpcClient, err := grpc.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got grpc client failed: %v", ctx.LogPrefix(), err)
@@ -274,6 +334,9 @@ func (ctx *JobContext) StartAllProfiling() {
 
 // StopAllProfiling stop all the profiling
 func (ctx *JobContext) StopAllProfiling() {
+	if ctx == nil || ctx.Job == nil {
+		return
+	}
 	grpcClient, err := grpc.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got grpc client failed: %v", ctx.LogPrefix(), err)
@@ -288,6 +351,9 @@ func (ctx *JobContext) StopAllProfiling() {
 
 // StartHeavyProfiling start the heavy profiling
 func (ctx *JobContext) StartHeavyProfiling() {
+	if ctx == nil || ctx.Job == nil {
+		return
+	}
 	grpcClient, err := grpc.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got grpc client failed: %v", ctx.LogPrefix(), err)
@@ -305,6 +371,9 @@ func (ctx *JobContext) StartHeavyProfiling() {
 
 // StopHeavyProfiling stop the heavy profiling
 func (ctx *JobContext) StopHeavyProfiling() {
+	if ctx == nil || ctx.Job == nil {
+		return
+	}
 	grpcClient, err := grpc.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got grpc client failed: %v", ctx.LogPrefix(), err)
@@ -323,6 +392,9 @@ func (ctx *JobContext) StopHeavyProfiling() {
 
 // Update the slow node to the current job
 func (ctx *JobContext) Update(job *slownode.Job) {
+	if ctx == nil || ctx.Job == nil || job == nil {
+		return
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.Job.SlowNode = job.SlowNode
@@ -332,6 +404,9 @@ func (ctx *JobContext) Update(job *slownode.Job) {
 
 // RemoveAllCM remove all the config map stored in ctx
 func (ctx *JobContext) RemoveAllCM() {
+	if ctx == nil || ctx.Job == nil {
+		return
+	}
 	k8sClient, err := k8s.GetClient()
 	if err != nil {
 		hwlog.RunLog.Errorf("%s got k8s client failed: %v", ctx.LogPrefix(), err)
@@ -354,6 +429,9 @@ func (ctx *JobContext) RemoveAllCM() {
 
 // AllNodesReported checks if all the nodes have reported the data profiling
 func (ctx *JobContext) AllNodesReported() bool {
+	if ctx == nil || ctx.Job == nil {
+		return false
+	}
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	for _, server := range ctx.Job.Servers {

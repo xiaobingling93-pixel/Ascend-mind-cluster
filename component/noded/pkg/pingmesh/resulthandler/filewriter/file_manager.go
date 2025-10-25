@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -118,15 +119,15 @@ type manager struct {
 
 // HandlePingMeshInfo handle pingmesh result
 func (m *manager) HandlePingMeshInfo(res *types.HccspingMeshResult) error {
-	if res == nil || res.Policy == nil || res.Results == nil {
-		return fmt.Errorf("result is nil")
+	if m == nil || res == nil || res.Policy == nil || res.Results == nil {
+		return errors.New("manager or result is nil")
 	}
 	m.writer.Infof("uid: %s, config: %#v", res.Policy.UID, res.Policy.Config)
 	appendMode, openFlag := m.calcAppendModeAndOpenFlag()
 	pingResultCsv, _, err := m.prepareResultFilePaths(appendMode)
 	if err != nil {
 		hwlog.RunLog.Errorf("get result file path failed, err: %v", err)
-		return fmt.Errorf("prepare result file paths failed")
+		return errors.New("prepare result file paths failed")
 	}
 	f, err := os.OpenFile(pingResultCsv, openFlag, defaultPerm)
 	defer func() {
@@ -140,7 +141,7 @@ func (m *manager) HandlePingMeshInfo(res *types.HccspingMeshResult) error {
 	}()
 	if err != nil {
 		hwlog.RunLog.Errorf("open file %s failed, err:%v", pingResultCsv, err)
-		return fmt.Errorf("open file failed")
+		return errors.New("open file failed")
 	}
 	err = f.Chmod(defaultPerm)
 	if err != nil {
@@ -184,6 +185,9 @@ func (m *manager) writeRecord(f *os.File, res *types.HccspingMeshResult,
 func (m *manager) writeForCard(physicID string, destAddrList []types.PingItem,
 	infos map[uint]*common.HccspingMeshInfo) {
 	for taskID, info := range infos {
+		if info == nil {
+			continue
+		}
 		m.writer.Infof("physicID: %s, taskID: %d, DestNum: %d", physicID, taskID, info.DestNum)
 		for i := 0; i < info.DestNum; i++ {
 			pingItem, errFound := getPingItemByDestAddr(destAddrList, info.DstAddr[i])
@@ -216,6 +220,9 @@ func (m *manager) writeForCard(physicID string, destAddrList []types.PingItem,
 func (m *manager) writeForCardToCsv(csvWriter *csv.Writer, destAddrList []types.PingItem,
 	infos map[uint]*common.HccspingMeshInfo) {
 	for taskID, info := range infos {
+		if info == nil {
+			continue
+		}
 		for i := 0; i < info.DestNum; i++ {
 			// keep the corresponding columns of the array [filewriter.CsvColumnNames]
 			avgLossRateStr := calcAvgLossRate(info.SucPktNum[i], info.FailPktNum[i])

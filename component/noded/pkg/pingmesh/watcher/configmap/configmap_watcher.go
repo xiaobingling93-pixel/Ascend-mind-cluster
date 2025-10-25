@@ -48,6 +48,9 @@ type NamedHandler struct {
 // WithLabelSector sets the label selector for the configmap watcher
 func WithLabelSector(labelSelector string) Option {
 	return func(cw *configMapWatcher) {
+		if cw == nil {
+			return
+		}
 		cw.labelSelector = labelSelector
 	}
 }
@@ -62,6 +65,9 @@ func WithNamespace(namespace string) Option {
 // WithNamedHandlers sets the named handlers for the configmap watcher
 func WithNamedHandlers(handlers ...NamedHandler) Option {
 	return func(cw *configMapWatcher) {
+		if cw == nil {
+			return
+		}
 		for _, h := range handlers {
 			cw.handlers[h.Name] = h
 		}
@@ -94,6 +100,9 @@ type configMapWatcher struct {
 
 // Init initialize the configmap watcher
 func (cw *configMapWatcher) Init() {
+	if cw == nil {
+		return
+	}
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(cw.client.ClientSet, 0,
 		informers.WithNamespace(cw.namespace), informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = cw.labelSelector
@@ -133,8 +142,8 @@ func (cw *configMapWatcher) Init() {
 
 // Watch is a function that watches configmap changes
 func (cw *configMapWatcher) Watch(stopCh <-chan struct{}) {
-	if stopCh == nil {
-		hwlog.RunLog.Errorf("stopCh is nil")
+	if cw == nil || stopCh == nil {
+		hwlog.RunLog.Error("configMapWatcher or stopCh is nil")
 		return
 	}
 	go cw.informerFactory.Start(stopCh)

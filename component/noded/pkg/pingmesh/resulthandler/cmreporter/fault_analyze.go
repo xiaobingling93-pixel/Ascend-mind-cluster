@@ -21,6 +21,7 @@ package cmreporter
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -73,6 +74,9 @@ func New(cfg *Config) *faultReporter {
 
 // HandlePingMeshInfo handle ping-mesh result
 func (f *faultReporter) HandlePingMeshInfo(res *types.HccspingMeshResult) error {
+	if f == nil || res == nil {
+		return fmt.Errorf("faultReporter or pingmesh result is nil")
+	}
 	hwlog.RunLog.Debugf("start to handle ping-mesh result, res:%v", res)
 	lastFault, err := f.getLastFault()
 	if err != nil {
@@ -166,7 +170,7 @@ func checkFaultCard(infos map[uint]*common.HccspingMeshInfo) state {
 	hasSuc := false
 	hasDest := false
 	for _, info := range infos {
-		if info.DestNum == 0 {
+		if info == nil || info.DestNum == 0 {
 			continue
 		}
 		hasDest = true

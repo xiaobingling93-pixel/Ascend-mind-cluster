@@ -24,15 +24,14 @@ import (
 
 func makeAlgoArg(argMap map[string]any, npu2DFullMesh []string, npuOutOfRackPath map[string][]string) bool {
 	npuNetPlanes := make(map[string]any)
+	if npuOutOfRackPath == nil {
+		npuOutOfRackPath = make(map[string][]string)
+	}
 
 	k, exist := npuOutOfRackPath["netplane_0"]
-
 	//A3构造参数
 	if exist {
 		delete(npuOutOfRackPath, "netplane_0")
-		if npuOutOfRackPath == nil {
-			npuOutOfRackPath = make(map[string][]string)
-		}
 		npuOutOfRackPath["1"] = k
 	}
 	for netPlaneIdStr, npuNetPlanLinks := range npuOutOfRackPath {

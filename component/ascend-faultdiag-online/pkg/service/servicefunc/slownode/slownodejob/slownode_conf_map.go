@@ -28,11 +28,17 @@ type ctxMap struct {
 
 // Insert inserts a key-value pair into the slowNodeConfMap.
 func (s *ctxMap) Insert(key string, value *JobContext) {
+	if s == nil {
+		return
+	}
 	s.data.Store(key, value)
 }
 
 // Get retrieves the value associated with the key from the slowNodeConfMap.
 func (s *ctxMap) Get(key string) (*JobContext, bool) {
+	if s == nil {
+		return nil, false
+	}
 	value, ok := s.data.Load(key)
 	if !ok {
 		return nil, false
@@ -46,11 +52,17 @@ func (s *ctxMap) Get(key string) (*JobContext, bool) {
 
 // Delete removes the key-value pair from the slowNodeConfMap.
 func (s *ctxMap) Delete(key string) {
+	if s == nil {
+		return
+	}
 	s.data.Delete(key)
 }
 
 // Clear clears all key-value pairs from the slowNodeConfMap.
 func (s *ctxMap) Clear() {
+	if s == nil {
+		return
+	}
 	s.data.Range(func(key, ctx any) bool {
 		s.data.Delete(key)
 		return true
@@ -59,6 +71,9 @@ func (s *ctxMap) Clear() {
 
 // GetByJobId get the ctx by jobId, key for cluster: namespace/name, key for node: jobId, this only for cluster
 func (c *ctxMap) GetByJobId(jobId string) (*JobContext, bool) {
+	if c == nil {
+		return nil, false
+	}
 	var instance *JobContext
 	var exist = false
 	c.data.Range(func(key, ctx any) bool {
@@ -75,6 +90,9 @@ func (c *ctxMap) GetByJobId(jobId string) (*JobContext, bool) {
 
 // GetByNodeIp get the ctx by nodeIp, return a array includes all ctx which has nodeIp
 func (c *ctxMap) GetByNodeIp(nodeIp string) []*JobContext {
+	if c == nil {
+		return nil
+	}
 	var jobCtxList []*JobContext
 	c.data.Range(func(key, ctx any) bool {
 		jobCtx, ok := ctx.(*JobContext)

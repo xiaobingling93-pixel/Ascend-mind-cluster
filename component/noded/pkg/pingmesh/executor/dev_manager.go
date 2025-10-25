@@ -101,17 +101,28 @@ func New() (*DevManager, error) {
 
 // UpdateConfig update config
 func (d *DevManager) UpdateConfig(config *types.HccspingMeshPolicy) {
+	if d == nil {
+		hwlog.RunLog.Error("deviceManager is nil")
+		return
+	}
 	d.commandChan <- config
 }
 
 // SetResultHandler set result handler
 func (d *DevManager) SetResultHandler(handler func(result *types.HccspingMeshResult)) {
-
+	if d == nil {
+		hwlog.RunLog.Error("deviceManager is nil")
+		return
+	}
 	d.resultHandler = handler
 }
 
 // Start executor
 func (d *DevManager) Start(stopCh <-chan struct{}) {
+	if d == nil {
+		hwlog.RunLog.Error("deviceManager is nil")
+		return
+	}
 	var currentStop chan struct{} = nil
 
 	for {
@@ -124,6 +135,10 @@ func (d *DevManager) Start(stopCh <-chan struct{}) {
 			}
 			return
 		case cmd := <-d.commandChan:
+			if cmd == nil || cmd.Config == nil {
+				hwlog.RunLog.Warn("received nil hccspingmesh command, ignore")
+				continue
+			}
 			hwlog.RunLog.Infof("executor receive cmd, activate: %v, uid: %s", cmd.Config.Activate, cmd.UID)
 			// need stop collect goroutine and wait the goroutine done
 			if currentStop != nil {
@@ -147,7 +162,7 @@ func (d *DevManager) Start(stopCh <-chan struct{}) {
 func (d *DevManager) startHccspingMesh() {
 	for physicID, addrs := range d.currentPolicy.DestAddr {
 		chip, ok := d.chips[physicID]
-		if !ok {
+		if !ok || chip == nil {
 			continue
 		}
 
@@ -195,7 +210,7 @@ func (d *DevManager) stopAllTasks() {
 func (d *DevManager) stopLastTasks() {
 	for physicID, address := range d.currentPolicy.DestAddr {
 		chip, ok := d.chips[physicID]
-		if !ok {
+		if !ok || chip == nil {
 			continue
 		}
 		for taskID := range address {
@@ -230,7 +245,7 @@ func (d *DevManager) getHccspingMeshInfo() {
 	res := make(map[string]map[uint]*common.HccspingMeshInfo)
 	for physicID, tasks := range d.currentPolicy.DestAddr {
 		chip, ok := d.chips[physicID]
-		if !ok {
+		if !ok || chip == nil {
 			continue
 		}
 		infos := make(map[uint]*common.HccspingMeshInfo, len(tasks))

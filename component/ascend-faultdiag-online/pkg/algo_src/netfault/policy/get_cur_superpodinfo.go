@@ -181,7 +181,6 @@ func getWorKMapping(callAlgorithmParam map[string]any, superPodInfo *SuperPodInf
 // GetTargetSuperPodNpuMap get target super pod npu eid or ip map
 func GetTargetSuperPodNpuMap(superPodFilePath string,
 	superPodId int) (bool, map[string]algo.NpuInfo) {
-	npuInfoMap := make(map[string]algo.NpuInfo)
 	superPodFile := fmt.Sprintf("super-pod-%d.json", superPodId)
 	superPodFile = superPodFilePath + "/" + superPodFile
 	superPodFile = filepath.Clean(superPodFile)
@@ -191,6 +190,11 @@ func GetTargetSuperPodNpuMap(superPodFilePath string,
 		return false, nil
 	}
 	superPodInfo = readConfigMap(superPodFile)
+	if superPodInfo == nil {
+		hwlog.RunLog.Error("[NETFAULT ALGO]read config map failed: superPodInfo is nil")
+		return false, nil
+	}
+	var npuInfoMap = make(map[string]algo.NpuInfo)
 	switch superPodInfo.Version {
 	case DiagVersionA3:
 		_, npuNetplaneInfo = GetCurSuperPodInfoFromMapA3(superPodInfo)
@@ -272,6 +276,10 @@ func isPureLetter(str string) bool {
 
 // ReadConfigFromFile 从key=value配置文件中获取指定的所有key
 func ReadConfigFromFile(file *os.File, targetKeys []string) map[string]any {
+	if file == nil {
+		hwlog.RunLog.Error("[NETFAULT ALGO]invalid nil file")
+		return nil
+	}
 	callAlgorithmParam := make(map[string]any)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

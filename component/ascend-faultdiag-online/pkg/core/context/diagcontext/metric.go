@@ -29,7 +29,7 @@ type Metric struct {
 
 // GetMetricKey get the key of Metric
 func (item *Metric) GetMetricKey() string {
-	if item == nil {
+	if item == nil || item.Domain == nil {
 		return ""
 	}
 	return item.Domain.GetDomainKey() + constants.TypeSeparator + item.Name

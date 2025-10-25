@@ -99,6 +99,10 @@ func getDetectionGroups(tpranks [][]int, nodeGlobalRank []int) [][]int {
 
 // GetGloRanksAndDetGroups获取节点上的全局Ranks一维列表，检测组的二维列表
 func GetGloRanksAndDetGroups(sndConfig *config.DetectionConfig, taskName string) ([]int, [][]int) {
+	if sndConfig == nil {
+		hwlog.RunLog.Error("[SLOWNODE ALGO]invalid nil sndConfig")
+		return nil, nil
+	}
 	// 某一个task本地数据的路径
 	taskLocalDataPath := filepath.Join(sndConfig.LocalFilePath, taskName)
 

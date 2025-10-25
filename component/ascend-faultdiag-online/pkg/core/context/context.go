@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"ascend-common/common-utils/hwlog"
 	"ascend-faultdiag-online/pkg/core/api"
 	"ascend-faultdiag-online/pkg/core/config"
 	"ascend-faultdiag-online/pkg/core/context/contextdata"
@@ -92,7 +93,7 @@ func (fdCtx *FaultDiagContext) RegisterFunc(funcHandlerMap map[string]*funchandl
 
 // loadDiagItems 加载诊断项
 func (fdCtx *FaultDiagContext) loadDiagItems() {
-	if fdCtx == nil {
+	if fdCtx == nil || fdCtx.DiagContext == nil {
 		return
 	}
 	var diagItems []*diagcontext.DiagItem
@@ -111,6 +112,9 @@ func (fdCtx *FaultDiagContext) getCtxData() *contextdata.CtxData {
 }
 
 func (fdCtx *FaultDiagContext) executeFunc(reqCtx *model.RequestContext) {
+	if fdCtx == nil || fdCtx.Router == nil || reqCtx == nil {
+		return
+	}
 	done := make(chan struct{}, 1)
 	go func() {
 		if apiFunc, err := fdCtx.Router.HandleApi(reqCtx.Api); err != nil {
@@ -133,6 +137,10 @@ func (fdCtx *FaultDiagContext) executeFunc(reqCtx *model.RequestContext) {
 
 // startLoopService 启动循环服务
 func (fdCtx *FaultDiagContext) startLoopService() {
+	if fdCtx == nil || fdCtx.Config == nil {
+		hwlog.RunLog.Error("[FDOL]invalid nil fdCtx or fdCtx.Config")
+		return
+	}
 	semaphore := make(chan struct{}, fdCtx.Config.QueueSize)
 	for {
 		select {
@@ -156,6 +164,9 @@ func (fdCtx *FaultDiagContext) startLoopService() {
 
 // HandleRequest 处理请求
 func (fdCtx *FaultDiagContext) handleRequest(api string, reqJson string) (string, error) {
+	if fdCtx == nil {
+		return "", errors.New("fdCtx is nil")
+	}
 	if !fdCtx.IsRunning {
 		return "", fmt.Errorf("service is not running")
 	}
@@ -208,7 +219,7 @@ func (fdCtx *FaultDiagContext) StopService() {
 // Request 发起请求
 func (fdCtx *FaultDiagContext) Request(api string, reqJson string) (string, error) {
 	if fdCtx == nil {
-		return "", fmt.Errorf("fdCtx is nil")
+		return "", errors.New("fdCtx is nil")
 	}
 	resp, err := fdCtx.handleRequest(api, reqJson)
 	if err != nil {

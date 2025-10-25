@@ -38,6 +38,10 @@ func RegisterParseCallback(callback coreModel.CallbackFunc) {
 
 // DealParseCallback 处理清洗回调
 func DealParseCallback(snpCtxSlice []*context.SnpRankContext, parseJobInfo *model.ParseJobInfo) {
+	if parseJobInfo == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil parseJobInfo")
+		return
+	}
 	callbackPollerFunc := func() (bool, error) {
 		stopCallback, err := parseCallback(snpCtxSlice, parseJobInfo.JobName, parseJobInfo.JobId)
 		if err != nil {
@@ -61,6 +65,9 @@ func parseCallback(snpCtxSlice []*context.SnpRankContext, jobName string, jobId 
 	minStepCount := int64(math.MaxInt64)
 	rankIds := make([]string, 0)
 	for _, snpCtx := range snpCtxSlice {
+		if snpCtx == nil || snpCtx.ContextData == nil {
+			continue
+		}
 		stepCount := snpCtx.ContextData.StepCount
 		if stepCount < minStepCount {
 			minStepCount = stepCount

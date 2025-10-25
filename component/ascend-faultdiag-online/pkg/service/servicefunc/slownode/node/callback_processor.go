@@ -50,10 +50,17 @@ func AlgoCallbackProcessor(message string) {
 	}
 
 	ctx, ok := slownodejob.GetJobCtxMap().Get(nodeResult.JobId)
-	if !ok || !ctx.IsRunning() {
+	if !ok {
 		hwlog.RunLog.Warnf(
-			"[FD-OL SLOWNODE]job(jobId=%s) is not exit or not running, exit slow node algo callback process",
-			nodeResult.JobId)
+			"[FD-OL SLOWNODE]job(jobId=%s) is not exited, exit slow node algo callback process", nodeResult.JobId)
+		return
+	}
+	if ctx == nil || ctx.Job == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]process slow node algo callback: invalid nil context or job")
+		return
+	}
+	if !ctx.IsRunning() {
+		hwlog.RunLog.Errorf("%s process slow node algo callback: not running", ctx.LogPrefix())
 		return
 	}
 	if nodeResult.IsSlow == constants.IsDegradation {
@@ -76,18 +83,24 @@ func DataParseCallbackProcessor(message string) {
 		return
 	}
 	ctx, ok := slownodejob.GetJobCtxMap().Get(dataParseResult.JobId)
-	if !ok || !ctx.IsRunning() {
+	if !ok {
 		hwlog.RunLog.Errorf(
-			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not exist or not running, exit data parse callback process",
+			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not existed, exit data parse callback process",
 			dataParseResult.JobName, dataParseResult.JobId)
 		return
 	}
-
+	if ctx == nil || ctx.Job == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]process data parse callback: invalid nil context or job")
+		return
+	}
+	if !ctx.IsRunning() {
+		hwlog.RunLog.Errorf("%s process data parse callback: not running", ctx.LogPrefix())
+		return
+	}
 	if dataParseResult.IsFinished && dataParseResult.StepCount >= constants.MinStepCount &&
 		ctx.Step() == slownodejob.NodeStep1 {
 		if err := dataProfilingReport(ctx); err != nil {
-			hwlog.RunLog.Errorf("[FD-OL SLOWNODE]job(name=%s, jobId=%s) reported node data profiling result failed: %v",
-				dataParseResult.JobName, dataParseResult.JobId, err)
+			hwlog.RunLog.Errorf("%s reported node data profiling result failed: %v", ctx.LogPrefix(), err)
 			return
 		}
 		ctx.RealRankIds = dataParseResult.RankIds

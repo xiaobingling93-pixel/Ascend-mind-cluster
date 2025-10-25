@@ -46,7 +46,7 @@ func NewDiagRecordStore() *DiagRecordStore {
 
 // UpdateRecord 更新诊断记录
 func (store *DiagRecordStore) UpdateRecord(diagItem *DiagItem, diagResList []*MetricDiagRes) {
-	if store == nil {
+	if diagItem == nil || store == nil {
 		return
 	}
 	store.mu.Lock()
@@ -58,7 +58,7 @@ func (store *DiagRecordStore) UpdateRecord(diagItem *DiagItem, diagResList []*Me
 		return
 	}
 	recordItem, ok := store.diagRecordItemMap[diagItem.Name]
-	if !ok {
+	if !ok || recordItem == nil {
 		recordItem = &DiagRecordItem{
 			DiagItem:    diagItem,
 			DiagRecords: make([]*MetricDiagRes, 0),
@@ -74,7 +74,7 @@ func (store *DiagRecordStore) UpdateRecord(diagItem *DiagItem, diagResList []*Me
 // GetRecordsByDiagName get the diag results by the diag name
 func (store *DiagRecordStore) GetRecordsByDiagName(diagName string) []*MetricDiagRes {
 	diagRecordItem, ok := store.diagRecordItemMap[diagName]
-	if !ok {
+	if !ok || diagRecordItem == nil {
 		return nil
 	}
 	return diagRecordItem.DiagRecords

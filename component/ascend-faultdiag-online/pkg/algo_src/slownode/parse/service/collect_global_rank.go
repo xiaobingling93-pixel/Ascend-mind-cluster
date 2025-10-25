@@ -17,6 +17,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -175,8 +176,13 @@ func setDuration(dur *model.Duration) int64 {
 }
 
 // CollectGlobalRank 收集全量global rank数据
-func CollectGlobalRank(ctxData *contextdata.SnpRankContextData,
-	startEndNsList []*model.StepStartEndNs) ([]*model.StepGlobalRank, error) {
+func CollectGlobalRank(
+	ctxData *contextdata.SnpRankContextData,
+	startEndNsList []*model.StepStartEndNs,
+) ([]*model.StepGlobalRank, error) {
+	if ctxData == nil || ctxData.DbCtx == nil || ctxData.Config == nil {
+		return nil, errors.New("invalid nil ctxData or ctxData.DbCtx or ctxData.Config")
+	}
 	// 从parallel_group.json中读取并行域信息
 	parallelGroupInfoMap, err := readParallelGroupInfo(ctxData.Config.ParGroupJsonInputFilePath)
 	if err != nil {

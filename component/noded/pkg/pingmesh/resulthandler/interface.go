@@ -53,13 +53,16 @@ type aggregatedHandler struct {
 
 // Receive is receive pingmesh result
 func (h *aggregatedHandler) Receive(info *types.HccspingMeshResult) {
+	if h == nil {
+		return
+	}
 	h.resultQueue.Add(info)
 }
 
 // Handle is handle pingmesh result
 func (h *aggregatedHandler) Handle(stop <-chan struct{}) {
-	if stop == nil {
-		hwlog.RunLog.Errorf("stop channel is nil")
+	if h == nil || stop == nil {
+		hwlog.RunLog.Error("aggregatedHandler or stop channel is nil")
 		return
 	}
 

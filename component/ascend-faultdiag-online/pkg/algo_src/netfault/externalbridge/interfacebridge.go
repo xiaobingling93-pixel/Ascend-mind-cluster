@@ -108,6 +108,10 @@ func executeOrderByOrderQueue(cmd order) {
 
 // Execute for uniform interface
 func Execute(input *model.Input) int {
+	if input == nil {
+		hwlog.RunLog.Error("[NETFAULT ALGO]Invalid nil input")
+		return errCode
+	}
 	callExecuteSyncLock.Lock()
 	defer callExecuteSyncLock.Unlock()
 	hwlog.RunLog.Infof("Commond input: %+v", input)

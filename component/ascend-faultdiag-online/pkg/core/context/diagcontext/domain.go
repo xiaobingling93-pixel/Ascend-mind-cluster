@@ -29,6 +29,9 @@ import (
 
 func buildDomainItemsKey(domainItems []*metricmodel.DomainItem) string {
 	keys := slicetool.MapToValue(domainItems, func(item *metricmodel.DomainItem) string {
+		if item == nil {
+			return ""
+		}
 		return item.GetDomainItemKey()
 	})
 	return strings.Join(keys, constants.TypeSeparator)
@@ -72,7 +75,7 @@ func (factory *DomainFactory) GetInstance(domainItems []*metricmodel.DomainItem)
 	}
 	key := buildDomainItemsKey(domainItems)
 	domain, ok := factory.domainMap[key]
-	if !ok {
+	if !ok || domain == nil {
 		domain = &Domain{
 			DomainItems: domainItems,
 		}

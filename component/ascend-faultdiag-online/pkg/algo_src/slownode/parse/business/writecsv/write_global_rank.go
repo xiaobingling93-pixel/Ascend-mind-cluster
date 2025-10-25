@@ -16,6 +16,8 @@
 package writecsv
 
 import (
+	"errors"
+
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/model"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils/csvtool"
@@ -23,8 +25,14 @@ import (
 
 // WriteGlobalRank 通信算子信息写入csv
 func WriteGlobalRank(globalRanks []*model.StepGlobalRank, fileHandler *csvtool.CSVHandler) error {
+	if fileHandler == nil {
+		return errors.New("invalid nil fileHandler")
+	}
 	var rows [][]string
 	for _, rank := range globalRanks {
+		if rank == nil {
+			continue
+		}
 		srcRow := []any{rank.StepIndex, rank.ZPDevice, rank.ZPHost, rank.PPDevice, rank.PPHost,
 			rank.DataLoaderHost}
 		rows = append(rows, utils.ToStringList(srcRow))
@@ -39,8 +47,14 @@ func WriteGlobalRank(globalRanks []*model.StepGlobalRank, fileHandler *csvtool.C
 
 // WriteIterateDelay 迭代时延信息写入csv
 func WriteIterateDelay(iterateDelay []*model.StepIterateDelay, fileHandler *csvtool.CSVHandler) error {
+	if fileHandler == nil {
+		return errors.New("invalid nil fileHandler")
+	}
 	var rows [][]string
 	for _, rank := range iterateDelay {
+		if rank == nil {
+			continue
+		}
 		srcRow := []any{rank.StepTime, rank.Durations}
 		rows = append(rows, utils.ToStringList(srcRow))
 	}

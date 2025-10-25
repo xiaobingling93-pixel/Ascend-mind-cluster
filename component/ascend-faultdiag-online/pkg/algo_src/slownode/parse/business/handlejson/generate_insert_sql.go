@@ -51,6 +51,9 @@ func ProcessInsertSQL(rowData []*CacheData) ([]string, error) {
 	stepTimeValues := make([]string, 0)
 	taskValues := make([]string, 0)
 	for _, row := range rowData {
+		if row == nil {
+			continue
+		}
 		switch row.dbName {
 		case constants.DbCAnnApi:
 			cAnnApiValues = getCAnnApiValues(row.cAnnApi, cAnnApiValues)

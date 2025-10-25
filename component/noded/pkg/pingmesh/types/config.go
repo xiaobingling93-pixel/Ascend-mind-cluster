@@ -59,6 +59,9 @@ type HccspingMeshPolicy struct {
 
 // DeepCopy creates a deep copy of the HccspingMeshPolicy
 func (p *HccspingMeshPolicy) DeepCopy() *HccspingMeshPolicy {
+	if p == nil {
+		return nil
+	}
 	np := &HccspingMeshPolicy{
 		Address:     make(map[string]SuperDeviceIDs, len(p.Address)),
 		DestAddr:    make(map[string]DestinationAddress, len(p.DestAddr)),

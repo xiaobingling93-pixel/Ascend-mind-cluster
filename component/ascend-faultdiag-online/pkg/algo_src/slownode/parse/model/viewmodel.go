@@ -17,6 +17,8 @@ Package model.
 */
 package model
 
+import "ascend-common/common-utils/hwlog"
+
 // NameView 筛选算子的名称
 type NameView struct {
 	Name string
@@ -64,36 +66,64 @@ type StringIdsView struct {
 
 // NameMapping 名称映射
 func NameMapping(nameView *NameView) []any {
+	if nameView == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil nameView")
+		return nil
+	}
 	return []any{&nameView.Name}
 }
 
 // HdDurMapping HostDeviceDuration映射到指针
 func HdDurMapping(hdDur *HostDeviceDuration) []any {
+	if hdDur == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil hdDur")
+		return nil
+	}
 	return []any{&hdDur.HostDuration, &hdDur.DeviceDuration}
 }
 
 // DurationMapping Duration映射到指针
 func DurationMapping(duration *Duration) []any {
+	if duration == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil duration")
+		return nil
+	}
 	return []any{&duration.Dur}
 }
 
 // StepStartEndNsMapping StartEndNs映射到指针
 func StepStartEndNsMapping(stepStartEndNs *StepStartEndNs) []any {
+	if stepStartEndNs == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil stepStartEndNs")
+		return nil
+	}
 	return []any{&stepStartEndNs.Id, &stepStartEndNs.StartNs, &stepStartEndNs.EndNs}
 }
 
 // StartEndNsMapping StartEndNs映射到指针
 func StartEndNsMapping(startEndNs *StartEndNs) []any {
+	if startEndNs == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil startEndNs")
+		return nil
+	}
 	return []any{&startEndNs.StartNs, &startEndNs.EndNs}
 }
 
 // ValueViewMapping ValueView映射到指针
 func ValueViewMapping(valueView *ValueView) []any {
+	if valueView == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil valueView")
+		return nil
+	}
 	return []any{&valueView.Value}
 }
 
 // IdViewMapping ValueView映射到指针
 func IdViewMapping(idView *IdView) []any {
+	if idView == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil idView")
+		return nil
+	}
 	return []any{&idView.Id}
 }
 
@@ -104,5 +134,9 @@ func IdMapping(id int64) []any {
 
 // StringIdsMapping StringIds映射到指针
 func StringIdsMapping(stringIds *StringIdsView) []any {
+	if stringIds == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil stringIds")
+		return nil
+	}
 	return []any{&stringIds.Id, &stringIds.Value}
 }

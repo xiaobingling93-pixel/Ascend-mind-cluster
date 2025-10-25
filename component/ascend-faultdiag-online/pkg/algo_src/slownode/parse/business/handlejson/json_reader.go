@@ -41,8 +41,17 @@ const pollWaitTime = 2 * time.Second
 const maxFilesCount = 100000
 
 // StartReadJson 读取json数据
-func StartReadJson(snpRankCtx *context.SnpRankContext, parseCtx *ParseFileContext, stopFlag chan struct{},
-	jobStartTime int64) {
+func StartReadJson(
+	snpRankCtx *context.SnpRankContext,
+	parseCtx *ParseFileContext,
+	stopFlag chan struct{},
+	jobStartTime int64,
+) {
+	if snpRankCtx == nil || snpRankCtx.ContextData == nil || snpRankCtx.ContextData.Config == nil || parseCtx == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil snpRankCtx, snpRankCtx.ContextData, " +
+			"snpRankCtx.ContextData.Config or parseCtx")
+		return
+	}
 	go func() {
 		for {
 			select {

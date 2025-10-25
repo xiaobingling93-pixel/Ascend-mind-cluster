@@ -31,8 +31,15 @@ import (
 )
 
 // StartParseJsonDataToSql 将jsonData转为sql
-func StartParseJsonDataToSql(snpRankCtx *context.SnpRankContext, parseFileCtx *ParseFileContext,
-	stopFlag chan struct{}) {
+func StartParseJsonDataToSql(
+	snpRankCtx *context.SnpRankContext,
+	parseFileCtx *ParseFileContext,
+	stopFlag chan struct{},
+) {
+	if snpRankCtx == nil || snpRankCtx.ContextData == nil || parseFileCtx == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]invalid nil snpRankCtx, snpRankCtx.ContextData or parseFileCtx")
+		return
+	}
 	go parseJsonData(snpRankCtx, parseFileCtx, stopFlag)
 	go parseJsonDataToSql(snpRankCtx, parseFileCtx, stopFlag)
 }

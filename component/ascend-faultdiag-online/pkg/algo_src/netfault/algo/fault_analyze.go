@@ -32,6 +32,9 @@ const convertFactor = 1000
 
 // StartFaultDetect 故障检测算法入口
 func (nd *NetDetect) StartFaultDetect(input []map[string]any) []any {
+	if nd == nil {
+		return nil
+	}
 	rootCauseAlarmAll := make([]any, 0)
 
 	// 1, 更新告警抑制ttl
@@ -1362,7 +1365,6 @@ func removeAt(slice *[]map[string]any, index int) {
 
 	// 使用 append 函数移除指定索引的元素
 	*slice = append((*slice)[:index], (*slice)[index+1:]...)
-	return
 }
 
 // 获取故障路径（faultPathList：链路级别的故障， swFaultPathList：对象级别的故障）

@@ -53,6 +53,9 @@ func ValueIn[T comparable](value T, slice []T) error {
 func Map[T, U any](slice []*T, mapper func(*T) *U) []*U {
 	result := make([]*U, len(slice))
 	for i, item := range slice {
+		if mapper == nil {
+			continue
+		}
 		result[i] = mapper(item)
 	}
 	return result
@@ -62,6 +65,9 @@ func Map[T, U any](slice []*T, mapper func(*T) *U) []*U {
 func Filter[T any](slice []*T, predicate func(*T) bool) []*T {
 	var result []*T
 	for _, item := range slice {
+		if predicate == nil {
+			continue
+		}
 		if predicate(item) {
 			result = append(result, item)
 		}
@@ -81,6 +87,9 @@ func MapToValue[T, U any](slice []*T, mapper func(*T) U) []U {
 // Any 切片任意元素满足条件函数
 func Any[T any](slice []*T, predicate func(*T) bool) bool {
 	for _, item := range slice {
+		if predicate == nil {
+			continue
+		}
 		if predicate(item) {
 			return true
 		}
@@ -91,6 +100,9 @@ func Any[T any](slice []*T, predicate func(*T) bool) bool {
 // All 切片所有元素都满足条件函数
 func All[T any](slice []*T, predicate func(*T) bool) bool {
 	for _, item := range slice {
+		if predicate == nil {
+			return false
+		}
 		if !predicate(item) {
 			return false
 		}

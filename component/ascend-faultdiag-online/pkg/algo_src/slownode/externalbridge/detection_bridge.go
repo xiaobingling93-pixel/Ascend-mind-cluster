@@ -219,6 +219,10 @@ func callAlgoStop(inputData *model.Input) bool {
 
 // Execute for uniform interface
 func Execute(inputData *model.Input) int {
+	if inputData == nil {
+		hwlog.RunLog.Error("[SLOWNODE ALGO]Invalid nil input")
+		return -1
+	}
 	if !checkInvalidInput(inputData) {
 		return -1
 	}

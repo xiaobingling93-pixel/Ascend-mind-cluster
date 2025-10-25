@@ -38,11 +38,17 @@ func NewFactory() Factory {
 
 // Rule returns a generator.
 func (gi *generatorFactoryImpl) Rule(rule types.PingMeshRule) Interface {
+	if gi == nil {
+		return nil
+	}
 	return gi.generators[rule]
 }
 
 // Register registers a generator.
 func (gi *generatorFactoryImpl) Register(rule types.PingMeshRule, generator Interface) Factory {
+	if gi == nil {
+		return nil
+	}
 	gi.generators[rule] = generator
 	return gi
 }

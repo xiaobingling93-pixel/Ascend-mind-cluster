@@ -132,6 +132,9 @@ func (c *cmWatcher) cmProcessor(oldData, newData any, op watch.EventType) {
 	storage.Store(key, &cmData{oldCm: oldCm, newCm: newCm, op: op})
 	c.mu.Lock()
 	for _, cb := range c.callbackMap[key] {
+		if cb.f == nil {
+			continue
+		}
 		go cb.f(oldCm, newCm, op)
 	}
 	c.mu.Unlock()
@@ -139,6 +142,9 @@ func (c *cmWatcher) cmProcessor(oldData, newData any, op watch.EventType) {
 
 // Subscribe subscribe the config map by namespace and cm name, call f if data available
 func (c *cmWatcher) Subscribe(namespace, cmName string, f callbackFunc) string {
+	if c == nil || f == nil {
+		return ""
+	}
 	key := c.keyGenerator(namespace, cmName)
 	data, ok := storage.Load(key)
 	if ok {
@@ -162,6 +168,9 @@ func (c *cmWatcher) Subscribe(namespace, cmName string, f callbackFunc) string {
 
 // Unsubscribe unsubscribe the config map
 func (c *cmWatcher) Unsubscribe(namespace, cmName, registerId string) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var key = c.keyGenerator(namespace, cmName)

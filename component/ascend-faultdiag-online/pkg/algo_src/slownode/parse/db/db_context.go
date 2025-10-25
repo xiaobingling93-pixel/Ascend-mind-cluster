@@ -19,6 +19,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -73,8 +74,15 @@ func (dbCtx *SnpDbContext) Close() error {
 }
 
 // Query 查询: query all records, got a array of records, no records queried, return a empty array.
-func Query[T any](dbCtx *SnpDbContext, sqlStr string, params []any,
-	ptrListFunc func(t *T) []any) ([]*T, error) {
+func Query[T any](
+	dbCtx *SnpDbContext,
+	sqlStr string,
+	params []any,
+	ptrListFunc func(t *T) []any,
+) ([]*T, error) {
+	if dbCtx == nil || dbCtx.dbConn == nil {
+		return nil, errors.New("invalid nil dbCtx or dbCtx.dbConn")
+	}
 	rows, err := dbCtx.dbConn.Query(sqlStr, params...)
 	if err != nil {
 		return nil, err
@@ -99,8 +107,12 @@ func Query[T any](dbCtx *SnpDbContext, sqlStr string, params []any,
 }
 
 // QuerySingleLine query the first record, is no record queried, return error or nil
-func QuerySingleLine[T any](dbCtx *SnpDbContext, sqlStr string, params []any,
-	ptrListFunc func(t *T) []any) (*T, error) {
+func QuerySingleLine[T any](
+	dbCtx *SnpDbContext,
+	sqlStr string,
+	params []any,
+	ptrListFunc func(t *T) []any,
+) (*T, error) {
 	query, err := Query(dbCtx, sqlStr, params, ptrListFunc)
 	if err != nil {
 		return nil, err
@@ -113,6 +125,9 @@ func QuerySingleLine[T any](dbCtx *SnpDbContext, sqlStr string, params []any,
 
 // Insert 插入
 func Insert(ctx *SnpDbContext, sqlStr string, params []any) (int64, error) {
+	if ctx == nil || ctx.dbConn == nil {
+		return -1, errors.New("invalid nil ctx or ctx.dbConn")
+	}
 	result, err := ctx.dbConn.Exec(sqlStr, params...)
 	if err != nil {
 		return -1, err
@@ -126,6 +141,9 @@ func Insert(ctx *SnpDbContext, sqlStr string, params []any) (int64, error) {
 
 // Delete 删除
 func Delete(ctx *SnpDbContext, sqlStr string, params []any) error {
+	if ctx == nil || ctx.dbConn == nil {
+		return errors.New("invalid nil ctx or ctx.dbConn")
+	}
 	result, err := ctx.dbConn.Exec(sqlStr, params...)
 	if err != nil {
 		return err
@@ -139,6 +157,9 @@ func Delete(ctx *SnpDbContext, sqlStr string, params []any) error {
 
 // CreateTable 创建表
 func CreateTable(dbCtx *SnpDbContext, sqlStr string) error {
+	if dbCtx == nil || dbCtx.dbConn == nil {
+		return errors.New("invalid nil dbCtx or dbCtx.dbConn")
+	}
 	if _, err := dbCtx.dbConn.Exec(sqlStr); err != nil {
 		return err
 	}
