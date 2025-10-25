@@ -38,6 +38,9 @@ type MetricQueryBuilder struct {
 
 // NewQueryBuilder create a new object of MetricQueryBuilder
 func NewQueryBuilder(metricPool *MetricPool) *MetricQueryBuilder {
+	if metricPool == nil {
+		return nil
+	}
 	return &MetricQueryBuilder{tempTreeNodes: []*TreeNode{{
 		ChildrenNodesMap: metricPool.poolRootNodesMap},
 	}}
@@ -45,7 +48,7 @@ func NewQueryBuilder(metricPool *MetricPool) *MetricQueryBuilder {
 
 // QueryByDomainItem 根据单个域信息查找下一级域
 func (p *MetricQueryBuilder) QueryByDomainItem(domainItem *metricmodel.DomainItem) *MetricQueryBuilder {
-	if p == nil {
+	if p == nil || domainItem == nil {
 		return nil
 	}
 	if !p.Found {
@@ -53,6 +56,9 @@ func (p *MetricQueryBuilder) QueryByDomainItem(domainItem *metricmodel.DomainIte
 	}
 	nextLevelTreeNodes := make([]*TreeNode, len(p.tempTreeNodes))
 	for _, curNode := range p.tempTreeNodes {
+		if curNode == nil {
+			continue
+		}
 		nextLevelNodesPart, ok := curNode.ChildrenNodesMap[domainItem.DomainType]
 		if !ok {
 			continue
@@ -60,6 +66,9 @@ func (p *MetricQueryBuilder) QueryByDomainItem(domainItem *metricmodel.DomainIte
 		// 域值不为空时，则进行比对，保留相同的选项
 		if len(domainItem.Value) != 0 {
 			nextLevelNodesPart = slicetool.Filter(nextLevelNodesPart, func(node *TreeNode) bool {
+				if node == nil {
+					return false
+				}
 				return node.DomainValue == domainItem.Value
 			})
 		}
@@ -74,7 +83,7 @@ func (p *MetricQueryBuilder) QueryByDomainItem(domainItem *metricmodel.DomainIte
 
 // QueryByDomain 根据整个域查找
 func (p *MetricQueryBuilder) QueryByDomain(domain *Domain) *MetricQueryBuilder {
-	if p == nil {
+	if p == nil || domain == nil {
 		return nil
 	}
 	for _, item := range domain.DomainItems {
@@ -90,11 +99,14 @@ func (p *MetricQueryBuilder) CollectDomainMetrics(metricNames []string) []*Domai
 		return results
 	}
 	for _, node := range p.tempTreeNodes {
+		if node == nil {
+			continue
+		}
 		var domain *Domain
 		itemGroupMap := make(map[string]*ItemGroup)
 		for _, name := range metricNames {
 			metricItem, ok := node.MetricMap[name]
-			if !ok {
+			if !ok || metricItem == nil || metricItem.Metric == nil {
 				continue
 			}
 			itemGroupMap[name] = metricItem

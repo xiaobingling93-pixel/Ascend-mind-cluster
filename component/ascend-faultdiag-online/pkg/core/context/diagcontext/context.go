@@ -50,6 +50,9 @@ func (ctx *DiagContext) UpdateDiagItems(diagItems []*DiagItem) []*DiagTicker {
 		return tickers
 	}
 	for _, item := range diagItems {
+		if item == nil {
+			continue
+		}
 		ctx.DiagItemMap[item.Name] = item
 		ticker := NewDiagTicker(item)
 		ctx.tickerMap[item.Name] = ticker
@@ -60,10 +63,14 @@ func (ctx *DiagContext) UpdateDiagItems(diagItems []*DiagItem) []*DiagTicker {
 
 // StartDiag 开始诊断
 func (ctx *DiagContext) StartDiag(ctxData *contextdata.CtxData) {
-	if ctx != nil {
-		for _, ticker := range ctx.tickerMap {
-			ticker.Start(ctxData, ctx)
+	if ctx == nil || ctxData == nil {
+		return
+	}
+	for _, ticker := range ctx.tickerMap {
+		if ticker == nil {
+			continue
 		}
+		ticker.Start(ctxData, ctx)
 	}
 
 }
@@ -74,7 +81,7 @@ func (ctx *DiagContext) CloseDiagItem(itemName string) {
 		return
 	}
 	ticker, ok := ctx.tickerMap[itemName]
-	if !ok {
+	if !ok || ticker == nil {
 		return
 	}
 	close(ticker.StopChan)

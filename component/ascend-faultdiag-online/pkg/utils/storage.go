@@ -26,17 +26,26 @@ type Storage[T any] struct {
 
 // Clear clear all the data by pointing to a new sync map
 func (s *Storage[T]) Clear() {
+	if s == nil {
+		return
+	}
 	s.data = sync.Map{}
 }
 
 // Store store the data and value
 func (s *Storage[T]) Store(key string, value T) {
+	if s == nil {
+		return
+	}
 	s.data.Store(key, value)
 }
 
 // Load load the data
 func (s *Storage[T]) Load(key string) (T, bool) {
 	var res T
+	if s == nil {
+		return res, false
+	}
 	data, ok := s.data.Load(key)
 	if !ok {
 		return res, false
@@ -46,6 +55,9 @@ func (s *Storage[T]) Load(key string) (T, bool) {
 }
 
 func (s *Storage[T]) Delete(key string) {
+	if s == nil {
+		return
+	}
 	s.data.Delete(key)
 }
 

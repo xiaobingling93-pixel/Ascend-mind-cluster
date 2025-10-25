@@ -92,11 +92,11 @@ type TreeNode struct {
 
 // GetItemGroup get ItemGroup by metric
 func (treeNode *TreeNode) GetItemGroup(metric *Metric) *ItemGroup {
-	if treeNode == nil {
+	if treeNode == nil || metric == nil {
 		return nil
 	}
 	itemGroup, ok := treeNode.MetricMap[metric.Name]
-	if !ok {
+	if !ok || itemGroup == nil {
 		itemGroup = NewMetricPoolItemGroup(metric)
 		treeNode.MetricMap[metric.Name] = itemGroup
 	}
@@ -105,6 +105,9 @@ func (treeNode *TreeNode) GetItemGroup(metric *Metric) *ItemGroup {
 
 // NewMetricPoolTreeNode 新建指标池的指标树
 func NewMetricPoolTreeNode(domainItem *metricmodel.DomainItem, parentNode *TreeNode) *TreeNode {
+	if domainItem == nil || parentNode == nil {
+		return nil
+	}
 	return &TreeNode{
 		DomainType:       domainItem.DomainType,
 		DomainValue:      domainItem.Value,
@@ -131,7 +134,7 @@ func NewMetricPool() *MetricPool {
 
 // AddMetric 添加指标项
 func (p *MetricPool) AddMetric(metric *Metric, value string, valueType enum.MetricValueType) {
-	if p == nil {
+	if p == nil || metric == nil || metric.Domain == nil {
 		return
 	}
 	p.mu.Lock()
@@ -167,6 +170,9 @@ func (p *MetricPool) addToMetricTree(metric *Metric, poolItem *Item) {
 	var lastNode *TreeNode
 	curNodesMap = p.poolRootNodesMap
 	for _, domainItem := range metric.Domain.DomainItems {
+		if domainItem == nil {
+			continue
+		}
 		var node *TreeNode
 		nodes, ok := curNodesMap[domainItem.DomainType]
 		if ok {
@@ -190,6 +196,9 @@ func (p *MetricPool) addToMetricTree(metric *Metric, poolItem *Item) {
 // 获取指标树
 func exitNode(nodes []*TreeNode, domainItem *metricmodel.DomainItem) *TreeNode {
 	for _, treeNode := range nodes {
+		if treeNode == nil {
+			continue
+		}
 		if treeNode.DomainValue == domainItem.Value {
 			return treeNode
 		}
@@ -199,13 +208,13 @@ func exitNode(nodes []*TreeNode, domainItem *metricmodel.DomainItem) *TreeNode {
 
 // GetMetricByMetricKey 精确查找最新的指标项
 func (p *MetricPool) GetMetricByMetricKey(metric *Metric) []*ItemGroup {
-	if p == nil {
+	if p == nil || metric == nil {
 		return []*ItemGroup{}
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	group, ok := p.metricMap[metric.GetMetricKey()]
-	if !ok {
+	if !ok || group == nil {
 		return nil
 	}
 	return []*ItemGroup{group}
@@ -213,7 +222,7 @@ func (p *MetricPool) GetMetricByMetricKey(metric *Metric) []*ItemGroup {
 
 // GetDomainMetrics 根据指标域精确查找数据
 func (p *MetricPool) GetDomainMetrics(domain *Domain) []*ItemGroup {
-	if p == nil {
+	if p == nil || domain == nil {
 		return []*ItemGroup{}
 	}
 	p.mu.RLock()

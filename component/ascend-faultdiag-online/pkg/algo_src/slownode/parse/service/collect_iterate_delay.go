@@ -25,6 +25,9 @@ import (
 func CollectIterateDelay(startEndNsList []*model.StepStartEndNs) ([]*model.StepIterateDelay, error) {
 	var iterateDelayInfo []*model.StepIterateDelay
 	for _, data := range startEndNsList {
+		if data == nil {
+			continue
+		}
 		duration := data.EndNs - data.StartNs
 		if duration < 0 {
 			return nil, fmt.Errorf("the iteration delay is less than 0, 'startNs' is: %d, 'endNs' is: %d",

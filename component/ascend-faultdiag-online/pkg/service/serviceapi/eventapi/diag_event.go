@@ -35,8 +35,15 @@ func GetDiagEventApi() *api.Api {
 }
 
 // apiDiagEventFunc 诊断事件
-func apiDiagEventFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *model.RequestContext, model *diagmodel.DiagModel) error {
+func apiDiagEventFunc(
+	ctxData *contextdata.CtxData,
+	diagCtx *diagcontext.DiagContext,
+	reqCtx *model.RequestContext,
+	model *diagmodel.DiagModel,
+) error {
+	if diagCtx == nil {
+		return nil
+	}
 	diagCtx.StartDiag(ctxData)
 	return nil
 }

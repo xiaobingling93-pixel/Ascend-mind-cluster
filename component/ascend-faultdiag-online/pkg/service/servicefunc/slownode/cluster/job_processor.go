@@ -365,6 +365,9 @@ func JobRestartProcessor(oldNodeIp, newNodeIp *string, operator watch.EventType)
 	}
 	for _, ctx := range ctxList {
 		go func(ctx *slownodejob.JobContext) {
+			if ctx == nil || ctx.Job == nil {
+				return
+			}
 			jp := jobProcessor{ctx: ctx, job: ctx.Job}
 			hwlog.RunLog.Infof("%s needed to restart(stop first and start)", jp.logPrefix())
 			jp.stop()

@@ -48,7 +48,8 @@ func (diagTicker *DiagTicker) Close() {
 
 // Start 开始诊断任务
 func (diagTicker *DiagTicker) Start(ctxData *contextdata.CtxData, diagCtx *DiagContext) {
-	if diagTicker == nil {
+	if diagTicker == nil || diagTicker.DiagItem == nil || ctxData == nil || ctxData.Framework == nil ||
+		diagCtx == nil || diagCtx.DiagRecordStore == nil {
 		return
 	}
 	if diagTicker.running {

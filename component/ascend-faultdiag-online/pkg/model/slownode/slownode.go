@@ -60,6 +60,9 @@ type NodeAlgoResult struct {
 
 // KeyGenerator return a string combined by namespace and jobName as the key in slowNodeContext
 func (r *NodeAlgoResult) KeyGenerator() string {
+	if r == nil {
+		return ""
+	}
 	return fmt.Sprintf("%s/%s", r.Namespace, r.JobName)
 }
 
@@ -99,6 +102,9 @@ type NodeDataProfilingResult struct {
 
 // KeyGenerator return a string combined by namespace and jobName as the key in slowNodeContext
 func (r *NodeDataProfilingResult) KeyGenerator() string {
+	if r == nil {
+		return ""
+	}
 	return fmt.Sprintf("%s/%s", r.Namespace, r.JobName)
 }
 
@@ -143,6 +149,9 @@ type Job struct {
 
 // KeyGenerator return a string combined by namespace and jobName as the key in slowNodeContext
 func (r *Job) KeyGenerator() string {
+	if r == nil {
+		return ""
+	}
 	return fmt.Sprintf("%s/%s", r.Namespace, r.JobName)
 }
 

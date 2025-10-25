@@ -53,6 +53,9 @@ func (group *ConditionGroup) IsStaticMatching(ctxData *contextdata.CtxData) bool
 		return true
 	}
 	return slicetool.All(group.StaticConditions, func(c *Condition) bool {
+		if c == nil {
+			return false
+		}
 		return c.IsMatching(ctxData)
 	})
 }
@@ -66,6 +69,9 @@ func (group *ConditionGroup) IsDynamicMatching(ctxData *contextdata.CtxData) boo
 		return true
 	}
 	return slicetool.All(group.DynamicConditions, func(c *Condition) bool {
+		if c == nil {
+			return false
+		}
 		return c.IsMatching(ctxData)
 	})
 }

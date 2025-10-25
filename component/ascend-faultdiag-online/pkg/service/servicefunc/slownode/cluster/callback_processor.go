@@ -54,10 +54,18 @@ func AlgoCallbackProcessor(message string) {
 		return
 	}
 	ctx, ok := slownodejob.GetJobCtxMap().GetByJobId(result.JobId)
-	if !ok || !ctx.IsRunning() {
+	if !ok {
 		hwlog.RunLog.Warnf(
-			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not exit or not running, exit slow node algo callback process",
+			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not exited, exit slow node algo callback process",
 			result.JobName, result.JobId)
+		return
+	}
+	if ctx == nil || ctx.Job == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]process slow node algo callback: invalid nil context or job")
+		return
+	}
+	if !ctx.IsRunning() {
+		hwlog.RunLog.Errorf("%s process slow node algo callback: not running", ctx.LogPrefix())
 		return
 	}
 	newDegradationProcessor(ctx, &result).handle()
@@ -71,10 +79,18 @@ func ParallelGroupInfoCallbackProcessor(message string) {
 		return
 	}
 	ctx, ok := slownodejob.GetJobCtxMap().GetByJobId(result.JobId)
-	if !ok || !ctx.IsRunning() {
+	if !ok {
 		hwlog.RunLog.Warnf(
-			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not exit or not running, exit slow node algo callback process",
+			"[FD-OL SLOWNODE]job(name=%s, jobId=%s) is not exited, exit parallel group info callback process",
 			result.JobName, result.JobId)
+		return
+	}
+	if ctx == nil || ctx.Job == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]process parallel group info callback: invalid nil context or job")
+		return
+	}
+	if !ctx.IsRunning() {
+		hwlog.RunLog.Errorf("%s process parallel group info callback: not running", ctx.LogPrefix())
 		return
 	}
 	// ClusterStep2 means merge parallel group info
@@ -140,6 +156,9 @@ func (p *degradationProcessor) handleNewDegradation() {
 
 	// check if confirmed degradation
 	degradation := slicetool.Filter(p.ctx.AlgoRes, func(record *slownode.ClusterAlgoResult) bool {
+		if record == nil {
+			return false
+		}
 		return record.IsSlow == constants.IsDegradation
 	})
 	if len(degradation) >= maxDegradationCount {

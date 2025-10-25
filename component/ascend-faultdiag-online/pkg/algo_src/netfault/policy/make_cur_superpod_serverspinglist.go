@@ -127,6 +127,10 @@ func handlePingList(allPingList []any, srcIp string, phyIdStr string) []PingInfo
 
 // GenSuperPodServersPingList 生成超节点内探测任务csv文件
 func GenSuperPodServersPingList(superPodPath string, detectObj *algo.NetDetect) bool {
+	if detectObj == nil {
+		hwlog.RunLog.Error("[NETFAULT ALGO]invalid nil detectObj")
+		return false
+	}
 	superPodPath = filepath.Clean(superPodPath)
 	/* get config map info and pingList */
 	superPodInfo, superPodPingList := getCurrentSuperPodInfo(superPodPath, detectObj)

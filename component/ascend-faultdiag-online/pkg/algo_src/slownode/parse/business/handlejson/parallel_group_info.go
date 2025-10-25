@@ -19,6 +19,7 @@ package handlejson
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,6 +65,9 @@ func initParGroupInfo(cg config.DataParseModel) *model.MergeParallelGroupInfoInp
 
 // ProcessMerge 并行域合并
 func ProcessMerge(mergeInput *model.MergeParallelGroupInfoInput) error {
+	if mergeInput == nil {
+		return errors.New("invalid nil mergeInput")
+	}
 	if err := checkParGroupInfo(mergeInput.FilePaths); err != nil {
 		return err
 	}
@@ -73,7 +77,7 @@ func ProcessMerge(mergeInput *model.MergeParallelGroupInfoInput) error {
 	}
 
 	if len(groupInfo) == 0 {
-		return fmt.Errorf("no parallel group info")
+		return errors.New("no parallel group info")
 	}
 	// global_ranks按升序排列
 	for _, info := range groupInfo {

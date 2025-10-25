@@ -63,6 +63,10 @@ type Manager struct {
 
 // NewManager create a new Manager
 func NewManager(config *Config) *Manager {
+	if config == nil || config.KubeClient == nil {
+		hwlog.RunLog.Error("pingmesh config or kubeclient is nil")
+		return nil
+	}
 	devExecutor, err := executor.New()
 	if err != nil {
 		hwlog.RunLog.Errorf("new device manager failed, err: %v", err)
@@ -115,6 +119,10 @@ func (c *Manager) initHandler(config *Config) {
 
 // Run start the pingmesh controller
 func (c *Manager) Run(ctx context.Context) {
+	if c == nil || ctx == nil {
+		hwlog.RunLog.Error("pingmesh manager or context is nil")
+		return
+	}
 	go c.watcher.Watch(ctx.Done())
 	go c.handler.Handle(ctx.Done())
 	go c.executor.Start(ctx.Done())

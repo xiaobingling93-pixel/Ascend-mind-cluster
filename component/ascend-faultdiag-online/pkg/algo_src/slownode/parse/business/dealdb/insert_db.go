@@ -18,6 +18,7 @@ Package dealdb.
 package dealdb
 
 import (
+	"errors"
 	"fmt"
 
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/db"
@@ -26,6 +27,9 @@ import (
 
 // InsertStringIds STING_IDS表中插入数据，并返回自增主键
 func InsertStringIds(dbCtx *db.SnpDbContext, value string) (*model.IdView, error) {
+	if dbCtx == nil {
+		return nil, errors.New("invalid nil dbCtx")
+	}
 	dbCtx.DbWriteLock.Lock()
 	defer dbCtx.DbWriteLock.Unlock()
 	insertSQL := `INSERT INTO STRING_IDS (value) VALUES (?);`
@@ -38,6 +42,9 @@ func InsertStringIds(dbCtx *db.SnpDbContext, value string) (*model.IdView, error
 
 // InsertJsonData 批量插入数据
 func InsertJsonData(dbCtx *db.SnpDbContext, insertStrSlice []string) error {
+	if dbCtx == nil {
+		return errors.New("invalid nil dbCtx")
+	}
 	dbCtx.DbWriteLock.Lock()
 	defer dbCtx.DbWriteLock.Unlock()
 	for _, sql := range insertStrSlice {

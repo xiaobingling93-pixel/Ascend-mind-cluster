@@ -30,10 +30,20 @@ type FloatMetricCompareFunc func(metric, threshold float64) *diagcontext.Compare
 // StringMetricCompareFunc 指标比较函数
 type StringMetricCompareFunc func(metric, threshold string) *diagcontext.CompareRes
 
-func buildMetricDiagRes(domainMetrics []*diagcontext.DomainMetrics, metricName string,
-	compareFunc diagcontext.MetricCompareFunc, threshold *diagcontext.MetricThreshold,
-	results []*diagcontext.MetricDiagRes) []*diagcontext.MetricDiagRes {
+func buildMetricDiagRes(
+	domainMetrics []*diagcontext.DomainMetrics,
+	metricName string,
+	compareFunc diagcontext.MetricCompareFunc,
+	threshold *diagcontext.MetricThreshold,
+	results []*diagcontext.MetricDiagRes,
+) []*diagcontext.MetricDiagRes {
+	if compareFunc == nil || threshold == nil {
+		return results
+	}
 	for _, metric := range domainMetrics {
+		if metric == nil {
+			continue
+		}
 		itemGroup, ok := metric.ItemGroupMap[metricName]
 		if !ok {
 			continue
@@ -54,13 +64,15 @@ func buildMetricDiagRes(domainMetrics []*diagcontext.DomainMetrics, metricName s
 }
 
 // SingleMetricDiagFunc 单个指标诊断事件
-func SingleMetricDiagFunc(targetThreshold *diagcontext.MetricThreshold,
-	compareFunc diagcontext.MetricCompareFunc) diagcontext.DiagFunc {
+func SingleMetricDiagFunc(
+	targetThreshold *diagcontext.MetricThreshold,
+	compareFunc diagcontext.MetricCompareFunc,
+) diagcontext.DiagFunc {
 	return func(diagItem *diagcontext.DiagItem, thresholds []*diagcontext.MetricThreshold,
 		domainMetrics []*diagcontext.DomainMetrics) []*diagcontext.MetricDiagRes {
 		var results []*diagcontext.MetricDiagRes
 		for _, threshold := range thresholds {
-			if threshold.Name != targetThreshold.Name {
+			if threshold == nil || threshold.Name != targetThreshold.Name {
 				continue
 			}
 			results = buildMetricDiagRes(domainMetrics, threshold.Name, compareFunc, threshold, results)
@@ -70,9 +82,14 @@ func SingleMetricDiagFunc(targetThreshold *diagcontext.MetricThreshold,
 }
 
 // SingleFloat64MetricDiagFunc 单个指标诊断事件， 请保证参数正确
-func SingleFloat64MetricDiagFunc(threshold *diagcontext.MetricThreshold,
-	float64CompareFunc FloatMetricCompareFunc) diagcontext.DiagFunc {
+func SingleFloat64MetricDiagFunc(
+	threshold *diagcontext.MetricThreshold,
+	float64CompareFunc FloatMetricCompareFunc,
+) diagcontext.DiagFunc {
 	compareFunc := func(metric, threshold any) *diagcontext.CompareRes {
+		if float64CompareFunc == nil {
+			return nil
+		}
 		return float64CompareFunc(utils.ToFloat64(metric, math.MaxFloat64),
 			utils.ToFloat64(threshold, math.MaxFloat64))
 	}
@@ -80,9 +97,14 @@ func SingleFloat64MetricDiagFunc(threshold *diagcontext.MetricThreshold,
 }
 
 // SingleStringMetricDiagFunc 单个指标诊断事件， 请保证参数正确
-func SingleStringMetricDiagFunc(threshold *diagcontext.MetricThreshold,
-	stringCompareFunc StringMetricCompareFunc) diagcontext.DiagFunc {
+func SingleStringMetricDiagFunc(
+	threshold *diagcontext.MetricThreshold,
+	stringCompareFunc StringMetricCompareFunc,
+) diagcontext.DiagFunc {
 	compareFunc := func(metric, threshold any) *diagcontext.CompareRes {
+		if stringCompareFunc == nil {
+			return nil
+		}
 		return stringCompareFunc(utils.ToString(metric), utils.ToString(threshold))
 	}
 	return SingleMetricDiagFunc(threshold, compareFunc)

@@ -24,6 +24,9 @@ type taskState struct {
 
 // GetState get isControllerStart state
 func (s *taskState) GetState() bool {
+	if s == nil {
+		return false
+	}
 	s.rwMutex.RLock()
 	defer s.rwMutex.RUnlock()
 	return s.state
@@ -33,6 +36,9 @@ func (s *taskState) GetState() bool {
 // true: controller退出了
 // false: controller没有退出
 func (s *taskState) SetState(state bool) {
+	if s == nil {
+		return
+	}
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()
 	s.state = state

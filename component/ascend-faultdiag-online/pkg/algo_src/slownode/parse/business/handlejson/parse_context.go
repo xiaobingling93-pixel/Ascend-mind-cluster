@@ -18,6 +18,7 @@ package handlejson
 import (
 	"fmt"
 
+	"ascend-common/common-utils/hwlog"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/common/constants"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/model"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils"
@@ -93,6 +94,10 @@ func NewParseFileContext() *ParseFileContext {
 
 // HandleIdDomain 处理id和Domain缓存
 func (ctx *ParseFileContext) HandleIdDomain(jsonData *model.JsonData) {
+	if jsonData == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]nil jsonData in HandleIdDomain")
+		return
+	}
 	domain, ok := ctx.IdNameDomain[jsonData.Id]
 	if !ok {
 		ctx.IdNameDomain[jsonData.Id] = &CacheNameDomain{Domain: jsonData.Domain, Name: jsonData.Name, Cnt: 1}
@@ -110,6 +115,10 @@ func (ctx *ParseFileContext) HandleIdDomain(jsonData *model.JsonData) {
 
 // DealJsonData 处理json数据
 func (ctx *ParseFileContext) DealJsonData(data *model.JsonData) {
+	if data == nil {
+		hwlog.RunLog.Error("[SLOWNODE PARSE]nil jsonData in DealJsonData")
+		return
+	}
 	const startAndEndLen = 2
 	if !ctx.OrderedIDSet.Contains(data.Id) {
 		ctx.OrderedIDSet.Add(data.Id)

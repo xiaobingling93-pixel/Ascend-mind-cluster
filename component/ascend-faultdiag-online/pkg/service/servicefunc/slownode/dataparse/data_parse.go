@@ -82,6 +82,10 @@ func (d *Controller) request(command enum.Command) error {
 
 // Start start the data parse
 func (d *Controller) Start() {
+	if d == nil || d.ctx == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]invalid nil data parse controller or context")
+		return
+	}
 	if err := d.request(enum.Start); err != nil {
 		hwlog.RunLog.Errorf("%v started data parse failed: %v", d.ctx.LogPrefix(), err)
 	}
@@ -89,6 +93,10 @@ func (d *Controller) Start() {
 
 // Stop stop the data parse
 func (d *Controller) Stop() {
+	if d == nil || d.ctx == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]invalid nil data parse controller or context")
+		return
+	}
 	if err := d.request(enum.Stop); err != nil {
 		hwlog.RunLog.Errorf("%v stopped data parse failed: %v", d.ctx.LogPrefix(), err)
 	}
@@ -98,6 +106,10 @@ func (d *Controller) Stop() {
 // no need to watch the stop signal, merge parallel group info would not run forever
 // only occurs in cluster
 func (d *Controller) MergeParallelGroupInfoWatcher() {
+	if d == nil || d.ctx == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]invalid nil data parse controller or context")
+		return
+	}
 	go func() {
 		hwlog.RunLog.Infof("%s started watching merge parallel group info signal, timeout: %d",
 			d.ctx.LogPrefix(), context.FdCtx.Config.AllNodesReportTimeout)

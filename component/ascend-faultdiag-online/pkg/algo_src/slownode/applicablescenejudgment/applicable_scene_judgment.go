@@ -118,6 +118,10 @@ func checkCPContent(filePath string) (bool, error) {
 
 // CheckApplicableScene 判断场景是否使用
 func CheckApplicableScene(sndConfig *config.DetectionConfig, taskName string) bool {
+	if sndConfig == nil {
+		hwlog.RunLog.Error("[SLOWNODE ALGO]invalid nil sndConfig")
+		return false
+	}
 	// 获取当前文件名和行号
 	topoPath := filepath.Join(sndConfig.SharedFilePath, task, taskName, topoFileName)
 	result, err := checkEPContent(topoPath)

@@ -79,8 +79,15 @@ func ControllerReload() *api.Api {
 }
 
 // ControllerStartFunc start controller of cluster
-func ControllerStartFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *model.RequestContext, reqModel *model.CommonReqModel) error {
+func ControllerStartFunc(
+	ctxData *contextdata.CtxData,
+	diagCtx *diagcontext.DiagContext,
+	reqCtx *model.RequestContext,
+	reqModel *model.CommonReqModel,
+) error {
+	if diagCtx == nil || ctxData == nil || reqCtx == nil || ctxData.Framework == nil || reqCtx.Response == nil {
+		return errors.New("invalid nil input")
+	}
 	dContext = diagCtx
 	contextData = ctxData
 
@@ -108,8 +115,15 @@ func ControllerStartFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.Diag
 }
 
 // ControllerStopFunc stop controller of cluster
-func ControllerStopFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *model.RequestContext, reqModel *model.CommonReqModel) error {
+func ControllerStopFunc(
+	ctxData *contextdata.CtxData,
+	diagCtx *diagcontext.DiagContext,
+	reqCtx *model.RequestContext,
+	reqModel *model.CommonReqModel,
+) error {
+	if ctxData == nil || reqCtx == nil || ctxData.Framework == nil || reqCtx.Response == nil {
+		return errors.New("invalid nil input")
+	}
 	handler := ctxData.Framework.FuncHandler[enum.NetFault]
 	if handler == nil {
 		err := errors.New("no handler for " + enum.NetFault)
@@ -128,8 +142,15 @@ func ControllerStopFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagC
 }
 
 // ControllerReloadFunc reload controller of cluster
-func ControllerReloadFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *model.RequestContext, reqModel *model.CommonReqModel) error {
+func ControllerReloadFunc(
+	ctxData *contextdata.CtxData,
+	diagCtx *diagcontext.DiagContext,
+	reqCtx *model.RequestContext,
+	reqModel *model.CommonReqModel,
+) error {
+	if diagCtx == nil || ctxData == nil || reqCtx == nil || ctxData.Framework == nil || reqCtx.Response == nil {
+		return errors.New("invalid nil input")
+	}
 	dContext = diagCtx
 	contextData = ctxData
 	handler := ctxData.Framework.FuncHandler[enum.NetFault]

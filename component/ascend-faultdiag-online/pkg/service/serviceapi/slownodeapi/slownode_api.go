@@ -20,6 +20,7 @@ Package slownodeapi provides API
 package slownodeapi
 
 import (
+	"errors"
 	"fmt"
 
 	"ascend-common/common-utils/hwlog"
@@ -73,6 +74,10 @@ func startFunc(
 	inputModel *slownode.ReqInput,
 	target enum.DeployMode,
 ) error {
+	if ctxData == nil || diagCtx == nil || reqCtx == nil || inputModel == nil || ctxData.Framework == nil ||
+		reqCtx.Response == nil {
+		return errors.New("start failed: invalid nil input")
+	}
 	dContext = diagCtx
 	contextData = ctxData
 	handler := ctxData.Framework.FuncHandler[enum.SlowNode]
@@ -115,6 +120,9 @@ func stopFunc(
 	inputModel *slownode.ReqInput,
 	target enum.DeployMode,
 ) error {
+	if ctxData == nil || reqCtx == nil || inputModel == nil || ctxData.Framework == nil || reqCtx.Response == nil {
+		return errors.New("start failed: invalid nil input")
+	}
 	handler := ctxData.Framework.FuncHandler[enum.SlowNode]
 	if handler == nil {
 		return fmt.Errorf("start failed: no handler for %s", enum.SlowNode)
@@ -138,6 +146,10 @@ func reloadFunc(
 	inputModel *slownode.ReqInput,
 	target enum.DeployMode,
 ) error {
+	if ctxData == nil || diagCtx == nil || reqCtx == nil || inputModel == nil || ctxData.Framework == nil ||
+		reqCtx.Response == nil {
+		return errors.New("start failed: invalid nil input")
+	}
 	dContext = diagCtx
 	contextData = ctxData
 	handler := ctxData.Framework.FuncHandler[enum.SlowNode]

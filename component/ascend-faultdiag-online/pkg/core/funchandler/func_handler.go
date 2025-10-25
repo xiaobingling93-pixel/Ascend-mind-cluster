@@ -41,6 +41,9 @@ type Handler struct {
 // GenerateExecuteFunc returns the execute function
 func GenerateExecuteFunc(f func(model.Input) int, app string) ExecuteFunc {
 	return func(input model.Input) (int, error) {
+		if f == nil {
+			return -1, fmt.Errorf("call [%s] func [Execute] failed, function is nil", app)
+		}
 		ret := f(input)
 		if ret != 0 {
 			return -1, fmt.Errorf("call [%s] func [Execute] failed, return code: [%d]", app, ret)

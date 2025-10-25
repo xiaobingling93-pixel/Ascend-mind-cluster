@@ -50,6 +50,9 @@ func (router *Router) HandleApi(apiPath string) (api.ApiFunc, error) {
 		if !ok {
 			return nil, fmt.Errorf("api %s is not existed", apiPath)
 		}
+		if nextApiNode == nil {
+			return nil, errors.New("the api node is nil")
+		}
 		tempApiNode = nextApiNode
 	}
 	return tempApiNode.ApiFunc, nil

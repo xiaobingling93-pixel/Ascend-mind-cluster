@@ -44,8 +44,7 @@ type jobProcessor struct {
 
 func (j *jobProcessor) logPrefix() string {
 	if j.ctx != nil {
-		return fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, namespace=%s, jobId=%s)",
-			j.ctx.Job.JobName, j.ctx.Job.Namespace, j.ctx.Job.JobId)
+		return j.ctx.LogPrefix()
 	}
 	return fmt.Sprintf("[FD-OL SLOWNODE]job(name=%s, namespace=%s, jobId=%s)",
 		j.job.JobName, j.job.Namespace, j.job.JobId)
@@ -175,6 +174,10 @@ func (j *jobProcessor) sendRestartConfigMap() {
 
 // JobProcessor store the slow node job into the confMap in node
 func JobProcessor(oldData, newData *slownode.Job, operator watch.EventType) {
+	if newData == nil {
+		hwlog.RunLog.Error("[FD-OL SLOWNODE]data job is nil")
+		return
+	}
 	hwlog.RunLog.Infof("[FD-OL SLOWNODE]got job cm data, operator: %s, newObj: %+v, oldObj: %+v",
 		operator, newData, oldData)
 	if newData.JobId == "" {

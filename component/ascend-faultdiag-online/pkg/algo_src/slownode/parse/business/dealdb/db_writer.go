@@ -18,11 +18,16 @@ Package dealdb.
 package dealdb
 
 import (
+	"ascend-common/common-utils/hwlog"
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/context"
 )
 
 // StartWriteSql 写入数据库表
 func StartWriteSql(snpRankCtx *context.SnpRankContext, stopFlag chan struct{}) {
+	if snpRankCtx == nil || snpRankCtx.ContextData == nil || snpRankCtx.ContextData.DbCtx == nil {
+		hwlog.RunLog.Error("[SLOWNODE ALGO]invalid nil snpRankCtx or DbCtx")
+		return
+	}
 	defer snpRankCtx.ContextData.DbCtx.Close()
 	for {
 		select {

@@ -29,6 +29,9 @@ import (
 
 // SetFaultDetectParam 拨测参数入口
 func (nd *NetDetect) SetFaultDetectParam(paramsMap map[string]any, npuInfoMap map[string]NpuInfo) bool {
+	if nd == nil {
+		return false
+	}
 	if len(paramsMap) == 0 {
 		hwlog.RunLog.Errorf("[ALGO] paramsMap is empty")
 		return false
@@ -58,6 +61,9 @@ func (nd *NetDetect) SetFaultDetectParam(paramsMap map[string]any, npuInfoMap ma
 
 // GenPingStrategy 拨测算法入口
 func (nd *NetDetect) GenPingStrategy(input map[string]any) map[string]any {
+	if nd == nil {
+		return nil
+	}
 	// 1，初始化拨测策略和分组结构体
 	aiPingStrategy := new(AiPingStrategy)
 	initAiPingStrategy(aiPingStrategy)
@@ -410,6 +416,9 @@ func (nd *NetDetect) setPingDict(aiPingStrategy *AiPingStrategy, dfChainsMap map
 	}
 
 	for _, dfChains := range dfChainsMap {
+		if dfChains == nil {
+			continue
+		}
 		layers := extractLayers(dfChains)
 		nd.doPingStrategy(layers, aiPingStrategy, dfChains)
 	}

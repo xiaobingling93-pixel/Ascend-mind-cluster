@@ -20,6 +20,7 @@ Package metricapi provides API
 package metricapi
 
 import (
+	"ascend-common/common-utils/hwlog"
 	"ascend-faultdiag-online/pkg/core/api"
 	"ascend-faultdiag-online/pkg/core/context/contextdata"
 	"ascend-faultdiag-online/pkg/core/context/diagcontext"
@@ -36,14 +37,33 @@ func GetAddMetricApi() *api.Api {
 	return api.BuildApi(apiAddMetric, &metricmodel.MetricReqData{}, apiAddMetricFunc, nil)
 }
 
-func apiAddMetricFunc(ctxData *contextdata.CtxData, diagCtx *diagcontext.DiagContext,
-	reqCtx *model.RequestContext, model *metricmodel.MetricReqData) error {
+func apiAddMetricFunc(
+	ctxData *contextdata.CtxData,
+	diagCtx *diagcontext.DiagContext,
+	reqCtx *model.RequestContext,
+	model *metricmodel.MetricReqData,
+) error {
+	if ctxData == nil || ctxData.Framework == nil || ctxData.Framework.Logger == nil || diagCtx == nil ||
+		diagCtx.DomainFactory == nil || diagCtx.MetricPool == nil || reqCtx == nil || reqCtx.Response == nil ||
+		model == nil {
+		hwlog.RunLog.Error("[FDOL METRIC] invalid nil input")
+		return nil
+	}
 	for _, metric := range model.Metrics {
+		if metric == nil {
+			continue
+		}
 		if slicetool.ValueIn(metric.ValueType, []enum.MetricValueType{enum.FloatMetric, enum.StringMetric}) != nil {
 			ctxData.Framework.Logger.Println("Unknown Metric Type", metric.ValueType)
 		}
 		domain := diagCtx.DomainFactory.GetInstance(metric.Domain)
-		diagCtx.MetricPool.AddMetric(&diagcontext.Metric{Domain: domain, Name: metric.Name}, metric.Value, metric.ValueType)
+		diagCtx.MetricPool.AddMetric(
+			&diagcontext.Metric{
+				Domain: domain,
+				Name:   metric.Name},
+			metric.Value,
+			metric.ValueType,
+		)
 	}
 	reqCtx.Response.Status = enum.Success
 	reqCtx.Response.Msg = "add metric success"

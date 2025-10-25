@@ -95,7 +95,7 @@ type DiagItem struct {
 
 // Diag 方法用于执行诊断逻辑
 func (d *DiagItem) Diag(ctxData *contextdata.CtxData, diagCtx *DiagContext) []*MetricDiagRes {
-	if d == nil {
+	if diagCtx == nil || d == nil {
 		return []*MetricDiagRes{}
 	}
 	matching := d.ConditionGroup.IsDynamicMatching(ctxData)
@@ -115,6 +115,9 @@ func (d *DiagItem) ruleDiag(pool *MetricPool) []*MetricDiagRes {
 		return nil
 	}
 	results := slicetool.MapToValue(d.Rules, func(rule *DiagRule) []*MetricDiagRes {
+		if rule == nil {
+			return nil
+		}
 		return rule.Diag(d, pool)
 	})
 	return slicetool.Chain(results)

@@ -71,8 +71,8 @@ func GetClient() (*Client, error) {
 
 // CreateConfigMap create a configmap
 func (c *Client) CreateConfigMap(cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	if cm == nil {
-		return nil, fmt.Errorf("param cm is nil")
+	if c == nil || c.ClientSet == nil || cm == nil {
+		return nil, fmt.Errorf("kubernetes client is nil or param cm is nil")
 	}
 	cmNum, err := c.GetConfigMapNum()
 	if err != nil {
@@ -91,8 +91,8 @@ func (c *Client) CreateConfigMap(cm *corev1.ConfigMap) (*corev1.ConfigMap, error
 
 // UpdateConfigMap update config map
 func (c *Client) UpdateConfigMap(cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	if cm == nil {
-		return nil, fmt.Errorf("param cm is nil")
+	if c == nil || c.ClientSet == nil || cm == nil {
+		return nil, fmt.Errorf("kubernetes client is nil or param cm is nil")
 	}
 	newCM, err := c.ClientSet.CoreV1().ConfigMaps(cm.ObjectMeta.Namespace).
 		Update(context.TODO(), cm, metav1.UpdateOptions{})
@@ -105,6 +105,9 @@ func (c *Client) UpdateConfigMap(cm *corev1.ConfigMap) (*corev1.ConfigMap, error
 
 // CreateOrUpdateConfigMap create config map when config map not found or update config map
 func (c *Client) CreateOrUpdateConfigMap(cm *corev1.ConfigMap) error {
+	if c == nil || c.ClientSet == nil || cm == nil {
+		return fmt.Errorf("kubernetes client is nil or param cm is nil")
+	}
 	_, err := c.UpdateConfigMap(cm)
 	if err == nil {
 		return nil
@@ -122,6 +125,9 @@ func (c *Client) CreateOrUpdateConfigMap(cm *corev1.ConfigMap) error {
 
 // DeleteConfigMap delete a cm by giving cm name and namespace
 func (c *Client) DeleteConfigMap(cmName, cmNamespace string) error {
+	if c == nil || c.ClientSet == nil {
+		return fmt.Errorf("kubernetes client is nil")
+	}
 	err := c.ClientSet.CoreV1().ConfigMaps(cmNamespace).Delete(context.TODO(), cmName, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -131,6 +137,9 @@ func (c *Client) DeleteConfigMap(cmName, cmNamespace string) error {
 
 // GetWorkerNodesIPByLabel get all the ips of all the nodes
 func (c *Client) GetWorkerNodesIPByLabel(labelName, labelValue string) ([]string, error) {
+	if c == nil || c.ClientSet == nil {
+		return nil, fmt.Errorf("kubernetes client is nil")
+	}
 	nodes, err := c.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -152,6 +161,9 @@ func (c *Client) GetWorkerNodesIPByLabel(labelName, labelValue string) ([]string
 
 // GetLabels get all the labels of current node
 func (c *Client) GetLabels() (map[string]string, error) {
+	if c == nil || c.ClientSet == nil {
+		return nil, fmt.Errorf("kubernetes client is nil")
+	}
 	envNodeName := "NODE_NAME"
 	nodeName := os.Getenv(envNodeName)
 	if nodeName == "" {
@@ -166,6 +178,9 @@ func (c *Client) GetLabels() (map[string]string, error) {
 
 // GetConfigMapNum get the current number of config map, include all namespaces
 func (c *Client) GetConfigMapNum() (int, error) {
+	if c == nil || c.ClientSet == nil {
+		return 0, fmt.Errorf("kubernetes client is nil")
+	}
 	var total int
 	continueToken := ""
 	for {
