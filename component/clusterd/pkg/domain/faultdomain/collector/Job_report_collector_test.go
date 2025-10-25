@@ -118,12 +118,12 @@ func TestGetInfoCollectTimeout(t *testing.T) {
 
 func TestReportAndGetNoRetryReportTime(t *testing.T) {
 	t.Run("get no retry report time success", func(t *testing.T) {
-		reportTime := ReportInfoCollector.GetNoRetryReportTime(JobId)
+		reportTime := ReportInfoCollector.GetSingleProcessFaultReportTime(JobId)
 		if reportTime != constant.JobShouldReportFault {
 			t.Error("get no retry report time fail")
 		}
 		ReportInfoCollector.ReportNoRetryInfo(JobId, time.Now().UnixMilli())
-		reportTime = ReportInfoCollector.GetNoRetryReportTime(JobId)
+		reportTime = ReportInfoCollector.GetSingleProcessFaultReportTime(JobId)
 		if reportTime == constant.JobShouldReportFault {
 			t.Error("get no retry report time fail")
 		}

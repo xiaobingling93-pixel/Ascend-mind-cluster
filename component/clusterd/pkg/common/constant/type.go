@@ -210,26 +210,46 @@ type DeviceFaultDetail struct {
 	FaultType       string
 }
 
-// RetryDeviceInfo uce device info
+// RetryDeviceInfo retry device info
 type RetryDeviceInfo struct {
 	// DeviceName has prefix Ascend910
-	DeviceName     string
-	FaultDetail    map[string]DeviceFaultDetail // key is retry or normal
-	FaultCodeLevel map[string]string
+	DeviceName  string
+	FaultDetail DeviceFaultDetail
 }
 
-// RetryNodeInfo uce node info
+// RetryNodeInfo retry node info
 type RetryNodeInfo struct {
 	NodeName string
 	// DeviceName->DeviceInfo
 	DeviceInfo map[string]RetryDeviceInfo
 }
 
-// RetryJobInfo uce job info
+// RetryJobInfo retry job info
 type RetryJobInfo struct {
 	// RetryNode node->nodeInfo
 	RetryNode map[string]RetryNodeInfo
 	JobId     string
+}
+
+// SingleProcessDeviceInfo single process fault info
+type SingleProcessDeviceInfo struct {
+	// DeviceName has prefix Ascend910
+	DeviceName     string
+	FaultDetail    DeviceFaultDetail // key is retry or normal
+	FaultCodeLevel map[string]string
+}
+
+// SingleProcessNodeInfo single process node info
+type SingleProcessNodeInfo struct {
+	NodeName string
+	// DeviceName->DeviceInfo
+	DeviceInfo map[string]SingleProcessDeviceInfo
+}
+
+// SingleProcessJobInfo single process job info
+type SingleProcessJobInfo struct {
+	Node  map[string]SingleProcessNodeInfo
+	JobId string
 }
 
 // ReportInfo train process report retry info
