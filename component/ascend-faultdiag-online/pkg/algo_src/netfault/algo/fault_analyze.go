@@ -443,6 +443,9 @@ func (nd *NetDetect) diffFaultPathList(faultPathList []any, detectType string) (
 		}
 
 		fromLayerStr, ok := path[fromLayerConstant].(string)
+		if !ok {
+			continue
+		}
 		toLayerStr, ok := path[toLayerConstant].(string)
 		if !ok {
 			continue
@@ -684,7 +687,14 @@ func initLeftIps(npuDireAlarmList []any) []string {
 	npuDireLen := len(npuDireAlarmList)
 	for i := 0; i < npuDireLen; i += 1 {
 		path, ok := npuDireAlarmList[i].(map[string]any)
+		if !ok {
+			continue
+		}
 		srcAddr, ok := path[srcAddrConstant].(string)
+		if !ok {
+			continue
+		}
+
 		dstAddr, ok := path[dstAddrConstant].(string)
 		if !ok {
 			continue
@@ -723,7 +733,13 @@ func getCurFaultPathInfo(npuDireAlarmList []any, rootCauseIps []string, tmpList 
 
 	for i := 0; i < len(npuDireAlarmList); i++ {
 		path, ok := npuDireAlarmList[i].(map[string]any)
+		if !ok {
+			continue
+		}
 		srcAddr, ok := path[srcAddrConstant].(string)
+		if !ok {
+			continue
+		}
 		dstAddr, ok := path[dstAddrConstant].(string)
 		if !ok {
 			continue
@@ -1211,6 +1227,7 @@ func (nd *NetDetect) getRoceSwitchDesc(npuOtherAlarmList []any, superPodName str
 		curPath, ok := npuOtherAlarmList[i].(map[string]any)
 		if !ok {
 			hwlog.RunLog.Error("[ALGO] type assertion failed")
+			continue
 		}
 
 		allIpList = append(allIpList, curPath[srcAddrConstant].(string))
@@ -1241,6 +1258,9 @@ func classifyByLayer(input []any) map[string][]map[string]any {
 	for i := 0; i < len(input); i++ {
 		// 区分分类条件
 		item, ok := input[i].(map[string]any)
+		if !ok {
+			continue
+		}
 		info, ok := item[informationConstant].(string)
 		if !ok {
 			continue
@@ -1324,6 +1344,9 @@ func excludeLastPaths(curPath *[]map[string]any, lastPath []map[string]any) {
 	for i := 0; i < len(lastPath); i++ {
 		eachLastPath := lastPath[i]
 		from, ok := eachLastPath[fromLayerConstant].(string)
+		if !ok {
+			continue
+		}
 		to, ok := eachLastPath[toLayerConstant].(string)
 		if !ok {
 			continue
@@ -1342,6 +1365,9 @@ func excludeLastPaths(curPath *[]map[string]any, lastPath []map[string]any) {
 	for i := 0; i < len(*curPath); {
 		eachCurItem := (*curPath)[i]
 		from, ok := eachCurItem[fromLayerConstant].(string)
+		if !ok {
+			continue
+		}
 		to, ok := eachCurItem[toLayerConstant].(string)
 		if !ok {
 			continue
@@ -1468,6 +1494,9 @@ func (nd *NetDetect) getRootCauseObj(eachChildDfAlarmAll []map[string]any, rootC
 		*fuzzyAlarmFlag = true
 		onceAlarm := eachChildDfAlarmAll[0]
 		srcAddr, ok := onceAlarm[srcAddrConstant].(string)
+		if !ok {
+			return rootCauseObj
+		}
 		dstAddr, ok := onceAlarm[dstAddrConstant].(string)
 		if !ok {
 			return rootCauseObj
