@@ -17,20 +17,26 @@ Package model.
 */
 package model
 
-// StepGlobalRank step内global rank结构 输出csv结构
+// StepGlobalRank global rank structure within the step, output CSV structure
 type StepGlobalRank struct {
-	StepIndex      int64 `csv:"step_index"`
-	ZPDevice       int64 `csv:"ZP_device"`
-	ZPHost         int64 `csv:"ZP_host"`
-	PPDevice       int64 `csv:"PP_device"`
-	PPHost         int64 `csv:"PP_host"`
+	// StepIndex is the iteration index
+	StepIndex int64 `csv:"step_index"`
+	// ZPDevice is the time-consuming metric of the ZP operator on the device side
+	ZPDevice int64 `csv:"ZP_device"`
+	// ZPHost is the time-consuming metric of the ZP operator on the host side
+	ZPHost int64 `csv:"ZP_host"`
+	// PPDevice is the time-consuming metric of the PP operator on the device side
+	PPDevice int64 `csv:"PP_device"`
+	// PPHost is the time-consuming metric of the PP operator on the host side
+	PPHost int64 `csv:"PP_host"`
+	// DataLoaderHost is the time-consuming metric of the dataloader operator on the host side
 	DataLoaderHost int64 `csv:"dataloader_host"`
 }
 
-// StepIterateDelay 一个迭代的迭代时延，输出csv结构
+// StepIterateDelay iteration delay of one iteration, output CSV structure
 type StepIterateDelay struct {
-	// StepTime 第几个迭代
+	// StepTime indicates the index of the iteration
 	StepTime int64 `csv:"step time"`
-	// Durations 该迭代的时延，单位ns
+	// Durations is the delay of the iteration, in nanoseconds (ns)
 	Durations int64 `csv:"durations"`
 }

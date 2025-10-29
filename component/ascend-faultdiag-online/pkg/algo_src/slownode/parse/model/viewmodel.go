@@ -19,48 +19,61 @@ package model
 
 import "ascend-common/common-utils/hwlog"
 
-// NameView 筛选算子的名称
+// NameView is a view for filtering operator names
 type NameView struct {
+	// Name contains name information
 	Name string
 }
 
-// HostDeviceDuration 筛选算子的耗时视图
+// HostDeviceDuration is a view for filtering operator duration, distinguishing between host and device sides
 type HostDeviceDuration struct {
-	HostDuration   int64
+	// HostDuration is the duration of the operator on the host side
+	HostDuration int64
+	// DeviceDuration is the duration of the operator on the device side
 	DeviceDuration int64
 }
 
-// Duration 耗时视图
+// Duration is a view for duration data
 type Duration struct {
+	// Dur represents duration data
 	Dur int64
 }
 
-// StepStartEndNs step时间开始结束视图
+// StepStartEndNs is a view for step time (start and end)
 type StepStartEndNs struct {
-	Id      int64
+	// Id is the unique identifier
+	Id int64
+	// StartNs is the start timestamp
 	StartNs int64
-	EndNs   int64
+	// EndNs is the end timestamp
+	EndNs int64
 }
 
-// StartEndNs 时间开始结束视图
+// StartEndNs is a view for time (start and end)
 type StartEndNs struct {
+	// StartNs is the start timestamp
 	StartNs int64
-	EndNs   int64
+	// EndNs is the end timestamp
+	EndNs int64
 }
 
-// ValueView 值视图
+// ValueView is a view for data values
 type ValueView struct {
+	// Value represents the data value
 	Value string
 }
 
-// IdView 值视图
+// IdView is a view for identifiers
 type IdView struct {
+	// Id is the unique identifier
 	Id int64
 }
 
-// StringIdsView Id和Value视图
+// StringIdsView is a view containing both identifier and value
 type StringIdsView struct {
-	Id    int64
+	// Id is the unique identifier
+	Id int64
+	// Value represents the data value
 	Value string
 }
 

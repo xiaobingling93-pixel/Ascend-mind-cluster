@@ -21,88 +21,126 @@ import "ascend-faultdiag-online/pkg/algo_src/netfault/algo"
 
 // SuperPodInfo super node device info, key is superPodID, value is RackInfo
 type SuperPodInfo struct {
-	Version       string
-	SuperPodID    string
+	// Version represents the version of the super pod (A3 or A5)
+	Version string
+	// SuperPodID is the unique identifier of the super pod
+	SuperPodID string
+	// NodeDeviceMap is a mapping of node devices
 	NodeDeviceMap map[string]*NodeDevice `json:"NodeDeviceMap,omitempty"`
-	RackMap       map[string]*RackInfo   `json:"RackMap,omitempty"`
+	// RackMap is a mapping of rack information
+	RackMap map[string]*RackInfo `json:"RackMap,omitempty"`
 }
 
 // NodeDevice node device info
 type NodeDevice struct {
-	NodeName   string
-	ServerID   string
-	ServerType string              `json:"-"`
-	DeviceMap  map[string]string   // key: dev phyID, value: superPod device id
-	RackID     string              `json:"RackID,omitempty"`
+	// NodeName is the name of the node
+	NodeName string
+	// ServerID is the identifier of the server
+	ServerID string
+	// ServerType indicates the type of the server
+	ServerType string `json:"-"`
+	// DeviceMap is a mapping of device information
+	DeviceMap map[string]string // key: dev phyID, value: superPod device id
+	// RackID is the identifier of the rack
+	RackID string `json:"RackID,omitempty"`
+	// NpuInfoMap is a mapping of NPU information
 	NpuInfoMap map[string]*NpuInfo `json:"NpuInfoMap,omitempty"`
 }
 
 // RackInfo rack info
 type RackInfo struct {
-	RackID    string
+	// RackID is the identifier of the rack
+	RackID string
+	// ServerMap is a mapping of server information
 	ServerMap map[string]*ServerInfo
 }
 
 // ServerInfo server info
 type ServerInfo struct {
+	// ServerIndex is the index identifier of the server
 	ServerIndex string
-	NodeName    string
-	NpuMap      map[string]*NpuInfo
+	// NodeName is the name of the node
+	NodeName string
+	// NpuMap is a mapping of NPU information
+	NpuMap map[string]*NpuInfo
 }
 
 // NpuInfo npu info for device
-type NpuInfo struct {
-	/* 新1D、2D */
-	Ports     []PortInfo `json:"ports"`
-	PhyId     string
+type NpuInfo struct { /* 新1D、2D */
+	// Ports is a slice of port information
+	Ports []PortInfo `json:"ports"`
+	// PhyId is the physical identifier
+	PhyId string
+	// VnicIpMap is a mapping of virtual NIC IP information
 	VnicIpMap map[string]*VnicInfo
 }
 
 // VnicInfo vnic ip info for device
 type VnicInfo struct {
+	// PortId is the identifier of the port
 	PortId string
+	// VnicIp is the IP address of the virtual NIC
 	VnicIp string
 }
 
 // PortInfo out of rack detection, eid for device
 type PortInfo struct {
-	Position  string   `json:"position"`
-	AddrType  string   `json:"addrType"`
+	// Position represents the position information of the port
+	Position string `json:"position"`
+	// AddrType indicates the type of address associated with the port
+	AddrType string `json:"addrType"`
+	// Addresses is a slice of address information for the port
 	Addresses []string `json:"addrs"`
 }
 
-// EidNpuMap npu与eid映射关系
+// EidNpuMap mapping between NPU and EID
 type EidNpuMap struct {
+	// Map is a mapping where the key is an EID and the value is the corresponding NPU information
 	Map map[string]algo.NpuInfo
 }
 
-// EndPoint rack级topo关系npu端到端
+// EndPoint NPU end-to-end in rack-level topology relationship
 type EndPoint struct {
-	Type     string `json:"type"`
-	Id       int    `json:"id"`
-	Addr     string `json:"addr"`
+	// Type indicates the type of the endpoint
+	Type string `json:"type"`
+	// Id is the identifier of the endpoint
+	Id int `json:"id"`
+	// Addr is the address of the endpoint
+	Addr string `json:"addr"`
+	// Position represents the position information of the endpoint
 	Position string `json:"position"`
 }
 
-// NpuPeer rack级npu卡id
+// NpuPeer rack-level NPU card ID
 type NpuPeer struct {
+	// Id is the rack-level NPU card identifier
 	Id int `json:"id"`
 }
 
-// PeerToPeer rack级topo中npu直连信息
+// PeerToPeer NPU direct connection information in rack-level topology
 type PeerToPeer struct {
-	Level    int      `json:"level"`
-	Protocol string   `json:"protocol"`
+	// Level indicates the hierarchy information
+	Level int `json:"level"`
+	// Protocol represents the protocol information
+	Protocol string `json:"protocol"`
+	// SrcPoint is the source endpoint
 	SrcPoint EndPoint `json:"u_endpoint"`
+	// DstPoint is the destination endpoint
 	DstPoint EndPoint `json:"v_endpoint"`
 }
 
-// RackTopology rack级topo信息
+// RackTopology rack-level topology information
 type RackTopology struct {
-	Version      string       `json:"version"`
-	HardwareType string       `json:"hardware_type"`
-	PeerCount    int          `json:"peer_count"`
-	PeerList     []NpuPeer    `json:"peer_list"`
-	EdgeCount    int          `json:"edge_count"`
-	EdgeList     []PeerToPeer `json:"edge_list"`
+	// Version represents the version information
+	Version string `json:"version"`
+	// HardwareType indicates the type of hardware
+	HardwareType string `json:"hardware_type"`
+	// PeerCount is the number of peers
+	PeerCount int `json:"peer_count"`
+	// PeerList is a slice of peer
+	PeerList []NpuPeer `json:"peer_list"`
+	// EdgeCount is the number of edges
+	EdgeCount int `json:"edge_count"`
+	// EdgeList is a slice of PeerToPeer instances
+	EdgeList []PeerToPeer `json:"edge_list"`
 }

@@ -22,11 +22,16 @@ import (
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/model"
 )
 
-// SnpRankContext 慢节点单个Rank清洗上下文
+// SnpRankContext slow node single Rank parsing context
 type SnpRankContext struct {
-	ContextData  *contextdata.SnpRankContextData
-	JsonDataQue  chan []*model.JsonData
+	// ContextData is the context data for slow node rank parsing
+	ContextData *contextdata.SnpRankContextData
+	// JsonDataQue is a channel that stores queues of JSON data
+	JsonDataQue chan []*model.JsonData
+	// InsertSqlQue is a channel that stores queues of INSERT SQL statements
 	InsertSqlQue chan string
-	JobId        string
-	RankId       string
+	// JobId is the identifier of the job
+	JobId string
+	// RankId is the identifier of the rank
+	RankId string
 }

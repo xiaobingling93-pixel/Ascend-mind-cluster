@@ -29,12 +29,16 @@ import (
 	"ascend-faultdiag-online/pkg/algo_src/slownode/parse/utils"
 )
 
-// SnpDbContext 数据库上下文
+// SnpDbContext database context
 type SnpDbContext struct {
+	// DbType indicates the type of the database
 	DbType string
+	// DbPath is the file path or connection string of the database
 	DbPath string
+	// dbConn is the database connection handle
 	dbConn *sql.DB
-	// 在 WAL 模式下，可以多个读协程一起读取，只需要给写入加锁
+	// DbWriteLock is a mutex for database write operations
+	// In WAL mode, multiple read goroutines can read concurrently, so only writes need locking
 	DbWriteLock sync.Mutex
 }
 

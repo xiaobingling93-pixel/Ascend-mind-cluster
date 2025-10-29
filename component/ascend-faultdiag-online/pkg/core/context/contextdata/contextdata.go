@@ -19,8 +19,10 @@ Package contextdata 全局上下文信息
 */
 package contextdata
 
-// CtxData 全局上下文信息
+// CtxData contains global context information
 type CtxData struct {
+	// Environment contains environment-related information
 	Environment *Environment
-	Framework   *Framework
+	// Framework contains framework-related information
+	Framework *Framework
 }
