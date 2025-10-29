@@ -17,15 +17,22 @@ package algo
 
 // PingItem ping info item
 type PingItem struct {
-	SrcType      int    `json:"srcType"`
-	DstType      int    `json:"dstType"`
-	PktSize      int    `json:"pktSize"`
-	SrcCardPhyId int    `json:"srcCardPhyId"`
-	SrcAddr      string `json:"srcAddr"`
-	DstAddr      string `json:"dstAddr"`
+	// SrcType indicates the type of the source end
+	SrcType int `json:"srcType"`
+	// DstType indicates the type of the destination end
+	DstType int `json:"dstType"`
+	// PktSize represents the size of the ping packet
+	PktSize int `json:"pktSize"`
+	// SrcCardPhyId is the physical ID of the source-end card
+	SrcCardPhyId int `json:"srcCardPhyId"`
+	// SrcAddr is the network address of the source end
+	SrcAddr string `json:"srcAddr"`
+	// DstAddr is the network address of the destination end
+	DstAddr string `json:"dstAddr"`
 }
 
 // PingListInfo ping list info
 type PingListInfo struct {
+	// PingList is a slice that stores multiple Ping info
 	PingList []PingItem `json:"pingList"`
 }

@@ -21,19 +21,19 @@ import (
 	"sync"
 )
 
-// MergeParallelGroupInfoInput 并行域合并输入结构体
+// MergeParallelGroupInfoInput is the input structure for parallel domain merging
 type MergeParallelGroupInfoInput struct {
-	// FileMu 访问文件时加锁
+	// FileMu is a mutex for file access
 	FileMu sync.Mutex
-	// FilePaths 文件路径列表
+	// FilePaths is a list of file paths
 	FilePaths []string
-	// FileSavePath 文件保存路径
+	// FileSavePath is the file save path
 	FileSavePath string
-	// DeleteFileFlag 删除文件标记
+	// DeleteFileFlag is the flag for deleting files
 	DeleteFileFlag bool
 }
 
-// MergeParallelGroupInfoResult 并行域信息回调结果
+// MergeParallelGroupInfoResult callback result of parallel domain information callback
 type MergeParallelGroupInfoResult struct {
 	// JobName the name of job
 	JobName string `json:"jobName"`
@@ -61,13 +61,20 @@ type NodeDataParseResult struct {
 	RankIds []string `json:"rankIds"`
 }
 
-// ParseJobInfo 保存停止信号
+// ParseJobInfo stores stop signals and job-related information
 type ParseJobInfo struct {
-	JobName       string
-	JobId         string
-	JobStatus     string
+	// JobName is the name of the task
+	JobName string
+	// JobId is the identifier of the task
+	JobId string
+	// JobStatus indicates the status of the task
+	JobStatus string
+	// StopParseFlag is a channel for the stop signal of the parsing task
 	StopParseFlag chan struct{}
-	JobWg         *sync.WaitGroup
-	StopWg        *sync.WaitGroup
-	TimeStamp     int64
+	// JobWg is the wait group for the task
+	JobWg *sync.WaitGroup
+	// StopWg is the wait group for stopping the task
+	StopWg *sync.WaitGroup
+	// TimeStamp is the timestamp of the task
+	TimeStamp int64
 }
