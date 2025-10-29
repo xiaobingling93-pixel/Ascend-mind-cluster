@@ -875,7 +875,6 @@ func new910SuperPod(name string) *module910SuperPod {
 	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
-	m.NetUnhealthyKey = ascend910a3.NetworkUnhealthyNPU
 	m.nodeVPodId = map[string]string{}
 	return m
 }
@@ -927,7 +926,7 @@ func createObtainBatchScoreRankTaskInfo(jobId, rankId, spec string) *api.TaskInf
 	task := test.FakeNormalTestTask("pod1", "node1", "acjob")
 	task.Job = api.JobID(jobId)
 	task.Pod.Annotations[plugin.PodRankIndexKey] = rankId
-	task.Pod.Annotations[taskSpec] = spec
+	task.Pod.Annotations[ascend910a3.TaskSpecAnno] = spec
 	return task
 }
 
@@ -936,14 +935,14 @@ func createBatchScoreNPUTasks(n int) map[api.TaskID]util.NPUTask {
 	for i := 0; i < n; i++ {
 		spec := workerSpec
 		if batchScoreRank0 == i {
-			spec = schedulerSpec
+			spec = ascend910a3.SchedulerType
 		}
 		tasks[api.TaskID(strconv.Itoa(i))] = util.NPUTask{
 			Name:       "task" + strconv.Itoa(i),
 			ReqNPUName: util.NPU910CardName,
 			Annotation: map[string]string{
-				plugin.PodRankIndexKey: strconv.Itoa(i),
-				taskSpec:               spec,
+				plugin.PodRankIndexKey:   strconv.Itoa(i),
+				ascend910a3.TaskSpecAnno: spec,
 			},
 			PodStatus: v1.PodPending,
 		}
@@ -984,8 +983,8 @@ type obtainBatchScoreRankTest struct {
 func getObtainBatchScoreRankTestCases(jobId string) []obtainBatchScoreRankTest {
 	schedulerJob := fakeSchedulerJobEmptyTask(jobId, "")
 	schedulerJob.Tasks = createBatchScoreNPUTasks(batchScoreNpuTask4)
-	taskInfoWithoutSpecAnno := createObtainBatchScoreRankTaskInfo(jobId, "1", schedulerSpec)
-	delete(taskInfoWithoutSpecAnno.Pod.Annotations, taskSpec)
+	taskInfoWithoutSpecAnno := createObtainBatchScoreRankTaskInfo(jobId, "1", ascend910a3.SchedulerType)
+	delete(taskInfoWithoutSpecAnno.Pod.Annotations, ascend910a3.TaskSpecAnno)
 	tests := []obtainBatchScoreRankTest{
 		{
 			name: "01-obtainBatchScoreRank invalid argument",
@@ -1001,9 +1000,9 @@ func getObtainBatchScoreRankTestCases(jobId string) []obtainBatchScoreRankTest {
 			want: nil,
 		},
 		{
-			name: "03-obtainBatchScoreRank spec " + schedulerSpec,
+			name: "03-obtainBatchScoreRank spec " + ascend910a3.SchedulerType,
 			args: obtainBatchScoreRankArgs{
-				task: createObtainBatchScoreRankTaskInfo(jobId, "1", schedulerSpec),
+				task: createObtainBatchScoreRankTaskInfo(jobId, "1", ascend910a3.SchedulerType),
 				job:  schedulerJob,
 			},
 			want: map[int]struct{}{0: {}},

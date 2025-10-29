@@ -46,7 +46,6 @@ func New(name string) base.AscendHandler {
 	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
-	m.NetUnhealthyKey = ascend910a3.NetworkUnhealthyNPU
 	m.nodeVPodId = map[string]string{}
 	return m
 }
@@ -70,7 +69,7 @@ func (tp *module910SuperPod) checkRequireNPU() *api.ValidateResult {
 			if tp.ReqNPUNum != tp.SpBlockNPUNum {
 				return &api.ValidateResult{
 					Pass:    false,
-					Reason:  jobCheckFailedReason,
+					Reason:  ascend910a3.JobCheckFailedReason,
 					Message: "single super-pod job sp-block annotation should equal require npu num",
 				}
 			}
@@ -78,7 +77,7 @@ func (tp *module910SuperPod) checkRequireNPU() *api.ValidateResult {
 		}
 		return &api.ValidateResult{
 			Pass:    false,
-			Reason:  jobCheckFailedReason,
+			Reason:  ascend910a3.JobCheckFailedReason,
 			Message: fmt.Sprintf("single super-pod job require npu [1, 2*n], instead of %d", tp.ReqNPUNum),
 		}
 	}
@@ -87,12 +86,34 @@ func (tp *module910SuperPod) checkRequireNPU() *api.ValidateResult {
 	if tp.ReqNPUNum%tp.SpBlockNPUNum != 0 {
 		return &api.ValidateResult{
 			Pass:   false,
-			Reason: jobCheckFailedReason,
+			Reason: ascend910a3.JobCheckFailedReason,
 			Message: fmt.Sprintf("distributed super-pod job require npu(%d) should be multiple of sp-block",
 				tp.ReqNPUNum),
 		}
 	}
-	return tp.CheckReqNPUEqualNodeNPU()
+	return tp.CheckTaskNPU()
+}
+
+// CheckTaskNPU check the distributed job require npu num must equal node npu num
+func (tp *module910SuperPod) CheckTaskNPU() *api.ValidateResult {
+	for _, task := range tp.Tasks {
+		// npu num required by task in distributed job must be node npu num
+		if task.ReqNPUNum == tp.MaxNodeNPUNum {
+			continue
+		}
+
+		if task.ReqNPUNum == 0 && (task.Annotation[ascend910a3.TaskSpecAnno] == ascend910a3.SchedulerType ||
+			task.Annotation[ascend910a3.SkipAscendPluginAnno] == ascend910a3.SkipEnabled) {
+			continue
+		}
+		return &api.ValidateResult{
+			Pass:   false,
+			Reason: ascend910a3.JobCheckFailedReason,
+			Message: fmt.Sprintf("distributed job require npu %d, instead of %d",
+				tp.MaxNodeNPUNum, task.ReqNPUNum),
+		}
+	}
+	return nil
 }
 
 func (tp *module910SuperPod) checkSpBlock() *api.ValidateResult {
@@ -270,17 +291,17 @@ func (tp *module910SuperPod) obtainBatchScoreRank(task *api.TaskInfo, job *plugi
 		klog.V(util.LogErrorLev).Infof("obtainBatchScoreRank %s", errors.New(util.ArgumentError))
 		return nil
 	}
-	spec, ok := task.Pod.Annotations[taskSpec]
+	spec, ok := task.Pod.Annotations[ascend910a3.TaskSpecAnno]
 	if !ok {
-		klog.V(util.LogErrorLev).Infof("obtainBatchScoreRank %s: (%s/%s) obtain taskSpec fail, skip",
-			tp.GetPluginName(), task.Namespace, task.Name)
+		klog.V(util.LogErrorLev).Infof("obtainBatchScoreRank %s: (%s/%s) obtain annotation %s failed, skip",
+			tp.GetPluginName(), task.Namespace, task.Name, ascend910a3.TaskSpecAnno)
 		return nil
 	}
 	klog.V(util.LogInfoLev).Infof("obtainOriginalRankIdMap job (%s/%s), len(job.Tasks) %d",
 		job.NameSpace, job.Name, len(job.Tasks))
 	m := make(map[int]struct{}, len(job.Tasks))
 	for _, task := range job.Tasks {
-		if !task.IsNPUTask() || task.Annotation[taskSpec] != spec {
+		if !task.IsNPUTask() || task.Annotation[ascend910a3.TaskSpecAnno] != spec {
 			continue
 		}
 		if task.PodStatus != v1.PodPending {

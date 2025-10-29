@@ -50,6 +50,7 @@ func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([
 		sort.Ints(nodeTop)
 		return nodeTop, nil
 	}
+	// for distributed job, need to remove the net unhealthy npu
 	netUnhealthyTop, err := tp.getNetUnhealthyNPU(node)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("getNetUnhealthyNPU err: %s", err)
