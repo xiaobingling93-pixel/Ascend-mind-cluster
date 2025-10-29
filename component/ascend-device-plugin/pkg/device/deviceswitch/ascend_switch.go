@@ -187,27 +187,49 @@ func goFaultEventHandler(event *C.struct_LqDcmiEvent) {
 	common.SetSwitchFaultCode(append(currentFault, faultEvent))
 }
 
+func updateSwitchFaultCode(isInit bool) {
+	if !isInit {
+		switchFaultCodes := common.GetSwitchFaultCode()
+		if len(switchFaultCodes) == 0 {
+			hwlog.RunLog.Info("no switch fault codes to query, skip this cycle")
+			return
+		}
+	}
+
+	hwlog.RunLog.Info("start querying switch fault codes")
+	errCodes, err := GetSwitchFaults()
+	if err != nil {
+		hwlog.RunLog.Errorf("failed to query switch fault codes: %v", err)
+		return
+	}
+
+	common.SetSwitchFaultCode(errCodes)
+	hwlog.RunLog.Infof("successfully updated switch fault codes (count: %d)", len(errCodes))
+}
+
 // GetSwitchFaultCodeByInterval start a none stop loop to query and update switch fault code
 func (sdm *SwitchDevManager) GetSwitchFaultCodeByInterval(ctx context.Context, interval time.Duration) {
+	hwlog.RunLog.Info("performing initial query of switch fault codes")
 	runtime.LockOSThread()
+	updateSwitchFaultCode(true)
+
+	ticker := time.NewTicker(interval)
+	defer func() {
+		ticker.Stop()
+		hwlog.RunLog.Info("query switch fault by interval stopped")
+	}()
+
+	hwlog.RunLog.Infof("started periodic query (interval: %v)", interval)
 	for {
 		select {
 		case _, ok := <-ctx.Done():
 			if !ok {
-				hwlog.RunLog.Info("stop signal channel closed")
+				hwlog.RunLog.Info("catch stop signal channel closed")
 			}
-			hwlog.RunLog.Info("query switch fault by interval stopped")
+			hwlog.RunLog.Infof("received stop signal: %v", ctx.Err())
 			return
-		default:
-			hwlog.RunLog.Debug("will start to query all switch fault codes")
-			errCodes, err := GetSwitchFaults()
-			if err != nil {
-				hwlog.RunLog.Error(err)
-				time.Sleep(interval)
-				continue
-			}
-			common.SetSwitchFaultCode(errCodes)
-			time.Sleep(interval)
+		case <-ticker.C:
+			updateSwitchFaultCode(false)
 		}
 	}
 }
