@@ -16,12 +16,15 @@
 package deviceswitch
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
 	"Ascend-device-plugin/pkg/common"
+	"ascend-common/common-utils/hwlog"
 	devmanagercommon "ascend-common/devmanager/common"
 )
 
@@ -34,6 +37,13 @@ const (
 	enginAlarmID       = 0x00f103b6
 	enginFaultID       = 155909
 )
+
+func init() {
+	hwLogConfig := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	hwlog.InitRunLogger(&hwLogConfig, context.Background())
+}
 
 // TestUpdateSwitchFaultLevel for test UpdateSwitchFaultLevel
 func TestUpdateSwitchFaultLevel(t *testing.T) {
@@ -125,5 +135,44 @@ func TestIsFaultRecoveredEvent(t *testing.T) {
 		// 02-not have recover event, should return false
 		recoverFaultEvent.Assertion = uint(devmanagercommon.FaultOccur)
 		convey.So(isFaultRecoveredEvent(faultEvent, recoverFaultEvent), convey.ShouldBeFalse)
+	})
+}
+
+func TestUpdateSwitchFaultCode(t *testing.T) {
+	convey.Convey("test updateSwitchFaultCode", t, func() {
+		var mockCurrentSwitchFault = make([]common.SwitchFaultEvent, 0, common.GeneralMapSize)
+		convey.Convey("01-when switch fault cache is not init and get empty fault, cache is not update", func() {
+			patches := gomonkey.ApplyFuncReturn(GetSwitchFaults, []common.SwitchFaultEvent{}, nil).
+				ApplyFuncReturn(common.GetSwitchFaultCode, []common.SwitchFaultEvent{}).
+				ApplyFunc(common.SetSwitchFaultCode, func(newFaults []common.SwitchFaultEvent) {
+					mockCurrentSwitchFault = newFaults
+				})
+			defer patches.Reset()
+			updateSwitchFaultCode(false)
+			convey.So(len(mockCurrentSwitchFault), convey.ShouldEqual, 0)
+		})
+		convey.Convey("02-switch fault cache is init and get faults, cache is update success", func() {
+			mockCurrentSwitchFault = []common.SwitchFaultEvent{{}, {}}
+			patches := gomonkey.ApplyFuncReturn(GetSwitchFaults, []common.SwitchFaultEvent{{}}, nil).
+				ApplyFuncReturn(common.GetSwitchFaultCode, mockCurrentSwitchFault).
+				ApplyFunc(common.SetSwitchFaultCode, func(newFaults []common.SwitchFaultEvent) {
+					mockCurrentSwitchFault = newFaults
+				})
+			defer patches.Reset()
+			updateSwitchFaultCode(true)
+			convey.So(len(mockCurrentSwitchFault), convey.ShouldEqual, 1)
+		})
+		convey.Convey("03-get switch faults failed, cache is not update", func() {
+			mockCurrentSwitchFault = []common.SwitchFaultEvent{{}}
+			patches := gomonkey.ApplyFuncReturn(GetSwitchFaults, nil,
+				fmt.Errorf("get switch faults failed")).
+				ApplyFuncReturn(common.GetSwitchFaultCode, mockCurrentSwitchFault).
+				ApplyFunc(common.SetSwitchFaultCode, func(newFaults []common.SwitchFaultEvent) {
+					mockCurrentSwitchFault = newFaults
+				})
+			defer patches.Reset()
+			updateSwitchFaultCode(true)
+			convey.So(len(mockCurrentSwitchFault), convey.ShouldEqual, 1)
+		})
 	})
 }
