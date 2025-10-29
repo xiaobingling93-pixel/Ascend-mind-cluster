@@ -31,4 +31,6 @@ type module910a3x16 struct {
 const (
 	// SchedulerName name of scheduler for a3x16
 	SchedulerName = util.HwPreName + util.Ascend910 + "module-a3-16"
+	// except for single task job can request single npu, npu num required by task in a3×16 job must be 2n
+	taskNPUMultiple = 2
 )

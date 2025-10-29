@@ -44,28 +44,6 @@ func (tp *Base910A3) GetNodeCardTopology(npuIndex []int) map[int][]int {
 	return cardTopology
 }
 
-// CheckReqNPUEqualNodeNPU check the distributed job require npu num must equal node npu num.
-func (tp *Base910A3) CheckReqNPUEqualNodeNPU() *api.ValidateResult {
-	for _, task := range tp.Tasks {
-		// npu num required by task in distributed job must be node npu num
-		if task.ReqNPUNum == tp.MaxNodeNPUNum {
-			continue
-		}
-
-		if task.ReqNPUNum == 0 &&
-			(task.Annotation[taskSpec] == schedulerSpec || task.Annotation[skipAscendPlugin] == skipEnabled) {
-			continue
-		}
-		return &api.ValidateResult{
-			Pass:   false,
-			Reason: JobCheckFailedReason,
-			Message: fmt.Sprintf("distributed job require npu %d, instead of %d",
-				tp.MaxNodeNPUNum, task.ReqNPUNum),
-		}
-	}
-	return nil
-}
-
 // JudgeNodeAndTaskNPU judge node and task npu is meet.
 func (tp *Base910A3) JudgeNodeAndTaskNPU(taskNPU int, nodeNPUTopology []int) error {
 	if err := tp.NPUHandler.JudgeNodeAndTaskNPU(taskNPU, nodeNPUTopology); err != nil {
@@ -100,20 +78,18 @@ func (tp *Base910A3) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode, 
 		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %#v", tp.GetPluginName(), err)
 		return nil, err
 	}
-	// distributed job schedule
-	if tp.NPUTaskNum > 1 {
-		// whole node schedule
-		if len(npuTop) == tp.MaxNodeNPUNum {
-			return npuTop, nil
-		}
-		return nil, fmt.Errorf("node<%s> top<%v> can not meet task req<%d>", node.Name, len(npuTop), taskNPUNum)
+	klog.V(util.LogInfoLev).Infof("node %s usable npu list: %v", node.Name, npuTop)
+	if len(npuTop) < taskNPUNum {
+		return nil, fmt.Errorf("node<%s> don't have enough usable npu", node.Name)
 	}
-	// single node job schedule
-	return tp.selectNPUForStandaloneJob(taskNPUNum, npuTop, node)
+	// job valid has already been carried out earlier, and the invalid number of cards is not considered here
+	if len(npuTop) == taskNPUNum {
+		return npuTop, nil
+	}
+	return tp.selectNPUForA3Job(taskNPUNum, npuTop, node)
 }
 
-func (tp *Base910A3) selectNPUForStandaloneJob(taskNPUNum int, npuTop []int,
-	node plugin.NPUNode) ([]int, error) {
+func (tp *Base910A3) selectNPUForA3Job(taskNPUNum int, npuTop []int, node plugin.NPUNode) ([]int, error) {
 	sort.Ints(npuTop)
 	klog.V(util.LogInfoLev).Infof("%s select %d NPU Node(%s) nodeTop<%v>", tp.GetPluginName(), taskNPUNum,
 		node.Name, npuTop)

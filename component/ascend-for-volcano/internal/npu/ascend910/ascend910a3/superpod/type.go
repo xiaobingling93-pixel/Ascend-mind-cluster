@@ -36,12 +36,9 @@ const (
 	SchedulerName = util.HwPreName + util.Ascend910 + "module-a3-16-super-pod"
 	// SuperPodAnnoKey annotation key of super pod
 	SuperPodAnnoKey            = "sp-block"
-	jobCheckFailedReason       = "npu num is invalid"
 	spBlockInvalidReason       = "sp-block is invalid"
 	getNPUFromPodFailedPattern = "%s getUsableTopFromNode err: %s"
 	scoreForNode               = 100000000
-	taskSpec                   = "volcano.sh/task-spec"
-	schedulerSpec              = "scheduler"
 	workerSpec                 = "worker"
 	delayingTime               = 10
 )

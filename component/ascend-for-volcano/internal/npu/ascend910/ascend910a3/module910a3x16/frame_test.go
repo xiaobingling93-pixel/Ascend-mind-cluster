@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	unhealthyKey = ascend910a3.NetworkUnhealthyNPU
+	unhealthyKey = util.HwPreName + util.Ascend910 + "-NetworkUnhealthy"
 	cardName     = util.NPU910CardName
 
 	card0  = "Ascend910-0"
@@ -56,6 +56,8 @@ const (
 	card14 = "Ascend910-14"
 	card15 = "Ascend910-15"
 
+	taskNum1 = 1
+	taskNum2 = 2
 	npuNum0  = 0
 	npuNum1  = 1
 	npuNum2  = 2
@@ -91,40 +93,151 @@ const (
 	score480 = 480
 	score496 = 496
 	score512 = 512
+
+	masterTrainingID  = "training-master"
+	workerTrainingID  = "training-worker"
+	workerTrainingID2 = "training-worker2"
 )
 
-func TestValidNPUJob(t *testing.T) {
-	tests := []struct {
-		name       string
-		NPUTaskNum int
-		ReqNPUNum  int
-		Labels     map[string]string
-		Task       map[api.TaskID]util.NPUTask
-		pass       bool
-	}{
-		{name: "01-want  pass when job label is nil", NPUTaskNum: 1, ReqNPUNum: 0,
-			Labels: map[string]string{}, pass: true},
-		{name: "02-want pass when job is invalid", NPUTaskNum: 1, ReqNPUNum: 1,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "03-want pass when request 1 npu", NPUTaskNum: 1, ReqNPUNum: 1,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "04-want pass when request 2 npu", NPUTaskNum: 1, ReqNPUNum: npuNum2,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "05-want pass when request 4 npu", NPUTaskNum: 1, ReqNPUNum: npuNum4,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "06-want not pass when request 5 npu", NPUTaskNum: 1, ReqNPUNum: npuNum5,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: false},
-		{name: "07-want pass when request 16 npu", NPUTaskNum: 1, ReqNPUNum: npuNum16,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "08-want pass when request 32 npu", NPUTaskNum: npuNum2, ReqNPUNum: npuNum32,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: true},
-		{name: "09-want not pass when request 33 npu", NPUTaskNum: npuNum2, ReqNPUNum: npuNum33,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, pass: false},
-		{name: "10-want not pass when request 32 npu", NPUTaskNum: npuNum3, ReqNPUNum: npuNum32,
-			Labels: map[string]string{util.JobKindKey: util.JobKind910BValue}, Task: map[api.TaskID]util.NPUTask{
-				"task-1": {ReqNPUNum: npuNum16}, "task-2": {ReqNPUNum: npuNum8}, "task-3": {ReqNPUNum: npuNum8}}, pass: false},
+type testcase struct {
+	name       string
+	NPUTaskNum int
+	ReqNPUNum  int
+	Labels     map[string]string
+	Task       map[api.TaskID]util.NPUTask
+	pass       bool
+}
+
+func buildSingleJobTestCases() []testcase {
+	return []testcase{
+		{
+			name:       "01- single pod job, want pass when job request 1*0 npu",
+			NPUTaskNum: 1,
+			ReqNPUNum:  0,
+			Labels:     map[string]string{},
+			Task: map[api.TaskID]util.NPUTask{
+				masterTrainingID: {ReqNPUNum: 0,
+					Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: true,
+		},
+		{
+			name:       "02- single pod job, want pass when single pod job request 1*1 npu",
+			NPUTaskNum: 1,
+			ReqNPUNum:  1,
+			Task: map[api.TaskID]util.NPUTask{
+				masterTrainingID: {ReqNPUNum: 1,
+					Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: true,
+		},
+		{
+			name:       "03- single pod job, want pass when request 1*2 npu",
+			NPUTaskNum: 1,
+			ReqNPUNum:  npuNum2,
+			Task: map[api.TaskID]util.NPUTask{
+				masterTrainingID: {ReqNPUNum: 2,
+					Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: true,
+		},
+		{
+			name:       "04- single pod job, want not pass when request 1*3 npu",
+			NPUTaskNum: 1,
+			ReqNPUNum:  npuNum3,
+			Task: map[api.TaskID]util.NPUTask{
+				masterTrainingID: {ReqNPUNum: 2,
+					Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: false,
+		},
 	}
-	for _, tt := range tests {
+}
+
+func buildDistributedJobTestCases() []testcase {
+	return []testcase{
+		{
+			name:       "05- not distributed job, want not pass when request 2*0 npu",
+			NPUTaskNum: 0,
+			ReqNPUNum:  0,
+			Task: map[api.TaskID]util.NPUTask{workerTrainingID: {ReqNPUNum: 0},
+				masterTrainingID: {ReqNPUNum: 0, Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: false,
+		},
+		{
+			name:       "06- not distributed job, want not pass when request 1*0+1*1 npu",
+			NPUTaskNum: taskNum1,
+			ReqNPUNum:  npuNum1,
+			Task: map[api.TaskID]util.NPUTask{workerTrainingID: {ReqNPUNum: 1},
+				masterTrainingID: {ReqNPUNum: 0, Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: true,
+		},
+		{
+			name:       "07- distributed job, want not pass when request 1*1+1*1 npu",
+			NPUTaskNum: taskNum2,
+			ReqNPUNum:  npuNum2,
+			Task: map[api.TaskID]util.NPUTask{
+				masterTrainingID: {ReqNPUNum: 1}, workerTrainingID: {ReqNPUNum: 1},
+			},
+			pass: false,
+		},
+		{
+			name:       "08- not distributed job, want pass when request 1*0+1*2 npu",
+			NPUTaskNum: taskNum1,
+			ReqNPUNum:  npuNum2,
+			Task: map[api.TaskID]util.NPUTask{workerTrainingID: {ReqNPUNum: 2},
+				masterTrainingID: {ReqNPUNum: 0, Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: true,
+		},
+		{
+			name:       "09- not distributed job, want not pass when request 1*0+1*3 npu",
+			NPUTaskNum: taskNum1,
+			ReqNPUNum:  npuNum3,
+			Task: map[api.TaskID]util.NPUTask{workerTrainingID: {ReqNPUNum: npuNum3},
+				masterTrainingID: {ReqNPUNum: 0, Annotation: map[string]string{ascend910a3.TaskSpecAnno: ascend910a3.SchedulerType}},
+			},
+			pass: false,
+		},
+	}
+}
+
+func buildDistributedJobTestCases2() []testcase {
+	return []testcase{
+		{
+			name:       "10- distributed job, want pass when request 1*2+2*2 npu",
+			NPUTaskNum: npuNum3,
+			ReqNPUNum:  npuNum6,
+			Labels:     map[string]string{util.JobKindKey: util.JobKind910BValue},
+			Task: map[api.TaskID]util.NPUTask{masterTrainingID: {ReqNPUNum: npuNum2},
+				workerTrainingID: {ReqNPUNum: npuNum2}, workerTrainingID2: {ReqNPUNum: npuNum2}},
+			pass: true,
+		},
+		{
+			name:       "11- distributed job, want pass when request 1*16+1*16 npu",
+			NPUTaskNum: npuNum2,
+			ReqNPUNum:  npuNum32,
+			Labels:     map[string]string{util.JobKindKey: util.JobKind910BValue},
+			Task:       map[api.TaskID]util.NPUTask{masterTrainingID: {ReqNPUNum: npuNum16}, workerTrainingID: {ReqNPUNum: npuNum16}},
+			pass:       true,
+		},
+		{
+			name:       "12- distributed job, want pass when request 1*4+1*4+1*4 npu",
+			NPUTaskNum: npuNum3,
+			ReqNPUNum:  npuNum12,
+			Labels:     map[string]string{util.JobKindKey: util.JobKind910BValue},
+			Task: map[api.TaskID]util.NPUTask{
+				"task-1": {ReqNPUNum: npuNum4}, "task-2": {ReqNPUNum: npuNum4}, "task-3": {ReqNPUNum: npuNum4}},
+			pass: true,
+		},
+	}
+}
+
+func TestValidNPUJob(t *testing.T) {
+	for _, tt := range append(buildSingleJobTestCases(),
+		append(buildDistributedJobTestCases(), buildDistributedJobTestCases2()...)...) {
 		t.Run(tt.name, func(t *testing.T) {
 			tp, _ := New(SchedulerName).(*module910a3x16)
 			tp.Label = tt.Labels
@@ -418,8 +531,8 @@ func genSelectNPUFromNodeData() []selectNPUFromNodeParam {
 		{name: "03-want err when node npu num is 0", taskNPUNum: 1, wantErr: true},
 		{name: "04-want success when select npu", taskNPUNum: 1, npuTaskNum: 1,
 			idleCards: []string{card0}, want: []int{0}, wantErr: false},
-		{name: "05-want err when distribute job not request 16 cards", taskNPUNum: npuNum2, npuTaskNum: npuNum2,
-			idleCards: []string{card0, card1}, wantErr: true},
+		{name: "05- distribute job, want success when request 2 npu", taskNPUNum: npuNum2, npuTaskNum: npuNum2,
+			idleCards: []string{card0, card1}, want: []int{npuNum0, npuNum1}, wantErr: false},
 		{name: "06-want success when select npu", taskNPUNum: npuNum2, npuTaskNum: 1,
 			idleCards: []string{card0, card1, card5, card3}, want: []int{0, 1}, wantErr: false},
 		{name: "07-want success when select npu", taskNPUNum: npuNum16, npuTaskNum: npuNum2,
@@ -427,7 +540,7 @@ func genSelectNPUFromNodeData() []selectNPUFromNodeParam {
 				card5, card6, card7, card8, card9, card10, card11, card12, card13, card14, card15},
 			want: []int{npuNum0, npuNum1, npuNum2, npuNum3, npuNum4, npuNum5, npuNum6, npuNum7, npuNum8, npuNum9,
 				npuNum10, npuNum11, npuNum12, npuNum13, npuNum14, npuNum15}, wantErr: false},
-		{name: "08-want err when select npu", taskNPUNum: npuNum16, npuTaskNum: npuNum2,
+		{name: "08- distribute job, want err when don't have enough usable npu", taskNPUNum: npuNum16, npuTaskNum: npuNum2,
 			idleCards: []string{card0, card1, card2, card3, card4,
 				card5, card6, card7, card8, card9, card10, card11, card12, card13, card14, card15},
 			unhealthyCards: []string{card0, card1, card2, card3, card4,

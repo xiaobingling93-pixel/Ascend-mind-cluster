@@ -20,32 +20,35 @@ Package ascend910a3 is using for A3 affinity schedule.
 package ascend910a3
 
 import (
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
 )
 
 // Base910A3 is the struct of Base910A3.
 type Base910A3 struct {
 	base.NPUHandler
-	AffScoreList    [][]int
-	NetUnhealthyKey string
+	// row: request npu num; column: usable npu num
+	AffScoreList [][]int
 }
 
 const (
 	// NodeNPUNumber is the number of NPU chips in a node, a3 is 16.
 	NodeNPUNumber = 16
-	// NetworkUnhealthyNPU is the key of the network unhealthy NPU, will get result from node annotation.
-	NetworkUnhealthyNPU = util.HwPreName + util.Ascend910 + "-NetworkUnhealthy"
 	// DieNPUNumber is the number of NPU chips in whole NPU, a3 is 2.
 	DieNPUNumber = 2
 
 	// JobCheckFailedReason is the reason of job check failed.
 	JobCheckFailedReason = "npu num is invalid"
+)
 
-	taskSpec      = "volcano.sh/task-spec"
-	schedulerSpec = "scheduler"
+// annotation
+const (
+	// TaskSpecAnno used in pod annotation when EnableGangScheduling is true
+	TaskSpecAnno = "volcano.sh/task-spec"
+	// SchedulerType the type of Scheduler for mindspore
+	SchedulerType string = "scheduler"
 
-	// if the annotation value of skipAscendPlugin is enabled, will skip the ascend plugin.
-	skipAscendPlugin = "huawei.com/skip-ascend-plugin"
-	skipEnabled      = "enabled"
+	// SkipAscendPluginAnno if the annotation value is enabled, will skip the ascend plugin
+	SkipAscendPluginAnno = "huawei.com/skip-ascend-plugin"
+	// SkipEnabled is the value of SkipAscendPluginAnno, skip the ascend plugin
+	SkipEnabled = "enabled"
 )

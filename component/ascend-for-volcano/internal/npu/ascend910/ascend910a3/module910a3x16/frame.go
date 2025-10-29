@@ -42,7 +42,6 @@ func New(name string) base.AscendHandler {
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
 	m.setAffinityScore()
-	m.NetUnhealthyKey = ascend910a3.NetworkUnhealthyNPU
 	return m
 }
 
@@ -62,27 +61,47 @@ func (tp *module910a3x16) setAffinityScore() {
 
 // ValidNPUJob check job req npu num and mode
 func (tp *module910a3x16) ValidNPUJob() *api.ValidateResult {
-	// single node job, allow require npu [1, 2, 4, 6, 8, 10, 12, 14, 16]
-	if tp.NPUTaskNum == 1 {
-		if tp.ReqNPUNum == 1 || (tp.ReqNPUNum%tp.MaxCardNPUNum == 0 && tp.ReqNPUNum <= tp.MaxNodeNPUNum) {
-			return nil
+	if tp.ReqNPUNum == 1 {
+		if tp.NPUTaskNum != 1 {
+			return &api.ValidateResult{
+				Pass:    false,
+				Reason:  ascend910a3.JobCheckFailedReason,
+				Message: fmt.Sprintf("only single task job can request single npu"),
+			}
 		}
-		return &api.ValidateResult{
-			Pass:    false,
-			Reason:  ascend910a3.JobCheckFailedReason,
-			Message: fmt.Sprintf("single node job require npu [1, 2*n], instead of %d", tp.ReqNPUNum),
-		}
+		return nil
 	}
-	// distributed job required npu must be multiple of tp.MaxNodeNPUNum
-	if tp.ReqNPUNum%tp.MaxNodeNPUNum != 0 {
+	if tp.ReqNPUNum%taskNPUMultiple != 0 {
 		return &api.ValidateResult{
 			Pass:   false,
 			Reason: ascend910a3.JobCheckFailedReason,
-			Message: fmt.Sprintf("distributed job require npu(%d) should be multiple of node npu(%d)",
-				tp.ReqNPUNum, tp.MaxNodeNPUNum),
+			Message: fmt.Sprintf("except for single task job can request single npu, job require npu num "+
+				"[2, 4, 6, 8, 10, 12, 14, 16], instead of %d", tp.ReqNPUNum),
 		}
 	}
-	return tp.CheckReqNPUEqualNodeNPU()
+	return tp.CheckTaskNPU()
+}
+
+// CheckTaskNPU check the job require npu num
+func (tp *module910a3x16) CheckTaskNPU() *api.ValidateResult {
+	for _, task := range tp.Tasks {
+		// except for single task job can request single npu, npu num required by task in a3×16 job must be 2n, and <= 16
+		if task.ReqNPUNum != 0 && task.ReqNPUNum%taskNPUMultiple == 0 && task.ReqNPUNum <= tp.MaxNodeNPUNum {
+			continue
+		}
+
+		if task.ReqNPUNum == 0 && (task.Annotation[ascend910a3.TaskSpecAnno] == ascend910a3.SchedulerType ||
+			task.Annotation[ascend910a3.SkipAscendPluginAnno] == ascend910a3.SkipEnabled) {
+			continue
+		}
+		return &api.ValidateResult{
+			Pass:   false,
+			Reason: ascend910a3.JobCheckFailedReason,
+			Message: fmt.Sprintf("except for single task job can request single npu, npu num required "+
+				"by task in a3×16 job must be 2n, and <= %d, instead of %d", tp.MaxNodeNPUNum, task.ReqNPUNum),
+		}
+	}
+	return nil
 }
 
 // CheckNodeNPUByTask check nod npu meet task req
@@ -132,8 +151,7 @@ func (tp *module910a3x16) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.Nod
 			continue
 		}
 
-		sMap[node.Name] = float64(tp.MaxNodeNPUNum *
-			(tp.MaxCardNPUNum*tp.MaxNodeNPUNum - bestScore))
+		sMap[node.Name] = float64(tp.MaxNodeNPUNum * (tp.MaxCardNPUNum*tp.MaxNodeNPUNum - bestScore))
 		// fast break for large k8s cluster, if best score is 0, we can not find better score than 0
 		if bestScore == util.AffScore0 {
 			break
@@ -158,6 +176,7 @@ func (tp *module910a3x16) getBestScoreAndHealthyNPUNum(task *api.TaskInfo,
 		klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %#v", tp.GetPluginName(), err)
 		return bestScore, false
 	}
+	// the most matching node with a score of 0
 	bestScore, err = tp.getNodeBestScore(taskNPUNum, cardIds)
 	if err != nil {
 		klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %#v", tp.GetPluginName(), err)
@@ -183,11 +202,11 @@ func (tp *module910a3x16) getBestScoreAndHealthyNPUNum(task *api.TaskInfo,
 	return bestScore, true
 }
 
-func (tp *module910a3x16) getNodeBestScore(taskNPUNum int, npuTop []int) (int, error) {
+func (tp *module910a3x16) getNodeBestScore(taskNPUNum int, usableNPU []int) (int, error) {
 	if taskNPUNum < 1 || taskNPUNum > tp.MaxNodeNPUNum {
 		return 0, fmt.Errorf("task req npu num<%d> is invalid", taskNPUNum)
 	}
-	npuNum := len(npuTop)
+	npuNum := len(usableNPU)
 	if npuNum < 1 || npuNum > tp.MaxNodeNPUNum {
 		return 0, fmt.Errorf("node npu num<%d> is invalid", npuNum)
 	}
