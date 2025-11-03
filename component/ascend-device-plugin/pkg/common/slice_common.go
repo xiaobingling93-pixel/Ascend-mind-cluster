@@ -114,28 +114,6 @@ func (i int64Tool) Contains(sources []int64, target int64) bool {
 	return false
 }
 
-// Index slice for string search the index with target
-func (s stringTool) Index(sources []string, target string) int {
-	for i, source := range sources {
-		if source == target {
-			return i
-		}
-	}
-	return -1
-}
-
-// SameElement string slice has same element with others slice
-func (s stringTool) SameElement(sources, targets []string) bool {
-	for _, source := range sources {
-		for _, target := range targets {
-			if source == target {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // HexStringToInt hex string slice to int64 slice
 func (s stringTool) HexStringToInt(sources []string) []int64 {
 	intSlice := make([]int64, 0, len(sources))

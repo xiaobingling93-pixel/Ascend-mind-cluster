@@ -128,7 +128,6 @@ type DevManager interface {
 	HandleLostChipFaultEvents(*common.NpuDevice, []int32)
 	HandleLostNetworkFaultEvents(*common.NpuDevice, []int32)
 	LogFaultModeChange(*common.NpuDevice, []int32, string)
-	GetUsedChips() sets.String
 	GetDeviceIP(deviceType string, phyID int) (string, error)
 	WriteFaultToEvent(ctx context.Context)
 	GetAssociatedLogicIDs(logicID, cardID, deviceID int32) ([]int32, error)

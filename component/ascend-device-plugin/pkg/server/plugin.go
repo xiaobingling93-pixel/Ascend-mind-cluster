@@ -188,8 +188,7 @@ func (ps *PluginServer) responseToKubelet() *v1beta1.ListAndWatchResponse {
 			} else {
 				device.Health = v1beta1.Healthy
 			}
-			hwlog.RunLog.Infof("ListAndWatch resp devices: %s %s, NotPodUsed: %v",
-				device.DeviceName, device.Health, device.NotPodUsed)
+			hwlog.RunLog.Infof("ListAndWatch resp devices: %s %s", device.DeviceName, device.Health)
 			newDeviceName := customname.ReplaceDevicePublicName(ps.deviceType, device.DeviceName)
 			resp.Devices = append(resp.Devices, &v1beta1.Device{ID: newDeviceName, Health: device.Health})
 		}
@@ -201,15 +200,14 @@ func (ps *PluginServer) responseToKubelet() *v1beta1.ListAndWatchResponse {
 				hwlog.RunLog.Warnf(" not exist map key, %s  map %+v", device.DeviceName, vol2kltMap)
 				continue
 			}
-			hwlog.RunLog.Infof("ListAndWatch resp devices: inner device: %s %s, real device: %s %s, "+
-				"NotPodUsed: %v", d, device.Health, device.DeviceName, device.Health, device.NotPodUsed)
+			hwlog.RunLog.Infof("ListAndWatch resp devices: inner device: %s %s, real device: %s %s, ",
+				d, device.Health, device.DeviceName, device.Health)
 			newDeviceName := customname.ReplaceDevicePublicName(ps.deviceType, d)
 			resp.Devices = append(resp.Devices, &v1beta1.Device{ID: newDeviceName, Health: device.Health})
 		}
 	} else {
 		for _, device := range ps.cachedDevices {
-			hwlog.RunLog.Infof("ListAndWatch resp devices: %s %s, NotPodUsed: %v",
-				device.DeviceName, device.Health, device.NotPodUsed)
+			hwlog.RunLog.Infof("ListAndWatch resp devices: %s %s", device.DeviceName, device.Health)
 			newDeviceName := customname.ReplaceDevicePublicName(ps.deviceType, device.DeviceName)
 			resp.Devices = append(resp.Devices, &v1beta1.Device{ID: newDeviceName, Health: device.Health})
 		}

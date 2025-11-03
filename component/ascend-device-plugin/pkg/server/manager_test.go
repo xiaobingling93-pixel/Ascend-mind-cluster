@@ -1525,14 +1525,11 @@ func TestCompareBaseNPUInfo(t *testing.T) {
 }
 
 func TestUpdateDeviceUsedInfo(t *testing.T) {
-	convey.Convey("TestUpdateDeviceUsedInfo when device used by non-Pod, the NotPodUsed should be true",
+	convey.Convey("TestUpdateDeviceUsedInfo when device used by pod, the PodUsed should be true",
 		t, func() {
 			hdm := &HwDevManager{
 				manager: device.NewHwAscend910Manager(),
 			}
-			mockGetUsedChips := gomonkey.ApplyMethodReturn(hdm.manager, "GetUsedChips",
-				sets.NewString("Ascend910-0", "Ascend910-1"))
-			defer mockGetUsedChips.Reset()
 			client := &kubeclient.ClientK8s{}
 			mockGetClient := gomonkey.ApplyMethodReturn(hdm.manager, "GetKubeClient", client)
 			mockGetPodsUsedNPUByKlt := gomonkey.ApplyMethodReturn(client, "GetPodsUsedNPUByKlt",
@@ -1543,15 +1540,13 @@ func TestUpdateDeviceUsedInfo(t *testing.T) {
 				api.Ascend910: {
 					&common.NpuDevice{
 						DeviceName: "Ascend910-0",
-						NotPodUsed: false,
 					},
 					&common.NpuDevice{
 						DeviceName: "Ascend910-1",
-						NotPodUsed: false,
 					},
 				},
 			}
 			hdm.updateDeviceUsedInfo(groupDevice)
-			convey.So(groupDevice[api.Ascend910][0].NotPodUsed, convey.ShouldBeTrue)
+			convey.So(groupDevice[api.Ascend910][1].PodUsed, convey.ShouldBeTrue)
 		})
 }

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"ascend-common/api"
@@ -149,51 +150,94 @@ func TestReplaceDeviceInfoPublicName(t *testing.T) {
 	assert.Equal(t, "custom310-1", newDeviceName, "device name prefix should be replaced")
 }
 
+type checkNameTestCase struct {
+	name     string
+	devNames []DevName
+	expected bool
+	errMsg   string
+}
+
 // TestCheckName tests CheckName
 func TestCheckName(t *testing.T) {
-	validDevNames := []DevName{
-		{
-			ResourceType:        api.Ascend910,
-			DevicePublicType:    "CustomAscend910",
-			DevicePublicNamePre: "custom910",
-		},
-	}
-	assert.True(t, checkName(validDevNames), "valid names should pass the check")
-	invalidDevNames1 := []DevName{
-		{
-			ResourceType:        "InvalidType",
-			DevicePublicType:    "CustomAscend910",
-			DevicePublicNamePre: "custom910-",
-		},
-	}
-	assert.False(t, checkName(invalidDevNames1), "invalid resource types should fail the check")
+	testCases := buildCheckNameTestCase1()
+	testCases = append(testCases, buildCheckNameTestCase2()...)
 
-	invalidDevNames2 := []DevName{
-		{
-			ResourceType:        api.Ascend910,
-			DevicePublicType:    "inv@lid",
-			DevicePublicNamePre: "custom910-",
-		},
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, checkName(tc.devNames), tc.errMsg)
+		})
 	}
-	assert.False(t, checkName(invalidDevNames2), "invalid device public type format should fail the check")
+}
 
-	invalidDevNames3 := []DevName{
+func buildCheckNameTestCase1() []checkNameTestCase {
+	return []checkNameTestCase{
 		{
-			ResourceType:        api.Ascend910,
-			DevicePublicType:    "CustomAscend910-",
-			DevicePublicNamePre: "inv@lid",
+			name: "valid names with complete fields",
+			devNames: []DevName{{
+				ResourceType:        api.Ascend910,
+				DevicePublicType:    "CustomAscend910",
+				DevicePublicNamePre: "custom910",
+			}},
+			expected: true,
+			errMsg:   "valid names should pass the check",
+		},
+		{
+			name: "invalid resource type",
+			devNames: []DevName{{
+				ResourceType:        "InvalidType",
+				DevicePublicType:    "CustomAscend910",
+				DevicePublicNamePre: "custom910-",
+			}},
+			expected: false,
+			errMsg:   "invalid resource types should fail the check",
+		},
+		{
+			name: "invalid device public type format",
+			devNames: []DevName{{
+				ResourceType:        api.Ascend910,
+				DevicePublicType:    "inv@lid",
+				DevicePublicNamePre: "custom910-",
+			}},
+			expected: false,
+			errMsg:   "invalid device public type format should fail",
 		},
 	}
-	assert.False(t, checkName(invalidDevNames3), "invalid device public name prefix format should fail the check")
+}
 
-	invalidDevNames4 := []DevName{
+func buildCheckNameTestCase2() []checkNameTestCase {
+	return []checkNameTestCase{
 		{
-			ResourceType:        api.Ascend910,
-			DevicePublicType:    "",
-			DevicePublicNamePre: "",
+			name: "invalid device public name prefix",
+			devNames: []DevName{{
+				ResourceType:        api.Ascend910,
+				DevicePublicType:    "CustomAscend910",
+				DevicePublicNamePre: "inv@lid",
+			}},
+			expected: false,
+			errMsg:   "invalid name prefix should fail the check",
+		},
+		{
+			name: "all fields are empty",
+			devNames: []DevName{{
+				ResourceType:        api.Ascend910,
+				DevicePublicType:    "",
+				DevicePublicNamePre: "",
+			}},
+			expected: false,
+			errMsg:   "all empty fields should fail the check",
+		},
+		{
+			name: "invalid pod configuration name",
+			devNames: []DevName{{
+				ResourceType:         api.Ascend910,
+				DevicePublicType:     "CustomAscend910",
+				DevicePublicNamePre:  "custom910-",
+				PodConfigurationName: "inv@lid",
+			}},
+			expected: false,
+			errMsg:   "invalid pod config name should fail the check",
 		},
 	}
-	assert.False(t, checkName(invalidDevNames4), "all name should not be null")
 }
 
 // TestSetDefaultName tests SetDefaultName
@@ -218,4 +262,102 @@ func TestSetDefaultName(t *testing.T) {
 	devName310P = setDefaultName(devName310P)
 	assert.Equal(t, api.HuaweiAscend310P, devName310P.OldDevicePublicType)
 	assert.Equal(t, api.Ascend310PMinuxPrefix, devName310P.OldDevicePublicNamePre)
+}
+
+type initPublicNameConfigTestCase struct {
+	name        string
+	mockActions func()
+	expectedMap map[string]DevName
+}
+
+func resetGlobalState() {
+	devNameMap = make(map[string]DevName)
+}
+
+func initPatches() *gomonkey.Patches {
+	patch := gomonkey.NewPatches()
+	defer patch.Reset()
+	return patch
+}
+
+func TestInitPublicNameConfig(t *testing.T) {
+	testCases := buildInitPublicNameConfigTestCase1()
+	testCases = append(testCases, buildInitPublicNameConfigTestCase2()...)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetGlobalState()
+			tc.mockActions()
+			InitPublicNameConfig()
+			assert.Equal(t, tc.expectedMap, devNameMap)
+		})
+	}
+}
+
+func buildInitPublicNameConfigTestCase1() []initPublicNameConfigTestCase {
+	return []initPublicNameConfigTestCase{
+		{
+			name: "test InitPublicNameConfig when file load failed",
+			mockActions: func() {
+				patch := initPatches()
+				patch.ApplyFunc(loadFaultCodeFromFile, func() ([]DevName, error) { return nil, assert.AnError })
+			},
+			expectedMap: map[string]DevName{},
+		},
+		{
+			name: "test InitPublicNameConfig when config check failed",
+			mockActions: func() {
+				patch := initPatches()
+				testDevs := []DevName{{ResourceType: "gpu"}}
+				patch.ApplyFunc(loadFaultCodeFromFile, func() ([]DevName, error) { return testDevs, nil }).
+					ApplyFunc(checkName, func(_ []DevName) bool { return false })
+			},
+			expectedMap: map[string]DevName{},
+		},
+	}
+}
+
+func buildInitPublicNameConfigTestCase2() []initPublicNameConfigTestCase {
+	return []initPublicNameConfigTestCase{
+		{
+			name: "test InitPublicNameConfig when config valid no default",
+			mockActions: func() {
+				patch := initPatches()
+				inputDevs := []DevName{
+					{ResourceType: "gpu", OldDevicePublicNamePre: "old-gpu", DevicePublicNamePre: "new-gpu"},
+					{ResourceType: "npu", OldDevicePublicNamePre: "old-npu", DevicePublicNamePre: "new-npu"},
+				}
+				patch.ApplyFunc(loadFaultCodeFromFile, func() ([]DevName, error) { return inputDevs, nil }).
+					ApplyFunc(checkName, func(_ []DevName) bool { return true }).
+					ApplyFunc(setDefaultName, func(d DevName) DevName { return d })
+			},
+			expectedMap: map[string]DevName{
+				"gpu": {ResourceType: "gpu", OldDevicePublicNamePre: "old-gpu", DevicePublicNamePre: "new-gpu"},
+				"npu": {ResourceType: "npu", OldDevicePublicNamePre: "old-npu", DevicePublicNamePre: "new-npu"},
+			},
+		},
+		{
+			name: "test InitPublicNameConfig when config valid with default",
+			mockActions: func() {
+				patch := initPatches()
+				inputDevs := []DevName{
+					{ResourceType: "cpu", OldDevicePublicNamePre: "old-cpu", DevicePublicNamePre: ""},
+				}
+				defaultDev := DevName{
+					ResourceType:           "cpu",
+					OldDevicePublicNamePre: "old-cpu",
+					DevicePublicNamePre:    "default-cpu",
+				}
+				patch.ApplyFunc(loadFaultCodeFromFile, func() ([]DevName, error) { return inputDevs, nil }).
+					ApplyFunc(checkName, func(_ []DevName) bool { return true }).
+					ApplyFunc(setDefaultName, func(_ DevName) DevName { return defaultDev })
+			},
+			expectedMap: map[string]DevName{
+				"cpu": {
+					ResourceType:           "cpu",
+					OldDevicePublicNamePre: "old-cpu",
+					DevicePublicNamePre:    "default-cpu",
+				},
+			},
+		},
+	}
 }

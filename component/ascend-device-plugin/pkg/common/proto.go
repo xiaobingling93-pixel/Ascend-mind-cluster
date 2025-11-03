@@ -115,7 +115,6 @@ type NpuDevice struct {
 	SuperDeviceID          uint32
 	Status                 string
 	PodUsed                bool // PodUsed indicates whether this chip is used by kubelet
-	NotPodUsed             bool // NotPodUsed indicates whether this chip is used by non-kubelet
 }
 
 // DavinCiDev davinci device

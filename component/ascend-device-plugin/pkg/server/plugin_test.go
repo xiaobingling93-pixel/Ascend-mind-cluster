@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"Ascend-device-plugin/pkg/common"
@@ -108,14 +107,6 @@ func TestListAndWatch(t *testing.T) {
 			convey.So(ret, convey.ShouldBeFalse)
 		})
 		convey.Convey("Notify true", func() {
-			mockGetUsedChips := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)),
-				"GetUsedChips", func(_ *device.AscendTools) sets.String {
-					return sets.String{}
-				}).ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
-				"GetPodsUsedNpuByCommon", func(_ *kubeclient.ClientK8s) sets.String {
-					return sets.String{}
-				})
-			defer mockGetUsedChips.Reset()
 			stream := fakeGrpcStream{}
 			go ps.ListAndWatch(&v1beta1.Empty{}, &stream)
 			time.Sleep(time.Second)
@@ -192,14 +183,6 @@ func TestGenerateAllDeviceMap(t *testing.T) {
 func TestResponseToKubelet(t *testing.T) {
 	ps := NewPluginServer(api.Ascend910, devices, nil, device.NewHwAscend910Manager())
 	convey.Convey("use volcano", t, func() {
-		mockGetUsedChips := gomonkey.ApplyMethod(reflect.TypeOf(new(device.AscendTools)),
-			"GetUsedChips", func(_ *device.AscendTools) sets.String {
-				return sets.String{}
-			}).ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)),
-			"GetPodsUsedNpuByCommon", func(_ *kubeclient.ClientK8s) sets.String {
-				return sets.String{}
-			})
-		defer mockGetUsedChips.Reset()
 		common.ParamOption.UseVolcanoType = true
 		ps.deepCopyDevice(devices)
 		ps.klt2RealDevMap = map[string]string{
