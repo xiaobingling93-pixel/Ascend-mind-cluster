@@ -568,7 +568,6 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 				CardID:                 npuDevice.CardID,
 				Status:                 npuDevice.Status,
 				PodUsed:                npuDevice.PodUsed,
-				NotPodUsed:             npuDevice.NotPodUsed,
 			}
 			newNpuDevices = append(newNpuDevices, newNpuDevice)
 		}
@@ -578,54 +577,13 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 }
 
 func (hdm *HwDevManager) updateDeviceUsedInfo(groupDevice map[string][]*common.NpuDevice) {
-	usedChips := hdm.manager.GetUsedChips()
 	podUsedChips := hdm.manager.GetKubeClient().GetPodsUsedNPUByKlt()
-	notPodUsedChips := usedChips.Difference(podUsedChips)
-	hwlog.RunLog.Debugf("update deviceUsedInfo usedChips: %v, podUsedChips: %v, notPodUsedChips: %v",
-		usedChips, podUsedChips, notPodUsedChips)
+	hwlog.RunLog.Debugf("update deviceUsedInfo podUsedChips: %v", podUsedChips)
 	for _, devices := range groupDevice {
-		updateDevices(devices, podUsedChips, notPodUsedChips)
-	}
-}
-
-func updateDevices(devices []*common.NpuDevice, podUsedChips, notPodUsedChips sets.String) {
-	for _, deviceInfo := range devices {
-		deviceInfo.PodUsed = podUsedChips.Has(deviceInfo.DeviceName)
-		deviceInfo.NotPodUsed = notPodUsedChips.Has(deviceInfo.DeviceName)
-		existCardAbnoramlOccupyFaultCode := common.Int64Tool.Contains(deviceInfo.FaultCodes, common.CardAbnoramlOccupyFaultCode)
-		if deviceInfo.NotPodUsed && !existCardAbnoramlOccupyFaultCode {
-			faultDevice(deviceInfo)
-		} else if !deviceInfo.NotPodUsed && existCardAbnoramlOccupyFaultCode {
-			if deviceInfo.CardDrop {
-				continue
-			}
-			recoverDevice(deviceInfo)
+		for _, deviceInfo := range devices {
+			deviceInfo.PodUsed = podUsedChips.Has(deviceInfo.DeviceName)
 		}
 	}
-}
-
-func faultDevice(deviceInfo *common.NpuDevice) {
-	faultInfo := npuCommon.DevFaultInfo{
-		EventID:         common.CardAbnoramlOccupyFaultCode,
-		LogicID:         deviceInfo.LogicID,
-		Assertion:       npuCommon.FaultOccur,
-		AlarmRaisedTime: time.Now().UnixMilli(),
-	}
-	common.DoSaveDevFaultInfo(faultInfo, false)
-	hwlog.RunLog.Infof("create non-K8s abnormal occupy chip fault, device logicID:%v, fault code:%v",
-		deviceInfo.LogicID, strconv.FormatInt(faultInfo.EventID, common.Hex))
-}
-
-func recoverDevice(deviceInfo *common.NpuDevice) {
-	faultInfo := npuCommon.DevFaultInfo{
-		EventID:         common.CardAbnoramlOccupyFaultCode,
-		LogicID:         deviceInfo.LogicID,
-		Assertion:       npuCommon.FaultRecover,
-		AlarmRaisedTime: time.Now().UnixMilli(),
-	}
-	common.DoSaveDevFaultInfo(faultInfo, false)
-	hwlog.RunLog.Infof("recover non-K8s abnormal occupy chip fault, device logicID:%v, fault code:%v",
-		deviceInfo.LogicID, strconv.FormatInt(faultInfo.EventID, common.Hex))
 }
 
 func (hdm *HwDevManager) pluginNotify(classifyDev []*common.NpuDevice, devType string) {

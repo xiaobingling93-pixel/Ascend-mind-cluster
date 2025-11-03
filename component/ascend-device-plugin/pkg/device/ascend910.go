@@ -611,23 +611,6 @@ func (hnm *HwAscend910Manager) DoWithVolcanoListAndWatch(classifyDevs map[string
 	}
 }
 
-func (tool *AscendTools) getDeviceNetworkState(logicID int32, initStatus string) (string, error) {
-	healthCode, err := tool.dmgr.GetDeviceNetWorkHealth(logicID)
-	if err != nil {
-		hwlog.RunLog.Warnf("get logicID %d network health status failed, network health code is %d, "+
-			"network health status will not change",
-			logicID, healthCode)
-		return initStatus, err
-	}
-	switch healthCode {
-	case networkDetectOK, networkDetectInit:
-		return v1beta1.Healthy, nil
-	default:
-		hwlog.RunLog.Debugf("%d network status is unhealthy, health code is %d", logicID, healthCode)
-		return v1beta1.Unhealthy, nil
-	}
-}
-
 func (hnm *HwAscend910Manager) updateDeviceInfo(oldDevInfo, newDevInfo map[string]string,
 	devStatusSet common.DevStatusSet) error {
 	if newDevInfo == nil {
@@ -932,22 +915,6 @@ func (hnm *HwAscend910Manager) convertPhysicIdToLogicId(physicIds []int32) ([]in
 		logicIds = append(logicIds, logicId)
 	}
 	return logicIds, nil
-}
-
-func (hnm *HwAscend910Manager) convertLogicIdToPhysicId(logicIds []int32) ([]int32, error) {
-	if len(logicIds) == 0 {
-		return nil, fmt.Errorf("convert logic id to physic id failed, logic id empty")
-	}
-	var physicIds []int32
-	for _, logicId := range logicIds {
-		physicId, err := hnm.GetDmgr().GetPhysicIDFromLogicID(logicId)
-		if err != nil {
-			hwlog.RunLog.Errorf("convert logic id to physic id failed, err: %v", err)
-			return nil, err
-		}
-		physicIds = append(physicIds, physicId)
-	}
-	return physicIds, nil
 }
 
 func (hnm *HwAscend910Manager) isReSchedulingScene(npuCount int) bool {

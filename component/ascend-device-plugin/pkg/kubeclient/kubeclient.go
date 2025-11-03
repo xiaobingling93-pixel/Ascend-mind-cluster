@@ -158,16 +158,6 @@ func (ki *ClientK8s) GetPod(pod *v1.Pod) (*v1.Pod, error) {
 	return v1Pod, err
 }
 
-// UpdatePod update pod by namespace and name
-func (ki *ClientK8s) UpdatePod(pod *v1.Pod) (*v1.Pod, error) {
-	v1Pod, err := ki.Clientset.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
-	if err != nil && strings.Contains(err.Error(), common.ApiServerPort) {
-		ki.IsApiErr = true
-	}
-
-	return v1Pod, err
-}
-
 // PatchPod patch pod information
 func (ki *ClientK8s) PatchPod(pod *v1.Pod, data []byte) (*v1.Pod, error) {
 	return ki.Clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(),

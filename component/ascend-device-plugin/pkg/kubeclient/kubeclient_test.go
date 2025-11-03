@@ -154,23 +154,6 @@ func TestGetPod(t *testing.T) {
 	})
 }
 
-// TestUpdatePod test update pod by namespace and name
-func TestUpdatePod(t *testing.T) {
-	client, err := newTestClientK8s()
-	if err != nil {
-		t.Fatal("TestUpdatePod init kubernetes failed")
-	}
-	testPod := getMockPod(api.HuaweiAscend910, npuChip910PhyID0)
-	convey.Convey("test update pod success", t, func() {
-		mockGetPod := gomonkey.ApplyMethodReturn((&kubernetes.Clientset{}).CoreV1().Pods(v1.NamespaceAll), "Update",
-			&v1.Pod{}, fmt.Errorf(common.ApiServerPort))
-		defer mockGetPod.Reset()
-		pod, err := client.UpdatePod(testPod)
-		convey.So(pod, convey.ShouldResemble, &v1.Pod{})
-		convey.So(err.Error(), convey.ShouldEqual, common.ApiServerPort)
-	})
-}
-
 // TestPatchPod test patch pod information
 func TestPatchPod(t *testing.T) {
 	client, err := newTestClientK8s()
