@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -792,4 +793,19 @@ func TestGetKltAndRealAllocateDev(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestExitSelfProcess test exit self process
+func TestExitSelfProcess(t *testing.T) {
+	convey.Convey("test exitSelfProcess case 1", t, func() {
+		mock1 := gomonkey.ApplyFunc(os.Getpid, func() int {
+			return 1
+		})
+		defer mock1.Reset()
+		mock2 := gomonkey.ApplyFunc(os.FindProcess, func(_ int) (*os.Process, error) {
+			return nil, errors.New("fake error 1")
+		})
+		defer mock2.Reset()
+		convey.So(exitSelfProcess().Error(), convey.ShouldEqual, "fake error 1")
+	})
 }
