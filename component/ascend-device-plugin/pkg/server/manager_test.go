@@ -1609,3 +1609,17 @@ func TestUpdateDeviceUsedInfo(t *testing.T) {
 			convey.So(groupDevice[api.Ascend910][1].PodUsed, convey.ShouldBeTrue)
 		})
 }
+
+// TestSetRestartForAll test set restart for all
+func TestSetRestartForAll(t *testing.T) {
+	convey.Convey("TestSetRestartForAll case 1", t, func() {
+		ps := PluginServer{}
+		hdm := &HwDevManager{
+			ServerMap: map[string]InterfaceServer{
+				"1": &ps,
+			},
+		}
+		hdm.setRestartForAll()
+		convey.So(ps.GetRestartFlag(), convey.ShouldBeTrue)
+	})
+}
