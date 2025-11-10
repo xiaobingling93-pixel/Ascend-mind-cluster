@@ -322,7 +322,10 @@ func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*a
 	for i := 0; i < totalRequiredSuperPod; i++ {
 		vSuperPodID[strconv.Itoa(i)] = false
 	}
-	selectNodes := make(map[string][]plugin.SuperNode)
+	selectNodes, err := tp.selectNodesForFaultJob(task, totalNodes, vSuperPodID, sMap, nodes)
+	if err != nil {
+		return nil, err
+	}
 	spi, err := tp.classifySuperPod(totalNodes)
 	if err != nil {
 		return nil, err
@@ -340,6 +343,429 @@ func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*a
 	tp.selectNodes(unReadyID, &spi, selectNodes)
 
 	return selectNodes, nil
+}
+
+func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]superPod {
+	totalNodes := make(map[int32]superPod)
+	for _, node := range nodes {
+		nNode, ok := tp.Nodes[node.Name]
+		if !ok {
+			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes %s is not npu node",
+				tp.GetPluginName(), node.Name)
+			continue
+		}
+		_, exist := totalNodes[nNode.SuperPodID]
+		if !exist {
+			totalNodes[nNode.SuperPodID] = superPod{}
+		}
+		totalNodes[nNode.SuperPodID][node.Name] = nNode
+	}
+	return totalNodes
+}
+
+func (tp *module800SuperPod) selectNodesForFaultJob(task *api.TaskInfo, totalNodes map[int32]superPod,
+	vSuperPodID map[string]bool, sMap map[string]float64,
+	nodes []*api.NodeInfo) (map[string][]plugin.SuperNode, error) {
+	if tp == nil || task == nil {
+		return nil, fmt.Errorf("selectNodesForFaultJob task is nil")
+	}
+
+	selectNodes := make(map[string][]plugin.SuperNode)
+	rescheduleCache := rescheduling.GetReSchedulerCache()
+	if rescheduleCache == nil {
+		return selectNodes, nil
+	}
+
+	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes %s: reScheduler is not nil", tp.GetPluginName(), task.Name)
+	fJob := rescheduleCache.FaultJobs[task.Job]
+	if fJob == nil || !fJob.IsFaultJob {
+		return selectNodes, nil
+	}
+
+	if fJob.RescheduleTime == 0 {
+		fJob.RescheduleTime = time.Now().Unix()
+	}
+
+	if !tp.isDelayingJob(fJob, nodes) && tp.SchedulingTaskNum == len(tp.Tasks) {
+		return selectNodes, fmt.Errorf("selectNode failed, wait for normal node resource release")
+	}
+	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes %s: is fault job, superPods: %v",
+		tp.GetPluginName(), fJob.JobName, fJob.SuperPods)
+
+	if !tp.schedulable(fJob, totalNodes) {
+		return selectNodes, fmt.Errorf("selectNodeFromOriginVSuperPod failed, unschedulable")
+	}
+
+	notReadySuperPod, err := tp.selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+	if err != nil {
+		return selectNodes, nil
+	}
+
+	tp.selectNodeFromOriginSuperPod(fJob, notReadySuperPod, totalNodes, vSuperPodID, selectNodes)
+	if tp.ifPodLevelRescheduling(fJob) {
+		tp.selectNodeForPodLevelRescheduling(fJob, notReadySuperPod, totalNodes, vSuperPodID, selectNodes)
+	}
+
+	return selectNodes, nil
+}
+
+// isDelayingJob checks if the job should continue waiting for resource release
+// Returns true if:
+//   - The waiting time exceeds the delayingTime threshold (10s)
+//   - All normal nodes used by the job have been released
+//
+// Returns false if any normal node is still occupied
+func (tp *module800SuperPod) isDelayingJob(fJob *rescheduling.FaultJob, nodes []*api.NodeInfo) bool {
+	if tp == nil || fJob == nil || fJob.FaultTasks == nil {
+		return false
+	}
+	// Check if waiting time exceeds threshold
+	if time.Now().Unix()-fJob.RescheduleTime > delayingTime {
+		klog.V(util.LogWarningLev).Infof("job %s wait used resource release time over 10s, skip wait", fJob.JobName)
+		return true
+	}
+
+	// Convert nodes to map for quick lookup
+	nodeMaps := util.ChangeNodesToNodeMaps(nodes)
+
+	// Check all non-fault tasks to see if their nodes are released
+	for _, task := range fJob.FaultTasks {
+		if task.IsFaultTask {
+			continue
+		}
+		// If node is not in available nodes list, it's still occupied
+		if _, ok := nodeMaps[task.NodeName]; !ok {
+			klog.V(util.LogWarningLev).Infof("job used %s normal node %s is not release", fJob.JobName, task.NodeName)
+			return false
+		}
+	}
+	return true
+}
+
+func (tp *module800SuperPod) selectNodeFromOriginVSuperPod(fJob *rescheduling.FaultJob, sMap map[string]float64,
+	selectNodes map[string][]plugin.SuperNode, totalNodes map[int32]superPod,
+	vSuperPodID map[string]bool) (map[string]struct{}, error) {
+	if tp == nil || fJob == nil {
+		return nil, fmt.Errorf("selectNodeFromOriginVSuperPod task is nil")
+	}
+
+	if selectNodes == nil || vSuperPodID == nil {
+		return nil, nil
+	}
+	if _, ok := tp.SuperPodInfo.SuperPodReschdInfo[fJob.JobUID]; ok {
+		fJob.SuperPods = tp.SuperPodInfo.SuperPodReschdInfo[fJob.JobUID]
+	}
+	if tp.ifPodLevelRescheduling(fJob) {
+		return tp.selectForPodRescheduling(fJob, selectNodes, vSuperPodID)
+	}
+	return tp.selectForJobRescheduling(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+}
+
+func (tp *module800SuperPod) selectForJobRescheduling(fJob *rescheduling.FaultJob, sMap map[string]float64,
+	selectNodes map[string][]plugin.SuperNode, totalNodes map[int32]superPod,
+	vSuperPodID map[string]bool) (map[string]struct{}, error) {
+	if selectNodes == nil || vSuperPodID == nil {
+		return nil, nil
+	}
+	notReadySuperPod := make(map[string]struct{})
+	for superPodId, superPod := range fJob.SuperPods {
+		count := 0
+		for _, spn := range superPod {
+			if _, ok := sMap[spn.Name]; ok && judgeLasTimeTaskIsHealthy(fJob, spn.Name) {
+				count++
+			}
+		}
+		if count < len(superPod) {
+			notReadySuperPod[superPodId] = struct{}{}
+			continue
+		}
+		klog.V(util.LogInfoLev).Infof("superPodId: %s is satisfied superPod: %v", superPodId, superPod)
+		for _, spn := range superPod {
+			delete(totalNodes[spn.SuperPodID], spn.Name)
+		}
+		selectNodes[superPodId] = superPod
+		vSuperPodID[superPodId] = true
+	}
+	return notReadySuperPod, nil
+}
+
+func (tp *module800SuperPod) selectForPodRescheduling(fJob *rescheduling.FaultJob,
+	selectNodes map[string][]plugin.SuperNode, vSuperPodID map[string]bool) (map[string]struct{}, error) {
+	if selectNodes == nil || vSuperPodID == nil {
+		return nil, nil
+	}
+	notReadySuperPod := make(map[string]struct{})
+	for superPodId, superPod := range fJob.SuperPods {
+		count := 0
+		for _, spn := range superPod {
+			if judgeLasTimeTaskIsHealthy(fJob, spn.Name) {
+				count++
+			}
+		}
+		if count < len(superPod) {
+			notReadySuperPod[superPodId] = struct{}{}
+			continue
+		}
+		klog.V(util.LogInfoLev).Infof("superPodId: %s is satisfied superPod: %v", superPodId, superPod)
+		selectNodes[superPodId] = superPod
+		vSuperPodID[superPodId] = true
+	}
+	return notReadySuperPod, nil
+}
+
+func judgeLasTimeTaskIsHealthy(fJob *rescheduling.FaultJob, nodeName string) bool {
+	if fJob == nil || fJob.FaultTasks == nil {
+		return false
+	}
+
+	for _, task := range fJob.FaultTasks {
+		if task.NodeName == nodeName {
+			if task.IsFaultTask {
+				return false
+			}
+			break
+		}
+	}
+	return true
+}
+
+func (tp *module800SuperPod) schedulable(fJob *rescheduling.FaultJob, totalNodes map[int32]superPod) bool {
+	if tp == nil || fJob == nil {
+		return false
+	}
+
+	count := make(map[int32]int)
+	for _, sp := range fJob.SuperPods {
+		faultTasks := 0
+		for _, task := range fJob.FaultTasks {
+			_, podExists := tp.Tasks[task.TaskUID]
+			klog.V(util.LogDebugLev).Infof("task.IsFaultTask: %v, podExists: %v, task: %#v",
+				task.IsFaultTask, podExists, task)
+			if !task.IsFaultTask && podExists {
+				continue
+			}
+			if ok, _ := tp.isContain(sp, task.TaskName, fJob.JobUID); ok {
+				faultTasks++
+			}
+		}
+		klog.V(util.LogDebugLev).Infof("the number of faultTasks is %v, len(sp) is: %v", faultTasks, len(sp))
+		if faultTasks == len(sp) {
+			klog.V(util.LogDebugLev).Info("schedulable return true")
+			return true
+		}
+		if value, ok := count[sp[0].SuperPodID]; ok {
+			count[sp[0].SuperPodID] = value + faultTasks
+		} else {
+			count[sp[0].SuperPodID] = faultTasks
+		}
+	}
+	return ifSchedule(count, totalNodes)
+}
+
+func ifSchedule(count map[int32]int, totalNodes map[int32]map[string]plugin.NPUNode) bool {
+	if len(count) == 0 || len(totalNodes) == 0 {
+		return false
+	}
+
+	for id, res := range count {
+		if len(totalNodes[id]) < res {
+			return false
+		}
+	}
+	return true
+}
+
+func (tp *module800SuperPod) isContain(superPod []plugin.SuperNode, name string, jobId api.JobID) (bool, int) {
+	if tp == nil {
+		return false, -1
+	}
+	klog.V(util.LogDebugLev).Infof("tp.SuperPodInfo.SuperPodMapFaultTaskNodes[%v][%s]: %s",
+		jobId, name, tp.SuperPodInfo.SuperPodMapFaultTaskNodes[jobId][name])
+	klog.V(util.LogDebugLev).Infof("superPod is: %#v", superPod)
+	for id, each := range superPod {
+		if each.Name == tp.SuperPodInfo.SuperPodMapFaultTaskNodes[jobId][name] {
+			klog.V(util.LogDebugLev).Infof("the id of node in superPod is: %d", id)
+			return true, id
+		}
+	}
+	return false, -1
+}
+
+func (tp *module800SuperPod) selectNodeFromOriginSuperPod(fJob *rescheduling.FaultJob,
+	notReadySuperPod map[string]struct{}, totalNodes map[int32]superPod,
+	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
+	if tp == nil || fJob == nil || fJob.SuperPods == nil || len(fJob.SuperPods) == 0 {
+		return
+	}
+
+	if selectNodes == nil || vSuperPodID == nil {
+		return
+	}
+	faultNodeNameMap := getFaultNodeNameMap(fJob)
+	for superPodId := range notReadySuperPod {
+		spn := fJob.SuperPods[superPodId][0]
+		if len(totalNodes[spn.SuperPodID]) < tp.spBlock {
+			continue
+		}
+		klog.V(util.LogInfoLev).Infof("superPodId: %s is satisfied superPod: %v in super-pod: %d",
+			superPodId, fJob.SuperPods[superPodId], spn.SuperPodID)
+		vSuperPodID[superPodId] = true
+		selectNodes[superPodId] = getSelectNodes(faultNodeNameMap,
+			fJob.SuperPods[superPodId], totalNodes[spn.SuperPodID])
+		for _, node := range selectNodes[superPodId] {
+			delete(totalNodes[node.SuperPodID], node.Name)
+		}
+	}
+}
+
+func getFaultNodeNameMap(job *rescheduling.FaultJob) map[string]struct{} {
+	faultNodeNameMap := map[string]struct{}{}
+	if job == nil || job.FaultTasks == nil {
+		return faultNodeNameMap
+	}
+	for _, faultTask := range job.FaultTasks {
+		if faultTask.IsFaultTask {
+			faultNodeNameMap[faultTask.NodeName] = struct{}{}
+		}
+	}
+	return faultNodeNameMap
+}
+
+func (tp *module800SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob) bool {
+	if tp == nil || fJob == nil {
+		return false
+	}
+
+	job, ok := tp.Jobs[fJob.JobUID]
+	if !ok {
+		return false
+	}
+	klog.V(util.LogInfoLev).Infof("label pod-rescheduling is: %s", job.Label[util.SinglePodTag])
+	return job.Label[util.SinglePodTag] == util.EnableFunc
+}
+
+func (tp *module800SuperPod) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,
+	notReadySuperPod map[string]struct{}, totalNodes map[int32]map[string]plugin.NPUNode,
+	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
+	if fJob == nil || fJob.SuperPods == nil {
+		return
+	}
+
+	if selectNodes == nil || vSuperPodID == nil {
+		return
+	}
+	for superPodId := range notReadySuperPod {
+		if len(fJob.SuperPods[superPodId]) == 0 {
+			return
+		}
+		spn := fJob.SuperPods[superPodId][0]
+		ids := tp.getLogicSuperPodFaultTaskIds(fJob, superPodId)
+		if len(ids) == 0 {
+			klog.V(util.LogInfoLev).Infof("superPodId: %s is satisfied superPod: %v in super-pod: %d and ids: %v",
+				superPodId, fJob.SuperPods[superPodId], spn.SuperPodID, ids)
+			selectNodes[superPodId] = fJob.SuperPods[superPodId]
+			vSuperPodID[superPodId] = true
+			continue
+		}
+		// If the number of failed pods in the logical supernode exceeds the number of available nodes in the physical supernode,
+		// or if the number of pods to be scheduled exceeds the size of the logical supernode
+		if len(ids) > len(totalNodes[spn.SuperPodID]) || tp.SchedulingTaskNum >= len(fJob.SuperPods[superPodId]) {
+			continue
+		}
+		selectNodesForFaultPod(fJob, ids, totalNodes, spn, superPodId)
+		klog.V(util.LogInfoLev).Infof("superPodId: %s is satisfied superPod: %v in super-pod: %d and ids: %v",
+			superPodId, fJob.SuperPods[superPodId], spn.SuperPodID, ids)
+		selectNodes[superPodId] = fJob.SuperPods[superPodId]
+		vSuperPodID[superPodId] = true
+	}
+}
+
+func selectNodesForFaultPod(fJob *rescheduling.FaultJob, ids []int, totalNodes map[int32]map[string]plugin.NPUNode,
+	spn plugin.SuperNode, superPodId string) {
+	for _, id := range ids {
+		for _, node := range totalNodes[spn.SuperPodID] {
+			if inSuperPods(fJob, superPodId, node) {
+				delete(totalNodes[spn.SuperPodID], node.Name)
+				break
+			}
+			fJob.SuperPods[superPodId][id].Name = node.Name
+			delete(totalNodes[spn.SuperPodID], node.Name)
+			break
+		}
+	}
+	return
+}
+
+func inSuperPods(fJob *rescheduling.FaultJob, superPodId string, node plugin.NPUNode) bool {
+	if fJob == nil || fJob.SuperPods == nil || len(fJob.SuperPods) == 0 {
+		return false
+	}
+
+	for _, spNode := range fJob.SuperPods[superPodId] {
+		if spNode.Name == node.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (tp *module800SuperPod) getLogicSuperPodFaultTaskIds(fJob *rescheduling.FaultJob, superPodId string) []int {
+	if tp == nil || fJob == nil {
+		return nil
+	}
+
+	var ids []int
+	for _, task := range fJob.FaultTasks {
+		if task.IsFaultTask {
+			if ok, index := tp.isContain(fJob.SuperPods[superPodId], task.TaskName, fJob.JobUID); ok {
+				ids = append(ids, index)
+			}
+		}
+	}
+	return ids
+}
+
+func getSelectNodes(faultNodeNameMap map[string]struct{}, spNodes []plugin.SuperNode,
+	spNodeMaps map[string]plugin.NPUNode) []plugin.SuperNode {
+	if spNodeMaps == nil {
+		return nil
+	}
+	reserveIndex := make([]int, 0)
+	newNodes := make([]plugin.SuperNode, len(spNodes))
+	// 1. use last time healthy node first
+	for idx, spNode := range spNodes {
+		if _, ok := faultNodeNameMap[spNode.Name]; ok {
+			reserveIndex = append(reserveIndex, idx)
+			continue
+		}
+		if _, ok := spNodeMaps[spNode.Name]; ok {
+			newNodes[idx] = spNode
+			delete(spNodeMaps, spNode.Name)
+			continue
+		}
+		reserveIndex = append(reserveIndex, idx)
+	}
+	i := 0
+	getOtherNodeFunc := func(notUseFault bool) {
+		for _, node := range spNodeMaps {
+			if i == len(reserveIndex) {
+				return
+			}
+			if _, ok := faultNodeNameMap[node.Name]; ok == notUseFault {
+				continue
+			}
+			newNodes[reserveIndex[i]] = plugin.SuperNode{
+				Name:       node.Name,
+				SuperPodID: node.SuperPodID,
+			}
+			i++
+		}
+	}
+	// 2. use last time not used nodes second
+	getOtherNodeFunc(true)
+	// 3. use last time fault nodes third
+	getOtherNodeFunc(false)
+	return newNodes
 }
 
 func (tp *module800SuperPod) initRemainderTop() [][][]superPod {
@@ -550,55 +976,63 @@ func (tp *module800SuperPod) selectNodesFromSuperPod(vid string, superPod map[st
 	return reserveNode
 }
 
-func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]superPod {
-	totalNodes := make(map[int32]superPod)
-	for _, node := range nodes {
-		nNode, ok := tp.Nodes[node.Name]
-		if !ok {
-			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes %s is not npu node",
-				tp.GetPluginName(), node.Name)
-			continue
-		}
-		_, exist := totalNodes[nNode.SuperPodID]
-		if !exist {
-			totalNodes[nNode.SuperPodID] = superPod{}
-		}
-		totalNodes[nNode.SuperPodID][node.Name] = nNode
+// UseAnnotation select npu for task from node
+func (tp *module800SuperPod) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
+	if tp == nil || task == nil || len(node.Annotation) == 0 {
+		err := errors.New(util.ArgumentError)
+		klog.V(util.LogErrorLev).Infof("UseAnnotation %s.", err)
+		return nil
 	}
-	return totalNodes
+	klog.V(util.LogDebugLev).Infof("%s UseAnnotation task<%s> node<%s> resource<%s> Annotation: %#v",
+		tp.GetPluginName(), task.Name, node.Name, tp.GetAnnoName(), node.Annotation)
+	selectedNPU, err := tp.selectNPUFromNode(task, node)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("%s UseAnnotation err:%s.", tp.GetPluginName(), err)
+		return nil
+	}
+	klog.V(util.LogInfoLev).Infof("%s UseAnnotation %s select %v from node %s.", tp.GetPluginName(), task.Name,
+		selectedNPU, node.Name)
+
+	tp.SetNPUTopologyToPodFn(task, selectedNPU, node)
+	newNode := tp.UpdateNodeInfo(node, selectedNPU)
+	task.Pod.Annotations[superPodRankKey] = tp.nodeVPodId[node.Name]
+	task.Pod.Annotations[superPodIdKey] = strconv.Itoa(int(node.SuperPodID))
+
+	return newNode
 }
 
-// isDelayingJob checks if the job should continue waiting for resource release
-// Returns true if:
-//   - The waiting time exceeds the delayingTime threshold (10s)
-//   - All normal nodes used by the job have been released
-//
-// Returns false if any normal node is still occupied
-func (tp *module800SuperPod) isDelayingJob(fJob *rescheduling.FaultJob, nodes []*api.NodeInfo) bool {
-	if tp == nil || fJob == nil || fJob.FaultTasks == nil {
-		return false
+func (tp *module800SuperPod) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode) ([]int, error) {
+	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		return nil, err
 	}
-	// Check if waiting time exceeds threshold
-	if time.Now().Unix()-fJob.RescheduleTime > delayingTime {
-		klog.V(util.LogWarningLev).Infof("job %s wait used resource release time over 10s, skip wait", fJob.JobName)
-		return true
+	npuTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum/tp.spBlock > 1)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
+		return nil, err
+	}
+	if tp.NPUTaskNum > 1 {
+		if len(npuTop) == nodeNPUNumber {
+			return npuTop, nil
+		}
+		return nil, fmt.Errorf("node<%s> top<%v> can not meet task req<%d>", node.Name, len(npuTop), taskNPUNum)
 	}
 
-	// Convert nodes to map for quick lookup
-	nodeMaps := util.ChangeNodesToNodeMaps(nodes)
+	return tp.selectNPUForStandaloneJob(taskNPUNum, npuTop, node)
+}
 
-	// Check all non-fault tasks to see if their nodes are released
-	for _, task := range fJob.FaultTasks {
-		if task.IsFaultTask {
-			continue
-		}
-		// If node is not in available nodes list, it's still occupied
-		if _, ok := nodeMaps[task.NodeName]; !ok {
-			klog.V(util.LogWarningLev).Infof("job used %s normal node %s is not release", fJob.JobName, task.NodeName)
-			return false
-		}
-	}
-	return true
+func (tp *module800SuperPod) selectNPUForStandaloneJob(taskNPUNum int, npuTop []int,
+	node plugin.NPUNode) ([]int, error) {
+	sort.Ints(npuTop)
+	klog.V(util.LogInfoLev).Infof("%s select %d NPU Node(%s) nodeTop<%v>", tp.GetPluginName(), taskNPUNum,
+		node.Name, npuTop)
+	return npuTop[:taskNPUNum], nil
+}
+
+// ReleaseAnnotation Release used resource.
+func (tp *module800SuperPod) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
+	return &node
 }
 
 // prevent division by zero

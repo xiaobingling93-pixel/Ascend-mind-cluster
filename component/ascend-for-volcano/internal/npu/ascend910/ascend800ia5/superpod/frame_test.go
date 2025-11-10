@@ -20,6 +20,7 @@ Package superPod is using for HuaWei Ascend800ia5 superPod pin affinity schedule
 package superpod
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -153,28 +154,169 @@ func newModuleSuperPod() *module800SuperPod {
 	}
 }
 
-func TestClassifySuperPod(t *testing.T) {
-	convey.Convey("test classifySuperPod case 1 ", t, func() {
-		module := &module800SuperPod{
-			spBlock: 1,
-		}
-		module.FrameAttr.SuperPodSize = 2
-		map0 := map[string]plugin.NPUNode{
-			"0": {},
-			"3": {},
-		}
-		map1 := map[string]plugin.NPUNode{
-			"1": {},
-			"2": {},
-		}
+func TestSelectNodeFromOriginVSuperPodCase1(t *testing.T) {
+	convey.Convey("Test selectNodeFromOriginVSuperPod with full context", t, func() {
+		// Setup complete test environment
+		tp := newModuleSuperPod()
+
+		fJob := &rescheduling.FaultJob{JobUID: "job-123", SuperPods: make(map[string][]plugin.SuperNode)}
+		sMap := map[string]float64{"healthy-pod": 0.9, "faulty-pod": 0.1}
+		selectNodes := make(map[string][]plugin.SuperNode)
 		totalNodes := map[int32]superPod{
-			0: map0,
-			1: map1,
+			1: {"healthy-pod": {}, "faulty-pod": {}},
 		}
-		pod, _ := module.classifySuperPod(totalNodes)
-		convey.So(len(pod.firstLevel[0][2]), convey.ShouldEqual, 2)
-		convey.So(len(pod.firstLevel[0][2][0]), convey.ShouldEqual, 2)
-		convey.So(len(pod.firstLevel[0][2][1]), convey.ShouldEqual, 2)
+		vSuperPodID := make(map[string]bool)
+
+		// Mock dependencies
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		convey.Convey("With complete structure initialization", func() {
+			convey.Convey("Should handle nil inputs properly", func() {
+				_, err := (*module800SuperPod)(nil).selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+				convey.So(err, convey.ShouldNotBeNil)
+
+				_, err = tp.selectNodeFromOriginVSuperPod(nil, sMap, selectNodes, totalNodes, vSuperPodID)
+				convey.So(err, convey.ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+func TestSelectNodeFromOriginVSuperPodCase2(t *testing.T) {
+	convey.Convey("Test selectNodeFromOriginVSuperPod with full context case 1", t, func() {
+		// Setup complete test environment
+		tp := newModuleSuperPod()
+
+		fJob := &rescheduling.FaultJob{JobUID: "job-123", SuperPods: make(map[string][]plugin.SuperNode)}
+		sMap := map[string]float64{"healthy-pod": 0.9, "faulty-pod": 0.1}
+		selectNodes := make(map[string][]plugin.SuperNode)
+		totalNodes := map[int32]superPod{
+			1: {"healthy-pod": {}, "faulty-pod": {}},
+		}
+		vSuperPodID := make(map[string]bool)
+
+		// Mock dependencies
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		convey.Convey("With complete structure initialization", func() {
+			convey.Convey("Should handle faulty super pods correctly", func() {
+				superPodID := "faulty-sp"
+				faultyPods := []plugin.SuperNode{
+					{Name: "faulty-pod", SuperPodID: 1},
+				}
+				fJob.SuperPods[superPodID] = faultyPods
+
+				patches.ApplyFunc(judgeLasTimeTaskIsHealthy, func(_ *rescheduling.FaultJob, _ string) bool {
+					return false
+				})
+
+				result, err := tp.selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+				convey.So(err, convey.ShouldBeNil)
+				convey.So(result, convey.ShouldContainKey, superPodID)
+				convey.So(selectNodes, convey.ShouldBeEmpty)
+			})
+
+			convey.Convey("Should handle mixed healthy/faulty pods in super pod", func() {
+				superPodID := "mixed-sp"
+				mixedPods := []plugin.SuperNode{
+					{Name: "healthy-pod", SuperPodID: 0},
+					{Name: "faulty-pod", SuperPodID: 1},
+				}
+				fJob.SuperPods[superPodID] = mixedPods
+
+				patches.ApplyFunc(judgeLasTimeTaskIsHealthy, func(_ *rescheduling.FaultJob, name string) bool {
+					return name == "healthy-pod"
+				})
+
+				result, err := tp.selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+				convey.So(err, convey.ShouldBeNil)
+				convey.So(result, convey.ShouldContainKey, superPodID)
+				convey.So(selectNodes, convey.ShouldBeEmpty)
+			})
+		})
+	})
+}
+
+func TestJudgeLasTimeTaskIsHealthyCase1(t *testing.T) {
+	convey.Convey("Test judgeLasTimeTaskIsHealthy case 1", t, func() {
+		// Test cases for nil checks
+		convey.Convey("When fJob is nil", func() {
+			result := judgeLasTimeTaskIsHealthy(nil, "node1")
+			convey.So(result, convey.ShouldBeFalse)
+		})
+
+		convey.Convey("When FaultTasks is nil", func() {
+			fJob := &rescheduling.FaultJob{FaultTasks: nil}
+			result := judgeLasTimeTaskIsHealthy(fJob, "node1")
+			convey.So(result, convey.ShouldBeFalse)
+		})
+
+		// Test cases with actual FaultTasks
+		convey.Convey("With actual FaultTasks", func() {
+			fJob := &rescheduling.FaultJob{
+				FaultTasks: []rescheduling.FaultTask{
+					{NodeName: "node1", IsFaultTask: true},
+					{NodeName: "node2", IsFaultTask: false},
+					{NodeName: "node3", IsFaultTask: true},
+				},
+			}
+
+			convey.Convey("When node is fault task", func() {
+				result := judgeLasTimeTaskIsHealthy(fJob, "node1")
+				convey.So(result, convey.ShouldBeFalse)
+
+				result = judgeLasTimeTaskIsHealthy(fJob, "node3")
+				convey.So(result, convey.ShouldBeFalse)
+			})
+
+			convey.Convey("When node is not fault task", func() {
+				result := judgeLasTimeTaskIsHealthy(fJob, "node2")
+				convey.So(result, convey.ShouldBeTrue)
+			})
+
+			convey.Convey("When node is not in FaultTasks", func() {
+				result := judgeLasTimeTaskIsHealthy(fJob, "node4")
+				convey.So(result, convey.ShouldBeTrue)
+			})
+
+			convey.Convey("When multiple tasks have same node name", func() {
+				// Add another task with same node name but different fault status
+				fJob.FaultTasks = append(fJob.FaultTasks, rescheduling.FaultTask{
+					NodeName:    "node1",
+					IsFaultTask: false,
+				})
+
+				// Should return false because first matching task is fault
+				result := judgeLasTimeTaskIsHealthy(fJob, "node1")
+				convey.So(result, convey.ShouldBeFalse)
+			})
+		})
+	})
+}
+
+func TestJudgeLasTimeTaskIsHealthyCase2(t *testing.T) {
+	convey.Convey("Test judgeLasTimeTaskIsHealthy case 2", t, func() {
+		convey.Convey("Edge cases", func() {
+			convey.Convey("Empty FaultTasks list", func() {
+				fJob := &rescheduling.FaultJob{
+					FaultTasks: []rescheduling.FaultTask{},
+				}
+				result := judgeLasTimeTaskIsHealthy(fJob, "any-node")
+				convey.So(result, convey.ShouldBeTrue)
+			})
+
+			convey.Convey("Empty node name", func() {
+				fJob := &rescheduling.FaultJob{
+					FaultTasks: []rescheduling.FaultTask{
+						{NodeName: "", IsFaultTask: true},
+					},
+				}
+				result := judgeLasTimeTaskIsHealthy(fJob, "")
+				convey.So(result, convey.ShouldBeFalse)
+			})
+		})
 	})
 }
 
@@ -183,6 +325,218 @@ const (
 	num2 = 2
 	num3 = 3
 )
+
+func TestSchedulableCase1(t *testing.T) {
+	convey.Convey("Test schedulable case 1", t, func() {
+		// Setup base test environment
+		tp := &module800SuperPod{}
+		fJob := &rescheduling.FaultJob{
+			JobUID: "job-123",
+			SuperPods: map[string][]plugin.SuperNode{
+				"sp1": {
+					{Name: "task1", SuperPodID: 1},
+					{Name: "task2", SuperPodID: 1},
+				},
+			},
+			FaultTasks: []rescheduling.FaultTask{
+				{TaskName: "task1", IsFaultTask: true},
+				{TaskName: "task2", IsFaultTask: true},
+				{TaskName: "task3", IsFaultTask: false},
+			},
+		}
+
+		totalNodes := map[int32]superPod{
+			1: {"node1": {}, "node2": {}},
+		}
+
+		// Mock dependencies
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		convey.Convey("When tp or fJob is nil", func() {
+			convey.So((*module800SuperPod)(nil).schedulable(fJob, totalNodes), convey.ShouldBeFalse)
+			convey.So(tp.schedulable(nil, totalNodes), convey.ShouldBeFalse)
+		})
+
+		convey.Convey("Edge cases", func() {
+			convey.Convey("Empty SuperPods", func() {
+				fJob.SuperPods = make(map[string][]plugin.SuperNode)
+				result := tp.schedulable(fJob, totalNodes)
+				convey.So(result, convey.ShouldBeFalse)
+			})
+
+			convey.Convey("Empty FaultTasks", func() {
+				fJob.FaultTasks = []rescheduling.FaultTask{}
+				result := tp.schedulable(fJob, totalNodes)
+				convey.So(result, convey.ShouldBeTrue)
+			})
+		})
+	})
+}
+
+func TestIfScheduleCase1(t *testing.T) {
+	convey.Convey("Test ifSchedule case 2", t, func() {
+		convey.Convey("When count or totalNodes is empty", func() {
+			convey.Convey("Empty count map", func() {
+				result := ifSchedule(map[int32]int{}, map[int32]map[string]plugin.NPUNode{1: {"node1": {}}})
+				convey.So(result, convey.ShouldBeFalse)
+			})
+
+			convey.Convey("Empty totalNodes map", func() {
+				result := ifSchedule(map[int32]int{1: 1}, map[int32]map[string]plugin.NPUNode{})
+				convey.So(result, convey.ShouldBeFalse)
+			})
+
+			convey.Convey("Both empty", func() {
+				result := ifSchedule(map[int32]int{}, map[int32]map[string]plugin.NPUNode{})
+				convey.So(result, convey.ShouldBeFalse)
+			})
+		})
+
+		convey.Convey("When resources are sufficient", func() {
+			count := map[int32]int{
+				num1: num2, // Need 2 nodes
+				num2: num1, // Need 1 node
+			}
+			totalNodes := map[int32]map[string]plugin.NPUNode{
+				num1: {"node1": {}, "node2": {}, "node3": {}}, // 3 available
+				num2: {"node4": {}},                           // 1 available
+			}
+
+			result := ifSchedule(count, totalNodes)
+			convey.So(result, convey.ShouldBeTrue)
+		})
+
+		convey.Convey("When resources are insufficient", func() {
+			convey.Convey("For one super pod", func() {
+				count := map[int32]int{
+					num1: num3, // Need 3 nodes
+				}
+				totalNodes := map[int32]map[string]plugin.NPUNode{
+					num1: {"node1": {}, "node2": {}}, // Only 2 available
+				}
+
+				result := ifSchedule(count, totalNodes)
+				convey.So(result, convey.ShouldBeFalse)
+			})
+
+			convey.Convey("For multiple super pods", func() {
+				count := map[int32]int{
+					num1: num2, // Need 2 nodes (OK)
+					num2: num2, // Need 2 nodes (Only 1 available)
+				}
+				totalNodes := map[int32]map[string]plugin.NPUNode{
+					num1: {"node1": {}, "node2": {}},
+					num2: {"node3": {}},
+				}
+
+				result := ifSchedule(count, totalNodes)
+				convey.So(result, convey.ShouldBeFalse)
+			})
+		})
+	})
+}
+
+func TestIfScheduleCase2(t *testing.T) {
+	convey.Convey("Test ifSchedule", t, func() {
+		convey.Convey("When super pod ID not found in totalNodes", func() {
+			count := map[int32]int{
+				num1: num1, // Need 1 node
+				num3: num1, // Super pod 3 doesn't exist
+			}
+			totalNodes := map[int32]map[string]plugin.NPUNode{
+				num1: {"node1": {}},
+				num2: {"node2": {}},
+			}
+
+			result := ifSchedule(count, totalNodes)
+			convey.So(result, convey.ShouldBeFalse)
+		})
+
+		convey.Convey("Edge cases", func() {
+			convey.Convey("Exact number of required nodes", func() {
+				count := map[int32]int{
+					num1: num2, // Need exactly 2 nodes
+				}
+				totalNodes := map[int32]map[string]plugin.NPUNode{
+					num1: {"node1": {}, "node2": {}}, // Exactly 2 available
+				}
+
+				result := ifSchedule(count, totalNodes)
+				convey.So(result, convey.ShouldBeTrue)
+			})
+
+			convey.Convey("Zero required nodes", func() {
+				count := map[int32]int{
+					num1: 0, // Need 0 nodes
+				}
+				totalNodes := map[int32]map[string]plugin.NPUNode{
+					num1: {"node1": {}}, // 1 available (but not needed)
+				}
+
+				result := ifSchedule(count, totalNodes)
+				convey.So(result, convey.ShouldBeTrue)
+			})
+		})
+	})
+}
+
+func TestSelectNodeForPodLevelRescheduling(t *testing.T) {
+	convey.Convey("Test selectNodeForPodLevelRescheduling", t, func() {
+		tp := &module800SuperPod{
+			spBlock: 1,
+		}
+
+		convey.Convey("When fJob is nil", func() {
+			tp.selectNodeForPodLevelRescheduling(nil, nil, nil, nil, nil)
+		})
+
+		convey.Convey("When fJob.SuperPods is nil", func() {
+			fJob := &rescheduling.FaultJob{}
+			tp.selectNodeForPodLevelRescheduling(fJob, nil, nil, nil, nil)
+		})
+
+		convey.Convey("When selectNodes or vSuperPodID is nil", func() {
+			fJob := &rescheduling.FaultJob{
+				SuperPods: map[string][]plugin.SuperNode{},
+			}
+			tp.selectNodeForPodLevelRescheduling(fJob, nil, nil, nil, map[string][]plugin.SuperNode{})
+			tp.selectNodeForPodLevelRescheduling(fJob, nil, nil, map[string]bool{}, nil)
+		})
+
+		convey.Convey("When notReadySuperPod contains an unknown ID", func() {
+			fJob := &rescheduling.FaultJob{
+				SuperPods: map[string][]plugin.SuperNode{
+					"sp1": {},
+				},
+			}
+			notReady := map[string]struct{}{"sp2": {}}
+			selectNodes := make(map[string][]plugin.SuperNode)
+			vSuperPodID := make(map[string]bool)
+
+			tp.selectNodeForPodLevelRescheduling(fJob, notReady, nil, vSuperPodID, selectNodes)
+			convey.So(len(selectNodes), convey.ShouldEqual, 0)
+		})
+
+		convey.Convey("When fault task IDs are empty", func() {
+			mockSuperPodID := int32(10)
+			superNode := plugin.SuperNode{Name: "n1", SuperPodID: mockSuperPodID}
+			fJob := &rescheduling.FaultJob{
+				SuperPods: map[string][]plugin.SuperNode{
+					"sp1": {superNode},
+				},
+			}
+			notReady := map[string]struct{}{"sp1": {}}
+			selectNodes := make(map[string][]plugin.SuperNode)
+			vSuperPodID := make(map[string]bool)
+
+			tp.selectNodeForPodLevelRescheduling(fJob, notReady, nil, vSuperPodID, selectNodes)
+
+			convey.So(selectNodes["sp1"], convey.ShouldResemble, fJob.SuperPods["sp1"])
+			convey.So(vSuperPodID["sp1"], convey.ShouldBeTrue)
+		})
+	})
+}
 
 func TestCheckSpBlockGtZero(t *testing.T) {
 	const negative = -1
@@ -242,80 +596,86 @@ func TestInitRemainderTop(t *testing.T) {
 	}
 }
 
-type getSuperPodRanksTest struct {
-	name     string
-	job      plugin.SchedulerJob
-	rank     int
-	wantSpID string
-	wantLR   int
-	wantErr  bool
-}
+func TestSelectNodeFromOriginSuperPod(t *testing.T) {
+	tp := &module800SuperPod{
+		spBlock: 1,
+	}
 
-func buildGetSuperPodRanksTest() []getSuperPodRanksTest {
-	return []getSuperPodRanksTest{
-		{
-			name: "01 normal case - first pod in first superpod",
-			job: plugin.SchedulerJob{SuperPods: map[string][]plugin.SuperNode{
-				"0": {{Name: "node0"}, {Name: "node1"}}, "1": {{Name: "node2"}, {Name: "node3"}}}},
-			rank:     0,
-			wantSpID: "0",
-			wantLR:   0,
+	superPods := map[string][]plugin.SuperNode{
+		"vsp1": {
+			plugin.SuperNode{Name: "n1", SuperPodID: 100},
 		},
-		{
-			name: "02 normal case - last pod in first superpod",
-			job: plugin.SchedulerJob{SuperPods: map[string][]plugin.SuperNode{
-				"0": {{Name: "node0"}, {Name: "node1"}}, "1": {{Name: "node2"}, {Name: "node3"}}}},
-			rank:     util.NPUIndex1,
-			wantSpID: "0",
-			wantLR:   util.NPUIndex1,
+		"vsp2": {
+			plugin.SuperNode{Name: "n2", SuperPodID: 200},
 		},
-		{
-			name: "03 normal case - first pod in second superpod",
-			job: plugin.SchedulerJob{
-				SuperPods: map[string][]plugin.SuperNode{
-					"0": {{Name: "node0"}, {Name: "node1"}}, "1": {{Name: "node2"}, {Name: "node3"}}}},
-			rank:     util.NPUIndex2,
-			wantSpID: "1",
-			wantLR:   0,
-		},
-		{
-			name: "04 edge case - rank exceeds total nodes",
-			job: plugin.SchedulerJob{SuperPods: map[string][]plugin.SuperNode{
-				"0": {{Name: "node0"}, {Name: "node1"}}, "1": {{Name: "node2"}, {Name: "node3"}}}},
-			rank:    util.NPUIndex4,
-			wantErr: true,
-		},
-		{
-			name:    "05 edge case - empty superpods",
-			job:     plugin.SchedulerJob{SuperPods: map[string][]plugin.SuperNode{}},
-			rank:    0,
-			wantErr: true,
-		},
-		{
-			name:    "06 edge case - invalid superpod key",
-			job:     plugin.SchedulerJob{SuperPods: map[string][]plugin.SuperNode{"invalid": {{Name: "node0"}}}},
-			rank:    0,
-			wantErr: true,
-		},
+	}
+
+	totalNodes := map[int32]superPod{
+		100: {"n1": plugin.NPUNode{}},
+		200: {"n2": plugin.NPUNode{}},
+	}
+
+	notReadySuperPod := map[string]struct{}{
+		"vsp1": {},
+		"vsp2": {},
+	}
+
+	vSuperPodID := make(map[string]bool)
+	selectNodes := make(map[string][]plugin.SuperNode)
+
+	fJob := &rescheduling.FaultJob{
+		SuperPods: superPods,
+	}
+
+	tp.selectNodeFromOriginSuperPod(fJob, notReadySuperPod, totalNodes, vSuperPodID, selectNodes)
+
+	if !vSuperPodID["vsp1"] || !vSuperPodID["vsp2"] {
+		t.Errorf("Expected vSuperPodID to contain vsp1 and vsp2")
+	}
+	if len(selectNodes["vsp1"]) != 1 || selectNodes["vsp1"][0].Name != "n1" {
+		t.Errorf("vsp1 selectNodes mismatch")
+	}
+	if len(selectNodes["vsp2"]) != 1 || selectNodes["vsp2"][0].Name != "n2" {
+		t.Errorf("vsp2 selectNodes mismatch")
+	}
+	if _, exists := totalNodes[100]["n1"]; exists {
+		t.Errorf("Expected n1 to be deleted from totalNodes[100]")
+	}
+	if _, exists := totalNodes[200]["n2"]; exists {
+		t.Errorf("Expected n2 to be deleted from totalNodes[200]")
 	}
 }
 
-func TestGetSuperPodRanks(t *testing.T) {
-	for _, tt := range buildGetSuperPodRanksTest() {
-		t.Run(tt.name, func(t *testing.T) {
-			gotSpID, gotLR := getSuperPodRanks(tt.job, tt.rank)
-			if (gotSpID == "" && gotLR == 0) != tt.wantErr {
-				t.Errorf("getSuperPodRanks() error = %v, wantErr %v", (gotSpID == "" && gotLR == 0), tt.wantErr)
-				return
-			}
-			if gotSpID != tt.wantSpID {
-				t.Errorf("getSuperPodRanks() gotSpID = %v, want %v", gotSpID, tt.wantSpID)
-			}
-			if gotLR != tt.wantLR {
-				t.Errorf("getSuperPodRanks() gotLR = %v, want %v", gotLR, tt.wantLR)
-			}
-		})
+func TestSelectNodeFromOriginSuperPodNilOrEmptyInputs(t *testing.T) {
+	var tpNil *module800SuperPod
+	tpNil.selectNodeFromOriginSuperPod(nil, nil, nil, nil, nil)
+
+	tp := &module800SuperPod{}
+	tp.selectNodeFromOriginSuperPod(nil, nil, nil, nil, nil)
+
+	fJobNilPods := &rescheduling.FaultJob{}
+	tp.selectNodeFromOriginSuperPod(fJobNilPods, nil, nil, nil, nil)
+
+	fJobEmptyPods := &rescheduling.FaultJob{SuperPods: map[string][]plugin.SuperNode{}}
+	tp.selectNodeFromOriginSuperPod(fJobEmptyPods, nil, nil, nil, nil)
+}
+
+func TestSelectNodeFromOriginSuperPodNilMaps(t *testing.T) {
+	tp := &module800SuperPod{}
+
+	fJob := &rescheduling.FaultJob{
+		SuperPods: map[string][]plugin.SuperNode{
+			"vsp": {plugin.SuperNode{Name: "n1", SuperPodID: 100}},
+		},
 	}
+
+	notReadySuperPod := map[string]struct{}{"vsp": {}}
+	totalNodes := map[int32]superPod{
+		100: {"n1": plugin.NPUNode{}},
+	}
+
+	tp.selectNodeFromOriginSuperPod(fJob, notReadySuperPod, totalNodes, map[string]bool{}, nil)
+	tp.selectNodeFromOriginSuperPod(fJob, notReadySuperPod, totalNodes, nil, map[string][]plugin.SuperNode{})
 }
 
 func newNPUNodeWithSuperPodID(nodeName string, superPodID int32) plugin.NPUNode {
@@ -584,8 +944,8 @@ func TestScoreBestNPUNodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			initScoreMap(scoreMap, tt.nodes)
 			tp := &module800SuperPod{
-				nodeVPodId: map[string]string{},
 				spBlock:    tt.spBlock,
+				nodeVPodId: map[string]string{},
 			}
 			if err := tp.InitMyJobPlugin(tt.env.Jobs["vcjob/pg0"].SchedulerJobAttr, tt.env); err != nil {
 				return
@@ -602,6 +962,47 @@ func TestScoreBestNPUNodes(t *testing.T) {
 func initScoreMap(sMap map[string]float64, nodes []*api.NodeInfo) {
 	for _, node := range nodes {
 		sMap[node.Name] = 0
+	}
+}
+
+type getSelectNodesTest struct {
+	name         string
+	fNodeNameMap map[string]struct{}
+	spNodes      []plugin.SuperNode
+	spNodeMaps   map[string]plugin.NPUNode
+	want         []plugin.SuperNode
+}
+
+func buildGetSelectNodesTest() []getSelectNodesTest {
+	return []getSelectNodesTest{
+		{
+			name: "01 will return nil when spNodeMaps is nil",
+			want: nil,
+		},
+		{
+			name:         "02 test node is not exist in fNodeNameMap",
+			spNodes:      []plugin.SuperNode{{Name: "node0", SuperPodID: 0}},
+			fNodeNameMap: nil,
+			spNodeMaps:   map[string]plugin.NPUNode{"node0": {}},
+			want:         []plugin.SuperNode{{Name: "node0", SuperPodID: 0}},
+		},
+		{
+			name:         "03 test node is exist in fNodeNameMap",
+			spNodes:      []plugin.SuperNode{{Name: "node0", SuperPodID: 0}},
+			fNodeNameMap: map[string]struct{}{"node0": {}},
+			spNodeMaps:   map[string]plugin.NPUNode{"node0": {}},
+			want:         []plugin.SuperNode{{Name: "", SuperPodID: 0}},
+		},
+	}
+}
+
+func TestGetSelectNodes(t *testing.T) {
+	for _, tt := range buildGetSelectNodesTest() {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getSelectNodes(tt.fNodeNameMap, tt.spNodes, tt.spNodeMaps); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getSelectNodes() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -798,4 +1199,38 @@ func getCheckRequireNPUTestParam1() []checkRequireNPUTest {
 		},
 	}
 	return tests
+}
+
+func TestUseAnnotation(t *testing.T) {
+	convey.Convey("test UseAnnotation case 1 ", t, func() {
+		module1 := &module800SuperPod{}
+		task := &api.TaskInfo{
+			Job: api.JobID(strconv.Itoa(1)),
+		}
+		patches := gomonkey.ApplyFunc((*module800SuperPod).selectNPUFromNode,
+			func(_ *module800SuperPod, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
+				return []int{1}, nil
+			})
+		defer patches.Reset()
+		patches1 := gomonkey.ApplyFunc((*base.NPUHandler).UpdateNodeInfo,
+			func(_ *base.NPUHandler, _ plugin.NPUNode, _ []int) *plugin.NPUNode {
+				return &plugin.NPUNode{}
+			})
+		defer patches1.Reset()
+		result := module1.UseAnnotation(task, plugin.NPUNode{})
+		convey.So(result, convey.ShouldBeNil)
+	})
+
+	convey.Convey("test UseAnnotation case 2 ", t, func() {
+		module2 := &module800SuperPod{}
+		patches := gomonkey.ApplyFunc((*module800SuperPod).selectNPUFromNode,
+			func(_ *module800SuperPod, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
+				return []int{1}, errors.New("fake error")
+			})
+
+		defer patches.Reset()
+		result := module2.UseAnnotation(&api.TaskInfo{}, plugin.NPUNode{})
+		convey.So(result, convey.ShouldBeNil)
+	})
+
 }
