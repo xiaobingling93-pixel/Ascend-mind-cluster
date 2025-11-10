@@ -118,6 +118,8 @@ spec:
             mountPath: /var/log/lingqu
           - name: data-trace-file-dir
             mountPath: /user/cluster-info/datatrace-config
+          - name: dpu-config # dpu config for A5
+            mountPath: /user/mindx-dl/dpu
           - name: localtime
             mountPath: /etc/localtime
             readOnly: true
@@ -167,6 +169,10 @@ spec:
         - name: lingqu-log
           hostPath:
             path: /var/log/lingqu
+            type: DirectoryOrCreate
+        - name: dpu-config # dpu config for A5
+          hostPath:
+            path: /user/mindx-dl/dpu-config
             type: DirectoryOrCreate
         - name: localtime
           hostPath:

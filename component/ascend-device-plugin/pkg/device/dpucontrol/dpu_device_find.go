@@ -29,7 +29,74 @@ import (
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/common-utils/utils"
+	"ascend-common/devmanager"
 )
+
+func (df *DpuFilter) SaveDpuConfToNode(dmgr devmanager.DeviceInterface) error {
+	err := df.loadDpuConfigFromFile()
+	if err != nil {
+		return fmt.Errorf("dpu devices find is not enable,err:%v", err)
+	}
+
+	hwlog.RunLog.Infof("%s start find bustype %s dpu", api.DpuLogPrefix, df.UserConfig.BusType)
+	switch df.UserConfig.BusType {
+	case busTypeUb:
+		entries, err := os.ReadDir(netPath)
+		if err != nil {
+			return fmt.Errorf("read dpu file dir err:%v", err)
+		}
+		df.entries = entries
+		dpuInfos, err := df.filterDpu()
+		if err != nil {
+			return fmt.Errorf("filter dpu err:%v", err)
+		}
+		df.dpuInfos = dpuInfos
+		err = df.getNpuCorrespDpuInfo()
+		if err != nil {
+			return fmt.Errorf("build npu correspond dpu infos err:%v", err)
+		}
+	case busTypePcie:
+		err = df.getDpuWithNpuPcieSwitch(dmgr)
+		if err != nil {
+			return fmt.Errorf("get dpu by npu error: %v", err)
+		}
+	default:
+		return fmt.Errorf("unsupported busType: %s", df.UserConfig.BusType)
+	}
+
+	if len(df.NpuWithDpuInfos) == 0 {
+		return errors.New("filter dpuinfos is nil")
+	}
+	hwlog.RunLog.Infof("%s successfully get DPU infos: %v", api.DpuLogPrefix, df.NpuWithDpuInfos)
+	return nil
+}
+
+func (df *DpuFilter) getDpuWithNpuPcieSwitch(dcMgr devmanager.DeviceInterface) error {
+	cardNum, cardIDList, err := dcMgr.GetCardList()
+	if err != nil || cardNum == 0 {
+		return fmt.Errorf("get card list error: %v", err)
+	}
+	pcieSwIds := make(map[string]struct{})
+	for _, cardID := range cardIDList {
+		pcieBusInfo, err := dcMgr.GetPCIeBusInfo(cardID)
+		hwlog.RunLog.Infof("%s pcie bus info:%v", api.DpuLogPrefix, pcieBusInfo)
+		if err != nil {
+			return err
+		}
+		pcieSwId, dpuInfo, err := df.getDpuByPcieBusInfo(pcieBusInfo)
+		if err != nil {
+			hwlog.RunLog.Errorf("%s npu %v get dpu by busId err :%v", api.DpuLogPrefix, cardID, err)
+			continue
+		}
+		if _, ok := pcieSwIds[pcieSwId]; !ok {
+			pcieSwIds[pcieSwId] = struct{}{}
+			df.addDpuByNpuId(cardID, dpuIndexFir, dpuInfo)
+			continue
+		}
+		df.addDpuByNpuId(cardID, dpuIndexSec, dpuInfo)
+	}
+	return nil
+}
 
 func (df *DpuFilter) addDpuByNpuId(cardID int32, dpuIndex int, dpuInfo []BaseDpuInfo) {
 	if len(dpuInfo) == onlyOneDpu {
@@ -109,11 +176,11 @@ func (df *DpuFilter) getNicsByPcieSw(busId string) ([]os.DirEntry, error) {
 }
 
 func (df *DpuFilter) filterDpu() ([]BaseDpuInfo, error) {
-	configVendors := df.userConfig.Selectors.Vendor
-	configDeviceIDs := df.userConfig.Selectors.DeviceIds
-	configDeviceNames := df.userConfig.Selectors.DeviceNames
+	configVendors := df.UserConfig.Selectors.Vendor
+	configDeviceIDs := df.UserConfig.Selectors.DeviceIds
+	configDeviceNames := df.UserConfig.Selectors.DeviceNames
 	if len(df.entries) == 0 || len(df.entries) > math.MaxInt32 {
-		return []BaseDpuInfo{}, fmt.Errorf("dpu entries number have err")
+		return []BaseDpuInfo{}, fmt.Errorf("the lengh of df.entries is invalid: %v", len(df.entries))
 	}
 	var dpuInfos []BaseDpuInfo
 	for _, entry := range df.entries {
@@ -218,7 +285,7 @@ func (df *DpuFilter) getDpuPair(slot1 string, slot2 string) []BaseDpuInfo {
 }
 
 func (df *DpuFilter) loadDpuConfigFromFile() error {
-	jsonContent, err := utils.LoadFile(dpuConfigPath)
+	jsonContent, err := utils.LoadFile(DpuConfigPath)
 	if err != nil {
 		return fmt.Errorf("load config from file error:%v", err)
 	}
@@ -239,8 +306,8 @@ func (df *DpuFilter) loadDpuConfigFromFile() error {
 	if len(selectors.Vendor) == 0 && len(selectors.DeviceIds) == 0 {
 		return errors.New("no vendor and deviceIds found, dpu devices find is not enable")
 	}
-	hwlog.RunLog.Infof("%s userConfig busType: %s, selectors: %v", api.DpuLogPrefix, busType, selectors)
-	df.userConfig = userConfig
+	hwlog.RunLog.Infof("%s UserConfig busType: %s, selectors: %v", api.DpuLogPrefix, busType, selectors)
+	df.UserConfig = userConfig
 	return nil
 }
 
@@ -253,14 +320,14 @@ func (df *DpuFilter) getSlotId(ifaceName string) (string, error) {
 	}
 	ifacePath := filepath.Join(filepath.Dir(dpuPath), dpuDir)
 	dpuDeviceDirPath := filepath.Join(ifacePath, deviceDir)
-	if df.userConfig.BusType == busTypeUb {
+	if df.UserConfig.BusType == busTypeUb {
 		slotID, err := readFileContent(filepath.Join(dpuDeviceDirPath, slotIdFile))
 		if err != nil {
 			return "", fmt.Errorf("dpu %s read slot_id error:%v", ifaceName, err)
 		}
 		return slotID, nil
 	}
-	return "", fmt.Errorf("busType is %s not ub", df.userConfig.BusType)
+	return "", fmt.Errorf("busType is %s not ub", df.UserConfig.BusType)
 }
 
 func readFileContent(path string) (string, error) {

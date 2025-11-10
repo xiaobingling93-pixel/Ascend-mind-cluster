@@ -46,7 +46,8 @@ import (
 // TestNewClientK8s test create k8s client
 func TestNewClientK8s(t *testing.T) {
 	convey.Convey("test create k8s client when build client config error", t, func() {
-		mockBuildConfig := gomonkey.ApplyFuncReturn(clientcmd.BuildConfigFromFlags, nil, fmt.Errorf("build config error"))
+		mockBuildConfig := gomonkey.ApplyFuncReturn(clientcmd.BuildConfigFromFlags, nil,
+			fmt.Errorf("build config error"))
 		defer mockBuildConfig.Reset()
 		client, err := NewClientK8s()
 		convey.So(client, convey.ShouldBeNil)
@@ -324,7 +325,8 @@ func TestCreateConfigMap(t *testing.T) {
 		convey.So(err.Error(), convey.ShouldEqual, "param cm is nil")
 	})
 	convey.Convey("test create config map success", t, func() {
-		mockGetPod := gomonkey.ApplyMethodReturn((&kubernetes.Clientset{}).CoreV1().ConfigMaps(v1.NamespaceAll), "Create",
+		mockGetPod := gomonkey.ApplyMethodReturn((&kubernetes.Clientset{}).CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Create",
 			&v1.ConfigMap{}, fmt.Errorf(common.ApiServerPort))
 		defer mockGetPod.Reset()
 		cm, err := client.CreateConfigMap(mockCM)
@@ -363,7 +365,8 @@ func TestUpdateConfigMap(t *testing.T) {
 		convey.So(err.Error(), convey.ShouldEqual, "param cm is nil")
 	})
 	convey.Convey("test update device info which is cm success", t, func() {
-		mockGetPod := gomonkey.ApplyMethodReturn((&kubernetes.Clientset{}).CoreV1().ConfigMaps(v1.NamespaceAll), "Update",
+		mockGetPod := gomonkey.ApplyMethodReturn((&kubernetes.Clientset{}).CoreV1().ConfigMaps(v1.NamespaceAll),
+			"Update",
 			&v1.ConfigMap{}, fmt.Errorf(common.ApiServerPort))
 		defer mockGetPod.Reset()
 		cm, err := client.UpdateConfigMap(mockCM)
@@ -388,7 +391,8 @@ func TestClearResetInfo(t *testing.T) {
 		convey.So(err.Error(), convey.ShouldEqual, "write reset info data into cm error")
 	})
 	convey.Convey("test clear reset info success", t, func() {
-		mockWriteResetInfoDataIntoCM := gomonkey.ApplyMethodReturn(&ClientK8s{}, "WriteResetInfoDataIntoCM", testCM, nil)
+		mockWriteResetInfoDataIntoCM := gomonkey.ApplyMethodReturn(&ClientK8s{}, "WriteResetInfoDataIntoCM", testCM,
+			nil)
 		defer mockWriteResetInfoDataIntoCM.Reset()
 		err := client.ClearResetInfo("taskName", "testNamespace")
 		convey.So(err, convey.ShouldBeNil)
@@ -541,7 +545,8 @@ func TestAddAnnotation(t *testing.T) {
 		}
 
 		convey.Convey("When all patch requests fail", func() {
-			patchErrs := []error{fmt.Errorf("api server timeout"), fmt.Errorf("connection refused"), fmt.Errorf("network error")}
+			patchErrs := []error{fmt.Errorf("api server timeout"), fmt.Errorf("connection refused"),
+				fmt.Errorf("network error")}
 			ki := newTestClient(baseNode, patchErrs)
 			err := ki.AddAnnotation("anno", "val")
 			convey.So(err, convey.ShouldNotBeNil)

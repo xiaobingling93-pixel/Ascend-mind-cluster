@@ -267,6 +267,7 @@ func main() {
 	}
 	setUseAscendDocker()
 	go hdm.ListenDevice(ctx)
+	go hdm.ListenDpu(ctx)
 	hdm.SignCatch(cancel)
 }
 

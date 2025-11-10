@@ -20,6 +20,7 @@ package dpucontrol
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net"
@@ -30,8 +31,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/common-utils/utils"
+	"ascend-common/devmanager"
 )
 
 const (
@@ -45,6 +48,151 @@ func init() {
 		OnlyToStdout: true,
 	}
 	hwlog.InitRunLogger(&hwLogConfig, context.Background())
+}
+
+func TestSaveDpuConfigToNode(t *testing.T) {
+	convey.Convey("TestSaveDpuConfigToNode1", t, func() {
+		expectedErr := "config load error"
+		patches := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			return errors.New(expectedErr)
+		})
+		defer patches.Reset()
+		df := DpuFilter{}
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldContainSubstring, expectedErr)
+	})
+	convey.Convey("TestSaveDpuConfigToNode2", t, func() {
+		expectedErr := "dir read error"
+		df := DpuFilter{}
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypeUb
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyFunc(os.ReadDir, func(path string) ([]os.DirEntry, error) {
+			return nil, errors.New(expectedErr)
+		})
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldContainSubstring, expectedErr)
+	})
+	convey.Convey("TestSaveDpuConfigToNode3", t, func() {
+		expectedErr := "filter dpu err"
+		df := DpuFilter{}
+		var testNics []os.DirEntry
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypeUb
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyFunc(os.ReadDir, func(path string) ([]os.DirEntry, error) {
+			return testNics, nil
+		})
+		patche.ApplyPrivateMethod(&df, "filterDpu", func(_ *DpuFilter) ([]BaseDpuInfo, error) {
+			return nil, errors.New(expectedErr)
+		})
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldContainSubstring, expectedErr)
+	})
+}
+
+func TestSaveDpuConfigToNode2(t *testing.T) {
+	convey.Convey("TestSaveDpuConfigToNodeUBCase4", t, func() {
+		const expectedErr = "get dpu info err"
+		df := DpuFilter{}
+		var testNics []os.DirEntry
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypeUb
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyFunc(os.ReadDir, func(path string) ([]os.DirEntry, error) {
+			return testNics, nil
+		})
+		patche.ApplyPrivateMethod(&df, "filterDpu", func(_ *DpuFilter) ([]BaseDpuInfo, error) {
+			return []BaseDpuInfo{}, nil
+		})
+		patche.ApplyPrivateMethod(&df, "getNpuCorrespDpuInfo", func() error {
+			return errors.New(expectedErr)
+		})
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err.Error(), convey.ShouldContainSubstring, expectedErr)
+	})
+	convey.Convey("TestSaveDpuConfigToNodePcieCase", t, func() {
+		const expectedErr = "get dpu with pcie switch error"
+		df := DpuFilter{}
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypePcie
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyPrivateMethod(&df, "getDpuWithNpuPcieSwitch", func() error {
+			return errors.New(expectedErr)
+		})
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err.Error(), convey.ShouldContainSubstring, expectedErr)
+	})
+	convey.Convey("TestSaveDpuConfigToNodeNoDpuInfos", t, func() {
+		df := DpuFilter{}
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypePcie
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyPrivateMethod(&df, "getDpuWithNpuPcieSwitch", func() error {
+			return nil
+		})
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+}
+
+func TestSaveDpuConfigToNodeSuccess(t *testing.T) {
+	convey.Convey("TestSaveDpuConfigToNodeSuccess", t, func() {
+		df := DpuFilter{}
+		patche := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "loadDpuConfigFromFile", func(_ *DpuFilter) error {
+			df.UserConfig.BusType = busTypePcie
+			return nil
+		})
+		defer patche.Reset()
+		patche.ApplyPrivateMethod(&df, "getDpuWithNpuPcieSwitch", func() error {
+			return nil
+		})
+		df.NpuWithDpuInfos = []NpuWithDpuInfo{
+			{
+				NpuId:   1,
+				DpuInfo: []BaseDpuInfo{},
+			},
+		}
+		err := df.SaveDpuConfToNode(&devmanager.DeviceManagerMock{})
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestGetDpuWithNpuPcieSwitch(t *testing.T) {
+	df := &DpuFilter{}
+	dmgr := &devmanager.DeviceManagerMock{}
+	convey.Convey("TestGetDpuWithNpuPcieSwitch", t, func() {
+		convey.Convey("TestGetCardListFailed", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			patches.ApplyMethodReturn(dmgr, "GetCardList", nil, nil, errors.New("func failed"))
+			err := df.getDpuWithNpuPcieSwitch(dmgr)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "func failed")
+		})
+		convey.Convey("TestGetPCIeBusInfoFailed", func() {
+			const cardNum = int32(8)
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			patches.ApplyMethodReturn(dmgr, "GetCardList", cardNum, []int32{0, 1, 2, 3, 4, 5, 6, 7}, nil)
+			patches.ApplyMethodReturn(dmgr, "GetPCIeBusInfo", nil, errors.New("func failed"))
+			err := df.getDpuWithNpuPcieSwitch(dmgr)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "func failed")
+		})
+	})
 }
 
 func TestAddDpuByNpuId(t *testing.T) {
@@ -108,6 +256,51 @@ func TestGetDpuByPcieBusInfo(t *testing.T) {
 	})
 }
 
+func TestGetDpuByPcieBusInfo2(t *testing.T) {
+	convey.Convey("TestGetDpuByPcieBusInfo2", t, func() {
+		df := &DpuFilter{}
+		testPcieBusInfo := "test"
+		var testNics []os.DirEntry
+		testDpuInfos := []BaseDpuInfo{{}}
+		convey.Convey("When filterDpu failed", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			patches.ApplyPrivateMethod(df, "getPcieswByBusId", func(_ *DpuFilter, _ string) (string, error) {
+				return "test-switch", nil
+			})
+			patches.ApplyPrivateMethod(df, "getNicsByPcieSw", func(_ *DpuFilter, _ string) ([]os.DirEntry, error) {
+				return testNics, nil
+			})
+			patches.ApplyPrivateMethod(df, "filterDpu", func(_ *DpuFilter) ([]BaseDpuInfo, error) {
+				return nil, fmt.Errorf("filterDpu failed")
+			})
+			sw, dpuInfos, err := df.getDpuByPcieBusInfo(testPcieBusInfo)
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(sw, convey.ShouldEqual, "test-switch")
+			convey.So(dpuInfos, convey.ShouldBeEmpty)
+			convey.So(err.Error(), convey.ShouldEqual, "filterDpu failed")
+		})
+		convey.Convey("When TestGetDpuByPcieBusInfo success", func() {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
+			patches.ApplyPrivateMethod(df, "getPcieswByBusId", func(_ *DpuFilter, _ string) (string, error) {
+				return "test-switch", nil
+			})
+			patches.ApplyPrivateMethod(df, "getNicsByPcieSw", func(_ *DpuFilter, _ string) ([]os.DirEntry, error) {
+				return testNics, nil
+			})
+			patches.ApplyPrivateMethod(df, "filterDpu", func(_ *DpuFilter) ([]BaseDpuInfo, error) {
+				return testDpuInfos, nil
+			})
+			sw, dpuInfos, err := df.getDpuByPcieBusInfo(testPcieBusInfo)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(sw, convey.ShouldEqual, "test-switch")
+			convey.So(dpuInfos, convey.ShouldNotBeEmpty)
+			convey.So(len(dpuInfos), convey.ShouldEqual, 1)
+		})
+	})
+}
+
 func TestGetPcieswByBusId(t *testing.T) {
 	df := DpuFilter{}
 	convey.Convey("TestGetPcieswByBusId", t, func() {
@@ -164,6 +357,25 @@ func TestGetPcieswByBusIdSuccessAndErrorLength(t *testing.T) {
 		convey.So(pcieSw, convey.ShouldEqual, "/sys/devices/0000:01:00.0")
 	},
 	)
+
+	convey.Convey("TestGetPcieswByBusId error path length", t, func() {
+		readlinkPatch := gomonkey.ApplyFunc(
+			os.Readlink, func(path string) (string, error) {
+				return "/devices", nil
+			},
+		)
+		defer readlinkPatch.Reset()
+		absPatch := gomonkey.ApplyFunc(
+			filepath.Abs, func(path string) (string, error) {
+				return "/devices", nil
+			},
+		)
+		defer absPatch.Reset()
+
+		result, err := df.getPcieswByBusId("error_bus_id")
+		convey.So(result, convey.ShouldBeEmpty)
+		convey.So(err, convey.ShouldNotBeNil)
+	})
 }
 
 func TestGetNicsByPcieSw(t *testing.T) {
@@ -243,16 +455,15 @@ func TestGetNicsByPcieWithMockEntries(t *testing.T) {
 func TestFilterDpuErrorCase(t *testing.T) {
 	convey.Convey("TestFilterDpu", t, func() {
 		df := DpuFilter{}
-		df.userConfig = UserDpuConfig{
+		df.UserConfig = UserDpuConfig{
 			Selectors: &DeviceSelectors{},
 		}
 		convey.Convey("error entries length", func() {
 			df.entries = []os.DirEntry{}
 			_, err := df.filterDpu()
 			convey.So(err, convey.ShouldNotBeNil)
-			convey.So(err.Error(), convey.ShouldEqual, "dpu entries number have err")
+			convey.So(err.Error(), convey.ShouldEqual, "the lengh of df.entries is invalid: 0")
 		})
-
 		convey.Convey("test error read link", func() {
 			df.entries = []os.DirEntry{FakeDirEntry{}}
 			patch := gomonkey.ApplyFunc(os.Readlink, func(path string) (string, error) {
@@ -268,7 +479,7 @@ func TestFilterDpuErrorCase(t *testing.T) {
 
 func TestDpuFilterSuccessCase(t *testing.T) {
 	df := DpuFilter{}
-	df.userConfig = UserDpuConfig{
+	df.UserConfig = UserDpuConfig{
 		Selectors: &DeviceSelectors{},
 	}
 	convey.Convey("test normal case", t, func() {
@@ -316,6 +527,45 @@ func TestShouldFilterByVendor(t *testing.T) {
 		convey.So(vendorValue, convey.ShouldBeEmpty)
 	},
 	)
+
+	convey.Convey("TestShouldFilterByVendor2", t, func() {
+		patch := gomonkey.ApplyFunc(
+			readFileContent, func(path string) (string, error) {
+				return "vendor2", nil
+			},
+		)
+		defer patch.Reset()
+		shouldFilter, vendorValue := df.shouldFilterByVendor("/fake/path", []string{"vendor1"})
+		convey.So(shouldFilter, convey.ShouldBeTrue)
+		convey.So(vendorValue, convey.ShouldBeEmpty)
+	},
+	)
+
+	convey.Convey("TestShouldFilterByVendor3", t, func() {
+		patch := gomonkey.ApplyFunc(
+			readFileContent, func(path string) (string, error) {
+				return "vendor3", nil
+			},
+		)
+		defer patch.Reset()
+		shouldFilter, vendorValue := df.shouldFilterByVendor("/fake/path", []string{"vendor3"})
+		convey.So(shouldFilter, convey.ShouldBeFalse)
+		convey.So(vendorValue, convey.ShouldEqual, "vendor3")
+	},
+	)
+
+	convey.Convey("TestShouldFilterByVendor4", t, func() {
+		patch := gomonkey.ApplyFunc(
+			readFileContent, func(path string) (string, error) {
+				return "vendor4", nil
+			},
+		)
+		defer patch.Reset()
+		shouldFilter, vendorValue := df.shouldFilterByVendor("/fake/path", []string{})
+		convey.So(shouldFilter, convey.ShouldBeFalse)
+		convey.So(vendorValue, convey.ShouldEqual, "vendor4")
+	},
+	)
 }
 
 func TestShouldFilterByDeviceID(t *testing.T) {
@@ -346,6 +596,68 @@ func TestShouldFilterByDeviceName(t *testing.T) {
 		convey.So(df.shouldFilterByDeviceName("device0", []string{}), convey.ShouldBeFalse)
 		convey.So(df.shouldFilterByDeviceName("device1", deviceNames), convey.ShouldBeFalse)
 	})
+}
+
+func TestGetSlotId(t *testing.T) {
+	convey.Convey("TestGetSlotId", t, func() {
+		df := DpuFilter{}
+		patch := gomonkey.ApplyFunc(
+			os.Readlink, func(path string) (string, error) {
+				return "", fmt.Errorf("readlink error")
+			},
+		)
+		defer patch.Reset()
+		slotIdValue, err := df.getSlotId("eth0")
+		convey.So(slotIdValue, convey.ShouldBeEmpty)
+		convey.So(err, convey.ShouldBeError)
+	},
+	)
+	convey.Convey("TestGetSlotId2", t, func() {
+		df := DpuFilter{
+			UserConfig: UserDpuConfig{
+				BusType:   busTypePcie,
+				Selectors: &DeviceSelectors{},
+			},
+		}
+		patch := gomonkey.ApplyFunc(
+			os.Readlink, func(path string) (string, error) {
+				return "device", nil
+			},
+		)
+		defer patch.Reset()
+		slotIdValue, err := df.getSlotId("eth0")
+		convey.So(slotIdValue, convey.ShouldBeEmpty)
+		convey.So(err, convey.ShouldBeError)
+		convey.So(err.Error(), convey.ShouldEqual, "busType is pcie not ub")
+	},
+	)
+}
+
+func TestGetSlotId2(t *testing.T) {
+	convey.Convey("TestGetSlotId3", t, func() {
+		patch := gomonkey.ApplyFunc(
+			os.Readlink, func(path string) (string, error) {
+				return "eth0", nil
+			},
+		)
+		patch.ApplyFunc(
+			readFileContent, func(path string) (string, error) {
+				return "slot1", nil
+			},
+		)
+		defer patch.Reset()
+
+		df := DpuFilter{
+			UserConfig: UserDpuConfig{
+				BusType:   busTypeUb,
+				Selectors: &DeviceSelectors{},
+			},
+		}
+		slotIdValue, err := df.getSlotId("eth0")
+		convey.So(slotIdValue, convey.ShouldEqual, "slot1")
+		convey.So(err, convey.ShouldBeNil)
+	},
+	)
 }
 
 func TestLoadConfigFromFile(t *testing.T) {
@@ -437,7 +749,6 @@ func TestPrivateGetDpuPair(t *testing.T) {
 
 func TestGetNpuCorrespondDpuInfo(t *testing.T) {
 	convey.Convey("TestGetNpuCorrespDpuInfo1", t, func() {
-		const oneBoardNpuNumber = 8
 		patch := gomonkey.ApplyPrivateMethod(&DpuFilter{}, "getDpuPair", func(_ DpuFilter, _, _ string) []BaseDpuInfo {
 			return []BaseDpuInfo{
 				{DeviceName: "eth0"},
@@ -448,7 +759,7 @@ func TestGetNpuCorrespondDpuInfo(t *testing.T) {
 		df := DpuFilter{}
 		err := df.getNpuCorrespDpuInfo()
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(len(df.NpuWithDpuInfos), convey.ShouldEqual, oneBoardNpuNumber)
+		convey.So(len(df.NpuWithDpuInfos), convey.ShouldEqual, api.NpuCountPerNode)
 	})
 
 	convey.Convey("TestGetNpuCorrespDpuInfo2", t, func() {
@@ -499,14 +810,13 @@ func TestReadFileContent(t *testing.T) {
 }
 
 func TestGetInterfaceIps(t *testing.T) {
-	const singleAddrIface = "single_addr_iface"
 	convey.Convey("Error get interface", t, func() {
 		patch := gomonkey.ApplyFunc(net.InterfaceByName, func(name string) (*net.Interface, error) {
 			return nil, fmt.Errorf("get interface error")
 		})
 		defer patch.Reset()
 
-		ip := getInterfaceIPs(singleAddrIface)
+		ip := getInterfaceIPs("single_addr_iface")
 		convey.So(ip, convey.ShouldBeEmpty)
 	})
 
@@ -522,43 +832,7 @@ func TestGetInterfaceIps(t *testing.T) {
 		})
 		defer addrsPatch.Reset()
 
-		ip := getInterfaceIPs(singleAddrIface)
+		ip := getInterfaceIPs("single_addr_iface")
 		convey.So(ip, convey.ShouldBeEmpty)
 	})
-}
-
-func TestGetSlotId(t *testing.T) {
-	convey.Convey("TestGetSlotId", t, func() {
-		df := DpuFilter{}
-		patch := gomonkey.ApplyFunc(
-			os.Readlink, func(path string) (string, error) {
-				return "", fmt.Errorf("readlink error")
-			},
-		)
-		defer patch.Reset()
-		slotIdValue, err := df.getSlotId("eth0")
-		convey.So(slotIdValue, convey.ShouldBeEmpty)
-		convey.So(err, convey.ShouldBeError)
-	},
-	)
-
-	convey.Convey("TestGetSlotId2", t, func() {
-		df := DpuFilter{
-			userConfig: UserDpuConfig{
-				BusType:   busTypePcie,
-				Selectors: &DeviceSelectors{},
-			},
-		}
-		patch := gomonkey.ApplyFunc(
-			os.Readlink, func(path string) (string, error) {
-				return "device", nil
-			},
-		)
-		defer patch.Reset()
-		slotIdValue, err := df.getSlotId("eth0")
-		convey.So(slotIdValue, convey.ShouldBeEmpty)
-		convey.So(err, convey.ShouldBeError)
-		convey.So(err.Error(), convey.ShouldEqual, "busType is pcie not ub")
-	},
-	)
 }
