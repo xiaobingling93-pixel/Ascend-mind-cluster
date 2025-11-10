@@ -1,5 +1,5 @@
 /*
-Copyright(C)2025. Huawei Technologies Co.,Ltd. All rights reserved.
+Copyright(C) 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,65 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package util is using for the total variable.
+/*
+Package util is using for the total variable.
+*/
 package util
+
+// for a5 basic scheduling
+const (
+	// SuperPodA5Prefix the prefix value of superpod a5 handler name
+	SuperPodA5Prefix = "900SuperPod-A5"
+	// SuperPodx8 value of accelerator-type is 900SuperPod-A5 which will be changed to superpod-910a5-8
+	SuperPodx8 = "900SuperPod-A5-8"
+	// SuperPodx8SchedulerName maxNodeNPUNum is 8
+	SuperPodx8SchedulerName = NPU910CardName + SuperPodx8
+	// Ascend800ia5x8 value of accelerator-type is 800I-A5 which will be changed to ascend-800ia5-8
+	Ascend800ia5x8 = "800I-A5-8"
+	// Ascend800ia5x8SchedulerName maxNodeNPUNum is 8
+	Ascend800ia5x8SchedulerName = NPU910CardName + Ascend800ia5x8
+	// TpBlockAnnoKey annotation key of tp-block
+	TpBlockAnnoKey = "tp-block"
+	// InvalidTpBlock is the result value of invalid tp-block
+	InvalidTpBlock = -1
+	// LeastTpBlock is the least value of tp-block
+	LeastTpBlock = 1
+)
 
 // for a5 rescheduling
 const (
 	// ServerIndexKey serverIndex key of node annotations for A5
 	ServerIndexKey = "serverIndex"
+)
+
+// for DPU
+const (
+	// DpuCmInfoNamePrefixByClusterd is the prefix for dpu infos
+	DpuCmInfoNamePrefixByClusterd = "cluster-info-dpu-"
+	// DpuCmInfoNamePrefixByDp is the prefix for dpu infos which tidied by clusterd
+	DpuCmInfoNamePrefixByDp = "mindcluster-dpuinfo-"
+	// DpuFault indicates a DPU fault
+	DpuFault = "DpuFault"
+	// DpuHealthy indicates a DPU healthy
+	DpuHealthy = "DPUHealthy"
+	// DpuLogPrefix DPU log prefix
+	DpuLogPrefix = "[DPU controller]"
+	// UbDPULength DPU length in ub
+	UbDPULength = 2
+	// ActiveStatus DPU active status
+	ActiveStatus = "up"
+	// UbType indicates ub
+	UbType = "ub"
+	// PcieType indicates pcie
+	PcieType = "pcie"
+	// FirstDpu first dpu
+	FirstDpu = 0
+	// SecondDpu second dpu
+	SecondDpu = 1
+	// DpuMaxNum dpu max num
+	DpuMaxNum = 8
+	// EmptyNPUToDPUMapLen length of empty npu to dpu map
+	EmptyNPUToDPUMapLen = 0
 )
 
 // RankLevel for rank table level info

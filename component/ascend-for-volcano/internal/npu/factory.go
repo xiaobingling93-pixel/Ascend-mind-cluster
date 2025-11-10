@@ -95,6 +95,10 @@ func initCard910Factory() {
 		return base.New(util.NPU910CardName, base.WithAnnoPreVal(util.NPU910CardNamePre),
 			base.WithMaxNodeNum(util.NPUIndex8), base.WithNetworkFault(true))
 	}
+	card910Factory[util.Ascend800ia5x8SchedulerName] = func() base.AscendHandler {
+		return base.New(util.NPU910CardName, base.WithAnnoPreVal(util.NPU910CardNamePre),
+			base.WithMaxNodeNum(util.NPUIndex8), base.WithNetworkFault(true))
+	}
 	card910Factory[half910x4Name] = func() base.AscendHandler {
 		return base.New(util.NPU910CardName,
 			base.WithAnnoPreVal(util.NPU910CardNamePre),
