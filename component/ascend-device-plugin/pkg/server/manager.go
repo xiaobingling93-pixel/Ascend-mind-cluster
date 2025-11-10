@@ -35,6 +35,7 @@ import (
 	"Ascend-device-plugin/pkg/common"
 	"Ascend-device-plugin/pkg/device"
 	"Ascend-device-plugin/pkg/device/deviceswitch"
+	"Ascend-device-plugin/pkg/device/dpucontrol"
 	"Ascend-device-plugin/pkg/kubeclient"
 	"Ascend-device-plugin/pkg/next/devicefactory/customname"
 	"ascend-common/api"
@@ -63,11 +64,13 @@ type HwDevManager struct {
 	RunMode          string
 	WorkMode         string
 	baseNPUInfo      map[string]*common.NpuBaseInfo
+	dpuManager       *dpucontrol.DpuFilter
 }
 
 // NewHwDevManager function is used to new a dev manager.
 func NewHwDevManager(devM devmanager.DeviceInterface) *HwDevManager {
 	var hdm HwDevManager
+	hdm.dpuManager = &dpucontrol.DpuFilter{}
 	if err := hdm.setAscendManager(devM); err != nil {
 		hwlog.RunLog.Errorf("init hw dev manager failed, err: %v", err)
 		return nil
@@ -259,6 +262,11 @@ func (hdm *HwDevManager) getNewNodeLabel(node *v1.Node) (map[string]string, erro
 }
 
 func (hdm *HwDevManager) getNpuBaseInfo() map[string]*common.NpuBaseInfo {
+	if common.ParamOption.RealCardType == api.Ascend910A5 {
+		if err := hdm.dpuManager.SaveDpuConfToNode(hdm.manager.GetDmgr()); err != nil {
+			hwlog.RunLog.Errorf("%s failed to save dpu info to node, err: %v", api.DpuLogPrefix, err)
+		}
+	}
 	ipMap := make(map[string]*common.NpuBaseInfo, len(hdm.allInfo.AllDevs))
 	for _, dev := range hdm.allInfo.AllDevs {
 		ipMap[dev.DeviceName] = &common.NpuBaseInfo{

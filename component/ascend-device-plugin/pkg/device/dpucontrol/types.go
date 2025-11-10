@@ -35,8 +35,8 @@ const (
 	pcieSwitchDir               = "/sys/bus/pci/devices"
 	// netPath dpu file path
 	netPath = "/sys/class/net"
-	// dpuConfigPath dpu config file path
-	dpuConfigPath = "/user/mindx-dl/dpu/dpu-config.json"
+	// DpuConfigPath dpu config file path
+	DpuConfigPath = "/user/mindx-dl/dpu/dpu-config.json"
 	// dpuIndexFir third party dpu first card
 	dpuIndexFir = 0
 	// dpuIndexSec third party dpu second card
@@ -50,7 +50,7 @@ const (
 // DpuFilter dpu filter info
 type DpuFilter struct {
 	NpuWithDpuInfos []NpuWithDpuInfo
-	userConfig      UserDpuConfig
+	UserConfig      UserDpuConfig
 	entries         []os.DirEntry
 	dpuInfos        []BaseDpuInfo
 }
