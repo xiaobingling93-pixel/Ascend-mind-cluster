@@ -260,6 +260,11 @@ func getNpuNum(ssn *framework.Session, tp *huaweiNPUPlugin, npuName string) int 
 				len(deviceList), int(npuNum/util.NPUHexKilo))
 			continue
 		}
+		if capVal, exist := vcNode.Capability[v1.ResourceName(npuName)]; !exist || capVal < npuNum {
+			klog.V(util.LogErrorLev).Infof("Add enqueue node %s cap<%v> is less than idle<%v>, waiting "+
+				"kubelet report correctly", vcNode.Name, int(capVal/util.NPUHexKilo), int(npuNum/util.NPUHexKilo))
+			continue
+		}
 		tNpuNum += len(deviceList)
 	}
 	return tNpuNum

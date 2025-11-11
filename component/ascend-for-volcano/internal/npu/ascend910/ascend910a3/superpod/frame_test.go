@@ -560,7 +560,8 @@ func TestScoreBestNPUNodes(t *testing.T) {
 			FaultJobs: map[api.JobID]*rescheduling.FaultJob{"vcjob/pg0": {
 				FaultTasks: []rescheduling.FaultTask{{NodeName: "node0", IsFaultTask: true}},
 				JobUID:     "vcjob/pg0", IsFaultJob: true,
-				SuperPods: map[string][]plugin.SuperNode{"0": {{"node0", 0}, {"node1", 0}}}}},
+				SuperPods: map[string][]plugin.SuperNode{"0": {{Name: "node0", SuperPodID: 0, RackID: 0},
+					{Name: "node1", SuperPodID: 0, RackID: 0}}}}},
 		}
 	})
 	defer patch.Reset()
@@ -605,17 +606,17 @@ func buildGetSelectNodesTest() []getSelectNodesTest {
 		},
 		{
 			name:         "02 test node is not exist in fNodeNameMap",
-			spNodes:      []plugin.SuperNode{{"node0", 0}},
+			spNodes:      []plugin.SuperNode{{Name: "node0", SuperPodID: 0, RackID: 0}},
 			fNodeNameMap: nil,
 			spNodeMaps:   map[string]plugin.NPUNode{"node0": {}},
-			want:         []plugin.SuperNode{{"node0", 0}},
+			want:         []plugin.SuperNode{{Name: "node0", SuperPodID: 0, RackID: 0}},
 		},
 		{
 			name:         "03 test node is exist in fNodeNameMap",
-			spNodes:      []plugin.SuperNode{{"node0", 0}},
+			spNodes:      []plugin.SuperNode{{Name: "node0", SuperPodID: 0, RackID: 0}},
 			fNodeNameMap: map[string]struct{}{"node0": {}},
 			spNodeMaps:   map[string]plugin.NPUNode{"node0": {}},
-			want:         []plugin.SuperNode{{"", 0}},
+			want:         []plugin.SuperNode{{Name: "", SuperPodID: 0, RackID: 0}},
 		},
 	}
 }

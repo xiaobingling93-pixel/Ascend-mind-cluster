@@ -57,6 +57,7 @@ type NodeDeviceInfoWithID struct {
 	NodeDeviceInfo
 	CacheUpdateTime int64
 	SuperPodID      int32
+	RackID          int32
 }
 
 // NodeDNodeInfo is node the information reported by noded
@@ -84,6 +85,7 @@ type NodeDeviceInfoWithDevPlugin struct {
 	CheckCode   string
 	SuperPodID  int32 `json:"SuperPodID,omitempty"`
 	ServerIndex int32 `json:"ServerIndex,omitempty"`
+	RackID      int32 `json:"RackID,omitempty"`
 }
 
 // NodeInfoWithNodeD is node the node information and checkCode reported by noded

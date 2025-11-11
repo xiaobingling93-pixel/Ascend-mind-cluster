@@ -154,7 +154,13 @@ func (c *Controller) ReleaseAnnotation(task *api.TaskInfo, node plugin.NPUNode) 
 		return nil
 	}
 	for _, handler := range c.PolicyHandler {
-		node = *handler.ReleaseAnnotation(task, node)
+		newNode := handler.ReleaseAnnotation(task, node)
+		// we should skip "node=*newNode" step when newNode is nil
+		if newNode == nil {
+			klog.V(util.LogErrorLev).Infof("node<%s> from ReleaseAnnotation is nil.", node.Name)
+			continue
+		}
+		node = *newNode
 	}
 	return &node
 }

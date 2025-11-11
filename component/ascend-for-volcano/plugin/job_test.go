@@ -952,3 +952,35 @@ func TestValidVirtualDevJob(t *testing.T) {
 		}
 	})
 }
+
+func TestRecordJobPendingMessage(t *testing.T) {
+	sjob := ScheduleHandler{
+		ScheduleEnv: ScheduleEnv{
+			JobScheduleInfoRecorder: JobScheduleInfoRecorder{
+				PendingMessage: map[api.JobID]PendingReason{
+					"123": map[string]sets.String{
+						"1": sets.NewString("npu fault"),
+					},
+				},
+			},
+		},
+	}
+	vcJob := SchedulerJob{
+		SchedulerJobAttr: util.SchedulerJobAttr{
+			ComJob: util.ComJob{
+				Name: "123",
+			},
+		},
+		UnscheduledReason: UnscheduledReason{
+			Reason: PendingReason{
+				"2": sets.NewString("npu fault"),
+			},
+		},
+	}
+	t.Run("test RecordJobPendingMessage", func(t *testing.T) {
+		sjob.recordJobPendingMessage(vcJob)
+		if !reflect.DeepEqual(sjob.PendingMessage[vcJob.Name], vcJob.Reason) {
+			t.Errorf("test RecordJobPendingMessage failed , expected: %v, result: %v", vcJob.Reason, sjob.PendingMessage[vcJob.Name])
+		}
+	})
+}
