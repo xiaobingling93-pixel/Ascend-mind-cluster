@@ -423,6 +423,7 @@ func (sJob *SchedulerJob) initNPUJob(vcJob *api.JobInfo, npuName string, npuNum 
 	sJob.SchedulerJobAttr.NPUJob = &util.NPUJob{ReqNPUName: npuName, ReqNPUNum: npuNum, Tasks: GetJobNPUTasks(vcJob)}
 	sJob.setJobSubHealthyStrategy()
 	sJob.setSpBlock()
+	sJob.setTpBlock()
 	sJob.setNPUTaskNumInJob()
 	sJob.setSchedulingTaskNum(vcJob)
 	sJob.initVTasks(vcJob)

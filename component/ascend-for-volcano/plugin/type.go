@@ -105,6 +105,7 @@ type SchedulerJob struct {
 	JobReadyTag   *bool
 	SuperPods     map[string][]SuperNode
 	Owner         OwnerInfo
+	A5Fields      *A5Fields
 }
 
 // OwnerInfo the owner info of job
@@ -124,6 +125,7 @@ type UnscheduledReason struct {
 type SuperNode struct {
 	Name       string
 	SuperPodID int32
+	RackID     int32
 }
 
 // VolcanoFrame passed in by the volcano frame.
@@ -158,6 +160,8 @@ type DynamicParameters struct {
 	GraceDeleteTime     int64
 	SuperPodSize        int
 	ReservePodSize      int
+	// check the original value from configuration when schedule in a5
+	SuperPodSizeFromConf int
 }
 
 // ScheduleCache the plugin defined caches saving cm data

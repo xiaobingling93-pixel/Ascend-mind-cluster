@@ -70,7 +70,9 @@ func buildVCheckNPUResourceStableTest() []checkNPUResourceStableTest {
 		{
 			name: "02-checkNPUResourceStable ok test.",
 			fields: nodeFields{Name: "haha", Idle: map[v1.ResourceName]float64{util.NPU310PCardName: util.NPUHexKilo},
-				Annotation: map[string]string{util.NPU310PCardName: "Ascend310P-0"}},
+				Annotation: map[string]string{util.NPU310PCardName: "Ascend310P-0"},
+				Capability: map[v1.ResourceName]float64{util.NPU310PCardName: util.NPUHexKilo},
+			},
 			args:    checkNPUResourceStableArgs{vcJob: tJob},
 			wantErr: false,
 		},

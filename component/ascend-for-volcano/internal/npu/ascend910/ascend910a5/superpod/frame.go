@@ -12,15 +12,23 @@
    limitations under the License.
 */
 
-// Package ascend910a5 is using for HuaWei Ascend 910A5 pin affinity schedule.
-package ascend910a5
+// Package superpod for a5 schedule handler
+package superpod
 
-// SetArch Set the job arch to distinguish between jobs. A+X 16P,A+K 8p.
-func (tp *Base910A5) SetArch(value string) {
-	tp.arch = value
-}
+import (
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
+)
 
-// GetArch Get the job arch to distinguish between jobs. A+X 16P,A+K 8p.
-func (tp *Base910A5) GetArch() string {
-	return tp.arch
+// New return npu plugin
+func New(name string) *module910a5SuperPod {
+	m := &module910a5SuperPod{}
+	m.SetPluginName(name)
+	m.SetAnnoName(util.NPU910CardName)
+	m.SetAnnoPreVal(util.NPU910CardNamePre)
+	m.SetMaxNodeNPUNum(nodeNPUNum)
+	m.scheduleStrategy = SuperPodSchedule
+	m.netUnhealthyKey = networkUnhealthyNPU
+	m.faultNPUKey = faultNPU
+	m.isNeedAlgoAlign = false
+	return m
 }

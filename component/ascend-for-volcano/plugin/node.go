@@ -271,8 +271,9 @@ func (n NPUNode) checkNPUResourceStable(vcJob SchedulerJob) error {
 
 	k := vcJob.ReqNPUName
 	iNum, iOK := n.Idle[v1.ResourceName(k)]
+	cNum, cOK := n.Capability[v1.ResourceName(k)]
 	nodeA, aOK := n.Annotation[k]
-	if iOK != true || aOK != true {
+	if iOK != true || aOK != true || cOK != true {
 		return fmt.Errorf("not has(or not same) %s", k)
 	}
 
@@ -282,8 +283,12 @@ func (n NPUNode) checkNPUResourceStable(vcJob SchedulerJob) error {
 		length = 0
 	}
 	// public fault occurred, device info <= k8s
-	if length > int(iNum/util.NPUHexKilo) {
+	if length > int(iNum/util.NPUHexKilo) || length > int(cNum/util.NPUHexKilo) {
 		return fmt.Errorf("%s not stable:device-info is <%d> but k8s is <%d>", k, length, int(iNum/util.NPUHexKilo))
+	}
+	if int(iNum/util.NPUHexKilo) > int(cNum/util.NPUHexKilo) {
+		return fmt.Errorf("%s is not stable bacause of capability=%d < allocatable=%d", n.Name,
+			int(cNum/util.NPUHexKilo), int(iNum/util.NPUHexKilo))
 	}
 	return nil
 }
@@ -295,7 +300,7 @@ func (n *NPUNode) updateNPUNodeDeviceInfos(data k8s.NodeDeviceInfoWithID) {
 		return
 	}
 	n.SuperPodID = data.SuperPodID
-
+	n.RackID = data.RackID
 	n.updateNPUNodeDeviceInfosWithVolcanoCache(data, data.UpdateTime)
 
 	n.devInfoUpdateTime = data.UpdateTime
@@ -378,7 +383,7 @@ func (n *NPUNode) syncAnnotation(npuNode *api.NodeInfo, nodeInfoOfNodeD k8s.Node
 	n.Annotation = existAnno
 }
 
-// InitNodesFromSsn init all nodes in ssn.
+// getNeedInitNodeList init all nodes in ssn.
 func (sHandle *ScheduleHandler) getNeedInitNodeList(ssn *framework.Session) []*api.NodeInfo {
 	if sHandle == nil || sHandle.FrameAttr.KubeClient == nil {
 		return ssn.NodeList

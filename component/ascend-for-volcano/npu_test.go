@@ -308,6 +308,9 @@ func newNPUNode(name string, anno, idle int) plugin.NPUNode {
 			Idle: map[v1.ResourceName]float64{
 				"huawei.com/Ascend910": float64(idle * 1000),
 			},
+			Capability: map[v1.ResourceName]float64{
+				"huawei.com/Ascend910": float64(idle * 1000),
+			},
 			Annotation: map[string]string{
 				"huawei.com/Ascend910": func() string {
 					annoStr := ""

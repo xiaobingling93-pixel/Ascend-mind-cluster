@@ -84,11 +84,14 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 			SuperPods:         sHandle.Jobs[jobID].SuperPods,
 			JobReadyTag:       util.PtrInit(true),
 			UnscheduledReason: newUnscheduledReason(),
+			A5Fields:          &A5Fields{},
 		}
 		if err := sJob.init(jobInfo, sHandle); err != nil {
 			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
 		}
+		// here we should sync a5 fields for use later in scheduling
+		sJob.updateSchedulerForA5Fields(sHandle.Jobs[jobID].A5Fields)
 		newJobs[jobID] = sJob
 	}
 	sHandle.Jobs = newJobs
@@ -249,7 +252,7 @@ func (sHandle *ScheduleHandler) initDynamicParameters(configs map[string]string)
 		klog.V(util.LogInfoLev).Infof("InitCache failed: %s.", util.ArgumentError)
 		return
 	}
-	sHandle.FrameAttr.SuperPodSize = getSizeOfSuperPod(configs)
+	sHandle.FrameAttr.SuperPodSize, sHandle.FrameAttr.SuperPodSizeFromConf = getSizeOfSuperPod(configs)
 	sHandle.FrameAttr.ReservePodSize = getReserveNodes(configs, sHandle.FrameAttr.SuperPodSize)
 	sHandle.FrameAttr.GraceDeleteTime = getGraceDeleteTime(configs)
 	sHandle.FrameAttr.PresetVirtualDevice = getPresetVirtualDeviceConfig(configs)
@@ -561,14 +564,16 @@ func getConfigurationByKey(configurations []config.Configuration) map[string]str
 }
 
 // getSizeOfSuperPod get size of super pod
-func getSizeOfSuperPod(configurations map[string]string) int {
+func getSizeOfSuperPod(configurations map[string]string) (int, int) {
 	superPodSize := getSuperPodInfoFromConfig(sizeOfSuperPodKey, configurations)
+	// we need to cache the original value from configuration
+	superPodSizeFromConfig := superPodSize
 	if superPodSize == 0 {
 		klog.V(util.LogWarningLev).Infof(" super-pod-size configuration should be a number bigger than 0, "+
 			"set default super-pod-size: %d", defaultSuperPodSize)
 		superPodSize = defaultSuperPodSize
 	}
-	return superPodSize
+	return superPodSize, superPodSizeFromConfig
 }
 
 // getReserveNodes get reserve nodes
