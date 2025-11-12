@@ -24,5 +24,4 @@ const (
 type A5Fields struct {
 	TpBlock                  int
 	WhetherBackToVspSchedule bool
-	JobRackAlignInfo         map[int32][nodeNPUNum]bool
 }

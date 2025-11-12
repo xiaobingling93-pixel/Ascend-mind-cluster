@@ -31,15 +31,12 @@ const (
 	rackNodeNum = 8
 	nodeNPUNum  = 8
 
-	npuNumber8  = 8
-	npuNumber16 = 16
-	npuNumber32 = 32
-	npuNumber64 = 64
+	npuNumber8 = 8
 
 	networkUnhealthyNPU = "huawei.com/Ascend910-NetworkUnhealthy"
 	faultNPU            = "huawei.com/Ascend910-Fault"
-	nodeNum1    = 1
-	npuTaskNum8 = 8
+	nodeNum1            = 1
+	npuTaskNum8         = 8
 
 	miniTpBlockNum = 1
 	rackNPUNumber  = 64
@@ -50,5 +47,11 @@ const (
 	spBlockInvalidReason = "Parameter sp-block is invalid."
 	tpBlockInvalidReason = "Parameter tp-block is invalid."
 
-	taskSpec = "volcano.sh/task-spec"
+	taskSpec                   = "volcano.sh/task-spec"
+	getNPUFromPodFailedPattern = "%s getUsableTopFromNode err: %s"
+
+	// TaskSpecAnno used in pod annotation when EnableGangScheduling is true
+	TaskSpecAnno = "volcano.sh/task-spec"
+	// SchedulerType the type of Scheduler for mindspore
+	SchedulerType string = "scheduler"
 )

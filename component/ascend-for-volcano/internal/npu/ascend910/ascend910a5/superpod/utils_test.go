@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 )
 
 const (
@@ -68,6 +70,31 @@ func TestGetRackLengthInOneSuperPod(t *testing.T) {
 	if !reflect.DeepEqual(want, ret) {
 		t.Errorf("getRackLengthInOneSuperPod result failed: %v", ret)
 	}
+}
+
+func TestGetRackNPUTop(t *testing.T) {
+	tp := New(util.SuperPodx8SchedulerName)
+	tp.Nodes = getNPUNodes(nodeInfoIdx0, nodeInfoIdx185, superPodSize32, rackOsNum)
+	t.Run("test getRackNPUTop err getting empty top", func(t *testing.T) {
+		res := tp.getRackNPUTop(buildNodeBaseInfoArr(nodeInfoIdx9))
+		if !reflect.DeepEqual(res, testRackNPUTop) {
+			t.Errorf("getUsableNPUIndex fail, getting empty top")
+		}
+		res1 := tp.getRackNPUTop(buildNodeBaseInfoArr(nodeInfoIdx0))
+		if !reflect.DeepEqual(res1, testRackNPUTop) {
+			t.Errorf("getUsableNPUIndex fail, getting empty top")
+		}
+	})
+	t.Run("test getRackNPUTop get success", func(t *testing.T) {
+		res := tp.getRackNPUTop(buildNodeBaseInfoArr(nodeInfoIdx4))
+		if !reflect.DeepEqual(res, testRackNPUTop1) {
+			t.Errorf("getUsableNPUIndex fail, the result is %v", res)
+		}
+		res1 := tp.getRackNPUTop(buildNodeBaseInfoArr(nodeInfoIdx8))
+		if !reflect.DeepEqual(res1, testRackNPUTop2) {
+			t.Errorf("getUsableNPUIndex fail, the result is %v", res1)
+		}
+	})
 }
 
 // superPodMap key is superPodID, value is how many nodes in the superPod

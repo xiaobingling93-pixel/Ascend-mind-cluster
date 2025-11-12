@@ -39,6 +39,7 @@ const (
 	testTpBlock8    = 8
 	testTotalCount1 = 1
 	testNodeCount   = 12
+	superPodSize32  = 32
 )
 
 const (
@@ -58,12 +59,10 @@ const (
 
 // for test cases use
 const (
-	nodeInfoIdx0  = 0
 	nodeInfoIdx1  = 1
 	nodeInfoIdx2  = 2
 	nodeInfoIdx3  = 3
 	nodeInfoIdx7  = 7
-	nodeInfoIdx8  = 8
 	nodeInfoIdx10 = 10
 	nodeInfoIdx11 = 11
 	nodeInfoIdx16 = 16
@@ -84,8 +83,6 @@ const (
 	nodeInfoIdx320 = 320
 	nodeInfoIdx367 = 367
 )
-
-var npuList8 = []int{0, 1, 2, 3, 4, 5, 6, 7}
 
 type doSelectForStrategyTestCaseType struct {
 	name            string
@@ -232,34 +229,6 @@ func setSuperPodSizeFrame(superpodSize int) plugin.VolcanoFrame {
 		ConfigParameters: plugin.ConfigParameters{
 			DynamicParameters: plugin.DynamicParameters{
 				SuperPodSize: superpodSize,
-			},
-		},
-	}
-}
-
-func getNPUNodes(start int, end int, sp int, rack int) map[string]plugin.NPUNode {
-	nodes := make(map[string]plugin.NPUNode)
-	for i := start; i < end; i++ {
-		nodeName := "node" + strconv.Itoa(i)
-		nodes[nodeName] = newNPUNodeWithNPUNum(nodeName, int32(i/sp), int32(i/rack), npuList8)
-	}
-	return nodes
-}
-
-func newNPUNodeWithNPUNum(nodeName string, superPodID int32, rackID int32,
-	npuList []int) plugin.NPUNode {
-	return plugin.NPUNode{
-		CommonNode: plugin.CommonNode{
-			Name:       nodeName,
-			SuperPodID: superPodID,
-			RackID:     rackID,
-			Annotation: map[string]string{
-				"huawei.com/Ascend910": newNodeAnnotation(npuList),
-				networkUnhealthyNPU:    "",
-				faultNPU:               "",
-			},
-			Label: map[string]string{
-				util.AcceleratorType: SuperPodx8,
 			},
 		},
 	}

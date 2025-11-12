@@ -22,6 +22,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/api"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
 // New return npu plugin
@@ -65,5 +66,29 @@ func (tp *module910a5SuperPod) ValidNPUJob() *api.ValidateResult {
 		}
 	}
 
+	return nil
+}
+
+// CheckNodeNPUByTask to check node NPU for each task
+// ssn.AddPredicateFn -> NodePredicate -> CheckNodeNPUByTask -> filter node for score
+func (tp *module910a5SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode) error {
+	errStr := "check npu node by task failed"
+	// valid argument
+	if tp == nil || task == nil || len(node.Annotation) == 0 {
+		err := errors.New(util.ArgumentError)
+		klog.V(util.LogErrorLev).Infof("%s, err is %v", errStr, err)
+		return err
+	}
+	checkers := []nodeCheckerFunc{
+		tp.checkNodeStaticParams,
+		tp.checkNodeNPUNums,
+	}
+
+	for _, checker := range checkers {
+		if err := checker(task, node); err != nil {
+			klog.V(util.LogErrorLev).Infof("%s %s", errStr, err.Error())
+			return err
+		}
+	}
 	return nil
 }

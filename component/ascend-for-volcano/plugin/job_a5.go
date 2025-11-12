@@ -43,8 +43,4 @@ func (sJob *SchedulerJob) updateSchedulerForA5Fields(oldFields *A5Fields) {
 	}
 	sJob.A5Fields.WhetherBackToVspSchedule = oldFields.WhetherBackToVspSchedule
 	sJob.A5Fields.TpBlock = oldFields.TpBlock
-	if oldFields.JobRackAlignInfo == nil {
-		oldFields.JobRackAlignInfo = make(map[int32][nodeNPUNum]bool)
-	}
-	sJob.A5Fields.JobRackAlignInfo = oldFields.JobRackAlignInfo
 }

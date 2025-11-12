@@ -68,5 +68,5 @@ const (
 	// SuperPodx8 the real label of a5 node
 	SuperPodx8 = "900SuperPod-A5-8"
 	// SuperPodx8SchedulerName maxNodeNPUNum is 8
-	SuperPodx8SchedulerName = util.HwPreName + util.Ascend910 + "900SuperPod-A5-8"
+	SuperPodx8SchedulerName = util.HwPreName + util.Ascend910 + SuperPodx8
 )
