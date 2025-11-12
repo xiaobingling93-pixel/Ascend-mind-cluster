@@ -30,13 +30,12 @@ import (
 
 // for test cases use
 const (
-	superPodSize32 = 32
-	npuTaskNum1    = 1
-	npuTaskNum2    = 2
-	npuTaskNum3    = 3
-	npuTaskNum4    = 4
-	npuTaskNum5    = 5
-	npuTaskNum12   = 12
+	npuTaskNum1  = 1
+	npuTaskNum2  = 2
+	npuTaskNum3  = 3
+	npuTaskNum4  = 4
+	npuTaskNum5  = 5
+	npuTaskNum12 = 12
 )
 
 // ValidNPUJobTestCase valid job tests use
@@ -62,7 +61,8 @@ func TestValidNPUJob(t *testing.T) {
 	testCases := buildCheckSpBlockValidCase()
 	testCases = append(testCases, buildCheckTpBlockNumCase()...)
 	testCases = append(testCases, buildCalculateTpBlockAndCheckCase()...)
-	testCases = append(testCases, buildCheckJobReqNpuNumCase()...)
+	testCases = append(testCases, buildCheckJobReqNpuNumCase1()...)
+	testCases = append(testCases, buildCheckJobReqNpuNumCase2()...)
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
 			npu := New(tt.SchedulerName)
@@ -239,7 +239,7 @@ func buildCalculateTpBlockAndCheckCase() []ValidNPUJobTestCase {
 	}
 }
 
-func buildCheckJobReqNpuNumCase() []ValidNPUJobTestCase {
+func buildCheckJobReqNpuNumCase1() []ValidNPUJobTestCase {
 	return []ValidNPUJobTestCase{
 		{
 			Name:          "checkJobReqNpuNum-01: single super-pod job require npu [1, 8]",
@@ -287,4 +287,75 @@ func buildCheckJobReqNpuNumCase() []ValidNPUJobTestCase {
 			},
 		},
 	}
+}
+
+func buildCheckJobReqNpuNumCase2() []ValidNPUJobTestCase {
+	return []ValidNPUJobTestCase{
+		{
+			Name:          "checkJobReqNpuNum-04: single super-pod job sp-block annotation should equal require npu num",
+			Attr:          buildTestJobAttr(npuTaskNum1, "1"),
+			SpBlockNum:    2,
+			TpBlockNum:    1,
+			SchedulerName: SuperPodx8SchedulerName,
+			ScheduleEnv: plugin.ScheduleEnv{
+				FrameAttr: setSuperPodSize(superPodSize32),
+			},
+			WantErr: &api.ValidateResult{
+				Pass:    false,
+				Reason:  jobCheckFailedReason,
+				Message: "single super-pod job sp-block annotation should equal require npu num",
+			},
+		},
+		{
+			Name: "checkJobReqNpuNum-05: distributed super-pod job require npu(8) " +
+				"should be multiple of tp-block",
+			Attr:          buildTestJobAttr(npuTaskNum2, "5"),
+			SpBlockNum:    2,
+			TpBlockNum:    8,
+			SchedulerName: SuperPodx8SchedulerName,
+			ScheduleEnv: plugin.ScheduleEnv{
+				FrameAttr: setSuperPodSize(superPodSize32),
+			},
+			WantErr: &api.ValidateResult{
+				Pass:    false,
+				Reason:  jobCheckFailedReason,
+				Message: "distributed super-pod job require npu(10) should be multiple of tp-block",
+			},
+		},
+	}
+}
+
+func TestIsJobCacheSuperPod(t *testing.T) {
+	tasks := getTaskInfos(npuTaskNum2, "job1")
+
+	t.Run("test isJobCacheSuperPod return true", func(t *testing.T) {
+		handler := New(util.SuperPodx8SchedulerName)
+
+		jobs := make(map[api.JobID]plugin.SchedulerJob)
+		job := plugin.SchedulerJob{
+			JobReadyTag: new(bool),
+			SuperPods:   map[string][]plugin.SuperNode{"1": make([]plugin.SuperNode, 1)},
+		}
+		*job.JobReadyTag = true
+		jobs[tasks[0].Job] = job
+		ret := handler.isJobCacheSuperPod(&job, tasks[0])
+		if ret != true {
+			t.Errorf("isJobCacheSuperPod fail, it should return true")
+		}
+	})
+	t.Run("test isJobCacheSuperPod return false", func(t *testing.T) {
+		handler := New(util.SuperPodx8SchedulerName)
+
+		jobs := make(map[api.JobID]plugin.SchedulerJob)
+		job := plugin.SchedulerJob{
+			JobReadyTag: new(bool),
+			SuperPods:   map[string][]plugin.SuperNode{},
+		}
+		*job.JobReadyTag = true
+		jobs[tasks[0].Job] = job
+		ret := handler.isJobCacheSuperPod(&job, tasks[0])
+		if ret != false {
+			t.Errorf("isJobCacheSuperPod fail, it should return true")
+		}
+	})
 }

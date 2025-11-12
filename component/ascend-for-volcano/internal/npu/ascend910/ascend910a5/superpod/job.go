@@ -161,7 +161,7 @@ func (tp *module910a5SuperPod) checkJobReqNpuNum() *api.ValidateResult {
 				tp.ReqNPUNum),
 		}
 	}
-	// distributed job required npu must be multiple of sp-block
+	// distributed job required npu must be multiple of tp-block
 	if tp.ReqNPUNum%tp.TpBlockNPUNum != 0 {
 		return &api.ValidateResult{
 			Pass:   false,
@@ -193,8 +193,5 @@ func (tp *module910a5SuperPod) isJobCacheSuperPod(job *plugin.SchedulerJob, task
 		return true
 	}
 
-	if job.ReqNPUNum%npuNumber8 != 0 {
-		klog.V(util.LogInfoLev).Infof("job<%s> require %d npu but 8*n is recommended", job.Name, job.ReqNPUNum)
-	}
 	return false
 }

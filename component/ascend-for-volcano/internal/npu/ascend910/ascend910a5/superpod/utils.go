@@ -70,3 +70,17 @@ func getRackLengthInOneSuperPod(superPodWithRack map[int32][]nodeBaseInfo) map[i
 	}
 	return nodesLenWithRackIDMap
 }
+
+// the input length is in range [0,8], contains value in range [0,63]
+// eg: input1 []int{0,1,2,3,4,5,6,7} means 8 cards can be used
+// eg: input2 []int{8,9,10,11,15} means 5 cards can be used
+func getUsableNPUIndex(input []int) [nodeNPUNum]bool {
+	res := [nodeNPUNum]bool{}
+	for _, num := range input {
+		if num < rackNodeNum*nodeNPUNum {
+			res[num%nodeNPUNum] = true
+		}
+	}
+	return res
+}
+
