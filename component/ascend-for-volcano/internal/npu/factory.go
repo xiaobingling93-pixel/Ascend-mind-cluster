@@ -196,6 +196,10 @@ func get910CardHandlerName(attr util.SchedulerJobAttr) string {
 		klog.V(util.LogInfoLev).Infof("handler %s found in 800IA5CardFactory", handlerName)
 		return handlerName
 	}
+	if handlerName, ok := get300IA5HandlerName(attr); ok {
+		klog.V(util.LogInfoLev).Infof("handler %s found in 300IA5CardFactory", handlerName)
+		return handlerName
+	}
 	if _, ok := attr.Annotation[util.SuperPodAnnoKey]; ok {
 		return superpod.SchedulerName
 	}
@@ -267,4 +271,17 @@ func get800IA5HandlerName(attr util.SchedulerJobAttr) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func get300IA5HandlerName(attr util.SchedulerJobAttr) (string, bool) {
+	acceleratorType, existAcceleratorType := attr.Selector[util.AcceleratorType]
+	if !existAcceleratorType {
+		return "", false
+	}
+	if acceleratorType == module300ia5.Ascend300I4Px8Label || acceleratorType == module300ia5.Ascend300I4Px16Label ||
+		acceleratorType == module300ia5.Ascend300Ix8Label || acceleratorType == module300ia5.Ascend300Ix16Label {
+		return acceleratorType, true
+	}
+	klog.V(util.LogDebugLev).Infof("not 300I-A5 handler")
+	return "", false
 }
