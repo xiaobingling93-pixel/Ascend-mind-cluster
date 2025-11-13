@@ -43,15 +43,17 @@ const (
 
 	tpBlock1 = 1
 
-	npuTaskNum8    = 8
-	miniTpBlockNum = 1
-	rackNPUNumber  = 64
+	npuTaskNum8       = 8
+	miniTpBlockNum    = 1
+	rackNPUNumber     = 64
+	maxSuperPodNPUNum = 8192
 
 	scoreForNode         = 100000000
 	jobCheckFailedReason = "npu num is invalid"
 
-	spBlockInvalidReason = "Parameter sp-block is invalid."
-	tpBlockInvalidReason = "Parameter tp-block is invalid."
+	spBlockInvalidReason      = "Parameter sp-block is invalid."
+	tpBlockInvalidReason      = "Parameter tp-block is invalid."
+	superPodSizeInvalidReason = "Parameter super-pod-size is invalid."
 
 	taskSpec                   = "volcano.sh/task-spec"
 	getNPUFromPodFailedPattern = "%s getUsableTopFromNode err: %s"

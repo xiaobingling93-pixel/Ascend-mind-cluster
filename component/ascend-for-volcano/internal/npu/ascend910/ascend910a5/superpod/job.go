@@ -66,6 +66,32 @@ func (tp *module910a5SuperPod) checkSpBlock() *api.ValidateResult {
 	return nil
 }
 
+func (tp *module910a5SuperPod) checkSuperPodSizeValid() *api.ValidateResult {
+	// getting super-pod-size in volcano.yaml instead of new value changed by process which is different with 910a3
+	SuperPodSizeFromConf := tp.FrameAttr.SuperPodSizeFromConf
+
+	//  Max(super-pod-size) * 8 <= 8192
+	if SuperPodSizeFromConf <= 0 || SuperPodSizeFromConf*tp.MaxNodeNPUNum > maxSuperPodNPUNum {
+		return &api.ValidateResult{
+			Pass:   false,
+			Reason: superPodSizeInvalidReason,
+			Message: fmt.Sprintf("Parameter super-pod-size(%d) in volcano.yaml is invalid "+
+				"which should be in range [1,1024]",
+				SuperPodSizeFromConf),
+		}
+	}
+
+	if tp.spBlock > tp.FrameAttr.SuperPodSizeFromConf {
+		return &api.ValidateResult{
+			Pass:   false,
+			Reason: superPodSizeInvalidReason,
+			Message: fmt.Sprintf("Parameter spBlock(%d/8=%d) is bigger than size of super-pod-size(%d)",
+				tp.SpBlockNPUNum, tp.spBlock, tp.FrameAttr.SuperPodSizeFromConf),
+		}
+	}
+	return nil
+}
+
 // check the validation of tp-block
 func (tp *module910a5SuperPod) checkTpBlockNum() *api.ValidateResult {
 	// the tp-block value must in range [1,64]

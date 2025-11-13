@@ -121,7 +121,7 @@ func initCard910Factory() {
 	card910Factory[module910a3x16.SchedulerName] =
 		func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
 	card910Factory[superpoda5.SuperPodx8SchedulerName] =
-		func() base.AscendHandler { return module910a3x16.New(superpoda5.SuperPodx8SchedulerName) }
+		func() base.AscendHandler { return superpoda5.New(superpoda5.SuperPodx8SchedulerName) }
 	card910Factory[ascend800ia5superpod.InferSchedulerName] =
 		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
 	card910Factory[ascend800ia5superpod.TrainSchedulerName] =

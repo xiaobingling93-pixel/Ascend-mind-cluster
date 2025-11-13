@@ -33,8 +33,6 @@ type jobParams struct {
 	tpBlock                  int
 	totalCount               int
 	scheduleStrategy         int
-	acceleratorValue         string
-	isNeedAlgoAlign          bool
 	netUnhealthyKey          string
 	faultNPUKey              string
 	whetherBackToVspSchedule bool
@@ -43,7 +41,6 @@ type jobParams struct {
 type superPodsInfo struct {
 	superPodTable superPodOrderTable
 	spCount       int
-	tpCount       int
 }
 
 type superPodOrderTable = [][][]superPod
@@ -62,8 +59,6 @@ type jobCheckerFunc func() *api.ValidateResult
 type nodeCheckerFunc func(*api.TaskInfo, plugin.NPUNode) error
 
 type rackNpuTopType [rackNodeNum][nodeNPUNum]bool
-
-type nodeNpuTopType [nodeNPUNum]bool
 
 const (
 	// SuperPodAnnoKey the key of sp-block
