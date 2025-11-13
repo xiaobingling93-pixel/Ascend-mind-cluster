@@ -55,6 +55,7 @@ type DeviceInfo struct {
 	DeviceInfoNoName
 	CmName      string
 	SuperPodID  int32
+	RackID      int32
 	ServerIndex int32
 }
 
@@ -91,6 +92,7 @@ type SwitchFaultInfoFromCm struct {
 type DeviceInfoCM struct {
 	DeviceInfo  DeviceInfoNoName
 	SuperPodID  int32
+	RackID      int32
 	ServerIndex int32
 	CheckCode   string
 }
