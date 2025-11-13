@@ -41,6 +41,7 @@ func ParseDeviceInfoCM(obj interface{}) (*constant.DeviceInfo, error) {
 	device.UpdateTime = devInfoCM.DeviceInfo.UpdateTime
 	device.ServerIndex = devInfoCM.ServerIndex
 	device.SuperPodID = devInfoCM.SuperPodID
+	device.RackID = devInfoCM.RackID
 	device.CmName = deviceCm.Name
 	return &device, nil
 }
