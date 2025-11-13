@@ -30,23 +30,23 @@ import (
 
 // for test cases use
 const (
-	npuTaskNum1  = 1
-	npuTaskNum2  = 2
-	npuTaskNum3  = 3
-	npuTaskNum4  = 4
-	npuTaskNum5  = 5
-	npuTaskNum12 = 12
+	npuTaskNum1   = 1
+	npuTaskNum2   = 2
+	npuTaskNum3   = 3
+	npuTaskNum4   = 4
+	npuTaskNum5   = 5
+	npuTaskNum12  = 12
+	superPodSize2 = 2
 )
 
 // ValidNPUJobTestCase valid job tests use
 type ValidNPUJobTestCase struct {
-	Name          string
-	WantErr       *api.ValidateResult
-	Attr          util.SchedulerJobAttr
-	SchedulerName string
-	ScheduleEnv   plugin.ScheduleEnv
-	SpBlockNum    int
-	TpBlockNum    int
+	Name        string
+	WantErr     *api.ValidateResult
+	Attr        util.SchedulerJobAttr
+	ScheduleEnv plugin.ScheduleEnv
+	SpBlockNum  int
+	TpBlockNum  int
 }
 
 func buildTestJobAttr(npuTaskNum int, reqTaskNPU string) util.SchedulerJobAttr {
@@ -59,13 +59,14 @@ func buildTestJobAttr(npuTaskNum int, reqTaskNPU string) util.SchedulerJobAttr {
 // TestValidNPUJob for ValidNPUJob
 func TestValidNPUJob(t *testing.T) {
 	testCases := buildCheckSpBlockValidCase()
+	testCases = append(testCases, buildCheckSuperPodSizeValidCase()...)
 	testCases = append(testCases, buildCheckTpBlockNumCase()...)
 	testCases = append(testCases, buildCalculateTpBlockAndCheckCase()...)
 	testCases = append(testCases, buildCheckJobReqNpuNumCase1()...)
 	testCases = append(testCases, buildCheckJobReqNpuNumCase2()...)
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
-			npu := New(tt.SchedulerName)
+			npu := New(SuperPodx8SchedulerName)
 			npu.ScheduleEnv = tt.ScheduleEnv
 			tt.Attr.SpBlockNPUNum = tt.SpBlockNum
 			tt.Attr.TpBlockNPUNum = tt.TpBlockNum
@@ -81,7 +82,8 @@ func setSuperPodSize(superpodSize int) plugin.VolcanoFrame {
 	return plugin.VolcanoFrame{
 		ConfigParameters: plugin.ConfigParameters{
 			DynamicParameters: plugin.DynamicParameters{
-				SuperPodSize: superpodSize,
+				SuperPodSize:         superpodSize,
+				SuperPodSizeFromConf: superpodSize,
 			},
 		},
 	}
@@ -92,10 +94,9 @@ func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 		{
 			Name: "checkSpBlockValid-01: Parameter sp-block is invalid." +
 				"should return nil",
-			SchedulerName: SuperPodx8SchedulerName,
-			Attr:          buildTestJobAttr(npuTaskNum1, "8"),
-			SpBlockNum:    0,
-			TpBlockNum:    1,
+			Attr:       buildTestJobAttr(npuTaskNum1, "8"),
+			SpBlockNum: 0,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -106,11 +107,10 @@ func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 			},
 		},
 		{
-			Name:          "checkSpBlockValid-02: Parameter sp-block(24) is not multiple of node npu (8)",
-			Attr:          buildTestJobAttr(npuTaskNum1, "8"),
-			SpBlockNum:    10,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkSpBlockValid-02: Parameter sp-block(24) is not multiple of node npu (8)",
+			Attr:       buildTestJobAttr(npuTaskNum1, "8"),
+			SpBlockNum: 10,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -123,10 +123,9 @@ func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 		{
 			Name: "checkSpBlockValid-03: " +
 				"job require total Pod(5) should be multiple of a sp-block size 4",
-			Attr:          buildTestJobAttr(npuTaskNum5, "8"),
-			SpBlockNum:    32,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Attr:       buildTestJobAttr(npuTaskNum5, "8"),
+			SpBlockNum: 32,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -139,14 +138,47 @@ func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 	}
 }
 
+func buildCheckSuperPodSizeValidCase() []ValidNPUJobTestCase {
+	return []ValidNPUJobTestCase{
+		{
+			Name:       "checkSuperPodSizeValid-01: Parameter super-pod-size(0) in volcano.yaml is invalid",
+			Attr:       buildTestJobAttr(npuTaskNum4, "8"),
+			SpBlockNum: 32,
+			TpBlockNum: 32,
+			ScheduleEnv: plugin.ScheduleEnv{
+				FrameAttr: setSuperPodSize(0),
+			},
+			WantErr: &api.ValidateResult{
+				Pass:   false,
+				Reason: superPodSizeInvalidReason,
+				Message: "Parameter super-pod-size(0) in volcano.yaml is invalid " +
+					"which should be in range [1,1024]",
+			},
+		},
+		{
+			Name:       "checkSuperPodSizeValid-02: Parameter sp-block is bigger than size of super-pod-size(32)",
+			Attr:       buildTestJobAttr(npuTaskNum4, "8"),
+			SpBlockNum: 32,
+			TpBlockNum: 1,
+			ScheduleEnv: plugin.ScheduleEnv{
+				FrameAttr: setSuperPodSize(superPodSize2),
+			},
+			WantErr: &api.ValidateResult{
+				Pass:    false,
+				Reason:  superPodSizeInvalidReason,
+				Message: "Parameter spBlock(32/8=4) is bigger than size of super-pod-size(2)",
+			},
+		},
+	}
+}
+
 func buildCheckTpBlockNumCase() []ValidNPUJobTestCase {
 	return []ValidNPUJobTestCase{
 		{
-			Name:          "checkTpBlockNum-01: Parameter tp-block is invalid, it should be a number in the range",
-			Attr:          buildTestJobAttr(npuTaskNum4, "8"),
-			SpBlockNum:    32,
-			TpBlockNum:    128,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkTpBlockNum-01: Parameter tp-block is invalid, it should be a number in the range",
+			Attr:       buildTestJobAttr(npuTaskNum4, "8"),
+			SpBlockNum: 32,
+			TpBlockNum: 128,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -157,11 +189,10 @@ func buildCheckTpBlockNumCase() []ValidNPUJobTestCase {
 			},
 		},
 		{
-			Name:          "checkTpBlockNum-02: Parameter tp-block(48) must be the power of 2",
-			Attr:          buildTestJobAttr(npuTaskNum8, "8"),
-			SpBlockNum:    64,
-			TpBlockNum:    48,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkTpBlockNum-02: Parameter tp-block(48) must be the power of 2",
+			Attr:       buildTestJobAttr(npuTaskNum8, "8"),
+			SpBlockNum: 64,
+			TpBlockNum: 48,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -178,10 +209,9 @@ func buildCalculateTpBlockAndCheckCase01() ValidNPUJobTestCase {
 	return ValidNPUJobTestCase{
 		Name: "calculateTpBlockAndCheck-01: " +
 			"Parameter tp-block(32)/8 could not be bigger than sp-block(16)/8",
-		Attr:          buildTestJobAttr(npuTaskNum2, "8"),
-		SpBlockNum:    16,
-		TpBlockNum:    32,
-		SchedulerName: SuperPodx8SchedulerName,
+		Attr:       buildTestJobAttr(npuTaskNum2, "8"),
+		SpBlockNum: 16,
+		TpBlockNum: 32,
 		ScheduleEnv: plugin.ScheduleEnv{
 			FrameAttr: setSuperPodSize(superPodSize32),
 		},
@@ -197,10 +227,9 @@ func buildCalculateTpBlockAndCheckCase02() ValidNPUJobTestCase {
 	return ValidNPUJobTestCase{
 		Name: "calculateTpBlockAndCheck-02: " +
 			"number of tasks(3) must be multiple of nodes occupied by tp-block(2)",
-		Attr:          buildTestJobAttr(npuTaskNum3, "8"),
-		SpBlockNum:    24,
-		TpBlockNum:    16,
-		SchedulerName: SuperPodx8SchedulerName,
+		Attr:       buildTestJobAttr(npuTaskNum3, "8"),
+		SpBlockNum: 24,
+		TpBlockNum: 16,
 		ScheduleEnv: plugin.ScheduleEnv{
 			FrameAttr: setSuperPodSize(superPodSize32),
 		},
@@ -216,10 +245,9 @@ func buildCalculateTpBlockAndCheckCase03() ValidNPUJobTestCase {
 	return ValidNPUJobTestCase{
 		Name: "calculateTpBlockAndCheck-03: " +
 			"Parameter sp-block(32)/8 must be multiple of nodes occupied by NPUTaskNum(16)/8",
-		Attr:          buildTestJobAttr(npuTaskNum12, "8"),
-		SpBlockNum:    24,
-		TpBlockNum:    16,
-		SchedulerName: SuperPodx8SchedulerName,
+		Attr:       buildTestJobAttr(npuTaskNum12, "8"),
+		SpBlockNum: 24,
+		TpBlockNum: 16,
 		ScheduleEnv: plugin.ScheduleEnv{
 			FrameAttr: setSuperPodSize(superPodSize32),
 		},
@@ -242,11 +270,10 @@ func buildCalculateTpBlockAndCheckCase() []ValidNPUJobTestCase {
 func buildCheckJobReqNpuNumCase1() []ValidNPUJobTestCase {
 	return []ValidNPUJobTestCase{
 		{
-			Name:          "checkJobReqNpuNum-01: single super-pod job require npu [1, 8]",
-			Attr:          buildTestJobAttr(npuTaskNum1, "9"),
-			SpBlockNum:    1,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkJobReqNpuNum-01: single super-pod job require npu [1, 8]",
+			Attr:       buildTestJobAttr(npuTaskNum1, "9"),
+			SpBlockNum: 1,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -257,11 +284,10 @@ func buildCheckJobReqNpuNumCase1() []ValidNPUJobTestCase {
 			},
 		},
 		{
-			Name:          "checkJobReqNpuNum-02: distributed super-pod job require npu should be multiple of sp-block",
-			Attr:          buildTestJobAttr(npuTaskNum2, "8"),
-			SpBlockNum:    6,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkJobReqNpuNum-02: distributed super-pod job require npu should be multiple of sp-block",
+			Attr:       buildTestJobAttr(npuTaskNum2, "8"),
+			SpBlockNum: 6,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -272,11 +298,10 @@ func buildCheckJobReqNpuNumCase1() []ValidNPUJobTestCase {
 			},
 		},
 		{
-			Name:          "checkJobReqNpuNum-03: distributed super-pod job require npu should be multiple of sp-block",
-			Attr:          buildTestJobAttr(npuTaskNum3, "6"),
-			SpBlockNum:    1,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkJobReqNpuNum-03: distributed super-pod job require npu should be multiple of sp-block",
+			Attr:       buildTestJobAttr(npuTaskNum3, "6"),
+			SpBlockNum: 1,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -292,11 +317,10 @@ func buildCheckJobReqNpuNumCase1() []ValidNPUJobTestCase {
 func buildCheckJobReqNpuNumCase2() []ValidNPUJobTestCase {
 	return []ValidNPUJobTestCase{
 		{
-			Name:          "checkJobReqNpuNum-04: single super-pod job sp-block annotation should equal require npu num",
-			Attr:          buildTestJobAttr(npuTaskNum1, "1"),
-			SpBlockNum:    2,
-			TpBlockNum:    1,
-			SchedulerName: SuperPodx8SchedulerName,
+			Name:       "checkJobReqNpuNum-04: single super-pod job sp-block annotation should equal require npu num",
+			Attr:       buildTestJobAttr(npuTaskNum1, "1"),
+			SpBlockNum: 2,
+			TpBlockNum: 1,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},
@@ -309,10 +333,9 @@ func buildCheckJobReqNpuNumCase2() []ValidNPUJobTestCase {
 		{
 			Name: "checkJobReqNpuNum-05: distributed super-pod job require npu(8) " +
 				"should be multiple of tp-block",
-			Attr:          buildTestJobAttr(npuTaskNum2, "5"),
-			SpBlockNum:    2,
-			TpBlockNum:    8,
-			SchedulerName: SuperPodx8SchedulerName,
+			Attr:       buildTestJobAttr(npuTaskNum2, "5"),
+			SpBlockNum: 2,
+			TpBlockNum: 8,
 			ScheduleEnv: plugin.ScheduleEnv{
 				FrameAttr: setSuperPodSize(superPodSize32),
 			},

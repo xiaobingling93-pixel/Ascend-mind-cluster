@@ -37,7 +37,6 @@ func New(name string) *module910a5SuperPod {
 	m.scheduleStrategy = SuperPodSchedule
 	m.netUnhealthyKey = networkUnhealthyNPU
 	m.faultNPUKey = faultNPU
-	m.isNeedAlgoAlign = false
 	return m
 }
 
@@ -57,6 +56,7 @@ func (tp *module910a5SuperPod) ValidNPUJob() *api.ValidateResult {
 	// register all check func in order
 	checkers := []jobCheckerFunc{
 		tp.checkSpBlock,
+		tp.checkSuperPodSizeValid,
 		tp.checkTpBlockNum,
 		tp.calculateTpBlockAndCheck,
 		tp.checkJobReqNpuNum,

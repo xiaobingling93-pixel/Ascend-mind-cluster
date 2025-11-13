@@ -331,7 +331,6 @@ func superPodModelForTest(tasks []*api.TaskInfo, cs *selectScoreBestNPUNodesTest
 	} else {
 		plg.Nodes = getNPUNodes(nodeInfoIdx0, nodeInfoIdx368, cs.superPodSize, rackNodeNum)
 	}
-	plg.isNeedAlgoAlign = cs.isNeedAlgoAlign
 
 	for _, task := range plg.Tasks {
 		job.ReqNPUNum += task.ReqNPUNum
