@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/api"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 )
 
 const (
@@ -85,7 +85,6 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
-
 
 func buildTestSelectNodesForJobCases0() []*selectScoreBestNPUNodesTestCase {
 	nodeInfo := buildDefaultNodeInfoList()

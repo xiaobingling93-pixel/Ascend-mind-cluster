@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"volcano.sh/volcano/pkg/scheduler/framework"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"k8s.io/api/core/v1"
@@ -33,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"volcano.sh/volcano/pkg/scheduler/api"
-	"volcano.sh/volcano/pkg/scheduler/framework"
-
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
@@ -245,7 +244,8 @@ func fakeReSchedulerCache() *DealReSchedulerCache {
 			nodeNames[three]: fakeTestFaultNodeNodeUnhealthy(nodeNames[three]),
 		},
 		FaultJobs: map[api.JobID]*FaultJob{
-			api.JobID(nameSpace + `/` + jobName): fakeTestFaultJob(nodeNames, jobRankIds, faultTasks, jobName, nameSpace),
+			api.JobID(nameSpace + `/` + jobName): fakeTestFaultJob(nodeNames, jobRankIds, faultTasks, jobName,
+				nameSpace),
 		},
 	}
 }
@@ -341,13 +341,14 @@ func fakeFaultTask2P(ns string, name string, node string, job string, index stri
 	return fTask
 }
 
-func fakeFaultJob() FaultJob {
+func fakeFaultJob(jobUID string, jobName string, elasticScheduling string) FaultJob {
 	return FaultJob{
-		ReScheduleKey: "grace",
-		IsFaultJob:    true,
-		JobName:       "job0",
-		JobUID:        "vcjob/job0",
-		JobNamespace:  "test",
+		ReScheduleKey:     "grace",
+		ElasticScheduling: elasticScheduling,
+		IsFaultJob:        true,
+		JobName:           "job0",
+		JobUID:            "vcjob/job0",
+		JobNamespace:      "test",
 		FaultTasks: []FaultTask{
 			fakeFaultTask2P("vcjob", "pod0", "node0", "job0", "0"),
 			fakeFaultTask2P("vcjob", "pod1", "node1", "job0", "1"),
@@ -358,7 +359,7 @@ func fakeFaultJob() FaultJob {
 
 func fakeCacheWithFJobReSchedulerAddFaultJobWithSession() *DealReSchedulerCache {
 	reCache := fakeCacheNoneFJobReSchedulerAddFaultJobWithSession()
-	fakeJob := fakeFaultJob()
+	fakeJob := fakeFaultJob("vcjob/job0", "job0", "")
 	reCache.FaultJobs = map[api.JobID]*FaultJob{fakeJob.JobUID: &fakeJob}
 	return reCache
 }
@@ -443,10 +444,7 @@ func buildReSchedulerAddFaultJobWithSession() []ReSchedulerAddFaultJobWithSessio
 	jobs12 := reCreateSchedulerJob910("vcjob", "job1")
 	jobs12 = addNPUTaskToNPUJob(jobs12, "task3", "vcjob", util.NPUIndex4)
 	jobs12 = addNPUTaskToNPUJob(jobs12, "task4", "vcjob", util.NPUIndex4)
-	jobs1 := map[api.JobID]plugin.SchedulerJob{
-		"vcjob/job0": jobs11,
-		"vcjob/job1": jobs12,
-	}
+	jobs1 := map[api.JobID]plugin.SchedulerJob{"vcjob/job0": jobs11, "vcjob/job1": jobs12}
 
 	reCache1 := fakeCacheNoneFJobReSchedulerAddFaultJobWithSession()
 	reScheduler1 := reNewReScheduler(0)
@@ -457,6 +455,12 @@ func buildReSchedulerAddFaultJobWithSession() []ReSchedulerAddFaultJobWithSessio
 	reScheduler2 := reNewReScheduler(DefaultGraceOverTime)
 	addSchedulerJobToReScheduler(reScheduler2, jobs1)
 	addReCacheToReScheduler(reScheduler2, reCache2)
+	tests := buildReSchedulerAddFaultJobWithSessionTests(reScheduler1, jobInfos1, reScheduler2)
+	return tests
+}
+
+func buildReSchedulerAddFaultJobWithSessionTests(reScheduler1 *ReScheduler, jobInfos1 map[api.JobID]*api.JobInfo,
+	reScheduler2 *ReScheduler) []ReSchedulerAddFaultJobWithSessionTests {
 	test1 := ReSchedulerAddFaultJobWithSessionTests{
 		name:   "01-AddFaultJobWithSession()-GraceDeleteTime 0",
 		fields: reScheduler1,
@@ -477,17 +481,35 @@ func buildReSchedulerAddFaultJobWithSession() []ReSchedulerAddFaultJobWithSessio
 		},
 		wantErr: false,
 	}
-	tests := []ReSchedulerAddFaultJobWithSessionTests{
-		test1,
-		test2,
+	test3 := ReSchedulerAddFaultJobWithSessionTests{
+		name:   "03-AddFaultJobWithSession()-ReScheduler is nil",
+		fields: nil,
+		args: ReSchedulerAddFaultJobWithSessionArgs{
+			jobs:        jobInfos1,
+			cardName:    "",
+			cardPreName: "",
+		},
+		wantErr: true,
 	}
+	test4 := ReSchedulerAddFaultJobWithSessionTests{
+		name:   "04-AddFaultJobWithSession()-ReScheduler FaultJobs is not empty",
+		fields: reScheduler2,
+		args: ReSchedulerAddFaultJobWithSessionArgs{
+			jobs:        jobInfos1,
+			cardName:    "",
+			cardPreName: "",
+		},
+		wantErr: false,
+	}
+	tests := []ReSchedulerAddFaultJobWithSessionTests{test1, test2, test3, test4}
 	return tests
 }
 
 // TestReSchedulerAddFaultJobWithSession test for add fault job
 func TestReSchedulerAddFaultJobWithSession(t *testing.T) {
 	env := plugin.ScheduleEnv{}
-	env.SuperPodInfo = plugin.NewSuperPodInfo()
+	env.SuperPodInfo = fillEnvSuperPodInfo()
+	plugin.NewSuperPodInfo()
 	tests := buildReSchedulerAddFaultJobWithSession()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -497,6 +519,14 @@ func TestReSchedulerAddFaultJobWithSession(t *testing.T) {
 			}
 		})
 	}
+}
+
+func fillEnvSuperPodInfo() *plugin.SuperPodInfo {
+	superPodInfo := plugin.NewSuperPodInfo()
+	superPodInfo.SuperPodReschdInfo["vcjob/job0"] = make(map[string][]plugin.SuperNode)
+	superPodInfo.SuperPodFaultTaskNodes["vcjob/job1"] = make([]string, 0)
+	superPodInfo.SuperPodMapFaultTaskNodes["vcjob/job1"] = make(map[string]string)
+	return superPodInfo
 }
 
 type FaultNodeGetUnhealthyCardsFromDeviceInfoArgs struct {
@@ -1136,19 +1166,37 @@ func TestGetGraceDeleteFaultJobs(t *testing.T) {
 }
 
 func TestGetNeedForceDeleteDelayingNPUJobs(t *testing.T) {
-	reScheduler := fakeTestTTReScheduler(TestReScheduler{})
-	t.Run("01-GetNeedForceDeleteDelayingNPUJobs() return error when schedulerJobs or ssn is nil",
-		func(t *testing.T) {
-			_, err := reScheduler.GetNeedForceDeleteDelayingNPUJobs(nil, nil)
-			if err == nil {
-				t.Errorf("GetNeedForceDeleteDelayingNPUJobs() err = %v, wantErr is not nil", err)
-			}
-		})
+	t.Run("01-GetNeedForceDeleteDelayingNPUJobs() return error when schedulerJobs or ssn is nil", func(t *testing.T) {
+		reScheduler := fakeTestTTReScheduler(TestReScheduler{})
+		_, err := reScheduler.GetNeedForceDeleteDelayingNPUJobs(nil, nil)
+		if err == nil {
+			t.Errorf("GetNeedForceDeleteDelayingNPUJobs() err = %v, wantErr is not nil", err)
+		}
+	})
 	t.Run("02-GetNeedForceDeleteDelayingNPUJobs() return error when get none jobs", func(t *testing.T) {
+		reScheduler := fakeTestTTReScheduler(TestReScheduler{})
 		reScheduler.DealReSchedulerCache = fakeCacheWithFJobReSchedulerAddFaultJobWithSession()
 		ssn := test.FakeNormalSSN(nil)
 		jobInfo := mockJobInfo("job0", test.NPUIndex4)
 		ssn.Jobs[jobInfo.UID] = jobInfo
+		schedulerJobs := map[api.JobID]plugin.SchedulerJob{
+			jobInfo.UID: {SchedulerJobAttr: util.SchedulerJobAttr{NPUJob: &util.NPUJob{}}},
+		}
+		_, err := reScheduler.GetNeedForceDeleteDelayingNPUJobs(schedulerJobs, ssn)
+		if err == nil {
+			t.Errorf("GetNeedForceDeleteDelayingNPUJobs() err = %v, wantErr is not nil", err)
+		}
+	})
+	t.Run("03-GetNeedForceDeleteDelayingNPUJobs() return error when get none jobs", func(t *testing.T) {
+		reScheduler := fakeTestTTReScheduler(TestReScheduler{})
+		reScheduler.DealReSchedulerCache = fakeCacheWithFJobReSchedulerAddFaultJobWithSession()
+		faultJob := fakeFaultJob("vcjob/job1", "job1", "on")
+		reScheduler.FaultJobs[faultJob.JobUID] = &faultJob
+		ssn := test.FakeNormalSSN(nil)
+		jobInfo := mockJobInfo("job0", test.NPUIndex4)
+		ssn.Jobs[jobInfo.UID] = jobInfo
+		jobInfo1 := mockJobInfo("job2", test.NPUIndex4)
+		ssn.Jobs[jobInfo1.UID] = jobInfo1
 		schedulerJobs := map[api.JobID]plugin.SchedulerJob{
 			jobInfo.UID: {SchedulerJobAttr: util.SchedulerJobAttr{NPUJob: &util.NPUJob{}}},
 		}
@@ -1274,7 +1322,7 @@ func TestConvertFaultTaskToRecords(t *testing.T) {
 		})
 	t.Run("02-convertFaultTaskToRecords() return slice when fJob is not nil",
 		func(t *testing.T) {
-			fJob := fakeFaultJob()
+			fJob := fakeFaultJob("vcjob/job0", "job0", "")
 			fJob.FaultTasks = append(fJob.FaultTasks, FaultTask{})
 			fJob.FaultTasks = append(fJob.FaultTasks, createFaultTasks(numberOfFaultTasks)...)
 			res := convertFaultTaskToRecords(&fJob)
@@ -1358,7 +1406,8 @@ func TestIsJobCanAssignToSubHealthNode(t *testing.T) {
 	reScheduler := fakeTestTTReScheduler(TestReScheduler{})
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := reScheduler.isJobCanAssignToSubHealthNode(testCase.args.jobSubHealthStrategy, testCase.args.nodeSubHealth)
+			result := reScheduler.isJobCanAssignToSubHealthNode(testCase.args.jobSubHealthStrategy,
+				testCase.args.nodeSubHealth)
 			if result != testCase.wantResult {
 				t.Errorf("isJobCanAssignToSubHealthNode() result = %v, want %v", result, testCase.wantResult)
 			}
@@ -1528,5 +1577,51 @@ func TestReSchedulerUseAnnotation02(t *testing.T) {
 		}
 		task.NodeName = "node2"
 		reScheduler.UseAnnotation(task)
+	})
+}
+
+func TestSetFaultTaskUseNodeLinkDownTime(t *testing.T) {
+	t.Run("setFaultTaskUseNodeLinkDownTime faultType is RelationFaultSeparate", func(t *testing.T) {
+		reScheduler := &ReScheduler{DealReSchedulerCache: &DealReSchedulerCache{
+			FaultNodes: map[string]*FaultNode{
+				"node0": {
+					FaultDeviceList: []FaultDeviceList{
+						{
+							FaultLevel: NotHandleFault,
+							FaultCode:  linkDownFaultCode,
+						},
+					},
+				},
+			},
+		},
+		}
+		faultJob := fakeFaultJob("vcjob/job1", "job1", "on")
+		faultJob.FaultTasks[0].faultType = util.RelationFault
+		reScheduler.setFaultTaskUseNodeLinkDownTime(&faultJob)
+		faultNode := reScheduler.FaultNodes["node0"]
+		if faultNode == nil {
+			t.Errorf("setFaultTaskUseNodeLinkDownTime() data wrong.")
+		}
+	})
+	t.Run("setFaultTaskUseNodeLinkDownTime deviceFault is NotHandleFault", func(t *testing.T) {
+		reScheduler := &ReScheduler{DealReSchedulerCache: &DealReSchedulerCache{
+			FaultNodes: map[string]*FaultNode{
+				"node0": {
+					FaultDeviceList: []FaultDeviceList{
+						{
+							FaultLevel: NotHandleFault,
+						},
+					},
+				},
+			},
+		},
+		}
+		faultJob := fakeFaultJob("vcjob/job1", "job1", "on")
+		faultJob.FaultTasks[1].faultType = util.RelationFault
+		reScheduler.setFaultTaskUseNodeLinkDownTime(&faultJob)
+		faultNode := reScheduler.FaultNodes["node0"]
+		if faultNode == nil {
+			t.Errorf("setFaultTaskUseNodeLinkDownTime() data wrong.")
+		}
 	})
 }

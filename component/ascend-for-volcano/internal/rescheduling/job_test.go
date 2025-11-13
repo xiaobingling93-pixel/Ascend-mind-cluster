@@ -21,6 +21,8 @@ package rescheduling
 
 import (
 	"reflect"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -191,38 +193,6 @@ func TestIsContainTask(t *testing.T) {
 	})
 }
 
-// TestGetIds test getIds
-func TestGetIds(t *testing.T) {
-	env := plugin.ScheduleEnv{}
-	env.SuperPodInfo = plugin.NewSuperPodInfo()
-
-	fJob := &FaultJob{
-		JobUID: "test",
-	}
-	t.Run("getIds", func(t *testing.T) {
-		if result := fJob.getIds(env); result != nil {
-			t.Errorf("return [] when SuperPodFaultTaskNodes doesn't have job test "+
-				"result = %v, want %v", result, nil)
-		}
-		env.SuperPodInfo.SuperPodFaultTaskNodes["test"] = []string{"node"}
-		env.SuperPodInfo.SuperPodReschdInfo["test"] = map[string][]plugin.SuperNode{
-			"0": {
-				plugin.SuperNode{
-					SuperPodID: 1,
-					Name:       "node1",
-				},
-			},
-		}
-		if result := fJob.getIds(env); result != nil {
-			t.Errorf("return [] when name != node1 result = %v, want %v", result, nil)
-		}
-		env.SuperPodInfo.SuperPodFaultTaskNodes["test"] = []string{"node1"}
-		if result := fJob.getIds(env); !reflect.DeepEqual(result, []string{"0"}) {
-			t.Errorf("return [0] when name == node1 result = %v, want %v", result, true)
-		}
-	})
-}
-
 func TestGetJobFaultRescheduleLabel(t *testing.T) {
 	t.Run("01-GetJobFaultRescheduleLabel return error when job is nil", func(t *testing.T) {
 		fJob := &FaultJob{JobUID: "test"}
@@ -287,7 +257,7 @@ func buildIsNormalJobNeedRestartTestCases() []isNormalJobNeedRestartTestCase {
 		},
 		{
 			name:    "02-IsNormalJobNeedRestart return true when IsSoftwareFault is true",
-			fJob:    &FaultJob{FaultTasks: []FaultTask{{IsSoftwareFault: true, IsNpuTask: true}}},
+			fJob:    &FaultJob{FaultTasks: []FaultTask{{IsSoftwareFault: true}}},
 			wantRes: true,
 		},
 		{
@@ -296,7 +266,6 @@ func buildIsNormalJobNeedRestartTestCases() []isNormalJobNeedRestartTestCase {
 				Reason: []FaultReasonList{
 					{FaultDeviceList: FaultDeviceList{FaultHandling: PreSeparateNPU}},
 				},
-				IsNpuTask: true,
 			}}},
 			wantRes: true,
 		},
@@ -328,11 +297,10 @@ func TestIsJobGraceDeleteSuccess(t *testing.T) {
 		IsFaultTask: true,
 		TaskUID:     mockTaskUID,
 		UseCardName: []string{mockCardName1, mockCardName2},
-		IsNpuTask:   true,
 	}}}
 	jobInfo := test.FakeNormalTestJob(mockJobName, util.NPUIndex2)
 	t.Run("01-isJobGraceDeleteSuccess return true when jobInfo.Tasks is nil", func(t *testing.T) {
-		if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
+		if res := fJob.isJobGraceDeleteSuccess(jobInfo, false); res != true {
 			t.Errorf("isJobGraceDeleteSuccess() res = %v, want true", res)
 		}
 	})
@@ -345,7 +313,7 @@ func TestIsJobGraceDeleteSuccess(t *testing.T) {
 			jobInfo.PodGroup.Labels = map[string]string{
 				util.SinglePodTag: util.EnableFunc,
 			}
-			if res := fJob.isJobGraceDeleteSuccess(jobInfo); res != true {
+			if res := fJob.isJobGraceDeleteSuccess(jobInfo, false); res != true {
 				t.Errorf("isJobGraceDeleteSuccess() res = %v, want true", res)
 			}
 		})
@@ -457,14 +425,14 @@ func TestDeleteJobWithSubHealthyLabels(t *testing.T) {
 				},
 			},
 		}
-		err := fJob.deleteJobWithSubHealthyLabels(ssn, &ReScheduler{}, &plugin.SchedulerJob{}, env)
+		err := fJob.deleteJobWithSubHealthyLabels(ssn, &plugin.SchedulerJob{}, env)
 		if err != nil {
 			t.Errorf("deleteJobWithSubHealthyLabels() err = %v, wantErr is nil", err)
 		}
 	})
 	t.Run("02-deleteJobWithSubHealthyLabels return error when ssn is nil", func(t *testing.T) {
 		fJob.SubHealthyStrategy = util.SubHealthyForceExit
-		err := fJob.deleteJobWithSubHealthyLabels(nil, nil, nil, plugin.ScheduleEnv{})
+		err := fJob.deleteJobWithSubHealthyLabels(nil, nil, plugin.ScheduleEnv{})
 		if err == nil {
 			t.Errorf("deleteJobWithSubHealthyLabels() err = %v, wantErr is not nil", err)
 		}
@@ -647,7 +615,6 @@ func mockFaultJobWithTasks() *FaultJob {
 				IsFaultTask: true,
 				TaskUID:     mockTaskUID,
 				UseCardName: []string{mockCardName1, mockCardName2},
-				IsNpuTask:   true,
 			},
 		}}
 }
@@ -665,8 +632,8 @@ func TestGraceDeletePods(t *testing.T) {
 	env := plugin.ScheduleEnv{}
 	env.SuperPodInfo = plugin.NewSuperPodInfo()
 	t.Run("01-graceDeletePods return error when npuTask not in session", func(t *testing.T) {
-		if err := fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{}); err == nil {
-			t.Errorf("graceDeletePods() err = %v, wantErr is not nil", err)
+		if err := fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{}); err != nil {
+			t.Errorf("graceDeletePods() return %v, wantErr is nil", err)
 		}
 	})
 	t.Run("02-graceDeletePods return nil when npuTask in session", func(t *testing.T) {
@@ -753,6 +720,55 @@ func TestFaultRetryTimeOfJob(t *testing.T) {
 			t.Errorf("faultRetryTimeOfJob() res = %v, wantRes is 1", res)
 		}
 	})
+}
+
+func TestDeletingTasksConcurrently(t *testing.T) {
+	waitDeleteTaskCountList := []int{201, 256, 1000, 1280, 1999, 4000}
+	for _, waitDeleteTaskCount := range waitDeleteTaskCountList {
+		t.Run("TestDeletingTasksConcurrently taskCount="+strconv.Itoa(waitDeleteTaskCount),
+			func(t *testing.T) {
+				faultJob := &FaultJob{}
+				kubeClient := fake.NewSimpleClientset()
+
+				actualDeleteTaskNameMap := map[string]string{}
+				listMutex := sync.Mutex{}
+
+				mockFunc := gomonkey.ApplyPrivateMethod(faultJob, "forceDeleteTasksConcurrently",
+					func(_ *FaultJob, waitDeleteTask []FaultTask, _ kubernetes.Interface,
+						deleteJobSync *sync.WaitGroup) {
+						listMutex.Lock()
+						defer listMutex.Unlock()
+
+						for _, faultTask := range waitDeleteTask {
+							actualDeleteTaskNameMap[faultTask.TaskName] = faultTask.TaskName
+						}
+						deleteJobSync.Done()
+					})
+				defer mockFunc.Reset()
+				var waitDeleteTaskList []FaultTask
+				for i := 0; i < waitDeleteTaskCount; i++ {
+					waitDeleteTaskList = append(waitDeleteTaskList, FaultTask{TaskName: strconv.Itoa(i)})
+				}
+				faultJob.deletingTasksConcurrently(waitDeleteTaskList, kubeClient)
+
+				if len(actualDeleteTaskNameMap) != len(waitDeleteTaskList) {
+					t.Errorf("actualDeleteTaskNameMap size(%v) != waitDeleteTaskList size(%v)",
+						len(actualDeleteTaskNameMap), len(waitDeleteTaskList))
+				}
+				for _, taskName := range actualDeleteTaskNameMap {
+					found := false
+					for _, faultTask := range waitDeleteTaskList {
+						if taskName == faultTask.TaskName {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("actualDeleteTaskNameMap elements != waitDeleteTaskList elements")
+					}
+				}
+			})
+	}
 }
 
 func TestIsFailedTask(t *testing.T) {

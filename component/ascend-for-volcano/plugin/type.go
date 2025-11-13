@@ -105,7 +105,7 @@ type SchedulerJob struct {
 	JobReadyTag   *bool
 	SuperPods     map[string][]SuperNode
 	Owner         OwnerInfo
-	A5Fields      *A5Fields
+	A5Fields
 }
 
 // OwnerInfo the owner info of job

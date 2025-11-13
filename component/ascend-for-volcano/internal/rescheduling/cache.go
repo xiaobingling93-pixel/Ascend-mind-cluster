@@ -104,6 +104,9 @@ func (reCache DealReSchedulerCache) getRealFaultJobs() map[api.JobID]*FaultJob {
 	realFaultJobs := make(map[api.JobID]*FaultJob)
 	for _, fJob := range reCache.FaultJobs {
 		if (!fJob.IsFaultJob && !fJob.IsNormalJobNeedRestart()) || fJob.ReScheduleKey == JobOffRescheduleLabelValue {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip job <%s/%s> because the job has no fault or rescheduling is off",
+				fJob.JobNamespace, fJob.JobName)
 			continue // only save real-fault and reschedule-enabled jobs
 		}
 

@@ -77,6 +77,7 @@ func (reScheduler *ReScheduler) createFaultTaskHandler(job *api.JobInfo, cardNam
 			healthState)
 		faultTask.setIsFaultTask(isFaultTask)
 		faultTask.setFaultType(healthState)
+		faultTask.setIsSatisfiedRackAffinity(true)
 		faultTasks = append(faultTasks, faultTask)
 	}
 	return faultTasks, nil
@@ -88,8 +89,8 @@ func (reScheduler *ReScheduler) GetRunningJobs(ssn *framework.Session) map[api.J
 	for _, jobInfo := range ssn.Jobs {
 		if (jobInfo.PodGroup.Status.Phase != util.PodGroupRunning) &&
 			(jobInfo.PodGroup.Status.Phase != util.PodGroupUnknown) { // pending jobs would not be put into cache
-			klog.V(util.LogWarningLev).Infof("job %s pod group is not running but %s, skip",
-				jobInfo.Name, jobInfo.PodGroup.Status.Phase)
+			klog.V(util.LogWarningLev).Infof("job %s pod group is not running but %s, skip", jobInfo.Name,
+				jobInfo.PodGroup.Status.Phase)
 			continue
 		}
 		schedulerJob, ok := reScheduler.Jobs[jobInfo.UID]
@@ -250,7 +251,7 @@ func (reScheduler *ReScheduler) GetNeedForceDeleteDelayingNPUJobs(
 			continue
 
 		}
-		if fJob.isJobGraceDeleteSuccess(jobInfo) { // if job successfully restarted, do not force delete
+		if fJob.isJobGraceDeleteSuccess(jobInfo, false) { // if job successfully restarted, do not force delete
 			continue
 		}
 		if !reScheduler.isDelayingJobTimeout(fJob) { // if job not restarted and not time out, do not force delete
@@ -290,30 +291,35 @@ func (reScheduler *ReScheduler) synCacheFaultJobWithSession(ssn *framework.Sessi
 	for jobId, faultJob := range reScheduler.FaultJobs {
 		// 1. cache Jobs exceeded max waiting time should be deleted and treated as normal new jobs
 		if nowTime-faultJob.UpdateTime > maxIntervalTime+reScheduler.GraceDeleteTime {
-			klog.V(util.LogWarningLev).Infof("delete %s from CM for overTime %v => %v.",
+			klog.V(util.LogWarningLev).Infof("rescheduling: delete %s from CM for overTime %v => %v.",
 				faultJob.JobName, nowTime, faultJob.UpdateTime)
 			continue
 		}
 
 		jobInfo := faultJob.jobInfoInSession(ssn.Jobs)
 		if jobInfo == nil {
-			klog.V(util.LogWarningLev).Infof("faultJob name: %s not in session", faultJob.JobName)
+			klog.V(util.LogWarningLev).Infof("rescheduling: faultJob name: %s not in session", faultJob.JobName)
 			continue
 		}
+		sJob := reScheduler.Jobs[faultJob.JobUID]
 		// 2. cache Jobs turned normal in session should be deleted ,meaning it has been restarted
-		if faultJob.isJobGraceDeleteSuccess(jobInfo) {
-			faultJob.updateFaultJobWhenNewPodError(jobInfo)
-			klog.V(util.LogDebugLev).Infof("%s grace deleted successful.", faultJob.JobName)
-			// delete cache when all pods have been allocated
-			reScheduler.singlePodReschedulingUpgrade(jobInfo, faultJob)
+		is910A5 := is910A5Job(&sJob)
+		if faultJob.isJobGraceDeleteSuccess(jobInfo, is910A5) {
+			reScheduler.updateFaultJobWhenGraceDeleteSuccess(jobInfo, faultJob, is910A5)
 			if plugin.GetJobInfoAllocatedTaskNum(jobInfo) >= jobInfo.MinAvailable {
 				// if fault scheduling reason is sub healthy fault and job has been rescheduled
 				// update the reset config map grace exit code to 0.
 				faultJob.resetGraceExitCode(ssn.KubeClient())
+				klog.V(util.LogInfoLev).Infof(
+					"rescheduling: skip job <%s/%s> because the job is rescheduled",
+					faultJob.JobNamespace, faultJob.JobName)
 				continue
 			}
 		}
 		if faultJob.ElasticScheduling == JobOnElasticScheduling {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip restart job <%s/%s> because the job is on elastic scheduling",
+				faultJob.JobNamespace, faultJob.JobName)
 			continue
 		}
 		if !faultJob.DeleteExecutedFlag {
@@ -321,6 +327,8 @@ func (reScheduler *ReScheduler) synCacheFaultJobWithSession(ssn *framework.Sessi
 			faultJob.updateTaskPodUid(jobInfo)
 		}
 		reScheduler.setFaultTaskUseNodeLinkDownTime(faultJob)
+		klog.V(util.LogDebugLev).Infof(
+			"rescheduling: synCacheFaultJobWithSession add job <%s/%s>", faultJob.JobNamespace, faultJob.JobName)
 		updatedFaultJobs[jobId] = faultJob
 	}
 	reScheduler.setFaultJobs(updatedFaultJobs)
@@ -457,6 +465,7 @@ func (reScheduler *ReScheduler) AddFaultNodeWithSession() {
 		faultNode.IsNpuNode = hasNpuRes
 		faultNode.NPUName = npuName
 		faultNode.SuperPodID = npuNode.SuperPodID
+		faultNode.RackID = npuNode.RackID
 		faultNode.updateFaultNodesFromDeviceInfo(&npuNode)
 		faultNode.updateFaultNodesAttr(&npuNode)
 		tmpFaultNodes[name] = faultNode
@@ -487,12 +496,23 @@ func (reScheduler *ReScheduler) RestartNeedForceDeleteJobs(ssn *framework.Sessio
 				continue
 			}
 			klog.V(util.LogWarningLev).Infof("grace delete job %s is timeout,force delete.", schedulerJob.Name)
-			if deleteErr := faultJob.ForceDeleteJob(&schedulerJob, env); deleteErr != nil {
-				klog.V(util.LogErrorLev).Infof("%s ForceDeleteJob: %s", schedulerJob.Name, util.SafePrint(deleteErr))
-			}
+			forceDeleteJob(schedulerJob, faultJob, ssn, env)
 		}
 	}
 	return nil
+}
+
+func forceDeleteJob(schedulerJob plugin.SchedulerJob, faultJob *FaultJob, ssn *framework.Session,
+	env plugin.ScheduleEnv) {
+	if is910A5Job(&schedulerJob) {
+		if deleteErr := faultJob.ForceDeleteJobFor910A5(&schedulerJob, env); deleteErr != nil {
+			klog.V(util.LogErrorLev).Infof("%s ForceDeleteJob: %s", schedulerJob.Name, util.SafePrint(deleteErr))
+		}
+	} else {
+		if deleteErr := faultJob.ForceDeleteJob(&schedulerJob, env); deleteErr != nil {
+			klog.V(util.LogErrorLev).Infof("%s ForceDeleteJob: %s", schedulerJob.Name, util.SafePrint(deleteErr))
+		}
+	}
 }
 
 // RestartFaultJobs Restart fault jobs by its corresponding strategy  grace,force,off
@@ -549,7 +569,6 @@ func (reScheduler *ReScheduler) doRestartJob(ssn *framework.Session, env plugin.
 		}
 		klog.V(util.LogWarningLev).Infof("delete %s pod execution success, set flag true", schedulerJob.Name)
 	}
-	return
 }
 
 func updateRescheduleReason(Reasons *RescheduleReason, fJob *FaultJob) *RescheduleReason {
@@ -792,10 +811,11 @@ func (reScheduler *ReScheduler) checkNodeCurNodeIsFault(vcNode *plugin.NPUNode, 
 			fNode.HasSwitchSubHealthFault, schedulerJob.SubHealthyStrategy)
 	}
 	if fNode.LinkDownTime == 0 {
-		klog.V(util.LogInfoLev).Infof("node %s is not fault node, check success", vcNode.Name)
+		klog.V(util.LogDebugLev).Infof("node %s is not fault node, check success", vcNode.Name)
 		return nil
 	}
 	if time.Now().Unix()-fNode.LinkDownTime < linkDownFaultTimeout {
+		klog.V(util.LogWarningLev).Infof("the node is fault node, node name=%s", vcNode.Name)
 		networkUnhealthyCardName := fmt.Sprintf("%s-%s", fNode.NPUName, CardNetworkUnhealthy)
 		k := vcNode.Annotation[networkUnhealthyCardName]
 		l1LinkCards := fNode.getL1LinkDownCards()
@@ -808,7 +828,7 @@ func (reScheduler *ReScheduler) checkNodeCurNodeIsFault(vcNode *plugin.NPUNode, 
 			vcNode.Annotation[networkUnhealthyCardName] = strings.Join(l1LinkCards, ",") + "," + k
 		}
 	}
-	klog.V(util.LogInfoLev).Infof("node %s is not fault node, check success", vcNode.Name)
+	klog.V(util.LogDebugLev).Infof("node %s is not fault node, check success", vcNode.Name)
 	return nil
 }
 
@@ -968,9 +988,27 @@ func (reScheduler *ReScheduler) getTaskHealthStateByPod(task *api.TaskInfo) (boo
 func (reScheduler ReScheduler) getJobsToBeRestarted(realFaultJobs map[api.JobID]*FaultJob) map[api.JobID]*FaultJob {
 	restartFaultJobs := make(map[api.JobID]*FaultJob)
 	for _, fJob := range realFaultJobs {
-		if fJob.DeleteExecutedFlag {
+		job, exist := reScheduler.Jobs[fJob.JobUID]
+		if !exist {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip job <%s/%s> because the job is not found in rescheduler cache",
+				fJob.JobNamespace, fJob.JobName)
 			continue
 		}
+		fJob.WhetherBackToVspSchedule = job.WhetherBackToVspSchedule
+		fJob.TpBlock = job.TpBlock
+		if fJob.TpBlock == inValidTpBlock {
+			fJob.TpBlock = forceRackAffinityLimit
+		}
+
+		if fJob.DeleteExecutedFlag {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip job <%s/%s> because the DeleteExecutedFlag for job is true",
+				fJob.JobNamespace, fJob.JobName)
+			continue
+		}
+		klog.V(util.LogDebugLev).Infof(
+			"rescheduling: job <%s/%s> will be rescheduled", fJob.JobNamespace, fJob.JobName)
 		restartFaultJobs[fJob.JobUID] = fJob
 	}
 	return restartFaultJobs
