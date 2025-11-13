@@ -612,7 +612,8 @@ func (tp *module910SuperPod) schedulable(fJob *rescheduling.FaultJob, totalNodes
 	for _, sp := range fJob.SuperPods {
 		num := 0
 		for _, task := range fJob.FaultTasks {
-			if !task.IsFaultTask {
+			_, podExists := tp.Tasks[task.TaskUID]
+			if !task.IsFaultTask && podExists {
 				continue
 			}
 			if ok, _ := tp.isContain(sp, task.TaskName, fJob.JobUID); ok {

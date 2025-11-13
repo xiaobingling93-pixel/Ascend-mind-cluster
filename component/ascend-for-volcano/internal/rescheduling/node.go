@@ -32,7 +32,7 @@ import (
 
 // createFaultCardHandlers initialise FaultCard struct == getInoperableNPUCards
 func (fNode *FaultNode) createFaultCardHandlers(node *plugin.NPUNode) []FaultCard {
-	klog.V(util.LogInfoLev).Infof("create new fault card handlers for node %s", node.Name)
+	klog.V(util.LogDebugLev).Infof("create new fault card handlers for node %s", node.Name)
 	faultCards := make([]FaultCard, 0)
 	if !fNode.IsNpuNode {
 		return faultCards
@@ -128,14 +128,18 @@ func (fNode *FaultNode) updateFaultNodesFromDeviceInfo(node *plugin.NPUNode) {
 		klog.V(util.LogErrorLev).Infof("getUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setUnhealthyNPUList(tmpUnhealthyNPUs)
-	klog.V(util.LogInfoLev).Infof("Unhealthy cards from device info: %v", tmpUnhealthyNPUs)
+	if len(tmpUnhealthyNPUs) > 0 {
+		klog.V(util.LogWarningLev).Infof("Unhealthy cards from device info: %v", tmpUnhealthyNPUs)
+	}
 
 	tmpNetworkUnhealthyNPUs, err := fNode.getNetworkUnhealthyCardsFromDeviceInfo(node)
 	if err != nil {
 		klog.V(util.LogInfoLev).Infof("getNetworkUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setNetworkUnhealthyNPUList(tmpNetworkUnhealthyNPUs)
-	klog.V(util.LogInfoLev).Infof("Network unhealthy cards from device info: %v", tmpUnhealthyNPUs)
+	if len(tmpNetworkUnhealthyNPUs) > 0 {
+		klog.V(util.LogWarningLev).Infof("Network unhealthy cards from device info: %v", tmpUnhealthyNPUs)
+	}
 
 	deviceFaultReason, err := fNode.getNodeDeviceFaultFromDeviceInfo(node)
 	if err != nil {
@@ -161,7 +165,7 @@ func (fNode *FaultNode) getNodeDeviceFaultFromDeviceInfo(node *plugin.NPUNode) (
 
 // updateFaultNodesAttr update Information from device Info
 func (fNode *FaultNode) updateFaultNodesAttr(node *plugin.NPUNode) {
-	klog.V(util.LogInfoLev).Infof("Update node %s attributes", node.Name)
+	klog.V(util.LogInfoLev).Infof("Update node attributes, node name=%s", node.Name)
 	// 1. create fault Card Object
 	tmpFaultCards := fNode.createFaultCardHandlers(node)
 	fNode.setFaultCards(tmpFaultCards)
@@ -175,6 +179,7 @@ func (fNode *FaultNode) updateFaultNodesAttr(node *plugin.NPUNode) {
 	fNode.setNodeHealthyBySwitch(node)
 
 	if fNode.NodeHealthState == NodeUnhealthy {
+		klog.V(util.LogErrorLev).Infof("the node state is unhealthy, node name=%s", node.Name)
 		return
 	}
 

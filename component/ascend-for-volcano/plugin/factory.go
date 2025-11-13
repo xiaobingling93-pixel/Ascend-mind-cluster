@@ -84,7 +84,7 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 			SuperPods:         sHandle.Jobs[jobID].SuperPods,
 			JobReadyTag:       util.PtrInit(true),
 			UnscheduledReason: newUnscheduledReason(),
-			A5Fields:          &A5Fields{},
+			A5Fields:          A5Fields{},
 		}
 		if err := sJob.init(jobInfo, sHandle); err != nil {
 			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))

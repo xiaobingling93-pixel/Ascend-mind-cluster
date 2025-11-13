@@ -36,11 +36,11 @@ func (sJob *SchedulerJob) setTpBlock() {
 	sJob.TpBlockNPUNum = tpBlockNum
 }
 
-func (sJob *SchedulerJob) updateSchedulerForA5Fields(oldFields *A5Fields) {
-	if sJob == nil || oldFields == nil {
+func (sJob *SchedulerJob) updateSchedulerForA5Fields(oldFields A5Fields) {
+	if sJob == nil {
 		klog.V(util.LogErrorLev).Infof("update scheduler job for a5 fields failed: %s.", util.ArgumentError)
 		return
 	}
-	sJob.A5Fields.WhetherBackToVspSchedule = oldFields.WhetherBackToVspSchedule
-	sJob.A5Fields.TpBlock = oldFields.TpBlock
+	sJob.WhetherBackToVspSchedule = oldFields.WhetherBackToVspSchedule
+	sJob.TpBlock = oldFields.TpBlock
 }

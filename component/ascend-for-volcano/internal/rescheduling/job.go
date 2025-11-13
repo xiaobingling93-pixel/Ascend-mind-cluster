@@ -90,13 +90,9 @@ func (fJob *FaultJob) IsNormalJobNeedRestart() bool {
 	return false
 }
 
-func (fJob *FaultJob) isJobGraceDeleteSuccess(jobInfo *api.JobInfo) bool {
+func (fJob *FaultJob) isJobGraceDeleteSuccess(jobInfo *api.JobInfo, tag910A5 bool) bool {
 	restartNum := 0
-	deleteNum := 0
 	for _, fTask := range fJob.FaultTasks {
-		if fTask.IsFaultTask {
-			deleteNum++
-		}
 		podCreateTimeRecord := fTask.PodCreateTime // former pods create time
 		npuTask, ok := jobInfo.Tasks[fTask.TaskUID]
 		if !ok { // task not in job indicates it has been restarted
@@ -106,18 +102,31 @@ func (fJob *FaultJob) isJobGraceDeleteSuccess(jobInfo *api.JobInfo) bool {
 		}
 		podCreateTimeCur := npuTask.Pod.CreationTimestamp.Unix() // current pod create time
 		if podCreateTimeCur != podCreateTimeRecord {
-			klog.V(util.LogInfoLev).Infof("pod %s restart success[new:%v---old:%v]",
-				npuTask.Pod.Name, podCreateTimeCur, podCreateTimeRecord)
+			klog.V(util.LogInfoLev).Infof("pod %s restart success[new:%v---old:%v]", npuTask.Pod.Name, podCreateTimeCur,
+				podCreateTimeRecord)
 			restartNum++
+			continue
+		}
+
+		if fTask.IsFaultTask {
+			klog.V(util.LogInfoLev).Infof("fault task<%s> is still being deleted", fTask.TaskName)
+			return false
+		}
+
+		if fTask.IsBeingGracefulDeleted {
+			klog.V(util.LogInfoLev).Infof("normal task<%s> is still being deleted", fTask.TaskName)
+			return false
 		}
 	}
 
-	klog.V(util.LogDebugLev).Infof("<%d/%d> pod of job restarted", restartNum, jobInfo.MinAvailable)
 	if len(jobInfo.PodGroup.Labels) != 0 && (jobInfo.PodGroup.Labels[util.SinglePodTag] == util.EnableFunc ||
 		jobInfo.PodGroup.Labels[util.ProcessRecoverEnable] == util.EnableFunc) &&
-		fJob.PendingSessionNum != pendingTimes {
-		return restartNum >= deleteNum
+		(tag910A5 || fJob.PendingSessionNum != pendingTimes) {
+		klog.V(util.LogInfoLev).Info("grace deletion for pod-level rescheduling complete")
+		return true
 	}
+
+	klog.V(util.LogInfoLev).Infof("<%d/%d> pod of job restarted", restartNum, len(fJob.FaultTasks))
 	return restartNum >= len(fJob.FaultTasks)
 }
 
@@ -128,22 +137,29 @@ func (fJob *FaultJob) deleteJobWithLabels(ssn *framework.Session, reschedule *Re
 		return fmt.Errorf("job <%s> is not fault job or pod failed job reach max restart time", fJob.JobName)
 	}
 	if fJob.IsSubHealthFault {
-		return fJob.deleteJobWithSubHealthyLabels(ssn, reschedule, schedulerJob, env)
+		return fJob.deleteJobWithSubHealthyLabels(ssn, schedulerJob, env)
 	}
 	return fJob.deleteJobWithFaultLabels(ssn, reschedule, schedulerJob, env)
 }
 
-func (fJob *FaultJob) deleteJobWithSubHealthyLabels(ssn *framework.Session, reschedule *ReScheduler,
-	schedulerJob *plugin.SchedulerJob, env plugin.ScheduleEnv) error {
+func (fJob *FaultJob) deleteJobWithSubHealthyLabels(ssn *framework.Session, schedulerJob *plugin.SchedulerJob,
+	env plugin.ScheduleEnv) error {
 	klog.V(util.LogWarningLev).Infof("delete job %s subHealthyStrategy %s", fJob.JobName,
 		fJob.SubHealthyStrategy)
+
 	if fJob.SubHealthyStrategy == util.SubHealthyForceExit || fJob.SubHealthyStrategy == util.SubHealthyHotSwitch {
+		if is910A5Job(schedulerJob) {
+			return fJob.ForceDeleteJobFor910A5(schedulerJob, env)
+		}
 		return fJob.ForceDeleteJob(schedulerJob, env)
 	}
 	if !fJob.IsProcessReschedulingJob(schedulerJob) {
 		klog.V(util.LogWarningLev).Infof("reset configmap be updated with graceExit, job:%s", fJob.JobName)
 		updateResetConfigMapWithGraceExit(env.FrameAttr.KubeClient, plugin.ResetInfoCMNamePrefix+
 			schedulerJob.ReferenceName, schedulerJob.NameSpace, plugin.GraceExitValue)
+	}
+	if is910A5Job(schedulerJob) {
+		return fJob.GraceDeleteJobFor910A5(ssn, schedulerJob, env)
 	}
 	return fJob.GraceDeleteJob(ssn, schedulerJob, env)
 }
@@ -154,9 +170,14 @@ func (fJob *FaultJob) deleteJobWithFaultLabels(ssn *framework.Session, reschedul
 	klog.V(util.LogWarningLev).Infof("delete job %s ReScheduleKey %s", fJob.JobName,
 		fJob.ReScheduleKey)
 	if fJob.ReScheduleKey == JobForceRescheduleLabelValue {
+		if is910A5Job(schedulerJob) {
+			return fJob.ForceDeleteJobFor910A5(schedulerJob, env)
+		}
 		return fJob.ForceDeleteJob(schedulerJob, env)
 	}
-
+	if is910A5Job(schedulerJob) {
+		return fJob.GraceDeleteJobFor910A5(ssn, schedulerJob, env)
+	}
 	return fJob.GraceDeleteJob(ssn, schedulerJob, env)
 }
 
@@ -207,7 +228,7 @@ func (fJob *FaultJob) ForceDeleteJob(schedulerJob *plugin.SchedulerJob,
 			isMasterFault = true
 		}
 	}
-	isSuperPod, ids := fJob.getFaultJobSuperPodInfo(schedulerJob, env)
+	isSuperPod, ids := fJob.getFaultJobSuperPodInfo(schedulerJob)
 	fJob.updateSuperPodsReschdInfo(env)
 	dpi := &deletePodInfo{
 		isMasterFault: isMasterFault,
@@ -218,12 +239,12 @@ func (fJob *FaultJob) ForceDeleteJob(schedulerJob *plugin.SchedulerJob,
 	return nil
 }
 
-func (fJob *FaultJob) getFaultJobSuperPodInfo(schedulerJob *plugin.SchedulerJob, env plugin.ScheduleEnv) (bool, []string) {
+func (fJob *FaultJob) getFaultJobSuperPodInfo(schedulerJob *plugin.SchedulerJob) (bool, []string) {
 	isSuperPod := false
 	ids := make([]string, 0)
 	if schedulerJob.IsSuperPodJob() {
 		isSuperPod = true
-		ids = fJob.getIds(env)
+		ids = fJob.getVSuperPodIds()
 	}
 	return isSuperPod, ids
 }
@@ -233,6 +254,9 @@ func (fJob *FaultJob) forceDeletePods(schedulerJob *plugin.SchedulerJob,
 	var waitDeleteTask = make([]FaultTask, 0)
 	for _, fTask := range fJob.FaultTasks {
 		if !fJob.isNormalTaskCanBeDelete(fTask, schedulerJob, env, dpi) {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip force delete task<%s> for job<%s/%s>", fTask.TaskName, fJob.JobNamespace,
+				fJob.JobName)
 			continue
 		}
 		fJob.updateSuperPodMapInfo(env, fTask.TaskName, fTask.NodeName)
@@ -349,22 +373,6 @@ func (fJob *FaultJob) updateSuperPodsReschdInfo(env plugin.ScheduleEnv) {
 	klog.V(util.LogInfoLev).Infof("cache superpods %+v", env.SuperPodInfo.SuperPodReschdInfo[fJob.JobUID])
 }
 
-func (fJob *FaultJob) getIds(env plugin.ScheduleEnv) []string {
-	var ids []string
-	if _, ok := env.SuperPodInfo.SuperPodFaultTaskNodes[fJob.JobUID]; !ok {
-		return ids
-	}
-	for _, node := range env.SuperPodInfo.SuperPodFaultTaskNodes[fJob.JobUID] {
-		klog.V(util.LogInfoLev).Infof("cache node %s", node)
-		id := fJob.getVirSupPodId(node, env)
-		if id != "" {
-			ids = append(ids, id)
-		}
-	}
-	klog.V(util.LogInfoLev).Infof("getIds super pod ids:%v", ids)
-	return ids
-}
-
 // IsJobSingleRescheduling valid job.
 func (fJob *FaultJob) IsJobSingleRescheduling(sJob *plugin.SchedulerJob) bool {
 	if sJob.Label[util.SinglePodTag] == util.EnableFunc && fJob.PendingSessionNum < pendingTimes {
@@ -375,10 +383,7 @@ func (fJob *FaultJob) IsJobSingleRescheduling(sJob *plugin.SchedulerJob) bool {
 
 // IsProcessReschedulingJob valid job.
 func (fJob *FaultJob) IsProcessReschedulingJob(sJob *plugin.SchedulerJob) bool {
-	if sJob.Label[util.ProcessRecoverEnable] == util.EnableFunc {
-		return true
-	}
-	return false
+	return sJob.Label[util.ProcessRecoverEnable] == util.EnableFunc
 }
 
 func (fJob *FaultJob) updateTaskPodUid(jobInfo *api.JobInfo) {
@@ -483,7 +488,7 @@ func (fJob *FaultJob) GraceDeleteJob(ssn *framework.Session, npuJob *plugin.Sche
 		return fmt.Errorf("schedulerJob does not exist")
 	}
 	reason, isMasterFault := fJob.getRestartInfos()
-	isSuperPod, ids := fJob.getFaultJobSuperPodInfo(npuJob, env)
+	isSuperPod, ids := fJob.getFaultJobSuperPodInfo(npuJob)
 	fJob.updateSuperPodsReschdInfo(env)
 	dpi := &deletePodInfo{
 		isMasterFault: isMasterFault,
@@ -500,20 +505,32 @@ func (fJob *FaultJob) GraceDeleteJob(ssn *framework.Session, npuJob *plugin.Sche
 
 func (fJob *FaultJob) graceDeletePods(ssn *framework.Session, npuJob *plugin.SchedulerJob, env plugin.ScheduleEnv,
 	dpi *deletePodInfo) error {
-	for _, fTask := range fJob.FaultTasks {
+	for id, fTask := range fJob.FaultTasks {
 		npuTask, ok := npuJob.Tasks[fTask.TaskUID]
 		if !ok {
 			klog.V(util.LogDebugLev).Infof(
-				"GraceDeleteJob: npuTask %s has been deleted in session.", fTask.TaskName)
-			return fmt.Errorf("npuTask %s not in session", fTask.TaskName)
-		}
-		if !fJob.isNormalTaskCanBeDelete(fTask, npuJob, env, dpi) {
+				"rescheduling: skip grace delete because task<%s> for job <%s/%s> has been deleted in session",
+				fTask.TaskName, fJob.JobNamespace, fJob.JobName)
 			continue
 		}
+		if !fJob.isNormalTaskCanBeDelete(fTask, npuJob, env, dpi) {
+			klog.V(util.LogDebugLev).Infof(
+				"rescheduling: skip grace delete task<%s> for job<%s/%s>", fTask.TaskName,
+				fJob.JobNamespace, fJob.JobName)
+			continue
+		}
+		klog.V(util.LogDebugLev).Infof(
+			"rescheduling: start to grace delete task<%s> for job<%s/%s>", fTask.TaskName,
+			fJob.JobNamespace, fJob.JobName)
 		fJob.updateSuperPodMapInfo(env, fTask.TaskName, fTask.NodeName)
 		if delErr := npuTask.ForceDeletePodByTaskInf(ssn, dpi.reason, fTask.NodeName); delErr != nil {
 			klog.V(util.LogErrorLev).Infof("ForceDeletePodByTaskInf %s: %s.", npuTask.Name, delErr)
+			continue
 		}
+		klog.V(util.LogDebugLev).Infof(
+			"rescheduling: grace delete task<%s> for job<%s/%s> succeeded", fTask.TaskName,
+			fJob.JobNamespace, fJob.JobName)
+		fJob.FaultTasks[id].IsBeingGracefulDeleted = true
 	}
 	return nil
 }
