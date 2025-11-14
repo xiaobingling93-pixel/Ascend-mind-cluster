@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"volcano.sh/volcano/pkg/scheduler/api"
+
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
@@ -553,6 +555,135 @@ func TestGetAnotherRackNodes(t *testing.T) {
 				t.Errorf("Test %s failed: expected result: %v, got: %v", tt.name, tt.want.totalNodes, tt.args.totalNodes)
 			}
 
+		})
+	}
+}
+
+type selectNodeFromOriginSpBlockTestArgs struct {
+	fJob         *rescheduling.FaultJob
+	selectNodes  map[string][]plugin.SuperNode
+	totalNodes   map[int32]superPod
+	virtualIdArr map[string]bool
+	tp           *module910a5SuperPod
+}
+
+type selectNodeFromOriginSpBlockTest struct {
+	name string
+	args selectNodeFromOriginSpBlockTestArgs
+	want map[string]struct{}
+}
+
+func buildSelectNodeFromOriginSpBlockTest1() selectNodeFromOriginSpBlockTest {
+	jobID := api.JobID("job1")
+	return selectNodeFromOriginSpBlockTest{
+		name: "01-selectNodeFromOriginSpBlock all superNodes healthy and satisfy affinity",
+		args: selectNodeFromOriginSpBlockTestArgs{
+			fJob: &rescheduling.FaultJob{
+				JobUID:            jobID,
+				PendingSessionNum: 1,
+				SuperPods: map[string][]plugin.SuperNode{
+					"vsp1": {
+						{Name: "work1", SuperPodID: 1},
+						{Name: "work2", SuperPodID: 1},
+					},
+				},
+				FaultTasks: []rescheduling.FaultTask{
+					{NodeName: "work1", IsFaultTask: false,
+						FaultTaskA5Field: rescheduling.FaultTaskA5Field{IsSatisfiedRackAffinity: true}},
+					{NodeName: "work2", IsFaultTask: false,
+						FaultTaskA5Field: rescheduling.FaultTaskA5Field{IsSatisfiedRackAffinity: true}},
+				},
+			},
+			selectNodes: map[string][]plugin.SuperNode{},
+			totalNodes: map[int32]superPod{
+				1: {
+					"work1": {name: "work1", superPodID: 1},
+					"work2": {name: "work2", superPodID: 1},
+				},
+			},
+			virtualIdArr: map[string]bool{
+				"vsp1": false,
+			},
+			tp: &module910a5SuperPod{
+				jobParams: jobParams{tpBlock: tpBlock2},
+			},
+		},
+		want: map[string]struct{}{},
+	}
+}
+
+func buildSelectNodeFromOriginSpBlockTest2() selectNodeFromOriginSpBlockTest {
+	jobID := api.JobID("job1")
+	return selectNodeFromOriginSpBlockTest{
+		name: "02-selectNodeFromOriginSpBlock some superNodes not healthy or not satisfy affinity",
+		args: selectNodeFromOriginSpBlockTestArgs{
+			fJob: &rescheduling.FaultJob{
+				JobUID:            jobID,
+				PendingSessionNum: 2,
+				SuperPods: map[string][]plugin.SuperNode{
+					"vsp1": {
+						{Name: "work1", SuperPodID: 1},
+						{Name: "work2", SuperPodID: 1},
+					},
+				},
+				FaultTasks: []rescheduling.FaultTask{
+					{NodeName: "work1", IsFaultTask: true,
+						FaultTaskA5Field: rescheduling.FaultTaskA5Field{IsSatisfiedRackAffinity: true}},
+					{NodeName: "work2", IsFaultTask: false,
+						FaultTaskA5Field: rescheduling.FaultTaskA5Field{IsSatisfiedRackAffinity: false}},
+				},
+			},
+			selectNodes: map[string][]plugin.SuperNode{},
+			totalNodes: map[int32]superPod{
+				1: {
+					"work1": {name: "work1", superPodID: 1},
+					"work2": {name: "work2", superPodID: 1},
+				},
+			},
+			virtualIdArr: map[string]bool{
+				"vsp1": false,
+			},
+			tp: &module910a5SuperPod{
+				jobParams: jobParams{tpBlock: tpBlock2},
+			},
+		},
+		want: map[string]struct{}{
+			"vsp1": {},
+		},
+	}
+}
+
+func buildSelectNodeFromOriginSpBlockTest3() selectNodeFromOriginSpBlockTest {
+	return selectNodeFromOriginSpBlockTest{
+		name: "03-selectNodeFromOriginSpBlock input nil or empty virtualIdArr",
+		args: selectNodeFromOriginSpBlockTestArgs{
+			fJob:         &rescheduling.FaultJob{},
+			selectNodes:  nil,
+			totalNodes:   nil,
+			virtualIdArr: nil,
+			tp:           &module910a5SuperPod{},
+		},
+		want: nil,
+	}
+}
+
+func buildSelectNodeFromOriginSpBlockTests() []selectNodeFromOriginSpBlockTest {
+	return []selectNodeFromOriginSpBlockTest{
+		buildSelectNodeFromOriginSpBlockTest1(),
+		buildSelectNodeFromOriginSpBlockTest2(),
+		buildSelectNodeFromOriginSpBlockTest3(),
+	}
+}
+
+func TestSelectNodeFromOriginSpBlock(t *testing.T) {
+	tests := buildSelectNodeFromOriginSpBlockTests()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := tt.args.tp.selectNodeFromOriginSpBlock(
+				tt.args.fJob, tt.args.selectNodes, tt.args.totalNodes, tt.args.virtualIdArr)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("%s: expected %v, got %v", tt.name, tt.want, got)
+			}
 		})
 	}
 }

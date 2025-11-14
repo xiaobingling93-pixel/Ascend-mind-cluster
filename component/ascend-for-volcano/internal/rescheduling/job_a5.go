@@ -93,7 +93,7 @@ func (fJob *FaultJob) graceDeletePodsFor910A5(ssn *framework.Session, npuJob *pl
 				fTask.TaskName, fJob.JobNamespace, fJob.JobName)
 			continue
 		}
-		if fJob.skipThisTask(dpi, fTask, env, npuJob) {
+		if fJob.skipThisTask(dpi, fTask, npuJob) {
 			klog.V(util.LogDebugLev).Infof(
 				"rescheduling: skip grace delete task<%s> for job<%s/%s>", fTask.TaskName, fJob.JobNamespace,
 				fJob.JobName)
@@ -199,7 +199,7 @@ func (fJob *FaultJob) forceDeletePodsFor910A5(schedulerJob *plugin.SchedulerJob,
 	for id, fTask := range fJob.FaultTasks {
 		klog.V(util.LogDebugLev).Infof("not masterFault is %v, job single rescheduling is %v, not fault task is %v",
 			!fJob.IsMasterFault, fJob.IsJobSingleRescheduling(schedulerJob), !fTask.IsFaultTask)
-		if fJob.skipThisTask(dpi, fTask, env, schedulerJob) {
+		if fJob.skipThisTask(dpi, fTask, schedulerJob) {
 			klog.V(util.LogDebugLev).Infof(
 				"rescheduling: skip force delete task<%s> for job<%s/%s>", fTask.TaskName, fJob.JobNamespace,
 				fJob.JobName)
@@ -220,8 +220,7 @@ func (fJob *FaultJob) forceDeletePodsFor910A5(schedulerJob *plugin.SchedulerJob,
 	fJob.deletingTasksConcurrently(waitDeleteTask, env.FrameAttr.KubeClient)
 }
 
-func (fJob *FaultJob) skipThisTask(dpi *deletePodInfo, fTask FaultTask, env plugin.ScheduleEnv,
-	schedulerJob *plugin.SchedulerJob) bool {
+func (fJob *FaultJob) skipThisTask(dpi *deletePodInfo, fTask FaultTask, schedulerJob *plugin.SchedulerJob) bool {
 	// when master pod fault or not pod rescheduling or fault pod, delete pod
 	if fJob.IsMasterFault {
 		return false
