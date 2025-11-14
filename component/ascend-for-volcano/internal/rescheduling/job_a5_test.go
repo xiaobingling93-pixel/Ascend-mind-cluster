@@ -20,11 +20,16 @@ Package rescheduling is using for HuaWei Ascend pin fault rescheduling.
 package rescheduling
 
 import (
+	"github.com/agiledragon/gomonkey/v2"
+	"k8s.io/client-go/kubernetes"
+	"reflect"
 	"strconv"
 	"testing"
-
+	"volcano.sh/volcano/pkg/scheduler/api"
+	"volcano.sh/volcano/pkg/scheduler/framework"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
 )
 
 func Test_is910A5Job(t *testing.T) {
@@ -312,16 +317,6 @@ func checkVSuperPodIds(t *testing.T, got, want []string) {
 	}
 }
 
-type processReschedulingSkipTaskTestCase struct {
-	name              string
-	PendingSessionNum int
-	fTask             FaultTask
-	TpBlock           int
-	schedulerJob      plugin.SchedulerJob
-	want1             bool
-	want2             bool
-}
-
 func TestGetVSuperPodIds(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -475,4 +470,264 @@ func TestJudgeJobIsMasterFault(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGraceDeleteJobFor910A5(t *testing.T) {
+	fJob := &FaultJob{JobUID: mockJobUID}
+	env := plugin.ScheduleEnv{}
+	env.SuperPodInfo = plugin.NewSuperPodInfo()
+	npuJob := &plugin.SchedulerJob{}
+	t.Run("01-GraceDeleteJobFor910A5 return error when ssn is nil", func(t *testing.T) {
+		err := fJob.GraceDeleteJobFor910A5(nil, &plugin.SchedulerJob{}, env)
+		if err == nil {
+			t.Errorf("GraceDeleteJob() err = %v, wantErr is not nil", err)
+		}
+	})
+	t.Run("02-GraceDeleteJobFor910A5 return error when npuJob is nil", func(t *testing.T) {
+		err := fJob.GraceDeleteJobFor910A5(&framework.Session{}, nil, env)
+		if err == nil {
+			t.Errorf("GraceDeleteJob() err = %v, wantErr is not nil", err)
+		}
+	})
+	t.Run("03-GraceDeleteJobFor910A5 return nil when ssn and npuJob are not nil", func(t *testing.T) {
+		npuJob.Annotation = map[string]string{util.SuperPodAnnoKey: ""}
+		err := fJob.GraceDeleteJobFor910A5(&framework.Session{}, npuJob, env)
+		if err != nil {
+			t.Errorf("GraceDeleteJob() err = %v, wantErr is nil", err)
+		}
+	})
+}
+
+func buildFaultJobForceDeleteJobFor910A5Tests() []FaultJobForceDeleteJobTests {
+	var tmpPatch *gomonkey.Patches = nil
+	faultTask1 := fakeReSchedulerFaultTask(true, []string{"pod0", "vcjob", "node0", "job0", "0"}, 0)
+	faultTask2 := fakeReSchedulerFaultTask(false, []string{"pod1", "vcjob", "node1", "job0", "1"}, 0)
+	schedulerJob := fakeSchedulerJobEmptyTask("job0", "vcjob")
+	test1 := FaultJobForceDeleteJobTests{
+		name: "01-FaultJobForceDeleteJob()-delete success",
+		fields: FaultJobTestField{
+			JobName:             "job0",
+			JobUID:              "vcjob/job0",
+			JobNamespace:        "vcjob",
+			JobRankIds:          nil,
+			NodeNames:           nil,
+			FaultTasks:          []FaultTask{faultTask1, faultTask2},
+			UpdateTime:          0,
+			JobRankIdCreateTime: 0,
+			FaultTypes:          nil,
+			DeleteExecutedFlag:  false,
+		},
+		args: FaultJobForceDeleteJobArgs{
+			schedulerJob: &schedulerJob,
+			cacheFuncBefore: func() {
+				tmpPatch = gomonkey.ApplyMethod(reflect.TypeOf(&FaultTask{}), "DeleteRealPodByTask",
+					func(_ *FaultTask, _ kubernetes.Interface, _ int64) error { return nil })
+			},
+			cacheFuncAfter: func() {
+				if tmpPatch != nil {
+					tmpPatch.Reset()
+				}
+			},
+		},
+		wantErr: false,
+	}
+	tests := []FaultJobForceDeleteJobTests{
+		test1,
+	}
+	return tests
+}
+
+// TestFaultJobForceDeleteJob test for force delete function
+func TestFaultJobForceDeleteJobFor910A5(t *testing.T) {
+	env := plugin.ScheduleEnv{}
+	env.SuperPodInfo = plugin.NewSuperPodInfo()
+	tests := buildFaultJobForceDeleteJobFor910A5Tests()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.args.cacheFuncBefore()
+			fJob := &FaultJob{
+				ReScheduleKey:      tt.fields.ReScheduleKey,
+				IsFaultJob:         tt.fields.IsFaultJob,
+				JobName:            tt.fields.JobName,
+				JobUID:             tt.fields.JobUID,
+				JobNamespace:       tt.fields.JobNamespace,
+				FaultTasks:         tt.fields.FaultTasks,
+				UpdateTime:         tt.fields.UpdateTime,
+				FaultTypes:         tt.fields.FaultTypes,
+				DeleteExecutedFlag: tt.fields.DeleteExecutedFlag,
+				ElasticScheduling:  tt.fields.ElasticScheduling,
+			}
+			if err := fJob.ForceDeleteJobFor910A5(tt.args.schedulerJob, env); (err != nil) != tt.wantErr {
+				t.Errorf("ForceDeleteJobFor910A5() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			tt.args.cacheFuncAfter()
+		})
+	}
+}
+
+type skipThisTaskTestCase struct {
+	name            string
+	fJob            *FaultJob
+	cacheFuncBefore func()
+	cacheFuncAfter  func()
+	schedulerJob    *plugin.SchedulerJob
+	dpi             *deletePodInfo
+	fTask           FaultTask
+	want            bool
+}
+
+func buildSkipThisTaskTestCase1() skipThisTaskTestCase {
+	var tmpPatch *gomonkey.Patches = nil
+	schedulerJob := &plugin.SchedulerJob{}
+	schedulerJob.Label = map[string]string{
+		util.ProcessRecoverEnable: util.EnableFunc,
+	}
+	return skipThisTaskTestCase{
+		name: "01-SkipThisTask return false when in the same tp block",
+		fJob: &FaultJob{},
+		cacheFuncBefore: func() {
+			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&FaultJob{}), "inTheSameTpBlock",
+				func(fTask FaultTask) bool { return true })
+		},
+		cacheFuncAfter: func() {
+			if tmpPatch != nil {
+				tmpPatch.Reset()
+			}
+		},
+		dpi: &deletePodInfo{
+			isSuperPod:    true,
+			isMasterFault: false,
+		},
+		fTask: FaultTask{
+			IsFaultTask: false,
+		},
+		schedulerJob: schedulerJob,
+		want:         false,
+	}
+}
+
+func buildSkipThisTaskTestCase2() skipThisTaskTestCase {
+	var tmpPatch *gomonkey.Patches = nil
+	schedulerJob := &plugin.SchedulerJob{}
+	schedulerJob.Label = map[string]string{
+		util.ProcessRecoverEnable: util.ProcessRecoverPause,
+	}
+	return skipThisTaskTestCase{
+		name: "01-SkipThisTask return false when process rescheduling failed",
+		fJob: &FaultJob{},
+		cacheFuncBefore: func() {
+			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&FaultJob{}), "inTheSameTpBlock",
+				func(fTask FaultTask) bool { return true })
+		},
+		cacheFuncAfter: func() {
+			if tmpPatch != nil {
+				tmpPatch.Reset()
+			}
+		},
+		dpi: &deletePodInfo{
+			isSuperPod:    true,
+			isMasterFault: false,
+		},
+		fTask: FaultTask{
+			IsFaultTask: false,
+		},
+		schedulerJob: schedulerJob,
+		want:         false,
+	}
+}
+
+func buildSkipThisTaskTestCase3() skipThisTaskTestCase {
+	var tmpPatch *gomonkey.Patches = nil
+	fJob := &FaultJob{}
+	fJob.PendingSessionNum = 7
+	fJob.WhetherBackToVspSchedule = true
+	schedulerJob := &plugin.SchedulerJob{}
+	schedulerJob.Label = map[string]string{
+		util.SinglePodTag: util.EnableFunc,
+	}
+	return skipThisTaskTestCase{
+		name: "01-SkipThisTask return false when process in the same VSuperPod",
+		fJob: fJob,
+		cacheFuncBefore: func() {
+			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&FaultJob{}), "inTheSameVSuperPod",
+				func(fTask FaultTask) bool { return true })
+		},
+		cacheFuncAfter: func() {
+			if tmpPatch != nil {
+				tmpPatch.Reset()
+			}
+		},
+		dpi: &deletePodInfo{
+			isSuperPod:    true,
+			isMasterFault: false,
+		},
+		fTask: FaultTask{
+			IsFaultTask: false,
+		},
+		schedulerJob: schedulerJob,
+		want:         false,
+	}
+}
+
+func buildSkipThisTaskTestCases() []skipThisTaskTestCase {
+	return []skipThisTaskTestCase{
+		buildSkipThisTaskTestCase1(),
+		buildSkipThisTaskTestCase2(),
+		buildSkipThisTaskTestCase3(),
+	}
+}
+
+func TestSkipThisTask(t *testing.T) {
+	testCases := buildSkipThisTaskTestCases()
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.cacheFuncBefore()
+			if res := tt.fJob.skipThisTask(tt.dpi, tt.fTask, tt.schedulerJob); res != tt.want {
+				t.Errorf("skipThisTask() res = %v, want is %v", res, tt.want)
+			}
+			tt.cacheFuncAfter()
+		})
+	}
+}
+
+func TestGraceDeletePodsFor910A5(t *testing.T) {
+	fJob := mockFaultJobWithTasks()
+	ssn := test.FakeNormalSSN(nil)
+	npuJob := &plugin.SchedulerJob{
+		SchedulerJobAttr: util.SchedulerJobAttr{
+			NPUJob: &util.NPUJob{
+				Tasks: map[api.TaskID]util.NPUTask{},
+			},
+		},
+	}
+	env := plugin.ScheduleEnv{}
+	env.SuperPodInfo = plugin.NewSuperPodInfo()
+	t.Run("01-graceDeletePodsFor910A5 do not change IsBeingGracefulDeleted when npuTask not in session",
+		func(t *testing.T) {
+			var tmpPatch *gomonkey.Patches = nil
+			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&util.NPUTask{}), "ForceDeletePodByTaskInf",
+				func(ssn *framework.Session, reason string, nodeName string) error { return nil })
+			fJob.graceDeletePodsFor910A5(ssn, npuJob, env, &deletePodInfo{})
+			tmpPatch.Reset()
+			for id := range fJob.FaultTasks {
+				if fJob.FaultTasks[id].IsBeingGracefulDeleted == true {
+					t.Error("graceDeletePodsFor910A5() return true, want false")
+				}
+			}
+		})
+	t.Run("02-graceDeletePodsFor910A5 change IsBeingGracefulDeleted when npuTask in session", func(t *testing.T) {
+		npuJob.Label = map[string]string{}
+		npuJob.Tasks = map[api.TaskID]util.NPUTask{mockTaskUID: {
+			VTask: &util.VTask{Allocated: util.TaskAllocated{}}}}
+		var tmpPatch *gomonkey.Patches = nil
+		tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&util.NPUTask{}), "ForceDeletePodByTaskInf",
+			func(ssn *framework.Session, reason string, nodeName string) error { return nil })
+		fJob.graceDeletePodsFor910A5(ssn, npuJob, env, &deletePodInfo{})
+		tmpPatch.Reset()
+		for id := range fJob.FaultTasks {
+			if fJob.FaultTasks[id].IsBeingGracefulDeleted == false {
+				t.Error("graceDeletePodsFor910A5() return false, want true")
+			}
+		}
+	})
 }

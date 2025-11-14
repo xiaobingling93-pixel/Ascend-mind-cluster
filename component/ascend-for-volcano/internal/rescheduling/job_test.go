@@ -631,17 +631,32 @@ func TestGraceDeletePods(t *testing.T) {
 	}
 	env := plugin.ScheduleEnv{}
 	env.SuperPodInfo = plugin.NewSuperPodInfo()
-	t.Run("01-graceDeletePods return error when npuTask not in session", func(t *testing.T) {
-		if err := fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{}); err != nil {
-			t.Errorf("graceDeletePods() return %v, wantErr is nil", err)
-		}
-	})
-	t.Run("02-graceDeletePods return nil when npuTask in session", func(t *testing.T) {
+	t.Run("01-graceDeletePods do not change IsBeingGracefulDeleted when npuTask not in session",
+		func(t *testing.T) {
+			var tmpPatch *gomonkey.Patches = nil
+			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&util.NPUTask{}), "ForceDeletePodByTaskInf",
+				func(ssn *framework.Session, reason string, nodeName string) error { return nil })
+			fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{})
+			tmpPatch.Reset()
+			for id := range fJob.FaultTasks {
+				if fJob.FaultTasks[id].IsBeingGracefulDeleted == true {
+					t.Error("graceDeletePods() return true, want false")
+				}
+			}
+		})
+	t.Run("02-graceDeletePods change IsBeingGracefulDeleted when npuTask in session", func(t *testing.T) {
 		npuJob.Label = map[string]string{}
 		npuJob.Tasks = map[api.TaskID]util.NPUTask{mockTaskUID: {
 			VTask: &util.VTask{Allocated: util.TaskAllocated{}}}}
-		if err := fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{}); err != nil {
-			t.Errorf("graceDeletePods() err = %v, wantErr is nil", err)
+		var tmpPatch *gomonkey.Patches = nil
+		tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&util.NPUTask{}), "ForceDeletePodByTaskInf",
+			func(ssn *framework.Session, reason string, nodeName string) error { return nil })
+		fJob.graceDeletePods(ssn, npuJob, env, &deletePodInfo{})
+		tmpPatch.Reset()
+		for id := range fJob.FaultTasks {
+			if fJob.FaultTasks[id].IsBeingGracefulDeleted == false {
+				t.Error("graceDeletePods() return false, want true")
+			}
 		}
 	})
 }
