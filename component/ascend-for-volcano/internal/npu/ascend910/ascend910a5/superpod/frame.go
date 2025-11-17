@@ -142,6 +142,7 @@ func (tp *module910a5SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*ap
 
 	tp.isSoftSuperPodAffinity = tp.Label[superPodAffinity] == softRequire
 	selectedSpBlock, err := tp.selectNodesForJob(task, nodes)
+	job.TpBlock = tp.tpBlock
 	job.WhetherBackToVspSchedule = tp.whetherBackToVspSchedule
 	if err != nil {
 		*job.JobReadyTag = false
