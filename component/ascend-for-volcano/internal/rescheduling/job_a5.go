@@ -320,7 +320,7 @@ func (fJob *FaultJob) inTheSameTpBlock(fTask FaultTask) bool {
 		fTaskRankId, err := strconv.Atoi(fTask.NodeRankIndex)
 		if err != nil {
 			klog.V(util.LogErrorLev).Infof("ftask NodeRankIndex cannot be converted to int, targetRankId: %s",
-				task.NodeRankIndex)
+				fTask.NodeRankIndex)
 			return false
 		}
 		if fTaskRankId >= targetRankId && fTaskRankId < targetRankId+fJob.TpBlock {
