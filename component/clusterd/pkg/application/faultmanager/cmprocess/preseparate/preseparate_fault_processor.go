@@ -68,7 +68,7 @@ func (processor *preSeparateFaultProcessor) processDeviceFaultCm(
 			}
 			processor.updateCardUnHealthy(faultCm, nodeName, deviceName)
 			if slices.Contains(faultCm.AvailableDeviceList, deviceName) {
-				hwlog.RunLog.Infof("delete deviceName: %s from AvailableDeviceList", deviceName)
+				hwlog.RunLog.Debugf("delete deviceName: %s from AvailableDeviceList", deviceName)
 				faultCm.AvailableDeviceList = util.DeleteStringSliceItem(faultCm.AvailableDeviceList, deviceName)
 			}
 		}
@@ -84,7 +84,7 @@ func (processor *preSeparateFaultProcessor) updateCardUnHealthy(
 		}
 		return
 	}
-	hwlog.RunLog.Infof("deviceName: %s is not used now, add it to CardUnHealthy", deviceName)
+	hwlog.RunLog.Debugf("deviceName: %s is not used now, add it to CardUnHealthy", deviceName)
 	if !slices.Contains(faultCm.CardUnHealthy, deviceName) {
 		faultCm.CardUnHealthy = append(faultCm.CardUnHealthy, deviceName)
 	}
