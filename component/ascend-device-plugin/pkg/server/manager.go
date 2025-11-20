@@ -218,6 +218,7 @@ func (hdm *HwDevManager) getNewNodeAnnotation(oldNode *v1.Node) (map[string]stri
 	annotationMap[common.SuperPodIDKey] = strconv.Itoa(int(hdm.getSuperPodInfo().SuperPodId))
 	annotationMap[serverIndexKey] = strconv.Itoa(int(hdm.getSuperPodInfo().ServerId))
 	annotationMap[serverTypeKey] = getDevType(common.ParamOption.RealCardType)
+	annotationMap[api.RackIDKey] = strconv.Itoa(int(hdm.getSuperPodInfo().RackId))
 
 	return annotationMap, nil
 }

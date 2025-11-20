@@ -39,6 +39,11 @@ const (
 )
 
 const (
+	// RackIDKey rack id in a super pod
+	RackIDKey = "rackID"
+)
+
+const (
 	// LevelInfoTypeUB rank table UB for A5
 	LevelInfoTypeUB = "UB"
 	// LevelInfoTypeUBG rank table UBG for A5
