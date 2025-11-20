@@ -14,3 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from abc import ABC, abstractmethod
+from typing import Dict
+
+
+class ToDict(ABC):
+    """All serialized objects need to inherit from ToDict and implement the to_dict method"""
+    @abstractmethod
+    def to_dict(self) -> Dict:
+        pass
+
+
+class Queryable(ABC):
+    """All objects querying EID need to inherit from Queryable and implement the query method"""
+    @abstractmethod
+    def query(self, *args, **kwargs) -> Dict:
+        pass

@@ -14,5 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-__version__ = "0.1.0"
+class Topo(object):
+    """Read topology file to generate topology object"""
+    def __init__(self, topo_file_path):
+        self._topo = {}
 
+    def get_ports_by_level_and_die(self, local_id, level, die_id):
+        pass
+
+
+class TopoSingleFactory:
+    """Singleton factory for topology objects"""
+    _topo_path = None
+    _topo = None
+
+    @staticmethod
+    def set_topo_path(topo_path):
+        TopoSingleFactory._topo_path = topo_path
+
+    @staticmethod
+    def get_topo():
+        if TopoSingleFactory._topo is None:
+            TopoSingleFactory._topo = Topo(TopoSingleFactory._topo_path)
+        return TopoSingleFactory._topo
