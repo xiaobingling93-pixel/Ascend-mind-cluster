@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 import os
 import unittest
+
 from mindcluster_tools.dcmi import dcmi
 from mindcluster_tools.utils.product_type_enum import ProductType
 
