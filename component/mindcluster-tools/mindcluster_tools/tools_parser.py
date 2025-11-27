@@ -53,10 +53,7 @@ def main(args_list=None):
         "-t", "--topo_path", type=str, required=False, help="the path of topo file"
     )
     parser_rootinfo.add_argument(
-        "-r", "--rank_count", type=int, required=False, help="rank_count"
-    )
-    parser_rootinfo.add_argument(
-        "-l", "--level_count", type=int, required=False, help="the level of network"
+        "-r", "--rank_count", default=8, type=int, required=False, help="rank_count"
     )
     parser_rootinfo.add_argument(
         "--super_pod_id", type=int, required=False, help="super pod id"

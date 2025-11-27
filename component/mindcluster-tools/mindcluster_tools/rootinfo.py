@@ -30,6 +30,7 @@ from mindcluster_tools.interface import ToDict
 from mindcluster_tools.topo import TopoSingleFactory
 from mindcluster_tools.utils import parse_eid
 from mindcluster_tools.dcmi import dcmi
+from mindcluster_tools.roce import get_npu_roce_ip
 from mindcluster_tools.error.error import ParamError, TopoMissMatchError, GetIpError
 from mindcluster_tools.utils.product_type_enum import ProductType
 from mindcluster_tools.utils.const import FE0, FE1, FE3, FE8, FE9
@@ -40,8 +41,8 @@ from mindcluster_tools.utils.const import (
     URMA_LEVEL_3,
 )
 from mindcluster_tools.utils.const import (
-    ROOTINFO_VERSION, 
-    CLUSTER_PLANE_ID, 
+    ROOTINFO_VERSION,
+    CLUSTER_PLANE_ID,
     CLUSTER_NET_INSTANCE,
     CLOS_NET_TYPE,
     TOPO_NET_TYPE
@@ -126,11 +127,7 @@ class IP(Address):
     @exclude_fields("port_ids", "die_id")
     def to_dict(self):
         ret = copy.deepcopy(self.__dict__)
-        ret["ports"] = (
-            [f"{self.die_id}/{i}" for i in self.port_ids]
-            if self.die_id is not None
-            else []
-        )
+        ret["ports"] = self.port_ids
         return ret
 
 
@@ -182,6 +179,8 @@ def construct_urma_device_with_generate_eid(npu_info):
     urma_device_level_info_map = {
         URMA_LEVEL_0: (f"{superpod_id}_{chassis_id}", TOPO_NET_TYPE),
         URMA_LEVEL_1: (f"{superpod_id}", CLOS_NET_TYPE),
+        URMA_LEVEL_2: ("cluster", CLOS_NET_TYPE),
+        URMA_LEVEL_3: ("cluster", CLOS_NET_TYPE),
     }
     querier = DCMIQuerier()
     topo = TopoSingleFactory.get_topo()
@@ -259,24 +258,31 @@ def construct_urma_device_with_generate_eid(npu_info):
                 "1",
             )
         )
+    elif layer_id == 3:
+        ip_map = get_npu_roce_ip()
+        ports = topo.get_ports_by_level(npu_id, layer_id)
+        ud.rank_addr_list.append(IP(ip_map[npu_id], CLUSTER_PLANE_ID, ports))
     return ud
 
 
 def construct_l0(param_info, querier, ud):
+    topo = TopoSingleFactory.get_topo()
     chassis_id, die_count, die_port_count, layer_id, npu_id = param_info
     for k1 in range(die_count):
         for k2 in range(die_port_count):
-            if k2 not in list(range(1, parse_eid.LOGIC_PORT_COUNT_IN_A_DIE + 1)):
-                addr = querier.query(
-                    npu_id,
-                    k1,
-                    k2,
-                    URMA_DEVICE_LEVEL_MAP[layer_id],
-                    chassis_id,
-                    parse_eid.EID_TYPE_PHY,
-                )
-                eid = EID(k1, parse_eid.EID_TYPE_PHY, addr, [k2], f"{k1}")
-                ud.rank_addr_list.append(eid)
+            if not topo.is_p2p_edge(npu_id, f"{k1}/{k2}"):
+                # not p2p edge, pass
+                continue
+            addr = querier.query(
+                npu_id,
+                k1,
+                k2,
+                URMA_DEVICE_LEVEL_MAP[layer_id],
+                chassis_id,
+                parse_eid.EID_TYPE_PHY,
+            )
+            eid = EID(k1, parse_eid.EID_TYPE_PHY, addr, [k2], f"{k1}")
+            ud.rank_addr_list.append(eid)
 
 
 def parse_dcmi_param(board_id, mainboard_id, rank_count, params, spod_info):
@@ -322,9 +328,8 @@ def parse_dcmi_param(board_id, mainboard_id, rank_count, params, spod_info):
 
 
 def parse_param(params):
-    level_count = -1 if not params["level_count"] else params["level_count"]
     # query dcmi
-    if level_count == -1:
+    if dcmi.is_dcmi_available():
         rank_count, _ = dcmi.dcmi_get_card_list()
         spod_info = dcmi.get_super_pod_info()
         board_id, mainboard_id = (
@@ -362,7 +367,6 @@ def parse_param(params):
 
     parsed_param = (
         local_id_list,
-        level_count,
         super_pod_id,
         chassis_id,
         topo_path,
@@ -540,10 +544,10 @@ def get_urma_device_map(device_info):
     urma_device_map[URMA_LEVEL_3] = UrmaDevice(
         URMA_LEVEL_3, *urma_device_level_info_map[URMA_LEVEL_3], "", []
     )
-    roce_ip_list = dcmi.get_roce_ip_list()
-    for ip in roce_ip_list:
-        urma_device_map[URMA_LEVEL_3].rank_addr_list.append(IP(ip, CLUSTER_PLANE_ID))
-    # No super_pod_id or it's server 16p; server 16p doesn't belong to group super nodes but has super_pod_id
+    ip_map = get_npu_roce_ip()
+    if npu_id in ip_map:
+        ports = topo.get_ports_by_level(npu_id, URMA_LEVEL_3)
+        urma_device_map[URMA_LEVEL_3].rank_addr_list.append(IP(ip_map[npu_id], CLUSTER_PLANE_ID, ports))
     if (
         super_pod_type == ProductType.SERVER_16P.value or super_pod_id == -1
     ) and URMA_LEVEL_1 in urma_device_map:
@@ -554,7 +558,6 @@ def get_urma_device_map(device_info):
 def construct_rootinfo(params):
     (
         local_id_list,
-        level_count,
         super_pod_id,
         chassis_id,
         topo_path,
@@ -564,16 +567,10 @@ def construct_rootinfo(params):
     die_count, die_port_count = params["die_count"], params["die_port_count"]
     TopoSingleFactory.set_topo_path(topo_path)
     rootinfo = RootInfo([])
+    levels = TopoSingleFactory.get_topo().get_level_list()
     for device_id, local_id in enumerate(local_id_list):
         # Direct rootinfo generation requires this parameter, otherwise it will be read via DCMI
-        if level_count > 0:
-            npu = NPU(device_id, device_id, [])
-            for j in range(level_count):
-                npu_info = (device_id, j, die_count, die_port_count, super_pod_id, chassis_id)
-                ud = construct_urma_device_with_generate_eid(npu_info)
-                npu.level_list.append(ud)
-        # Query DCMI to get URMA device information
-        else:
+        if dcmi.is_dcmi_available():
             npu = NPU(device_id, local_id, [])
             device_info = (
                 chassis_id,
@@ -587,6 +584,13 @@ def construct_rootinfo(params):
             for key in sorted(urma_device_map.keys()):
                 if urma_device_map[key].rank_addr_list:
                     npu.level_list.append(urma_device_map[key])
+        else:
+            npu = NPU(device_id, device_id, [])
+            for j in levels:
+                npu_info = (device_id, j, die_count, die_port_count, super_pod_id, chassis_id)
+                ud = construct_urma_device_with_generate_eid(npu_info)
+                npu.level_list.append(ud)
+        # Query DCMI to get URMA device information
         rootinfo.rank_list.append(npu)
 
     ret = json.dumps(rootinfo, indent=2, cls=RootInfoEncoder)

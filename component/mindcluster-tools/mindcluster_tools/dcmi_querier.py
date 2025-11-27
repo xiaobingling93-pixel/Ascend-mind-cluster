@@ -26,4 +26,4 @@ class DCMIQuerier(Queryable):
         self.querier = EIDGenerator()
 
     def query(self, *args, **kargs):
-        return self.querier.query(args, **kargs)
+        return self.querier.query(*args, **kargs)

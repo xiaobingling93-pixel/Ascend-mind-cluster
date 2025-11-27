@@ -40,6 +40,7 @@ typedef struct {
     int npu_count;
 }NPU_COUNT_MAP;
 
+
 static NPU_COUNT_MAP g_npu_count[PRODUCT_TYPE_CNT] = {
     {SUPER_POD_1D, 3},
     {SUPER_POD_2D, 3},
@@ -56,6 +57,7 @@ typedef struct {
     int product_type;
     urma_device dev[MAX_URMA_DEV_CNT];
 }NPU_EID_MAP;
+
 
 static NPU_EID_MAP g_eid_map[PRODUCT_TYPE_CNT] = {
     {SUPER_POD_1D,
@@ -274,5 +276,42 @@ DLL_PUBLIC int dcmi_get_device_info(
         spinfo->chassis_id = atoi(getenv("MOCK_CHASSIS_ID"));
         spinfo->super_pod_type = (unsigned char)get_product_type();
     }
+    return 0;
+}
+
+DLL_PUBLIC int dcmi_get_device_phyid_from_logicid(int phy_id, int *logic_id)
+{
+    if (logic_id == NULL) {
+        return -1;
+    }
+    *logic_id = phy_id;
+    return 0;
+}
+
+struct board_info {
+    unsigned int board_id;
+    unsigned int pcb_id;
+    unsigned int bom_id;
+    unsigned int slot_id;
+};
+
+DLL_PUBLIC int dcmi_get_device_board_info(int card_id, int device_id, struct board_info *info)
+{
+    if (info == NULL) {
+        return -1;
+    }
+    info->board_id = 0;
+    info->pcb_id = 0;
+    info->bom_id = 0;
+    info->slot_id = 0;
+    return 0;
+}
+
+DLL_PUBLIC int dcmi_get_mainboard_id(int card_id, int device_id, unsigned int *mainboard_id)
+{
+    if (mainboard_id == NULL) {
+        return -1;
+    }
+    *mainboard_id = 0;
     return 0;
 }

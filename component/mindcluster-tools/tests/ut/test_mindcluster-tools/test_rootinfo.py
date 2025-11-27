@@ -254,9 +254,7 @@ class TestRootInfo(unittest.TestCase):
                 [
                     "rootinfo",
                     "-t",
-                    "superpod_2d.json",
-                    "-l",
-                    "1",
+                    "test_topo.json",
                     "--super_pod_id",
                     "0",
                     "--chassis_id",
@@ -275,8 +273,6 @@ class TestRootInfo(unittest.TestCase):
                     "rootinfo",
                     "-t",
                     "superpod_2d.json",
-                    "-l",
-                    "2",
                     "--super_pod_id",
                     "0",
                     "--chassis_id",
@@ -407,4 +403,7 @@ class TestRootInfo(unittest.TestCase):
             ret = output_buffer.getvalue()
             self.assertEqual(mock_get_mainboard_id.call_count, 2)
         self.assertEqual(mock_get_device_board_info.call_count, 2)
+        print("\n----------------------rootinfo start")
+        print(ret)
+        print("\n----------------------rootinfo end")
         self.assertIsRootinfoDict(json.loads(ret))

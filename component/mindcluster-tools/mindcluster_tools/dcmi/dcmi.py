@@ -323,9 +323,12 @@ def get_mainboard_id():
     _process_get_mainboard_id(dcmi_lib, card_id, device_id, mainboard_id)
     return mainboard_id.value
 
-
-def get_roce_ip_list():
-    """Get L3 layer address, currently returns mock address"""
-    global _roce_ip_start
-    _roce_ip_start += 1
-    return [f"1.2.0.{_roce_ip_start}", f"3.4.0.{_roce_ip_start}"]
+def is_dcmi_available() -> bool:
+    """
+    return true if dcmi for atlas 950 is avaiable
+    """
+    try:
+        dcmi_lib = _get_dcmi_lib()
+        return hasattr(dcmi_lib, "dcmi_get_eid_list_by_urma_dev_index")
+    except OSError:
+        return False
