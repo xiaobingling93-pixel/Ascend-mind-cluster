@@ -33,6 +33,24 @@ const (
 	DpuInfoCMNamePrefix = "mindcluster-dpuinfo-"
 )
 
+// Device Type
+const (
+	// A5PodType a5 pod type
+	A5PodType = "900SuperPod-A5-8"
+	// Ascend800ia5x8 normal inference server label
+	Ascend800ia5x8 = "800I-A5-8"
+	// Ascend800ta5x8 normal training server label
+	Ascend800ta5x8 = "800T-A5-8"
+	// Ascend800ia5Stacking stacking server label
+	Ascend800ia5Stacking = "800I-Stacking-A5-8"
+	// Ascend800ia5SuperPod superpod inference server label
+	Ascend800ia5SuperPod = "800I-SuperPod-A5-8"
+	// Ascend800ta5SuperPod superpod training server label
+	Ascend800ta5SuperPod = "800T-SuperPod-A5-8"
+	// AcceleratorTypeKey  Accelerator type label
+	AcceleratorTypeKey = "accelerator-type"
+)
+
 const (
 	// NpuCountPerNode NPU count per node
 	NpuCountPerNode = 8
