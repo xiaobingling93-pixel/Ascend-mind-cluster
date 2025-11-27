@@ -145,6 +145,17 @@ func New(job *v1.AscendJob) *RankTable {
 	if scaleOutType, ok := job.Labels[v1.ScaleOutTypeLabel]; ok {
 		r.customScaleOutType = strings.ToUpper(strings.TrimSpace(scaleOutType))
 	}
+
+	// stacking server only applicable port type RoCE
+	replicaSpec := job.Spec.ReplicaSpecs[v1.PytorchReplicaTypeMaster]
+	if replicaSpec.Template.Spec.NodeSelector[api.AcceleratorTypeKey] == api.Ascend800ia5Stacking {
+		if r.customScaleOutType == v1.PortAddrTypeUBoE {
+			hwlog.RunLog.Warnf("job(%s) custom scale-out type is UBoE, but stacking servers only support RoCE",
+				job.Name)
+		}
+		r.customScaleOutType = v1.PortAddrTypeRoCE
+	}
+
 	return r
 }
 
