@@ -22,6 +22,7 @@ __all__ = [
     "get_urma_device_cnt",
     "get_super_pod_info",
     "get_eid_list_by_urma_dev_index",
+    "is_dcmi_available",
 ]
 
 from .dcmi import (
@@ -31,4 +32,5 @@ from .dcmi import (
     get_urma_device_cnt,
     get_super_pod_info,
     get_eid_list_by_urma_dev_index,
+    is_dcmi_available,
 )

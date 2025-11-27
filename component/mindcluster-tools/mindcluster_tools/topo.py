@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 import json
+from typing import List
 from copy import deepcopy
 
 
@@ -49,11 +49,44 @@ class Topo(object):
                 and edge["net_layer"] == level
                 and len(edge["local_a_ports"]) > 1
             )
-            protocol_condition = "UB_TP" in edge["protocols"] or "UB_CTP" in edge["protocols"]
+            protocol_condition = (
+                "UB_TP" in edge["protocols"] or "UB_CTP" in edge["protocols"]
+            )
             if filter_condition and protocol_condition:
                 ps = edge["local_a_ports"]
                 ports.update([port[-1] for port in ps if port.startswith(f"{die_id}/")])
         return sorted([int(i) for i in ports])
+
+    def is_p2p_edge(self, local_id: str, port: str) -> bool:
+        for edge in self._topo["edge_list"]:
+            if edge["link_type"] != "PEER2PEER":
+                continue
+            if local_id == edge["local_a"] and port in edge["local_a_ports"]:
+                return True
+            if local_id == edge["local_b"] and port in edge["local_b_ports"]:
+                return True
+        return False
+
+    def get_level_list(self):
+        levels = []
+        for edge in self._topo["edge_list"]:
+            if edge["net_layer"] not in levels:
+                levels.append(edge["net_layer"])
+        return levels
+
+    def get_ports_by_level(self, local_id, level, plane_index=0) -> List[str]:
+        ports = []
+        for edge in self._topo["edge_list"]:
+            if (
+                edge["link_type"] == "PEER2NET"
+                and edge["local_a"] == local_id
+                and edge["net_layer"] == level
+            ):
+                ports.append(edge["local_a_ports"])
+        try:
+            return ports[plane_index]
+        except IndexError:
+            return []
 
 
 class TopoSingleFactory:
