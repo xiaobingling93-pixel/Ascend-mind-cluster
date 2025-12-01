@@ -73,3 +73,25 @@
 
 # 版本配套说明
 版本配套详情请参考：[版本配套详情](https://www.hiascend.com/developer/download/community)
+
+# Roadmap
+## 集群管理
+1. volcano亲和性调度与资源控制对象解耦，支持任意任务类型
+2. npu-exporter指标插件化，开放自定义指标能力
+
+## 训练RAS
+1. 进程级恢复覆盖面提升
+2. 降低配置难度、提升易用性
+3. 支持预训练和后训练故障重调度
+
+## 推理RAS
+1. 支持一体机场景任务部署和故障自动恢复
+2. 支持基于aibrix和ome进行推理任务一键式部署和硬件故障重调度
+
+# 如何提交贡献
+贡献前，请先签署[开放项目贡献者许可协议（CLA）](https://clasign.osinfra.cn/sign/gitee_ascend-1611222220829317930)。
+通常，MindCluster一年会有4个正式release版本。
+如果您遇到bug，请[提交issue](https://gitcode.com/Ascend/mind-cluster/issues)。
+如果您计划贡献bug-fixes，请提交Pull Requests，参见[具体要求](https://gitcode.com/Ascend/mind-cluster/blob/readme-contribute/contributing.md#PullRequest)。
+如果您计划贡献新特性、功能，请先创建issue与我们讨论。写明需求背景/目的，如何设计，对现有API等的影响。未经讨论提交PR可能会导致请求被拒绝，因为项目演进方向可能与您的想法存在偏差。
+更详细的贡献流程，请参考[贡献指南](https://gitcode.com/Ascend/mind-cluster/blob/readme-contribute/contributing.md)。
