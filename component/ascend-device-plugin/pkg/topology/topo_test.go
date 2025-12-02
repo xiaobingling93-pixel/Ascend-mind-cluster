@@ -17,17 +17,18 @@ package topology
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
 	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/utils"
 )
 
 func init() {
@@ -40,47 +41,117 @@ func init() {
 func TestTopoFileToStr(t *testing.T) {
 	convey.Convey("test topoFileToStr", t, func() {
 		convey.Convey("read file failed", func() {
-			mock1 := gomonkey.ApplyFunc(os.ReadFile, func(_ string) ([]byte, error) {
-				return nil, fmt.Errorf("fake error")
-			})
+			mock1 := gomonkey.ApplyFuncReturn(utils.ReadLimitBytes, nil, fmt.Errorf("mock error"))
 			defer mock1.Reset()
 			_, err := topoFileToStr("")
 			convey.So(err, convey.ShouldNotBeNil)
 		})
-		mock2 := gomonkey.ApplyFunc(os.ReadFile, func(_ string) ([]byte, error) { return make([]byte, 0), nil })
+		mock2 := gomonkey.ApplyFuncReturn(utils.ReadLimitBytes, nil, nil)
 		defer mock2.Reset()
 		convey.Convey("json valid failed", func() {
-			mock3 := gomonkey.ApplyFunc(json.Valid, func(_ []byte) bool { return false })
+			mock3 := gomonkey.ApplyFuncReturn(json.Valid, false)
 			defer mock3.Reset()
 			_, err := topoFileToStr("")
 			convey.So(err, convey.ShouldNotBeNil)
+		})
+		convey.Convey("json valid success", func() {
+			mock3 := gomonkey.ApplyFuncReturn(json.Valid, true)
+			defer mock3.Reset()
+			_, err := topoFileToStr("")
+			convey.So(err, convey.ShouldBeNil)
 		})
 	})
 }
 
 // TestToFile test case for ToFile
 func TestToFile(t *testing.T) {
-	var topoFilePath string
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Error:", err)
-		topoFilePath = "/tmp/topology.json"
-	} else {
-		topoFilePath = filepath.Join(dir, "topology.json")
-	}
-
-	convey.Convey("test ToFile", t, func() {
-		convey.Convey("test ToFile should be success", func() {
-			mock1 := gomonkey.ApplyFunc(topoFileToStr, func(_ string) (string, error) {
-				return "", nil
-			})
-			defer mock1.Reset()
-			err := ToFile(topoFilePath, "")
-			convey.So(err, convey.ShouldBeNil)
-		})
-
+	convey.Convey("Test ToFile function scenarios", t, func() {
+		buildToFileTestCase1("")
+		buildToFileTestCase2("")
 	})
 }
+
+func buildToFileTestCase1(topoFilePath string) {
+	convey.Convey("When get json string of topo info failed", func() {
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", fmt.Errorf("mock error"))
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When get file stat failed (not not exist)", func() {
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, fmt.Errorf("mock error")).
+			ApplyFuncReturn(os.IsNotExist, false)
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When get file stat success but get file hash failed", func() {
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, fmt.Errorf("mock error"))
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When new hash equals original hash (no write)", func() {
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, nil).
+			ApplyFuncReturn(sha256.Sum256, [Sha256HashLength]byte{})
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func buildToFileTestCase2(topoFilePath string) {
+	convey.Convey("When open file failed", func() {
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, nil).
+			ApplyFuncReturn(os.OpenFile, nil, fmt.Errorf("mock error"))
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When write string to file failed", func() {
+		mockFile := &os.File{}
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, nil).
+			ApplyFuncReturn(os.OpenFile, mockFile, nil).
+			ApplyMethodReturn(mockFile, "WriteString", 0, fmt.Errorf("mock error"))
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When chmod file failed", func() {
+		mockFile := &os.File{}
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, nil).
+			ApplyFuncReturn(os.OpenFile, mockFile, nil).
+			ApplyMethodReturn(mockFile, "WriteString", 0, nil).
+			ApplyFuncReturn(os.Chmod, fmt.Errorf("mock error"))
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldNotBeNil)
+	})
+	convey.Convey("When ToFile execute successfully", func() {
+		mockFile := &os.File{}
+		mock := gomonkey.ApplyFuncReturn(topoFileToStr, "", nil).
+			ApplyFuncReturn(os.Stat, nil, nil).
+			ApplyFuncReturn(getFileHash, [Sha256HashLength]byte{}, nil).
+			ApplyFuncReturn(os.OpenFile, mockFile, nil).
+			ApplyMethodReturn(mockFile, "WriteString", 0, nil).
+			ApplyFuncReturn(os.Chmod, nil)
+		defer mock.Reset()
+		err := ToFile(topoFilePath, "")
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
 func TestGetFileHash(t *testing.T) {
 	convey.Convey("test getFileHash err", t, func() {
 		mockReadFile := gomonkey.ApplyFunc(os.ReadFile, func(_ string) ([]byte, error) {
