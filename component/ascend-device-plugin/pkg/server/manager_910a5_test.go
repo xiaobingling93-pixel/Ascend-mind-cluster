@@ -273,3 +273,18 @@ func TestHwDevManagerMethodSetNodeInternalIPInK8s(t *testing.T) {
 		})
 	})
 }
+
+func TestGetSuperPodType(t *testing.T) {
+	convey.Convey("Test GetSuperPodType", t, func() {
+		oldValue := common.ParamOption.RealCardType
+		common.ParamOption.RealCardType = api.Ascend910A5
+		defer func() {
+			common.ParamOption.RealCardType = oldValue
+		}()
+		devMgr := device.NewHwAscend910Manager()
+		hdm := HwDevManager{
+			manager: devMgr,
+		}
+		convey.So(hdm.GetSuperPodType(), convey.ShouldEqual, common.SuperPodTypeAbnormal)
+	})
+}

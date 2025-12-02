@@ -117,6 +117,7 @@ func TestCheckConfigReady(t *testing.T) {
 	TestCheckConfigReadyPart2(t)
 	TestCheckConfigReadyPart3(t)
 	TestCheckConfigReadyPart4(t)
+	TestCheckConfigReadyPart5(t)
 }
 
 func TestCheckConfigReadyPart1(t *testing.T) {
@@ -191,6 +192,32 @@ func TestCheckConfigReadyPart4(t *testing.T) {
 		defer mock4.Reset()
 		_, ok := checkConfigReady("1")
 		convey.So(ok, convey.ShouldEqual, true)
+	})
+}
+
+func TestCheckConfigReadyPart5(t *testing.T) {
+	convey.Convey("test checkConfigReady case 5 chmod rackDir failed", t, func() {
+		mock1 := gomonkey.ApplyFunc(slownet.GetSuperPodInfoFilePath, func(_, _ string) (string, error) {
+			return "", nil
+		})
+		defer mock1.Reset()
+		mock2 := gomonkey.ApplyFunc(utils.IsLexist,
+			func(_ string) bool {
+				return true
+			})
+		defer mock2.Reset()
+		mock3 := gomonkey.ApplyFunc(slownet.GetRackTopologyFilePath,
+			func(_, _, _ int32) (string, error) {
+				return "", nil
+			})
+		defer mock3.Reset()
+		mock4 := gomonkey.ApplyFunc(os.Chmod,
+			func(_ string, _ fs.FileMode) error {
+				return errors.New("fake error")
+			})
+		defer mock4.Reset()
+		_, ok := checkConfigReady("1")
+		convey.So(ok, convey.ShouldEqual, false)
 	})
 }
 
@@ -287,37 +314,6 @@ func TestRasTopoWriteTask3(t *testing.T) {
 	})
 }
 
-func TestRasTopoWriteTask5(t *testing.T) {
-	convey.Convey("Test RasTopoWriteTask", t, func() {
-		common.ParamOption.RealCardType = common.Ascend910A5
-		var count int32
-		ctx, cancel := context.WithCancel(context.Background())
-		var hdm server.HwDevManager
-
-		patches := gomonkey.NewPatches()
-		defer patches.Reset()
-
-		patches.ApplyFunc(slownet.GetRasNetRootPath, func() (string, error) { return "/mock/path", fmt.Errorf("err") })
-		patches.ApplyMethod(&server.HwDevManager{}, "GetSuperPodID", func(_ *server.HwDevManager) int32 { return 0 })
-		patches.ApplyMethod(&server.HwDevManager{}, "GetSuperPodType", func(_ *server.HwDevManager) int8 { return 0 })
-		patches.ApplyMethod(&server.HwDevManager{}, "GetRackID", func(_ *server.HwDevManager) int32 { return 0 })
-		manager := device.NewHwAscend910Manager()
-		manager.SetServerIndex(1)
-		patches.ApplyMethod(&server.HwDevManager{}, "GetDevManager", func(_ *server.HwDevManager) device.DevManager { return manager })
-		patches.ApplyFunc(checkConfigReady, func(podID string) (string, bool) {
-			atomic.StoreInt32(&count, 1)
-			return "", false
-		})
-
-		go RasTopoWriteTask(ctx, &hdm)
-		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
-
-		convey.So(atomic.LoadInt32(&count), convey.ShouldEqual, 0)
-		cancel()
-		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
-	})
-}
-
 func TestRasTopoWriteTask4(t *testing.T) {
 	convey.Convey("Test RasTopoWriteTask4", t, func() {
 		common.ParamOption.RealCardType = common.Ascend910A5
@@ -349,6 +345,52 @@ func TestRasTopoWriteTask4(t *testing.T) {
 
 		convey.So(atomic.LoadInt32(&tag1), convey.ShouldEqual, 1)
 		convey.So(atomic.LoadInt32(&tag2), convey.ShouldEqual, 1)
+		cancel()
+		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
+	})
+}
+
+func TestRasTopoWriteTask5(t *testing.T) {
+	convey.Convey("Test RasTopoWriteTask", t, func() {
+		common.ParamOption.RealCardType = common.Ascend910A5
+		var count int32
+		ctx, cancel := context.WithCancel(context.Background())
+		var hdm server.HwDevManager
+
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		patches.ApplyFunc(slownet.GetRasNetRootPath, func() (string, error) { return "/mock/path", fmt.Errorf("err") })
+		patches.ApplyMethod(&server.HwDevManager{}, "GetSuperPodID", func(_ *server.HwDevManager) int32 { return 0 })
+		patches.ApplyMethod(&server.HwDevManager{}, "GetSuperPodType", func(_ *server.HwDevManager) int8 { return 0 })
+		patches.ApplyMethod(&server.HwDevManager{}, "GetRackID", func(_ *server.HwDevManager) int32 { return 0 })
+		manager := device.NewHwAscend910Manager()
+		manager.SetServerIndex(1)
+		patches.ApplyMethod(&server.HwDevManager{}, "GetDevManager", func(_ *server.HwDevManager) device.DevManager { return manager })
+		patches.ApplyFunc(checkConfigReady, func(podID string) (string, bool) {
+			atomic.StoreInt32(&count, 1)
+			return "", false
+		})
+
+		go RasTopoWriteTask(ctx, &hdm)
+		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
+
+		convey.So(atomic.LoadInt32(&count), convey.ShouldEqual, 0)
+		cancel()
+		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
+	})
+}
+
+func TestRasTopoWriteTask6(t *testing.T) {
+	convey.Convey("Test RasTopoWriteTask", t, func() {
+		common.ParamOption.RealCardType = common.Ascend910A5
+		var count int32
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go RasTopoWriteTask(ctx, nil)
+		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
+
+		convey.So(atomic.LoadInt32(&count), convey.ShouldEqual, 0)
 		cancel()
 		time.Sleep(common.TopologyRefreshTime * time.Millisecond)
 	})
