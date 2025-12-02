@@ -30,12 +30,12 @@ const requiredNodesForTestFour = 4
 // TestJudgeNodeAndTaskNPU test JudgeNodeAndTaskNPU
 func TestJudgeNodeAndTaskNPU(t *testing.T) {
 	mod := &ascend300IA5{}
-	if err := mod.JudgeNodeAndTaskNPU(requiredNodesForTestThree, []int{0, 1, 2}); err != nil {
+	if err := mod.judgeNodeAndTaskNPU(requiredNodesForTestThree, []int{0, 1, 2}); err != nil {
 		t.Errorf("expected no error when required=3 and nodeTop length is 3, got: %v", err)
 	}
-	if err := mod.JudgeNodeAndTaskNPU(requiredNodesForTestFour, []int{0, 1, 2}); err == nil {
+	if err := mod.judgeNodeAndTaskNPU(requiredNodesForTestFour, []int{0, 1, 2}); err == nil {
 		t.Error("expected error when required=4 and nodeTop length is 3, got nil")
-	} else if !strings.Contains(err.Error(), "not meet req npu") {
+	} else if !strings.Contains(err.Error(), "not meet task in 4Pmesh") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -388,7 +388,7 @@ func TestIs4PmeshAffinity(t *testing.T) {
 			tp := ascend300IA5{}
 			tp.SetPluginName(tt.jobType)
 
-			got := tp.is4PmeshAffinity(tt.taskNPUs)
+			got := is4PmeshAffinity(tt.taskNPUs)
 			if got != tt.want {
 				t.Errorf("is4PmeshAffinity(%d) with jobType=%s = %v, want %v",
 					tt.taskNPUs, tt.jobType, got, tt.want)
@@ -528,6 +528,18 @@ func TestSelectNPUNotFullMesh(t *testing.T) {
 			taskNPUNum: 3,
 			nodeTop:    []int{0, 1, 2, 3, 4, 5, 8, 9, 10, 12, 13, 14, 15},
 			want:       []int{8, 9, 10},
+		},
+		{
+			name:       "task=-1, mesh={4,2,3,4}",
+			taskNPUNum: -1,
+			nodeTop:    []int{},
+			want:       nil,
+		},
+		{
+			name:       "task=4, mesh={4,2,3,4}",
+			taskNPUNum: 4,
+			nodeTop:    []int{0, 5, 9},
+			want:       nil,
 		},
 	}
 

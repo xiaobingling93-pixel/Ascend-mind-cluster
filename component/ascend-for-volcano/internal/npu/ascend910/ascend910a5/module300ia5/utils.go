@@ -65,12 +65,17 @@ func getNPUNumByHandler(name string) int {
 		return maxNodeNPUNumX8
 	case Ascend300I4Px16Label:
 		return maxNodeNPUNumX16
-	case Ascend300Ix8Label:
-		return maxNodeNPUNumX8
-	case Ascend300Ix16Label:
-		return maxNodeNPUNumX16
 	default:
 		klog.V(util.LogErrorLev).Infof("found an unsupported handler name %s", name)
 		return 0
 	}
+}
+
+func is4PmeshAffinity(taskNPUNum int) bool {
+	// The number of NPUs required for the task is irregular and affinity is not guaranteed.
+	if taskNPUNum > cardsNumPerMesh && taskNPUNum%cardsNumPerMesh != 0 {
+		return false
+	}
+
+	return true
 }

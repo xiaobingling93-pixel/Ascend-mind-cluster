@@ -24,24 +24,20 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 )
 
-// JudgeNodeAndTaskNPU Determine whether the task required NPU number can be met
-func (tp *ascend300IA5) JudgeNodeAndTaskNPU(taskNPU int, nodeTop []int) error {
+// judgeNodeAndTaskNPU Determine whether the task required NPU number can be met
+func (tp *ascend300IA5) judgeNodeAndTaskNPU(taskNPU int, nodeTop []int) error {
 	// need 4Pmesh affinity
-	if tp.is4PmeshAffinity(taskNPU) {
+	if is4PmeshAffinity(taskNPU) {
 		if judgeNodeAndTaskNpuIn4Pmesh(taskNPU, nodeTop) {
 			return nil
 		}
-		meetErr := fmt.Errorf("%v not meet req npu(%d) in 4Pmesh affinity", nodeTop, taskNPU)
-		klog.V(util.LogErrorLev).Infof("cardIDs:<%v> not meet task reqNum<%d> in 4Pmesh affinity.", nodeTop, taskNPU)
-		return meetErr
+		return fmt.Errorf("node topo does not meet task in 4Pmesh affinity, require(%d), available %v", taskNPU, nodeTop)
 	}
 	// do not need 4Pmesh affinity
 	if taskNPU <= len(nodeTop) {
 		return nil
 	}
-	meetErr := fmt.Errorf("%v not meet req npu(%d)", nodeTop, taskNPU)
-	klog.V(util.LogErrorLev).Infof("cardIDs:<%v> not meet task reqNum<%d>.", nodeTop, taskNPU)
-	return meetErr
+	return fmt.Errorf("node topo does not meet task require(%d), available %v", taskNPU, nodeTop)
 }
 
 // valid300ia5NPUJob check the job req npu num and mode
@@ -102,20 +98,6 @@ func (tp *ascend300IA5) getNodeBestScore(taskNPUNum int, npuTop []int) (int, err
 		return 0, fmt.Errorf("node npu num<%d> is invalid, npu topo is: %v", npuNum, npuTop)
 	}
 	return tp.affScoreList[taskNPUNum-1][npuNum-1], nil
-}
-
-// Is4PmeshAffinity is need 4Pmesh align
-func (tp *ascend300IA5) is4PmeshAffinity(taskNPUNum int) bool {
-	// not 4Pmesh
-	if tp.GetPluginName() != Ascend300I4Px8Label && tp.GetPluginName() != Ascend300I4Px16Label {
-		return false
-	}
-	// The number of NPUs required for the task is irregular and affinity is not guaranteed.
-	if taskNPUNum > cardsNumPerMesh && taskNPUNum%cardsNumPerMesh != 0 {
-		return false
-	}
-	// 4Pmesh && need Affinity
-	return true
 }
 
 // judgeNodeAndTaskNpuIn4Pmesh Determine whether a node can meet 4Pmesh scheduling
@@ -219,7 +201,7 @@ func (tp *ascend300IA5) scoreNodeForGeneral(taskNPUNum int, npuTop []int) float6
 	klog.V(util.LogInfoLev).Info("begin to score node in general scenario")
 	bestScore, err := tp.getNodeBestScore(taskNPUNum, npuTop)
 	if err != nil {
-		klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)
+		klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)
 		return 0
 	}
 	return float64(tp.MaxNodeNPUNum * (tp.MaxNodeNPUNum - bestScore))

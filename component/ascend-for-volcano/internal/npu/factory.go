@@ -90,6 +90,33 @@ func initCard310PFactory() {
 }
 
 func initCard910Factory() {
+	// init card handler by base handler
+	initCard910ByBaseHandler()
+
+	card910Factory[module910bx16.SchedulerName] =
+		func() base.AscendHandler { return module910bx16.New(module910bx16.SchedulerName) }
+	card910Factory[module910x8.SchedulerName] =
+		func() base.AscendHandler { return module910x8.New(module910x8.SchedulerName) }
+	card910Factory[superpod.SchedulerName] =
+		func() base.AscendHandler { return superpod.New(superpod.SchedulerName) }
+	card910Factory[module910a3x16.SchedulerName] =
+		func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
+	card910Factory[superpoda5.SuperPodx8SchedulerName] =
+		func() base.AscendHandler { return superpoda5.New(superpoda5.SuperPodx8SchedulerName) }
+	card910Factory[ascend800ia5superpod.InferSchedulerName] =
+		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
+	card910Factory[ascend800ia5superpod.TrainSchedulerName] =
+		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
+	card910Factory[ascend800ia5stacking.SchedulerName] =
+		func() base.AscendHandler { return ascend800ia5stacking.New(ascend800ia5stacking.SchedulerName) }
+	card910Factory[module300ia5.Ascend300I4Px8Label] =
+		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300I4Px8Label) }
+	card910Factory[module300ia5.Ascend300I4Px16Label] =
+		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300I4Px16Label) }
+
+}
+
+func initCard910ByBaseHandler() {
 	card910Factory[card910x2Name] = func() base.AscendHandler {
 		return base.New(util.NPU910CardName,
 			base.WithAnnoPreVal(util.NPU910CardNamePre), base.WithMaxNodeNum(util.NPUIndex8))
@@ -113,30 +140,14 @@ func initCard910Factory() {
 			base.WithNetworkFault(true),
 			base.WithNpuInvalidMap(map[int]struct{}{util.NPUIndex3: {}}))
 	}
-	card910Factory[module910bx16.SchedulerName] =
-		func() base.AscendHandler { return module910bx16.New(module910bx16.SchedulerName) }
-	card910Factory[module910x8.SchedulerName] =
-		func() base.AscendHandler { return module910x8.New(module910x8.SchedulerName) }
-	card910Factory[superpod.SchedulerName] =
-		func() base.AscendHandler { return superpod.New(superpod.SchedulerName) }
-	card910Factory[module910a3x16.SchedulerName] =
-		func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
-	card910Factory[superpoda5.SuperPodx8SchedulerName] =
-		func() base.AscendHandler { return superpoda5.New(superpoda5.SuperPodx8SchedulerName) }
-	card910Factory[ascend800ia5superpod.InferSchedulerName] =
-		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
-	card910Factory[ascend800ia5superpod.TrainSchedulerName] =
-		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
-	card910Factory[ascend800ia5stacking.SchedulerName] =
-		func() base.AscendHandler { return ascend800ia5stacking.New(ascend800ia5stacking.SchedulerName) }
-	card910Factory[module300ia5.Ascend300I4Px8Label] =
-		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300I4Px8Label) }
-	card910Factory[module300ia5.Ascend300I4Px16Label] =
-		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300I4Px16Label) }
-	card910Factory[module300ia5.Ascend300Ix8Label] =
-		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300Ix8Label) }
-	card910Factory[module300ia5.Ascend300Ix16Label] =
-		func() base.AscendHandler { return module300ia5.New(module300ia5.Ascend300Ix16Label) }
+	card910Factory[module300ia5.Ascend300Ix8Label] = func() base.AscendHandler {
+		return base.New(module300ia5.Ascend300Ix8Label, base.WithAnnoPreVal(util.NPU910CardNamePre),
+			base.WithMaxNodeNum(util.NPUIndex8), base.WithAnnoName(util.NPU910CardName))
+	}
+	card910Factory[module300ia5.Ascend300Ix16Label] = func() base.AscendHandler {
+		return base.New(module300ia5.Ascend300Ix16Label, base.WithAnnoPreVal(util.NPU910CardNamePre),
+			base.WithMaxNodeNum(util.NPUIndex16), base.WithAnnoName(util.NPU910CardName))
+	}
 }
 
 // InitPolicyHandler initializes the NPU affinity policy handler

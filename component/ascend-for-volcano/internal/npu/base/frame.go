@@ -56,6 +56,13 @@ func WithAnnoPreVal(annoPre string) Option {
 	}
 }
 
+// WithAnnoName build AscendHandler WithAnnoName
+func WithAnnoName(annoName string) Option {
+	return func(h AscendHandler) {
+		h.SetAnnoName(annoName)
+	}
+}
+
 // WithNetworkFault build AscendHandler WithNetworkFault
 func WithNetworkFault(enable bool) Option {
 	return func(h AscendHandler) {

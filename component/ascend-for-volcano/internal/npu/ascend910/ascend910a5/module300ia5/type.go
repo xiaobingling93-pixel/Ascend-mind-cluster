@@ -22,6 +22,7 @@ type ascend300IA5 struct {
 
 const (
 	networkUnhealthyNPU = "huawei.com/Ascend910-NetworkUnhealthy"
+	unhealthyNPU        = "huawei.com/Ascend910-Unhealthy"
 	// Ascend300I4Px8Label the label 300I-A5-4p-8
 	Ascend300I4Px8Label = "300I-A5-4p-8"
 	// Ascend300I4Px16Label the label 300I-A5-4p-16

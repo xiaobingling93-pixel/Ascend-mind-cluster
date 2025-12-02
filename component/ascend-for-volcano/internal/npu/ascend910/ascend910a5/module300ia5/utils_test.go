@@ -52,12 +52,6 @@ func TestGetNPUNumByHandler(t *testing.T) {
 	if n := getNPUNumByHandler(Ascend300I4Px16Label); n != maxNodeNPUNumX16 {
 		t.Errorf("getNPUNumByHandler The results do not match the expectations; the actual results: %d", n)
 	}
-	if n := getNPUNumByHandler(Ascend300Ix8Label); n != maxNodeNPUNumX8 {
-		t.Errorf("getNPUNumByHandler The results do not match the expectations; the actual results: %d", n)
-	}
-	if n := getNPUNumByHandler(Ascend300Ix16Label); n != maxNodeNPUNumX16 {
-		t.Errorf("getNPUNumByHandler The results do not match the expectations; the actual results: %d", n)
-	}
 	if n := getNPUNumByHandler("test"); n != 0 {
 		t.Errorf("getNPUNumByHandler The results do not match the expectations; the actual results: %d", n)
 	}

@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog"
 
 	"volcano.sh/volcano/pkg/scheduler/api"
+
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a5"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
@@ -37,6 +38,9 @@ const (
 	singleChip = 1 // require single card
 	twoChips   = 2 // require two cards
 	threeChips = 3 // require three cards
+	fiveChips  = 5
+	sixChips   = 6
+	npuHexKilo = 1000
 )
 
 // createValidTask Construct a valid task
@@ -100,8 +104,11 @@ func makeNodeWithKChips(k int) plugin.NPUNode {
 		CommonNode: plugin.CommonNode{
 			Name:       "node-x",
 			Annotation: anno,
-			Label: map[string]string{
-				util.AcceleratorType: util.NPU910CardName}},
+			Label:      map[string]string{util.AcceleratorType: util.NPU910CardName},
+			Allocate: map[v1.ResourceName]float64{
+				util.NPU910CardName: float64(k * npuHexKilo),
+			},
+		},
 	}
 }
 
@@ -189,8 +196,8 @@ func makeTask(name string, reqCount int) *api.TaskInfo {
 
 // newHandler creates a ascend300IA5 and injects a util.NPUJob with
 // SpBlockNPUNum=1 so that multi-card topology splits into k blocks.
-func newHandler(task *api.TaskInfo, reqCount int) *ascend300IA5 {
-	baseObj := New(Ascend300I4Px8Label)
+func newHandler(pluginName string, task *api.TaskInfo, reqCount int) *ascend300IA5 {
+	baseObj := New(pluginName)
 	h, ok := baseObj.(*ascend300IA5)
 	if !ok {
 		klog.Error("Type assertion failed: expected *ascend300IA5, got ", reflect.TypeOf(baseObj))
@@ -233,7 +240,7 @@ func newHandler(task *api.TaskInfo, reqCount int) *ascend300IA5 {
 
 func TestGetTaskReqNPUNumSuccess(t *testing.T) {
 	task := makeTask("t1", threeChips)
-	h := newHandler(task, threeChips)
+	h := newHandler(Ascend300I4Px8Label, task, threeChips)
 	got, err := h.GetTaskReqNPUNum(task)
 	if err != nil || got != threeChips {
 		t.Fatalf("want (3,nil); got (%d,%v)", got, err)
@@ -255,7 +262,7 @@ func TestGetTaskReqNPUNumNoJob(t *testing.T) {
 
 func TestGetTaskReqNPUNumNoTask(t *testing.T) {
 	task := makeTask("t3", twoChips)
-	h := newHandler(task, twoChips)
+	h := newHandler(Ascend300I4Px8Label, task, twoChips)
 	// remove the registered UID to trigger “is not npu task”
 	delete(h.NPUHandler.Jobs[task.Job].SchedulerJobAttr.NPUJob.Tasks, task.UID)
 	_, err := h.GetTaskReqNPUNum(task)
@@ -266,7 +273,7 @@ func TestGetTaskReqNPUNumNoTask(t *testing.T) {
 
 func TestValidNPUJobDoesNotPanic(t *testing.T) {
 	task := makeTask("t8", singleChip)
-	h := newHandler(task, singleChip)
+	h := newHandler(Ascend300I4Px8Label, task, singleChip)
 	_ = h.ValidNPUJob()
 }
 
@@ -295,7 +302,7 @@ func prepareNode(k int) plugin.NPUNode {
 
 func TestCheckNodeNPUByTaskSuccess(t *testing.T) {
 	task := makeTask("task-ok", twoChips)
-	h := newHandler(task, twoChips)
+	h := newHandler(Ascend300I4Px8Label, task, twoChips)
 	node := prepareNode(twoChips)
 	// Mapping of the two nodes registered in the handler
 	h.Nodes = map[string]plugin.NPUNode{node.Name: node}
@@ -307,7 +314,7 @@ func TestCheckNodeNPUByTaskSuccess(t *testing.T) {
 
 func TestScoreBestNPUNodesSuccess(t *testing.T) {
 	task := makeTask("task-score", 1)
-	h := newHandler(task, singleChip)
+	h := newHandler(Ascend300I4Px8Label, task, singleChip)
 	nodeA := prepareNode(singleChip)
 	nodeA.Name = "node-A"
 	nodeB := prepareNode(singleChip)
@@ -333,9 +340,45 @@ func TestScoreBestNPUNodesSuccess(t *testing.T) {
 	}
 }
 
+func TestScoreBestNPUNodesSuccessNoMesh(t *testing.T) {
+	task := makeTask("task-score", 1)
+	h := newHandler(Ascend300I4Px8Label, task, fiveChips)
+	nodeA := prepareNode(fiveChips)
+	nodeA.Name = "node-A"
+	nodeB := prepareNode(sixChips)
+	nodeB.Name = "node-B"
+	h.Nodes = map[string]plugin.NPUNode{
+		nodeA.Name: nodeA,
+		nodeB.Name: nodeB,
+	}
+	h.NPUHandler.ScheduleEnv.ClusterCache.Nodes = h.Nodes
+	nodes := []*api.NodeInfo{
+		{Name: nodeA.Name},
+		{Name: nodeB.Name},
+	}
+	// Insert a dummy so that len(sMap) > 0
+	scores := map[string]float64{"dummy": 0}
+	var expectedA float64 = 64
+	var expectedB float64 = 56
+	if err := h.ScoreBestNPUNodes(task, nodes, scores); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, ni := range nodes {
+		if _, ok := scores[ni.Name]; !ok {
+			t.Errorf("missing score for node %q", ni.Name)
+		}
+	}
+	if scores[nodeA.Name] != expectedA {
+		t.Errorf("expect score for node is %f, not %f", expectedA, scores[nodeA.Name])
+	}
+	if scores[nodeB.Name] != expectedB {
+		t.Errorf("expect score for node is %f, not %f", expectedB, scores[nodeB.Name])
+	}
+}
+
 func TestSelectNPUFromNodeSuccess(t *testing.T) {
 	task := makeTask("task-sel", threeChips)
-	h := newHandler(task, threeChips)
+	h := newHandler(Ascend300I4Px8Label, task, threeChips)
 	node := prepareNode(threeChips)
 	h.NPUHandler.ScheduleEnv.ClusterCache.Nodes = map[string]plugin.NPUNode{node.Name: node}
 	picked, err := h.selectNPUFromNode(task, node)
@@ -352,7 +395,7 @@ func TestSelectNPUFromNodeSuccess(t *testing.T) {
 
 func TestUseAnnotationDefault(t *testing.T) {
 	task := makeTask("task-use", twoChips)
-	h := newHandler(task, twoChips)
+	h := newHandler(Ascend300I4Px8Label, task, twoChips)
 	node := prepareNode(twoChips)
 	node.Name = "node-use"
 	h.Nodes = map[string]plugin.NPUNode{node.Name: node}
