@@ -25,7 +25,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
-// New return npu plugin for ascend300IA5
+// New return npu plugin for ascend300IA5 including 300I-A5-4p-8 or 300I-A5-4p-16 with 4p mesh
 func New(name string) base.AscendHandler {
 	m := &ascend300IA5{}
 	klog.V(util.LogInfoLev).Infof("ascend300IA5 card type =%s", name)
@@ -60,10 +60,10 @@ func (tp *ascend300IA5) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNo
 		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
-	if err = tp.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("%s JudgeNodeAndTaskNPU err: %s", tp.GetPluginName(), err.Error())
-		return fmt.Errorf("npu topology not meet job require,network unhealthy card is [ %s ]",
-			node.Annotation[networkUnhealthyNPU])
+	if err = tp.judgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
+		klog.V(util.LogErrorLev).Infof("the node judgeNodeAndTaskNPU failed, node name %s, err: %s",
+			node.Name, err.Error())
+		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
 	return nil
 }
@@ -82,7 +82,6 @@ func (tp *ascend300IA5) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeI
 		return getErr
 	}
 
-	is4PmeshAffinityFlag := tp.is4PmeshAffinity(taskNPUNum)
 	for _, node := range nodes {
 		if node == nil {
 			continue
@@ -99,8 +98,8 @@ func (tp *ascend300IA5) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeI
 			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)
 			continue
 		}
-		// Calculate the overall score
-		if is4PmeshAffinityFlag {
+
+		if is4PmeshAffinity(taskNPUNum) {
 			sMap[node.Name] = tp.scoreNodeFor4Pmesh(taskNPUNum, cardIds)
 			continue
 		}
@@ -152,7 +151,7 @@ func (tp *ascend300IA5) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNod
 		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes err: %s", err)
 		return nil, err
 	}
-	if tp.is4PmeshAffinity(taskNPUNum) {
+	if is4PmeshAffinity(taskNPUNum) {
 		return tp.selectNPUIn4Pmesh(taskNPUNum, nodeTop), nil
 	}
 	return nodeTop[:taskNPUNum], nil

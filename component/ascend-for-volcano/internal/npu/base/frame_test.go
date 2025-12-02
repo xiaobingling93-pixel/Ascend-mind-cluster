@@ -279,7 +279,7 @@ func buildCheckNodeNPUByTaskTestCases() []checkNodeNPUByTaskTestCase {
 
 // TestCheckNodeNPUByTask
 func TestCheckNodeNPUByTask(t *testing.T) {
-	npu := New(util.NPU310PCardName,
+	npu := New(util.NPU310PCardName, WithAnnoName(util.NPU310PCardName),
 		WithAnnoPreVal(util.NPU310PCardNamePre), WithMaxNodeNum(maxNodeNPUNum),
 		WithNpuInvalidMap(nil), WithNetworkFault(true))
 	job := test.FakeNormalTestJob("job", 1)
