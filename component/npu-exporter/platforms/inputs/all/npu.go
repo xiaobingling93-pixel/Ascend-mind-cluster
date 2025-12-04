@@ -16,5 +16,3 @@
 
 // Package all this for register
 package all
-
-import _ "github.com/influxdata/telegraf/plugins/inputs/npu" // register plugin

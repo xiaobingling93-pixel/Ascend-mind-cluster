@@ -40,3 +40,4 @@ Prometheus（普罗米修斯）是一个开源的系统监测和警报工具包�
 # 说明
 
 1. 当前Npu-Exporter仅支持http启动，如果需要使用https启动，请自行完成代码修改并适配Prometheus
+2. 在使用telegraf集成时，在plugins/inputes/all/npu.go中添加 import _ "github.com/influxdata/telegraf/plugins/inputs/npu"
