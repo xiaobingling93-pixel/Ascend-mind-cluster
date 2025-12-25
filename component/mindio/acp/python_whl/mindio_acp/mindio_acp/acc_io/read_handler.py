@@ -63,9 +63,10 @@ class ReadHandlerCtx(ReadHandler, SerializationMixin):
     """
     _next_handler: ReadHandler = None
 
-    def __init__(self, path: str, map_location):
+    def __init__(self, path: str, map_location, weights_only=True):
         self.path = path
         self.map_location = map_location
+        self.weights_only = weights_only
         self.file = None
 
     @abstractmethod
@@ -260,7 +261,7 @@ class TorchReadHandler(ReadHandlerCtx):
         pass
 
     def read(self):
-        return torch.load(self.path, map_location=self.map_location)
+        return torch.load(self.path, map_location=self.map_location, weights_only=self.weights_only)
 
     def handle(self) -> object:
         try:
@@ -272,10 +273,10 @@ class TorchReadHandler(ReadHandlerCtx):
         return result
 
 
-def create_read_chain(path: str, open_way: str, map_location=None) -> ReadHandler:
+def create_read_chain(path: str, open_way: str, map_location=None, weights_only=True) -> ReadHandler:
     memfs_read = MemFsReadHandler(path, map_location)
     nds_read = NdsReadHandler(path, map_location)
     f_read = FReadHandler(path, map_location)
-    torch_read = TorchReadHandler(path, map_location)
+    torch_read = TorchReadHandler(path, map_location, weights_only)
     memfs_read.set_next(nds_read).set_next(f_read).set_next(torch_read)
     return memfs_read if open_way == "memfs" else nds_read
