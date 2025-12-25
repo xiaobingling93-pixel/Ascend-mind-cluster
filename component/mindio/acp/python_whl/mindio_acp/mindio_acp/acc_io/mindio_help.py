@@ -71,7 +71,7 @@ class _TorchSaveHelp(SerializationMixin, PrepareWriteMixin):
     def __init__(self):
         super().__init__()
 
-    def __call__(self, ckpt_obj: Union[Dict, bytes], path: str, open_way, weights_only) -> int:
+    def __call__(self, ckpt_obj: Union[Dict, bytes], path: str, open_way) -> int:
         import_mindio_sdk_api()
         if torch_initialize_helper(None) != 0:
             logging.warning(f"[mindio_acp] default initialize failed.")
@@ -82,7 +82,7 @@ class _TorchSaveHelp(SerializationMixin, PrepareWriteMixin):
         write_content = self.get_write_content(data_buff, tensors_dict, record_buff)
 
         # 3. write write_list
-        writer = create_write_chain(ckpt_obj, path, open_way, weights_only)
+        writer = create_write_chain(ckpt_obj, path, open_way)
         marker = writer.handle(write_content)
         return marker
 
@@ -91,7 +91,7 @@ class _TorchLoadHelp(SerializationMixin):
     def __init__(self):
         super().__init__()
 
-    def __call__(self, path, open_way, map_location) -> object:
+    def __call__(self, path, open_way, map_location, weights_only) -> object:
         import_mindio_sdk_api()
         try:
             import torch_npu
@@ -101,7 +101,7 @@ class _TorchLoadHelp(SerializationMixin):
             pass
         if torch_initialize_helper(None) != 0:
             logging.warning(f"[mindio_acp] default initialize failed.")
-        reader = create_read_chain(path, open_way, map_location)
+        reader = create_read_chain(path, open_way, map_location, weights_only)
         return reader.handle()
 
 
