@@ -89,20 +89,21 @@ def save(obj: Union[Dict, bytes], path: str, open_way='memfs') -> int:
     return torch_save_helper(obj, path, open_way)
 
 
-def load(path, open_way='memfs', map_location=None) -> Dict:
+def load(path, open_way='memfs', map_location=None, weights_only=True) -> Dict:
     """
     Use mindio format to load torch ckpt from memfs or real path
     Args:
         path (str): file path to load.
         open_way (str): the way used to load.
         map_location (str): specifying how to remap storage locations, only support 'cpu' now
+        weights_only (bool): effective only in escape scenarios
 
     Returns: pytorch object from path, same as torch.load() return.
     """
     if map_location != 'cpu' and map_location:
         raise ValueError("param map_location only support value 'cpu'")
     path = os.path.realpath(path)
-    return torch_load_helper(path, open_way, map_location)
+    return torch_load_helper(path, open_way, map_location, weights_only)
 
 
 def preload(*path) -> int:
