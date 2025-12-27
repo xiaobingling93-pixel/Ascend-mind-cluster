@@ -31,8 +31,10 @@ type Base910A3 struct {
 }
 
 const (
-	// NodeNPUNumber is the number of NPU chips in a node, a3 is 16.
-	NodeNPUNumber = 16
+	// NodeNPUNumber16 is the number of NPU chips in a node, a3 is 16.
+	NodeNPUNumber16 = 16
+	// NodeNPUNumber8 is the number of NPU chips in a node, a3 is 16.
+	NodeNPUNumber8 = 8
 	// DieNPUNumber is the number of NPU chips in whole NPU, a3 is 2.
 	DieNPUNumber = 2
 

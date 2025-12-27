@@ -36,9 +36,20 @@ func TestNewGenerator(t *testing.T) {
 			_, ok := generator.(*v1dot2.RankTable)
 			convey.So(ok, convey.ShouldEqual, true)
 		})
-		convey.Convey("03-job without schedule policy annotation and with accelerator-type A3"+
+		convey.Convey("03-job without schedule policy annotation and with accelerator-type A3x16"+
 			" should return v1.2 ranktable", func() {
-			selector := map[string]string{api.AcceleratorTypeKey: api.AcceleratorTypeModule910A3SuperPod}
+			selector := map[string]string{api.AcceleratorTypeKey: api.AcceleratorTypeModule910A3x16SuperPod}
+			rpls := map[commonv1.ReplicaType]*commonv1.ReplicaSpec{"": &commonv1.ReplicaSpec{
+				Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{NodeSelector: selector}},
+			}}
+			job.Spec.ReplicaSpecs = rpls
+			generator := NewGenerator(job)
+			_, ok := generator.(*v1dot2.RankTable)
+			convey.So(ok, convey.ShouldEqual, true)
+		})
+		convey.Convey("04-job without schedule policy annotation and with accelerator-type A3x8"+
+			" should return v1.2 ranktable", func() {
+			selector := map[string]string{api.AcceleratorTypeKey: api.AcceleratorTypeModule910A3x8SuperPod}
 			rpls := map[commonv1.ReplicaType]*commonv1.ReplicaSpec{"": &commonv1.ReplicaSpec{
 				Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{NodeSelector: selector}},
 			}}

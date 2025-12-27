@@ -132,8 +132,8 @@ func TestCheckTaskNPU(t *testing.T) {
 			tp.NPUJob = &util.NPUJob{
 				Tasks: tt.tasks,
 			}
-			// Set MaxNodeNPUNum to 16 as defined in ascend910a3.NodeNPUNumber
-			tp.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
+			// Set MaxNodeNPUNum to 16 as defined in ascend910a3.NodeNPUNumber16
+			tp.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber16)
 			result := tp.CheckTaskNPU()
 			if tt.wantPass {
 				if result != nil {
@@ -419,7 +419,7 @@ var selectSuperPodForJobTestCases = []selectSuperPodForJobTestCase{
 }
 
 func TestSelectSuperPodForJob(t *testing.T) {
-	plg, _ := New(SchedulerName).(*module910SuperPod)
+	plg, _ := New(A3x16SchedulerName, ascend910a3.NodeNPUNumber16).(*module910SuperPod)
 	plg.Name = "job1"
 	plg.SchedulerJobAttr = util.SchedulerJobAttr{
 		ComJob: util.ComJob{},
@@ -435,11 +435,11 @@ func TestSelectSuperPodForJob(t *testing.T) {
 	plg.Nodes = newNPUNodes(npuNodes, superPodSize10)
 	scoreMap := make(map[string]float64, 0)
 	for _, cs := range selectSuperPodForJobTestCases {
+		plg.spBlock = cs.spBlock
+		plg.Tasks = cs.tasks
+		plg.FrameAttr = cs.frameAttr
+		plg.NPUTaskNum = cs.npuTaskNum
 		t.Run(cs.name, func(t *testing.T) {
-			plg.spBlock = cs.spBlock
-			plg.Tasks = cs.tasks
-			plg.FrameAttr = cs.frameAttr
-			plg.NPUTaskNum = cs.npuTaskNum
 			selectedNodes, err := plg.selectSuperPodForJob(task, cs.nodes, scoreMap)
 			if !reflect.DeepEqual(err, cs.wantErr) {
 				t.Errorf("InitMyJobPlugin() error = %v, wantErr %v", err, cs.wantErr)
@@ -449,6 +449,16 @@ func TestSelectSuperPodForJob(t *testing.T) {
 			}
 		})
 
+		t.Run(cs.name, func(t *testing.T) {
+			plg.MaxNodeNPUNum = ascend910a3.NodeNPUNumber8
+			selectedNodes, err := plg.selectSuperPodForJob(task, cs.nodes, scoreMap)
+			if !reflect.DeepEqual(err, cs.wantErr) {
+				t.Errorf("InitMyJobPlugin() error = %v, wantErr %v", err, cs.wantErr)
+			}
+			if !reflect.DeepEqual(getSelectedNodesSuperPodID(selectedNodes), cs.want) {
+				t.Errorf("InitMyJobPlugin() selectedNodes = %v, want: %v", selectedNodes, cs.want)
+			}
+		})
 	}
 }
 
@@ -551,7 +561,7 @@ func TestValidNPUJob(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tp := &module910SuperPod{}
 			tp.NPUJob = &util.NPUJob{}
-			tp.MaxNodeNPUNum = ascend910a3.NodeNPUNumber
+			tp.MaxNodeNPUNum = ascend910a3.NodeNPUNumber16
 			tp.MaxCardNPUNum = ascend910a3.DieNPUNumber
 			tp.SpBlockNPUNum = tt.spBlockNPUNum
 			tp.ReqNPUNum = tt.reqNPUNum
@@ -1055,7 +1065,7 @@ func new910SuperPod(name string) *module910SuperPod {
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
+	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber16)
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
 	m.nodeVPodId = map[string]string{}
@@ -1064,7 +1074,7 @@ func new910SuperPod(name string) *module910SuperPod {
 
 // TestScoreNodeBatchForReadyJob test of scoreNodeBatchForReadyJob
 func TestScoreNodeBatchForReadyJob(t *testing.T) {
-	plg := new910SuperPod(SchedulerName)
+	plg := new910SuperPod(A3x16SchedulerName)
 	plg.Name = "job1"
 	plg.SchedulerJobAttr = util.SchedulerJobAttr{
 		ComJob: util.ComJob{},
@@ -1205,7 +1215,7 @@ func getObtainBatchScoreRankTestCases(jobId string) []obtainBatchScoreRankTest {
 // TestObtainBatchScoreRank test of obtainBatchScoreRank
 func TestObtainBatchScoreRank(t *testing.T) {
 	jobId := "job1"
-	plg := new910SuperPod(SchedulerName)
+	plg := new910SuperPod(A3x16SchedulerName)
 	plg.Name = api.JobID(jobId)
 	plg.SchedulerJobAttr = util.SchedulerJobAttr{
 		ComJob: util.ComJob{},
@@ -1278,7 +1288,7 @@ func buildUseAnnotationTestCases01() []useAnnotationTestCase {
 }
 
 func TestUseAnnotation(t *testing.T) {
-	npu := New(SchedulerName)
+	npu := New(A3x16SchedulerName, ascend910a3.NodeNPUNumber16)
 	tp, ok := npu.(*module910SuperPod)
 	if !ok {
 		return
