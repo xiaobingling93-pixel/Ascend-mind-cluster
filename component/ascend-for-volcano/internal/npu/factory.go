@@ -32,6 +32,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/vnpu"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5/ascend800ia5stacking"
 	ascend800ia5superpod "volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5/superpod"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/module910a3x16"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/superpod"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a5/module300ia5"
@@ -52,7 +53,9 @@ var policy910HandlerMap = map[string]string{
 	util.Chip8Node8:          module910bx8Name,
 	util.Chip8Node16:         module910bx16.SchedulerName,
 	util.Chip2Node16:         module910a3x16.SchedulerName,
-	util.Chip2Node16Sp:       superpod.SchedulerName,
+	util.Chip2Node16Sp:       superpod.A3x16SchedulerName,
+	util.Chip2Node8:          module910a3x16.SchedulerName,
+	util.Chip2Node8Sp:        superpod.A3x8SchedulerName,
 }
 
 var (
@@ -106,8 +109,12 @@ func initCard910Factory() {
 		func() base.AscendHandler { return module910bx16.New(module910bx16.SchedulerName) }
 	card910Factory[module910x8.SchedulerName] =
 		func() base.AscendHandler { return module910x8.New(module910x8.SchedulerName) }
-	card910Factory[superpod.SchedulerName] =
-		func() base.AscendHandler { return superpod.New(superpod.SchedulerName) }
+	card910Factory[superpod.A3x16SchedulerName] =
+		func() base.AscendHandler {
+			return superpod.New(superpod.A3x16SchedulerName, ascend910a3.NodeNPUNumber16)
+		}
+	card910Factory[superpod.A3x8SchedulerName] =
+		func() base.AscendHandler { return superpod.New(superpod.A3x8SchedulerName, ascend910a3.NodeNPUNumber8) }
 	card910Factory[module910a3x16.SchedulerName] =
 		func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
 	card910Factory[superpoda5.SuperPodx8SchedulerName] =
@@ -220,8 +227,9 @@ func get910CardHandlerName(attr util.SchedulerJobAttr) string {
 		klog.V(util.LogInfoLev).Infof("handler %s found in 300IA5CardFactory", handlerName)
 		return handlerName
 	}
+	// if only field sp-block is specified, set schedule policy to atlas 900 super-pod as default
 	if _, ok := attr.Annotation[util.SuperPodAnnoKey]; ok {
-		return superpod.SchedulerName
+		return superpod.A3x16SchedulerName
 	}
 	v, ok := attr.Selector[util.AcceleratorType]
 	if !ok {

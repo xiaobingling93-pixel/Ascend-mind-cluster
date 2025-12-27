@@ -65,8 +65,10 @@ const (
 	Module910bx8AcceleratorType = "module-910b-8"
 	// Module910A3x16AcceleratorType for module mode.
 	Module910A3x16AcceleratorType = "module-a3-16"
-	// Module910A3SuperPodAcceleratorType for 910A3-SuperPod hardware
-	Module910A3SuperPodAcceleratorType = "module-a3-16-super-pod"
+	// Module910A3x16SuperPodAcceleratorType for 910A3-SuperPod hardware
+	Module910A3x16SuperPodAcceleratorType = "module-a3-16-super-pod"
+	// Module910A3x8SuperPodAcceleratorType for 910A3-SuperPod hardware
+	Module910A3x8SuperPodAcceleratorType = "module-a3-8-super-pod"
 	// Accelerator310Key accelerator key of old infer card
 	Accelerator310Key = "npu-310-strategy"
 )
@@ -77,8 +79,6 @@ const (
 	SchedulePolicyAnnoKey = "huawei.com/schedule_policy"
 	// SchedulePolicyA3x16 schedule policy for a3-16 server
 	SchedulePolicyA3x16 = "module-a3-16"
-	// SchedulePolicySuperPod schedule policy for a3 super-pod, if added, func IsSuperPodJob need adaptation.
-	SchedulePolicySuperPod = "module-a3-16-super-pod"
 )
 
 // constants for ome inference service
@@ -100,8 +100,10 @@ const (
 	Chip4Node4    = "chip4-node4"     // 910a half
 	Chip8Node8    = "chip8-node8"     // 910bx8
 	Chip8Node16   = "chip8-node16"    // 910bx16
-	Chip2Node16   = "chip2-node16"    // 910cx16
-	Chip2Node16Sp = "chip2-node16-sp" // 910cx16-superpod
+	Chip2Node16   = "chip2-node16"    // a3x16
+	Chip2Node16Sp = "chip2-node16-sp" // a3x16-superpod
+	Chip2Node8    = "chip2-node8"     // a3x8
+	Chip2Node8Sp  = "chip2-node8-sp"  // a3x8-superpod
 )
 
 const (

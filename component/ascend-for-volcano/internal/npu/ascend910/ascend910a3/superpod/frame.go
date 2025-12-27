@@ -38,12 +38,12 @@ import (
 )
 
 // New return npu plugin
-func New(name string) base.AscendHandler {
+func New(name string, nodeNpuNum int) base.AscendHandler {
 	m := &module910SuperPod{}
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
+	m.SetMaxNodeNPUNum(nodeNpuNum)
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
 	m.nodeVPodId = map[string]string{}

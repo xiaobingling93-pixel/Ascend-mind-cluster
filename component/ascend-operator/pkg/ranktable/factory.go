@@ -45,7 +45,7 @@ func useV2dot0(job *mindxdlv1.AscendJob) bool {
 
 func useV1dot2(job *mindxdlv1.AscendJob) bool {
 	if policy, schedulePolicyExit := job.Annotations[common.SchedulePolicyAnnoKey]; schedulePolicyExit {
-		return policy == utils.Chip2Node16Sp
+		return policy == utils.Chip2Node16Sp || policy == utils.Chip2Node8Sp
 	}
 	if _, spBlockExit := job.Annotations[utils.AnnoKeyOfSuperPod]; spBlockExit {
 		return true
@@ -55,7 +55,8 @@ func useV1dot2(job *mindxdlv1.AscendJob) bool {
 			continue
 		}
 		value, ok := replicaSpec.Template.Spec.NodeSelector[api.AcceleratorTypeKey]
-		if ok && value == api.AcceleratorTypeModule910A3SuperPod {
+		if ok && (value == api.AcceleratorTypeModule910A3x16SuperPod ||
+			value == api.AcceleratorTypeModule910A3x8SuperPod) {
 			return true
 		}
 	}

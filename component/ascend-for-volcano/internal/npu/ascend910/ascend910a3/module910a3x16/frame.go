@@ -38,7 +38,7 @@ func New(name string) base.AscendHandler {
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
-	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber)
+	m.SetMaxNodeNPUNum(ascend910a3.NodeNPUNumber16)
 	m.SetMaxCardNPUNum(ascend910a3.DieNPUNumber)
 	m.SetIsNetworkFaultAttention(true)
 	m.setAffinityScore()

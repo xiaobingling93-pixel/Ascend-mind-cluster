@@ -116,7 +116,7 @@ func (sJob *SchedulerJobAttr) IsSuperPodJob() bool {
 		// schedule policy has the highest priority.
 		// SchedulePolicySuperPod is not supported yet, if added, this part need add a true value branch.
 		if policy, ok := sJob.ComJob.Annotation[SchedulePolicyAnnoKey]; ok {
-			return policy == Chip2Node16Sp || policy == SchedulePolicySuperPod
+			return policy == Chip2Node16Sp || policy == Chip2Node8Sp
 		}
 		// for a3 config compatibility
 		if _, ok := sJob.ComJob.Annotation[SuperPodAnnoKey]; ok {
@@ -127,7 +127,8 @@ func (sJob *SchedulerJobAttr) IsSuperPodJob() bool {
 	// if schedule policy does not exist, use accelerator type
 	if sJob.ComJob.Selector != nil {
 		acceleratorType, ok := sJob.ComJob.Selector[AcceleratorType]
-		if ok && acceleratorType == Module910A3SuperPodAcceleratorType {
+		if ok && (acceleratorType == Module910A3x16SuperPodAcceleratorType ||
+			acceleratorType == Module910A3x8SuperPodAcceleratorType) {
 			return true
 		}
 	}

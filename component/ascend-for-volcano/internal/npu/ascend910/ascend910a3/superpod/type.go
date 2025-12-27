@@ -32,8 +32,10 @@ type module910SuperPod struct {
 }
 
 const (
-	// SchedulerName name of scheduler
-	SchedulerName              = util.HwPreName + util.Ascend910 + util.Module910A3SuperPodAcceleratorType
+	// A3x16SchedulerName name of scheduler
+	A3x16SchedulerName = util.HwPreName + util.Ascend910 + util.Module910A3x16SuperPodAcceleratorType
+	// A3x8SchedulerName name of scheduler
+	A3x8SchedulerName          = util.HwPreName + util.Ascend910 + util.Module910A3x8SuperPodAcceleratorType
 	spBlockInvalidReason       = "sp-block is invalid"
 	getNPUFromPodFailedPattern = "%s getUsableTopFromNode err: %s"
 	scoreForNode               = 100000000
