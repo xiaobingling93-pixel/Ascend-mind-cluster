@@ -563,6 +563,7 @@ func (m *BaseManager) enqueueProcessManageSignal(processManageSignal *pb.Process
 	}
 	hwlog.RunLog.Infof("enqueue process manage signal successfully, signal: %v", processManageSignal)
 }
+
 func (m *BaseManager) updateFaultRecover() {
 	message := storage.BaseMessage{
 		Header: storage.MsgHeader{
