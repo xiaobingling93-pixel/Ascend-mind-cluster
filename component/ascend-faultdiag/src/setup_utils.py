@@ -37,7 +37,7 @@ def get_version_info(mode):
     src_path = Path(__file__).absolute().parent
     ci_version_file = src_path.parent.parent.parent
     ci_version_file = ci_version_file.joinpath('buildDesign', 'build', 'conf', 'config.yaml')
-    version = '6.0.RC2'
+    version = '7.3.0'
     if ci_version_file.exists():
         file_stream = safe_read_open(ci_version_file, 'r')
         for line in file_stream:
