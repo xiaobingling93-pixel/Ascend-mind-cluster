@@ -142,6 +142,7 @@ func (cm *AdvanceDeviceFaultCm) IsSame(another ConfigMapInterface) bool {
 	return cm.DeviceType == thatCm.DeviceType &&
 		cm.CmName == thatCm.CmName &&
 		cm.SuperPodID == thatCm.SuperPodID &&
+		cm.RackID == thatCm.RackID &&
 		cm.ServerIndex == thatCm.ServerIndex &&
 		slices.Equal(cm.AvailableDeviceList, thatCm.AvailableDeviceList) &&
 		slices.Equal(cm.Recovering, thatCm.Recovering) &&
