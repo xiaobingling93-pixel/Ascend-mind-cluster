@@ -20,7 +20,10 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
+
+	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"Ascend-device-plugin/pkg/common"
 	"Ascend-device-plugin/pkg/device/dpucontrol"
@@ -100,4 +103,78 @@ func (hdm *HwDevManager) handleDpu() {
 	}
 	lastData = dpuList
 	lastUpdateTime = time.Now()
+}
+
+func (hdm *HwDevManager) updateDpuHealthy(groupDevice map[string][]*common.NpuDevice) {
+	uniqueMap := make(map[string]dpucontrol.BaseDpuInfo, api.NpuCountPerNode)
+	npuToDpusMap := make(map[string][]string, api.NpuCountPerNode)
+	for _, npuWithDpu := range hdm.dpuManager.NpuWithDpuInfos {
+		strKey := strconv.Itoa(int(npuWithDpu.NpuId))
+		npuToDpusMap[strKey] = make([]string, 0)
+		for _, dpu := range npuWithDpu.DpuInfo {
+			if _, exists := uniqueMap[dpu.DeviceName]; !exists {
+				uniqueMap[dpu.DeviceName] = dpu
+			}
+			npuToDpusMap[strKey] = append(npuToDpusMap[strKey], dpu.DeviceName)
+		}
+	}
+	dpuOperstateMap := make(map[string]string, api.NpuCountPerNode)
+	for _, dpu := range uniqueMap {
+		state, err := ethtool.GetInterfaceOperState(dpu.DeviceName)
+		if err != nil {
+			hwlog.RunLog.Errorf("%s GetInterfaceOperState err: %v", api.DpuLogPrefix, err)
+			state = api.DpuStatusDown
+		}
+		dpuOperstateMap[dpu.DeviceName] = state
+	}
+	for _, devices := range groupDevice {
+		for _, device := range devices {
+			if checkIsNpuFaultByDpu(device.DeviceName, npuToDpusMap, dpuOperstateMap) {
+				device.DpuHealth = v1beta1.Unhealthy
+			} else {
+				device.DpuHealth = v1beta1.Healthy
+			}
+		}
+	}
+}
+
+func checkIsNpuFaultByDpu(npuName string, npuToDpuMap map[string][]string, dpuOperstateMap map[string]string) bool {
+	for npu, dpus := range npuToDpuMap {
+		if !isNpuMatched(npuName, npu) {
+			continue
+		}
+		isNpuFault := true
+		// PCIe: One NPU has only one DPU, so the for loop only iterates once.
+		// UB: One NPU has two DPUs, but as long as one DPU is active, it's fine.
+		for _, dpu := range dpus {
+			if dpuOperstateMap[dpu] == api.DpuStatusUp {
+				isNpuFault = false
+				break
+			}
+		}
+		if isNpuFault {
+			hwlog.RunLog.Debugf("%s for npu<%s> dpu<%v> are faulty", api.DpuLogPrefix, npu, dpus)
+			return true
+		}
+	}
+	return false
+}
+
+func isNpuMatched(npuName string, target string) bool {
+	parts := strings.Split(npuName, "-")
+	if len(parts) <= 1 {
+		hwlog.RunLog.Errorf("get id by spliting npu card failed")
+		return false
+	}
+	cardId, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		hwlog.RunLog.Errorf("get card id failed:%s", err)
+		return false
+	}
+	cardIdStr := strconv.Itoa(cardId % api.NpuCountPerNode)
+	if cardIdStr == target {
+		return true
+	}
+
+	return false
 }

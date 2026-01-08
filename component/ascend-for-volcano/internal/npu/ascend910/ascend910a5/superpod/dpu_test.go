@@ -19,17 +19,17 @@ import (
 	"reflect"
 	"testing"
 
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/k8s"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
 func TestFilterDpuFault(t *testing.T) {
-	tests := []filterDpuFaultTestCase{buildFilterDpuFaultTestCase1(), buildFilterDpuFaultTestCase2(),
-		buildFilterDpuFaultTestCase3()}
+	tests := []filterDpuFaultTestCase{
+		buildFilterDpuFaultTestCase1(), buildFilterDpuFaultTestCase2(),
+	}
+	tp := New(SuperPodx8SchedulerName)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterDpuFault(tt.npuCardIdList, tt.node)
+			got := tp.filterDpuFault(tt.npuCardIdList, tt.node)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("filterDpuFault() = %v, want %v", got, tt.want)
 			}
@@ -47,67 +47,26 @@ type filterDpuFaultTestCase struct {
 
 func buildFilterDpuFaultTestCase1() filterDpuFaultTestCase {
 	return filterDpuFaultTestCase{
-		name:          "No DPU info, returns input list",
+		name:          "No dpuUnhealthyNPU info, returns input list",
 		npuCardIdList: []int{0, 1, 2, 3, 4, 5, 6, 7},
 		node: plugin.NPUNode{
 			CommonNode: plugin.CommonNode{
 				Name: "work1",
-				DpuInfo: k8s.DpuCMInfo{
-					DpuList: []k8s.DpuListItem{},
-				},
 			},
 		},
 		want: []int{0, 1, 2, 3, 4, 5, 6, 7},
 	}
 }
+
 func buildFilterDpuFaultTestCase2() filterDpuFaultTestCase {
 	return filterDpuFaultTestCase{
-		name:          "[UB type] If one of the two DPUs is in the up state, it will be returned. If neither is up, it will be filtered out.",
+		name:          "If dpuUnhealthyNPU is not empty, it will be filtered out.",
 		npuCardIdList: []int{0, 1, 2, 3, 4, 5, 6, 7},
 		node: plugin.NPUNode{
 			CommonNode: plugin.CommonNode{
 				Name: "work2",
-				DpuInfo: k8s.DpuCMInfo{
-					BusType: util.UbType,
-					DpuList: []k8s.DpuListItem{
-						{Name: "enps0", Operstate: util.ActiveStatus},
-						{Name: "enps1", Operstate: "down"},
-						{Name: "enps2", Operstate: "down"},
-						{Name: "enps3", Operstate: "down"},
-					},
-					NpuToDpusMap: map[string][]string{
-						"0": {"enps0", "enps2"},
-						"1": {"enps0", "enps2"},
-						"4": {"enps1", "enps3"},
-						"5": {"enps1", "enps3"},
-					},
-				},
-			},
-		},
-		want: []int{0, 1},
-	}
-}
-func buildFilterDpuFaultTestCase3() filterDpuFaultTestCase {
-	return filterDpuFaultTestCase{
-		name:          "[PCIe type] The dpu status associated with the returned npu must be up.",
-		npuCardIdList: []int{0, 1, 2, 3, 4, 5, 6, 7},
-		node: plugin.NPUNode{
-			CommonNode: plugin.CommonNode{
-				Name: "work2",
-				DpuInfo: k8s.DpuCMInfo{
-					BusType: util.PcieType,
-					DpuList: []k8s.DpuListItem{
-						{Name: "eth1", Operstate: util.ActiveStatus},
-						{Name: "eth2", Operstate: util.ActiveStatus},
-						{Name: "eth3", Operstate: "down"},
-						{Name: "eth4", Operstate: "down"},
-					},
-					NpuToDpusMap: map[string][]string{
-						"0": {"eth1"},
-						"1": {"eth2"},
-						"2": {"eth3"},
-						"3": {"eth4"},
-					},
+				Annotation: map[string]string{
+					dpuUnhealthyNPU: "Ascend910-2,Ascend910-3,Ascend910-4,Ascend910-5,Ascend910-6,Ascend910-7",
 				},
 			},
 		},

@@ -183,7 +183,7 @@ func (df *DpuFilter) filterDpu() ([]BaseDpuInfo, error) {
 	configDeviceIDs := df.UserConfig.Selectors.DeviceIds
 	configDeviceNames := df.UserConfig.Selectors.DeviceNames
 	if len(df.entries) == 0 || len(df.entries) > math.MaxInt32 {
-		return []BaseDpuInfo{}, fmt.Errorf("the lengh of df.entries is invalid: %v", len(df.entries))
+		return []BaseDpuInfo{}, fmt.Errorf("the length of df.entries is invalid: %v", len(df.entries))
 	}
 	var dpuInfos []BaseDpuInfo
 	for _, entry := range df.entries {

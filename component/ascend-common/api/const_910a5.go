@@ -23,6 +23,8 @@ const (
 	DpuLogPrefix = "[DPU controller]"
 	// DpuStatusDown dpu status down
 	DpuStatusDown = "down"
+	// DpuStatusUp dpu status up
+	DpuStatusUp = "up"
 	// DpuInfoCMDataKey mindcluster-dpuinfo-cm data key, record dpu list
 	DpuInfoCMDataKey = "DPUList"
 	// DpuInfoCMBusTypeKey mindcluster-dpuinfo-cm data key, record dpu busType

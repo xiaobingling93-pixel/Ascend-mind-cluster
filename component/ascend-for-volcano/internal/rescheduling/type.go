@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"volcano.sh/volcano/pkg/scheduler/api"
 
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/k8s"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
@@ -101,6 +100,8 @@ const (
 	CardUnhealthy = "Unhealthy"
 	// CardNetworkUnhealthy represents a network unhealthy card
 	CardNetworkUnhealthy = "NetworkUnhealthy"
+	// CardDpuUnhealthy represents a dpu unhealthy card
+	CardDpuUnhealthy = "DPUUnhealthy"
 	// NodeHealthy represents node is available for scheduling
 	NodeHealthy = "Healthy"
 	// NodeUnhealthy represents node is unhealthy
@@ -109,6 +110,8 @@ const (
 	NodeCardUnhealthy = "CardUnhealthy"
 	// NodeCardNetworkUnhealthy represents node is unhealthy because of card is network unhealthy
 	NodeCardNetworkUnhealthy = "CardNetworkUnhealthy"
+	// NodeCardDpuUnhealthy represents node is unhealthy because of card correspond dpu is unhealthy
+	NodeCardDpuUnhealthy = "CardDpuUnhealthy"
 	// NoFaultJobsErr none fault jobs
 	NoFaultJobsErr = "none fault jobs to be restarted in cache"
 	// JobRecovery Name of cm for recovery
@@ -247,6 +250,7 @@ type FaultNode struct {
 	UpdateTime              int64
 	UnhealthyNPU            []string
 	NetworkUnhealthyNPU     []string
+	DpuUnhealthyNPU         []string
 	IsFaultNode             bool
 	NodeDEnable             bool
 	NodeHealthState         string
@@ -255,9 +259,6 @@ type FaultNode struct {
 	HasCardSubHealthFault   bool
 	LinkDownTime            int64
 	IsNpuNode               bool
-
-	// for a5
-	dpuCMInfo k8s.DpuCMInfo
 }
 
 // SimpleFNodeInfo simple fault node info

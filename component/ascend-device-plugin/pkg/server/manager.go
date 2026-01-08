@@ -418,6 +418,7 @@ func (hdm *HwDevManager) updateDeviceHealth(curAllDevs []common.NpuDevice) {
 		if index, exist := lastAllDevs[dev.DeviceName]; exist && index < len(hdm.allInfo.AllDevs) {
 			curAllDevs[i].Health = hdm.allInfo.AllDevs[index].Health
 			curAllDevs[i].NetworkHealth = hdm.allInfo.AllDevs[index].NetworkHealth
+			curAllDevs[i].DpuHealth = hdm.allInfo.AllDevs[index].DpuHealth
 			curAllDevs[i].FaultCodes = hdm.allInfo.AllDevs[index].FaultCodes
 			curAllDevs[i].AlarmRaisedTime = hdm.allInfo.AllDevs[index].AlarmRaisedTime
 			curAllDevs[i].NetworkFaultCodes = hdm.allInfo.AllDevs[index].NetworkFaultCodes
@@ -631,6 +632,7 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 				DeviceName:             npuDevice.DeviceName,
 				Health:                 npuDevice.Health,
 				NetworkHealth:          npuDevice.NetworkHealth,
+				DpuHealth:              npuDevice.DpuHealth,
 				IP:                     npuDevice.IP,
 				LogicID:                npuDevice.LogicID,
 				PhyID:                  npuDevice.PhyID,
@@ -675,6 +677,9 @@ func (hdm *HwDevManager) notifyToK8s(ctx context.Context, initTime *time.Time) {
 	hdm.isSupportGraceTolerance()
 	oldGroupDevice := deepCopyGroupDevice(hdm.groupDevice)
 	hdm.manager.UpdateHealth(hdm.groupDevice, hdm.allInfo.AICoreDevs, hdm.RunMode)
+	if hdm.manager.GetDmgr().GetDevType() == api.Ascend910A5 {
+		hdm.updateDpuHealthy(hdm.groupDevice)
+	}
 	// If hot reset is used, the health of the device being reset is set here to healthy
 	hdm.graceTolerance(ctx, hdm.groupDevice)
 	isDevStateChange := hdm.manager.GetChange(hdm.groupDevice, oldGroupDevice)

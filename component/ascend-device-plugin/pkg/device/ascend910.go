@@ -678,6 +678,7 @@ func (hnm *HwAscend910Manager) updateDeviceInfo(oldDevInfo, newDevInfo map[strin
 
 	newDevInfo[common.HuaweiUnHealthAscend910] = common.ToString(devStatusSet.UnHealthyDevice, common.CommaSepDev)
 	newDevInfo[common.HuaweiNetworkUnHealthAscend910] = common.ToString(newNetUHDevSets, common.CommaSepDev)
+	newDevInfo[common.HuaweiDpuUnHealthAscend910] = common.ToString(devStatusSet.DpuUnHealthyDevice, common.CommaSepDev)
 	var data []byte
 	if data = common.MarshalData(devStatusSet.DeviceFault); len(data) == 0 {
 		return fmt.Errorf("device fault code marshal failed")

@@ -51,6 +51,7 @@ type jobParams struct {
 	tpBlock                  int
 	totalCount               int
 	netUnhealthyKey          string
+	dpuUnhealthyKey          string
 	faultNPUKey              string
 	whetherBackToVspSchedule bool
 }

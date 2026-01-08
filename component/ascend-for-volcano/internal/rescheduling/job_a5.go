@@ -306,6 +306,14 @@ func (fJob *FaultJob) inTheSameTpBlock(fTask FaultTask) bool {
 	if fJob.TpBlock <= forceRackAffinityLimit {
 		return false
 	}
+
+	fTaskRankId, err := strconv.Atoi(fTask.NodeRankIndex)
+	if err != nil {
+		klog.V(util.LogErrorLev).Infof("ftask NodeRankIndex cannot be converted to int, targetRankId: %s",
+			fTask.NodeRankIndex)
+		return false
+	}
+
 	for _, task := range fJob.FaultTasks {
 		if !task.IsFaultTask {
 			continue
@@ -317,12 +325,6 @@ func (fJob *FaultJob) inTheSameTpBlock(fTask FaultTask) bool {
 			return false
 		}
 		targetRankId = targetRankId - targetRankId%fJob.TpBlock
-		fTaskRankId, err := strconv.Atoi(fTask.NodeRankIndex)
-		if err != nil {
-			klog.V(util.LogErrorLev).Infof("ftask NodeRankIndex cannot be converted to int, targetRankId: %s",
-				fTask.NodeRankIndex)
-			return false
-		}
 		if fTaskRankId >= targetRankId && fTaskRankId < targetRankId+fJob.TpBlock {
 			return true
 		}

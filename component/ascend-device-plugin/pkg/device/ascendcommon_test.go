@@ -70,6 +70,7 @@ func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string]
 				DeviceName:             npuDevice.DeviceName,
 				Health:                 npuDevice.Health,
 				NetworkHealth:          npuDevice.NetworkHealth,
+				DpuHealth:              npuDevice.DpuHealth,
 				IP:                     npuDevice.IP,
 				LogicID:                npuDevice.LogicID,
 				PhyID:                  npuDevice.PhyID,
@@ -619,6 +620,7 @@ func TestAssembleVirtualDevices(t *testing.T) {
 			DeviceName:    fmt.Sprintf("%s-%d-%d", common.Ascend910vir16, vDevIDNum, phyIDNum),
 			Health:        v1beta1.Healthy,
 			NetworkHealth: v1beta1.Healthy,
+			DpuHealth:     v1beta1.Healthy,
 			LogicID:       logicIDNum,
 			PhyID:         phyIDNum,
 		}
@@ -929,6 +931,7 @@ func TestAssemble310PMixedPhyDevices(t *testing.T) {
 			DeviceName:    fmt.Sprintf("%s-%d", productTypeMap[atlas300VPro], phyIDNum),
 			Health:        v1beta1.Healthy,
 			NetworkHealth: v1beta1.Healthy,
+			DpuHealth:     v1beta1.Healthy,
 			LogicID:       logicIDNum,
 			PhyID:         phyIDNum,
 		}

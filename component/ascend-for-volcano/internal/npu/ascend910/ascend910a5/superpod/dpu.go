@@ -16,7 +16,7 @@
 package superpod
 
 import (
-	"strconv"
+	"fmt"
 
 	"k8s.io/klog"
 
@@ -24,8 +24,8 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
-func filterDpuFault(npuCardIdList []int, node plugin.NPUNode) []int {
-	if len(node.DpuInfo.DpuList) == 0 {
+func (tp *module910a5SuperPod) filterDpuFault(npuCardIdList []int, node plugin.NPUNode) []int {
+	if len(node.Annotation) == 0 {
 		klog.V(util.LogDebugLev).Infof("%s cannot find dpu info, do not filter dpu devices for node<%s>",
 			util.DpuLogPrefix, node.Name)
 		return npuCardIdList
@@ -33,33 +33,25 @@ func filterDpuFault(npuCardIdList []int, node plugin.NPUNode) []int {
 	klog.V(util.LogInfoLev).Infof("%s filter dpu fault for node<%s> from npu lists: %v", util.DpuLogPrefix, node.Name,
 		npuCardIdList)
 
-	npuToDpuMap := node.DpuInfo.NpuToDpusMap
-	dpuOperstateMap := make(map[string]string, util.DpuMaxNum)
-	for _, dpu := range node.DpuInfo.DpuList {
-		dpuOperstateMap[dpu.Name] = dpu.Operstate
+	dpuUnhealthyTopStr, ok := node.Annotation[tp.dpuUnhealthyKey]
+	if !ok {
+		err := fmt.Errorf("node<%s> don't have resource<%s>", node.Name, tp.dpuUnhealthyKey)
+		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
+		return npuCardIdList
+	}
+	dpuUnhealthyTop := util.ChangeTopToIntArray(dpuUnhealthyTopStr, tp.GetAnnoPreVal())
+	if len(dpuUnhealthyTop) > tp.MaxNodeNPUNum {
+		err := fmt.Errorf("node<%s> npu dpuUnhealthy top<%v> is invalid", node.Name, dpuUnhealthyTop)
+		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
+		return npuCardIdList
 	}
 
-	resList := filterNpuByDpu(npuCardIdList, npuToDpuMap, dpuOperstateMap)
-	klog.V(util.LogInfoLev).Infof("%s node<%s> use npu: %v", util.DpuLogPrefix, node.Name, resList)
-	return resList
-}
-
-func filterNpuByDpu(npuCardIdList []int, npuToDpuMap map[string][]string, dpuOperstateMap map[string]string) []int {
-	var resList []int
-	for _, cardId := range npuCardIdList {
-		position := cardId % nodeNPUNum
-		positionStr := strconv.Itoa(position)
-		if _, ok := npuToDpuMap[positionStr]; !ok {
-			continue
-		}
-		// PCIe: One NPU has only one DPU, so the for loop only iterates once.
-		// UB: One NPU has two DPUs, but as long as one DPU is active, it's fine.
-		for _, dpu := range npuToDpuMap[positionStr] {
-			if dpuOperstateMap[dpu] == util.ActiveStatus {
-				resList = append(resList, cardId)
-				break
-			}
-		}
+	res := util.RemoveCommonElement(npuCardIdList, dpuUnhealthyTop)
+	// print logs to record the usable npu numbers when it's not equal to 8
+	if len(res) != npuNumber8 {
+		klog.V(util.LogInfoLev).Infof("the len of the final usable npus in the node<%s> is %d", node.Name, len(res))
 	}
-	return resList
+
+	klog.V(util.LogInfoLev).Infof("%s node<%s> use npu: %v", util.DpuLogPrefix, node.Name, res)
+	return res
 }

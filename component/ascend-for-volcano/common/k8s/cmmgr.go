@@ -207,7 +207,6 @@ func (cmMgr *ClusterInfoWitchCm) updateConfigMapCluster(obj interface{}, operato
 	}
 	cmMgr.dealClusterDeviceInfo(cm, operator)
 	cmMgr.dealClusterNodeInfo(cm, operator)
-	cmMgr.dealClusterDpuInfo(cm, operator)
 	cmMgr.dealClusterSwitchInfo(cm, operator)
 }
 

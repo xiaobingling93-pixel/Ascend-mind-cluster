@@ -36,6 +36,7 @@ func New(name string) *module910a5SuperPod {
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
 	m.SetMaxNodeNPUNum(nodeNPUNum)
 	m.netUnhealthyKey = networkUnhealthyNPU
+	m.dpuUnhealthyKey = dpuUnhealthyNPU
 	m.faultNPUKey = faultNPU
 	// 1024 npu = 16 racks * 64 npu
 	m.uBMemRackNum = uBMemRackNumber

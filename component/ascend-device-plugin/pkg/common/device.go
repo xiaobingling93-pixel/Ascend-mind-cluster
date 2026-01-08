@@ -402,6 +402,7 @@ func FakeAiCoreDevice(dev DavinCiDev, aiCoreDevices *[]*NpuDevice) {
 			DeviceName:    fmt.Sprintf("%s-%d", AiCoreResourceName, aiCoreDevCount),
 			Health:        v1beta1.Healthy,
 			NetworkHealth: v1beta1.Healthy,
+			DpuHealth:     v1beta1.Healthy,
 			PhyID:         dev.PhyID,
 			LogicID:       dev.LogicID,
 		})
