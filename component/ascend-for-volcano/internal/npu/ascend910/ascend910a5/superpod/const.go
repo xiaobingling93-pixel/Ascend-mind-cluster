@@ -32,6 +32,7 @@ const (
 	npuNumber8 = 8
 
 	networkUnhealthyNPU = "huawei.com/Ascend910-NetworkUnhealthy"
+	dpuUnhealthyNPU     = "huawei.com/Ascend910-DPUUnhealthy"
 	faultNPU            = "huawei.com/Ascend910-Fault"
 	nodeNum1            = 1
 

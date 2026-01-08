@@ -237,6 +237,8 @@ const (
 	CardUnhealthy = "CardUnhealthy"
 	// CardNetworkUnhealthy  fault is caused by card network unhealthy
 	CardNetworkUnhealthy = "CardNetworkUnhealthy"
+	// CardDPUUnhealthy  fault is caused by card dpu unhealthy
+	CardDPUUnhealthy = "CardDPUUnhealthy"
 	// SubHealthFault  sub healthy fault
 	SubHealthFault = "SubHealthFault"
 	// NotHandleFaultLevelStr NotHandle Fault Level Str
@@ -257,6 +259,8 @@ const (
 	CmCardUnhealthySuffix = "-Unhealthy"
 	// CmCardNetworkUnhealthySuffix NetworkUnhealthy Suffix
 	CmCardNetworkUnhealthySuffix = "-NetworkUnhealthy"
+	// CmCardDPUUnhealthySuffix DPUUnhealthy Suffix
+	CmCardDPUUnhealthySuffix = "-DPUUnhealthy"
 	// CmFaultListSuffix FaultList Suffix
 	CmFaultListSuffix = "-Fault"
 )

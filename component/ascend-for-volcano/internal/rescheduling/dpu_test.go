@@ -18,7 +18,6 @@ package rescheduling
 import (
 	"testing"
 
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/k8s"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 )
 
@@ -30,19 +29,9 @@ func TestGetTaskHealthStateByNodeDpu(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Build the FaultNode and ReScheduler
-			dpuList := make([]k8s.DpuListItem, 0, len(tt.args.dpuList))
-			for _, d := range tt.args.dpuList {
-				dpuList = append(dpuList, k8s.DpuListItem{Name: d.Name, Operstate: d.Operstate})
-			}
-			oneNodeDpuInfoCm := k8s.DpuCMInfo{
-				BusType:      tt.args.busType,
-				NpuToDpusMap: tt.args.npuToDpusMap,
-				DpuList:      dpuList,
-			}
 			faultNode := &FaultNode{
-				NodeName:  tt.args.nodeName,
-				dpuCMInfo: oneNodeDpuInfoCm,
+				NodeName:        tt.args.nodeName,
+				DpuUnhealthyNPU: tt.args.DpuUnhealthyNPU,
 			}
 			reScheduler := &ReScheduler{
 				DealReSchedulerCache: &DealReSchedulerCache{
@@ -62,11 +51,11 @@ func TestGetTaskHealthStateByNodeDpu(t *testing.T) {
 type getTaskHealthStateByNodeDpuTestCase struct {
 	name string
 	args struct {
-		fTask        *FaultTask
-		nodeName     string
-		busType      string
-		npuToDpusMap map[string][]string
-		dpuList      []k8s.DpuListItem
+		fTask           *FaultTask
+		nodeName        string
+		busType         string
+		npuToDpusMap    map[string][]string
+		DpuUnhealthyNPU []string
 	}
 	wantFault bool
 }
@@ -75,11 +64,11 @@ func buildGetTaskHealthStateByNodeDpuTestCase1() getTaskHealthStateByNodeDpuTest
 	return getTaskHealthStateByNodeDpuTestCase{
 		name: "UBType - as long as one DPU status is up, the result should be healthy",
 		args: struct {
-			fTask        *FaultTask
-			nodeName     string
-			busType      string
-			npuToDpusMap map[string][]string
-			dpuList      []k8s.DpuListItem
+			fTask           *FaultTask
+			nodeName        string
+			busType         string
+			npuToDpusMap    map[string][]string
+			DpuUnhealthyNPU []string
 		}{
 			fTask: &FaultTask{
 				TaskName: "task1",
@@ -101,12 +90,7 @@ func buildGetTaskHealthStateByNodeDpuTestCase1() getTaskHealthStateByNodeDpuTest
 				"6": {"enps1", "enps3"},
 				"7": {"enps1", "enps3"},
 			},
-			dpuList: []k8s.DpuListItem{
-				{Name: "enps0", Operstate: util.ActiveStatus},
-				{Name: "enps1", Operstate: util.ActiveStatus},
-				{Name: "enps2", Operstate: util.ActiveStatus},
-				{Name: "enps3", Operstate: "down"},
-			},
+			DpuUnhealthyNPU: []string{},
 		},
 		wantFault: false,
 	}
@@ -116,11 +100,11 @@ func buildGetTaskHealthStateByNodeDpuTestCase2() getTaskHealthStateByNodeDpuTest
 	return getTaskHealthStateByNodeDpuTestCase{
 		name: "UBType - both DPUs faulty",
 		args: struct {
-			fTask        *FaultTask
-			nodeName     string
-			busType      string
-			npuToDpusMap map[string][]string
-			dpuList      []k8s.DpuListItem
+			fTask           *FaultTask
+			nodeName        string
+			busType         string
+			npuToDpusMap    map[string][]string
+			DpuUnhealthyNPU []string
 		}{
 			fTask: &FaultTask{
 				TaskName:    "task1",
@@ -135,10 +119,7 @@ func buildGetTaskHealthStateByNodeDpuTestCase2() getTaskHealthStateByNodeDpuTest
 				"2": {"enps0", "enps2"},
 				"3": {"enps0", "enps2"},
 			},
-			dpuList: []k8s.DpuListItem{
-				{Name: "enps0", Operstate: "down"},
-				{Name: "enps2", Operstate: "down"},
-			},
+			DpuUnhealthyNPU: []string{"Ascend910-0", "Ascend910-1", "Ascend910-2", "Ascend910-3"},
 		},
 		wantFault: true,
 	}
@@ -148,11 +129,11 @@ func buildGetTaskHealthStateByNodeDpuTestCase3() getTaskHealthStateByNodeDpuTest
 	return getTaskHealthStateByNodeDpuTestCase{
 		name: "PcieType - DPU healthy",
 		args: struct {
-			fTask        *FaultTask
-			nodeName     string
-			busType      string
-			npuToDpusMap map[string][]string
-			dpuList      []k8s.DpuListItem
+			fTask           *FaultTask
+			nodeName        string
+			busType         string
+			npuToDpusMap    map[string][]string
+			DpuUnhealthyNPU []string
 		}{
 			fTask: &FaultTask{
 				TaskName:    "task1",
@@ -167,12 +148,7 @@ func buildGetTaskHealthStateByNodeDpuTestCase3() getTaskHealthStateByNodeDpuTest
 				"2": {"eth3"},
 				"3": {"eth4"},
 			},
-			dpuList: []k8s.DpuListItem{
-				{Name: "eth1", Operstate: util.ActiveStatus},
-				{Name: "eth2", Operstate: util.ActiveStatus},
-				{Name: "eth3", Operstate: util.ActiveStatus},
-				{Name: "eth4", Operstate: util.ActiveStatus},
-			},
+			DpuUnhealthyNPU: []string{},
 		},
 		wantFault: false,
 	}
@@ -182,11 +158,11 @@ func buildGetTaskHealthStateByNodeDpuTestCase4() getTaskHealthStateByNodeDpuTest
 	return getTaskHealthStateByNodeDpuTestCase{
 		name: "PcieType - DPU faulty",
 		args: struct {
-			fTask        *FaultTask
-			nodeName     string
-			busType      string
-			npuToDpusMap map[string][]string
-			dpuList      []k8s.DpuListItem
+			fTask           *FaultTask
+			nodeName        string
+			busType         string
+			npuToDpusMap    map[string][]string
+			DpuUnhealthyNPU []string
 		}{
 			fTask: &FaultTask{
 				TaskName:    "task1",
@@ -201,12 +177,7 @@ func buildGetTaskHealthStateByNodeDpuTestCase4() getTaskHealthStateByNodeDpuTest
 				"2": {"eth3"},
 				"3": {"eth4"},
 			},
-			dpuList: []k8s.DpuListItem{
-				{Name: "eth1", Operstate: "down"},
-				{Name: "eth2", Operstate: util.ActiveStatus},
-				{Name: "eth3", Operstate: util.ActiveStatus},
-				{Name: "eth4", Operstate: util.ActiveStatus},
-			},
+			DpuUnhealthyNPU: []string{"Ascend910-0"},
 		},
 		wantFault: true,
 	}
@@ -216,113 +187,22 @@ func buildGetTaskHealthStateByNodeDpuTestCase6() getTaskHealthStateByNodeDpuTest
 	return getTaskHealthStateByNodeDpuTestCase{
 		name: "No DPU info, should be healthy",
 		args: struct {
-			fTask        *FaultTask
-			nodeName     string
-			busType      string
-			npuToDpusMap map[string][]string
-			dpuList      []k8s.DpuListItem
+			fTask           *FaultTask
+			nodeName        string
+			busType         string
+			npuToDpusMap    map[string][]string
+			DpuUnhealthyNPU []string
 		}{
 			fTask: &FaultTask{
 				TaskName:    "task1",
 				NodeName:    "node1",
 				UseCardName: []string{"Ascend910-0", "Ascend910-1", "Ascend910-2", "Ascend910-3"},
 			},
-			nodeName:     "node1",
-			busType:      util.PcieType,
-			npuToDpusMap: map[string][]string{},
-			dpuList:      []k8s.DpuListItem{},
+			nodeName:        "node1",
+			busType:         util.PcieType,
+			npuToDpusMap:    map[string][]string{},
+			DpuUnhealthyNPU: []string{},
 		},
 		wantFault: false,
-	}
-}
-
-func TestIsNpuBeUsed(t *testing.T) {
-	tests := append(
-		buildIsNpuBeUsedTestCasesPart1(),
-		buildIsNpuBeUsedTestCasesPart2()...,
-	)
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isNpuBeUsed(tt.args.strs, tt.args.target); got != tt.want {
-				t.Errorf("isNpuBeUsed() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-type isNpuBeUsedArgs struct {
-	strs   []string
-	target string
-}
-
-type isNpuBeUsedTestCase struct {
-	name string
-	args isNpuBeUsedArgs
-	want bool
-}
-
-func buildIsNpuBeUsedTestCasesPart1() []isNpuBeUsedTestCase {
-	return []isNpuBeUsedTestCase{
-		{
-			name: "01-should return true when target matches cardIdStr",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910-0", "Ascend910-1"},
-				target: "1",
-			},
-			want: true,
-		},
-		{
-			name: "02-should return false when target does not match any cardIdStr",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910-0", "Ascend910-1"},
-				target: "3",
-			},
-			want: false,
-		},
-		{
-			name: "03-should return false when input slice is empty",
-			args: isNpuBeUsedArgs{
-				strs:   []string{},
-				target: "0",
-			},
-			want: false,
-		},
-		{
-			name: "04-should return false when string does not contain '-'",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910"},
-				target: "0",
-			},
-			want: false,
-		},
-	}
-}
-
-func buildIsNpuBeUsedTestCasesPart2() []isNpuBeUsedTestCase {
-	return []isNpuBeUsedTestCase{
-		{
-			name: "05-should return false when cardId is not an integer",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910-abc"},
-				target: "0",
-			},
-			want: false,
-		},
-		{
-			name: "06-should handle cardIdStr with modulo NodeNum8",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910-9"}, // 9 % 8 = 1
-				target: "1",
-			},
-			want: true,
-		},
-		{
-			name: "07-should return false if modulo does not match target",
-			args: isNpuBeUsedArgs{
-				strs:   []string{"Ascend910-10"}, // 10 % 8 = 2
-				target: "3",
-			},
-			want: false,
-		},
 	}
 }

@@ -474,7 +474,7 @@ func TestFilterDpuErrorCase(t *testing.T) {
 			df.entries = []os.DirEntry{}
 			_, err := df.filterDpu()
 			convey.So(err, convey.ShouldNotBeNil)
-			convey.So(err.Error(), convey.ShouldEqual, "the lengh of df.entries is invalid: 0")
+			convey.So(err.Error(), convey.ShouldEqual, "the length of df.entries is invalid: 0")
 		})
 		convey.Convey("test error read link", func() {
 			df.entries = []os.DirEntry{FakeDirEntry{}}

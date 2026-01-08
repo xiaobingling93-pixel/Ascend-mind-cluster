@@ -51,10 +51,6 @@ const (
 
 // for DPU
 const (
-	// DpuCmInfoNamePrefixByClusterd is the prefix for dpu infos
-	DpuCmInfoNamePrefixByClusterd = "cluster-info-dpu-"
-	// DpuCmInfoNamePrefixByDp is the prefix for dpu infos which tidied by clusterd
-	DpuCmInfoNamePrefixByDp = "mindcluster-dpuinfo-"
 	// DpuFault indicates a DPU fault
 	DpuFault = "DpuFault"
 	// DpuHealthy indicates a DPU healthy
@@ -63,8 +59,6 @@ const (
 	DpuLogPrefix = "[DPU controller]"
 	// UbDPULength DPU length in ub
 	UbDPULength = 2
-	// ActiveStatus DPU active status
-	ActiveStatus = "up"
 	// UbType indicates ub
 	UbType = "ub"
 	// PcieType indicates pcie
@@ -77,8 +71,6 @@ const (
 	DpuMaxNum = 8
 	// EmptyNPUToDPUMapLen length of empty npu to dpu map
 	EmptyNPUToDPUMapLen = 0
-	// NpuCountPerNode indicates the number of cards per node
-	NpuCountPerNode = 8
 )
 
 // RankLevel for rank table level info

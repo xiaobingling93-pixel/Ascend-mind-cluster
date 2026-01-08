@@ -312,6 +312,7 @@ type AdvanceDeviceFaultCm struct {
 	Recovering          []string
 	CardUnHealthy       []string
 	NetworkUnhealthy    []string
+	DPUUnhealthy        []string
 	UpdateTime          int64
 }
 

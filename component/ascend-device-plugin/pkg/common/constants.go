@@ -227,6 +227,8 @@ const (
 
 	// HuaweiNetworkUnHealthAscend910 910 network unhealthy
 	HuaweiNetworkUnHealthAscend910 = api.HuaweiAscend910 + "-NetworkUnhealthy"
+	// HuaweiDpuUnHealthAscend910 910 DPU unhealthy
+	HuaweiDpuUnHealthAscend910 = api.HuaweiAscend910 + "-DPUUnhealthy"
 	// HuaweiUnHealthAscend910 unhealthy
 	HuaweiUnHealthAscend910 = api.HuaweiAscend910 + "-Unhealthy"
 	// HuaweiRecoveringAscend910 recovering

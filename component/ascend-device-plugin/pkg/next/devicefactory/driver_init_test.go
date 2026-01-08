@@ -22,6 +22,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 
 	"Ascend-device-plugin/pkg/device/deviceswitch"
+	"ascend-common/api"
 	"ascend-common/devmanager"
 )
 
@@ -53,6 +54,16 @@ func TestInitDevManager(t *testing.T) {
 			convey.So(err, convey.ShouldBeNil)
 			convey.So(devM, convey.ShouldNotBeNil)
 			convey.So(lqM, convey.ShouldNotBeNil)
+		})
+		convey.Convey("test init manager success,"+
+			" err should be nil and lq manager should be nil", func() {
+			devM := &devmanager.DeviceManager{DevType: api.Ascend910A5}
+			p1 := gomonkey.ApplyFuncReturn(devmanager.AutoInit, devM, nil)
+			defer p1.Reset()
+			devM, lqM, err := initDevManager()
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(devM, convey.ShouldNotBeNil)
+			convey.So(lqM, convey.ShouldBeNil)
 		})
 	})
 }

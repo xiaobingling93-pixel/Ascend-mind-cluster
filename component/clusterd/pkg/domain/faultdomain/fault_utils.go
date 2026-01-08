@@ -96,6 +96,7 @@ func GetAdvanceDeviceCm(devInfo *constant.DeviceInfo) *constant.AdvanceDeviceFau
 	}
 	advanceDeviceCm.FaultDeviceList = getFaultListInfo(devInfo)
 	advanceDeviceCm.NetworkUnhealthy = getNetworkUnhealthyCardList(devInfo)
+	advanceDeviceCm.DPUUnhealthy = getDPUUnhealthyCardList(devInfo)
 	advanceDeviceCm.CardUnHealthy = getCardUnHealthy(devInfo)
 	advanceDeviceCm.AvailableDeviceList = getAvailableDevices(devInfo)
 	advanceDeviceCm.Recovering = getRecoveringDevList(devInfo)
@@ -139,6 +140,14 @@ func getCardUnHealthy(devInfo *constant.DeviceInfo) []string {
 
 func getNetworkUnhealthyCardList(devInfo *constant.DeviceInfo) []string {
 	_, info := getNetworkUnhealthyString(devInfo)
+	if len(info) == 0 {
+		return make([]string, 0)
+	}
+	return strings.Split(info, ",")
+}
+
+func getDPUUnhealthyCardList(devInfo *constant.DeviceInfo) []string {
+	_, info := getDPUUnhealthyString(devInfo)
 	if len(info) == 0 {
 		return make([]string, 0)
 	}
@@ -302,6 +311,12 @@ func AdvanceDevCmToOrigCm(advanceDeviceCm *constant.AdvanceDeviceFaultCm) *const
 			strings.Join(advanceDeviceCm.NetworkUnhealthy, ",")
 	}
 
+	orgDeviceCm.DeviceList[advanceDeviceCm.GetDPUUnhealthyKey()] = ""
+	if len(advanceDeviceCm.DPUUnhealthy) > 0 {
+		orgDeviceCm.DeviceList[advanceDeviceCm.GetDPUUnhealthyKey()] =
+			strings.Join(advanceDeviceCm.DPUUnhealthy, ",")
+	}
+
 	orgDeviceCm.DeviceList[advanceDeviceCm.GetCardUnHealthyKey()] = ""
 	if len(advanceDeviceCm.CardUnHealthy) > 0 {
 		orgDeviceCm.DeviceList[advanceDeviceCm.GetCardUnHealthyKey()] =
@@ -368,6 +383,11 @@ func mergeCode(advanceDeviceCm *constant.AdvanceDeviceFaultCm) {
 
 func getNetworkUnhealthyString(devInfo *constant.DeviceInfo) (string, string) {
 	key := api.ResourceNamePrefix + GetDeviceType(devInfo) + constant.CmCardNetworkUnhealthySuffix
+	return key, devInfo.DeviceList[key]
+}
+
+func getDPUUnhealthyString(devInfo *constant.DeviceInfo) (string, string) {
+	key := api.ResourceNamePrefix + GetDeviceType(devInfo) + constant.CmCardDPUUnhealthySuffix
 	return key, devInfo.DeviceList[key]
 }
 
@@ -576,6 +596,7 @@ func SortDataForAdvanceDeviceInfo(deviceInfo *constant.AdvanceDeviceFaultCm) {
 	sort.Strings(deviceInfo.AvailableDeviceList)
 	sort.Strings(deviceInfo.CardUnHealthy)
 	sort.Strings(deviceInfo.NetworkUnhealthy)
+	sort.Strings(deviceInfo.DPUUnhealthy)
 	sort.Strings(deviceInfo.Recovering)
 	for _, faultList := range deviceInfo.FaultDeviceList {
 		sort.Slice(faultList, func(i, j int) bool {
