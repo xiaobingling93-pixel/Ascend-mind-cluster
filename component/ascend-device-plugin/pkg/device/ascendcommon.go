@@ -792,10 +792,13 @@ func (tool *AscendTools) getConfigAnno(podDev *common.PodDeviceInfo, deviceType,
 		return "", errors.New("get device list ip failed")
 	}
 	info := common.ServerInfo{
-		ServerID:   string(podDev.Pod.UID),
-		HostIp:     hostIp,
-		DeviceType: deviceType,
-		SuperPodID: tool.GetSuperPodID(),
+		ServerID:    string(podDev.Pod.UID),
+		HostIp:      hostIp,
+		DeviceType:  deviceType,
+		SuperPodID:  tool.GetSuperPodID(),
+		RackId:      tool.GetRackID(),
+		ServerIndex: string(tool.GetServerIndex()),
+		ServerIP:    hostIp,
 	}
 	configuration := common.GetPodConfiguration(phyDevMapVirtualDev, ascendVisibleDevices,
 		podDev.Pod.Name, info, allDevices)

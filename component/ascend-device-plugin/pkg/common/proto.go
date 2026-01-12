@@ -116,7 +116,8 @@ type NpuDevice struct {
 	DeviceID               int32
 	SuperDeviceID          uint32
 	Status                 string
-	PodUsed                bool // PodUsed indicates whether this chip is used by kubelet
+	PodUsed                bool            // PodUsed indicates whether this chip is used by kubelet
+	LevelList              []api.RankLevel // rank level info in rank table for A5
 }
 
 // DavinCiDev davinci device
@@ -133,15 +134,20 @@ type Device struct { // Device
 	DeviceID      string `json:"device_id"` // device id
 	DeviceIP      string `json:"device_ip"` // device ip
 	SuperDeviceID string `json:"super_device_id,omitempty"`
+	// rank level info in rank table for A5
+	LevelList []api.RankLevel `json:"levelList,omitempty"`
 }
 
 // Instance is for annotation
 type Instance struct { // Instance
-	PodName    string   `json:"pod_name"`  // pod Name
-	ServerID   string   `json:"server_id"` // serverdId
-	HostIP     string   `json:"host_ip"`   // hostIp
-	SuperPodId int32    `json:"super_pod_id"`
-	Devices    []Device `json:"devices"` // dev
+	PodName     string   `json:"pod_name"`  // pod Name
+	ServerID    string   `json:"server_id"` // serverdId
+	HostIP      string   `json:"host_ip"`   // hostIp
+	SuperPodId  int32    `json:"super_pod_id"`
+	Devices     []Device `json:"devices"` // dev
+	RackId      int32    `json:"rack_id"`
+	ServerIndex string   `json:"server_index"` // serverIndex for A5
+	ServerIP    string   `json:"server_ip"`
 }
 
 // Option option

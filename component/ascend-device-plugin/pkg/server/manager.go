@@ -276,14 +276,16 @@ func (hdm *HwDevManager) getNpuBaseInfo() map[string]*common.NpuBaseInfo {
 		}
 	}
 	ipMap := make(map[string]*common.NpuBaseInfo, len(hdm.allInfo.AllDevs))
-	for _, dev := range hdm.allInfo.AllDevs {
+	for index, dev := range hdm.allInfo.AllDevs {
 		tmpDev := dev
+		levelList := hdm.getLevelList(&tmpDev)
 		ipMap[tmpDev.DeviceName] = &common.NpuBaseInfo{
 			IP:            tmpDev.IP,
 			SuperDeviceID: tmpDev.SuperDeviceID,
 			// node baseDeviceInfo levelList -> rank table for A5
-			LevelList: hdm.getLevelList(&tmpDev),
+			LevelList: levelList,
 		}
+		hdm.allInfo.AllDevs[index].LevelList = levelList
 	}
 	return ipMap
 }
