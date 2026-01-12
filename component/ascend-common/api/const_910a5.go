@@ -49,6 +49,14 @@ const (
 	Ascend800ia5SuperPod = "800I-SuperPod-A5-8"
 	// Ascend800ta5SuperPod superpod training server label
 	Ascend800ta5SuperPod = "800T-SuperPod-A5-8"
+	// Ascend300I4Px8Label the label 300I-A5-4p-8
+	Ascend300I4Px8Label = "300I-A5-4p-8"
+	// Ascend300I4Px16Label the label 300I-A5-4p-16
+	Ascend300I4Px16Label = "300I-A5-4p-16"
+	// Ascend300Ix8Label the label 300I-A5-8
+	Ascend300Ix8Label = "300I-A5-8"
+	// Ascend300Ix16Label the label 300I-A5-16
+	Ascend300Ix16Label = "300I-A5-16"
 )
 
 const (

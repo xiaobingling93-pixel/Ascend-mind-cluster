@@ -854,17 +854,37 @@ func TestCompareStringSetMap(t *testing.T) {
 	})
 }
 
-// TestGetSuperDeviceID for test getSuperDeviceID
-func TestGetSuperDeviceID(t *testing.T) {
-	convey.Convey("test getSuperDeviceID", t, func() {
-		deviceId := 2
-		allDevices := []NpuDevice{
-			{PhyID: 0, SuperDeviceID: 1},
-		}
-		suberDeviceId := getSuperDeviceID(0, allDevices)
-		convey.So(suberDeviceId, convey.ShouldEqual, 1)
-		suberDeviceId = getSuperDeviceID(deviceId, allDevices)
-		convey.So(suberDeviceId, convey.ShouldEqual, SdIdAbnormal)
+// getDeviceFromAllDeviceInfo tests getDeviceFromBaseNpuInfo
+func TestGetDeviceFromAllDeviceInfo(t *testing.T) {
+	convey.Convey("test getDeviceFromAllDeviceInfo", t, func() {
+		convey.Convey("01. should return device for given device Id and allDevices", func() {
+			deviceId := 0
+			devices := map[int]string{0: "DefaultDeviceIP"}
+			allDevs := []NpuDevice{
+				{
+					SuperDeviceID: 1,
+					LevelList: []api.RankLevel{
+						{Level: 0, Info: make(map[string]api.LevelElement)},
+					},
+				},
+			}
+			dev := getDeviceFromAllDeviceInfo(deviceId, devices, allDevs)
+			convey.So(reflect.DeepEqual(dev, Device{
+				DeviceID:      "0",
+				DeviceIP:      "DefaultDeviceIP",
+				SuperDeviceID: "1",
+				LevelList: []api.RankLevel{
+					{Level: 0, Info: make(map[string]api.LevelElement)},
+				},
+			}), convey.ShouldBeTrue)
+		})
+		convey.Convey("02. should return abnormal device when allDevices contains no device Id", func() {
+			deviceId := 0
+			devices := map[int]string{0: "DefaultDeviceIP"}
+			dev := getDeviceFromAllDeviceInfo(deviceId, devices, nil)
+			convey.So(dev.SuperDeviceID, convey.ShouldEqual, strconv.Itoa(SdIdAbnormal))
+			convey.So(dev.LevelList, convey.ShouldBeNil)
+		})
 	})
 }
 

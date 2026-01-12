@@ -57,10 +57,13 @@ var (
 
 // ServerInfo used for pass parameters
 type ServerInfo struct {
-	ServerID   string
-	HostIp     string
-	DeviceType string
-	SuperPodID int32
+	ServerID    string
+	HostIp      string
+	DeviceType  string
+	SuperPodID  int32
+	RackId      int32
+	ServerIndex string
+	ServerIP    string
 }
 
 // GetPattern return pattern map
@@ -493,14 +496,19 @@ func GetPodConfiguration(phyDevMapVirtualDev map[int]int, devices map[int]string
 	}
 
 	sort.Ints(sortDevicesKey)
-	instance := Instance{PodName: podName, ServerID: info.ServerID, SuperPodId: info.SuperPodID}
+	instance := Instance{
+		PodName:     podName,
+		ServerID:    info.ServerID,
+		ServerIP:    info.ServerIP,
+		HostIP:      info.HostIp,
+		SuperPodId:  info.SuperPodID,
+		RackId:      info.RackId,
+		ServerIndex: info.ServerIndex,
+	}
 	for _, deviceID := range sortDevicesKey {
 		if !IsVirtualDev(info.DeviceType) {
-			instance.Devices = append(instance.Devices, Device{
-				DeviceID:      fmt.Sprintf("%d", deviceID),
-				DeviceIP:      devices[deviceID],
-				SuperDeviceID: strconv.Itoa(getSuperDeviceID(deviceID, allDevices)),
-			})
+			device := getDeviceFromAllDeviceInfo(deviceID, devices, allDevices)
+			instance.Devices = append(instance.Devices, device)
 			continue
 		}
 		phyID, exist := phyDevMapVirtualDev[deviceID]
@@ -521,13 +529,21 @@ func GetPodConfiguration(phyDevMapVirtualDev map[int]int, devices map[int]string
 	return string(instanceByte)
 }
 
-func getSuperDeviceID(deviceID int, allDevices []NpuDevice) int {
+func getDeviceFromAllDeviceInfo(deviceID int, devices map[int]string, allDevices []NpuDevice) Device {
+	device := Device{
+		DeviceID:      fmt.Sprintf("%d", deviceID),
+		DeviceIP:      devices[deviceID],
+		SuperDeviceID: strconv.Itoa(SdIdAbnormal),
+	}
 	for _, npuDevice := range allDevices {
 		if deviceID == int(npuDevice.PhyID) {
-			return int(npuDevice.SuperDeviceID)
+			device.SuperDeviceID = strconv.Itoa(int(npuDevice.SuperDeviceID))
+			device.LevelList = npuDevice.LevelList
+			return device
 		}
 	}
-	return SdIdAbnormal
+	hwlog.RunLog.Warnf("device[%d] not exists in npuBaseInfo", deviceID)
+	return device
 }
 
 // CheckFileUserSameWithProcess to check whether the owner of the log file is the same as the uid

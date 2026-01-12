@@ -8,6 +8,8 @@ Package ranktable is using for reconcile AscendJob.
 package ranktable
 
 import (
+	"k8s.io/utils/strings/slices"
+
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
@@ -18,6 +20,20 @@ import (
 	"ascend-operator/pkg/ranktable/v2dot0"
 	"ascend-operator/pkg/utils"
 )
+
+// list all accelerator-type labels for ranktable2.0
+var v2dot0AcceleratorTypeList = []string{
+	api.Ascend800ia5x8,
+	api.Ascend800ta5x8,
+	api.Ascend800ia5Stacking,
+	api.Ascend800ia5SuperPod,
+	api.Ascend800ta5SuperPod,
+	api.A5PodType,
+	api.Ascend300I4Px8Label,
+	api.Ascend300I4Px16Label,
+	api.Ascend300Ix8Label,
+	api.Ascend300Ix16Label,
+}
 
 // NewGenerator create ranktable generator
 func NewGenerator(job *mindxdlv1.AscendJob) generator.RankTableGenerator {
@@ -37,8 +53,15 @@ func NewGenerator(job *mindxdlv1.AscendJob) generator.RankTableGenerator {
 }
 
 func useV2dot0(job *mindxdlv1.AscendJob) bool {
-	if val, ok := job.Annotations[ranktableVersion]; ok && val == version2dot0 {
-		return true
+	for _, replicaSpec := range job.Spec.ReplicaSpecs {
+		if replicaSpec.Template.Spec.NodeSelector == nil {
+			continue
+		}
+		value, ok := replicaSpec.Template.Spec.NodeSelector[api.AcceleratorTypeKey]
+		hwlog.RunLog.Infof("accelerator-type of job<%s> is %v", job.Name, value)
+		if ok && slices.Contains(v2dot0AcceleratorTypeList, value) {
+			return true
+		}
 	}
 	return false
 }
