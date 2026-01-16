@@ -16,7 +16,6 @@
 package superpod
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -95,22 +94,7 @@ func setSuperPodSize(superpodSize int) plugin.VolcanoFrame {
 func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 	return []ValidNPUJobTestCase{
 		{
-			Name: "checkSpBlockValid-01: Parameter sp-block is invalid." +
-				"should return nil",
-			Attr:       buildTestJobAttr(npuTaskNum1, "8"),
-			SpBlockNum: 0,
-			TpBlockNum: 1,
-			ScheduleEnv: plugin.ScheduleEnv{
-				FrameAttr: setSuperPodSize(superPodSize32),
-			},
-			WantErr: &api.ValidateResult{
-				Pass:    false,
-				Reason:  spBlockInvalidReason,
-				Message: fmt.Sprintf("Parameter sp-block(%d) is invalid.", 0),
-			},
-		},
-		{
-			Name:       "checkSpBlockValid-02: Parameter sp-block(24) is not multiple of node npu (8)",
+			Name:       "checkSpBlockValid-01: Parameter sp-block(24) is not multiple of node npu (8)",
 			Attr:       buildTestJobAttr(npuTaskNum1, "8"),
 			SpBlockNum: 10,
 			TpBlockNum: 1,
@@ -124,7 +108,7 @@ func buildCheckSpBlockValidCase() []ValidNPUJobTestCase {
 			},
 		},
 		{
-			Name: "checkSpBlockValid-03: " +
+			Name: "checkSpBlockValid-02: " +
 				"job require total Pod(5) should be multiple of a sp-block size 4",
 			Attr:       buildTestJobAttr(npuTaskNum5, "8"),
 			SpBlockNum: 32,

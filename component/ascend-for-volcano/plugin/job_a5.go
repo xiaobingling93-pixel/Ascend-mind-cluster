@@ -26,9 +26,9 @@ import (
 func (sJob *SchedulerJob) setTpBlock() {
 	tpBlockStr, ok := sJob.Annotation[util.TpBlockAnnoKey]
 	if !ok {
-		klog.V(util.LogInfoLev).Infof("cannot find parameter (%s), using default value of tp-block",
-			util.TpBlockAnnoKey)
-		sJob.TpBlockNPUNum = util.LeastTpBlock
+		klog.V(util.LogDebugLev).Infof("cannot find parameter (%s), using default value %d as tp-block",
+			util.TpBlockAnnoKey, util.DefaultTpBlockNum)
+		sJob.TpBlockNPUNum = util.DefaultTpBlockNum
 		return
 	}
 	tpBlockNum, err := strconv.Atoi(tpBlockStr)

@@ -557,6 +557,9 @@ func (sJob *SchedulerJob) setJobSubHealthyStrategy() {
 func (sJob *SchedulerJob) setSpBlock() {
 	spBlockStr, ok := sJob.Annotation[util.SuperPodAnnoKey]
 	if !ok {
+		klog.V(util.LogDebugLev).Infof("cannot find parameter (%s), using default value %d of sp-block ",
+			util.SuperPodAnnoKey, sJob.ReqNPUNum)
+		sJob.SpBlockNPUNum = sJob.ReqNPUNum
 		return
 	}
 	spBlock, err := strconv.Atoi(spBlockStr)
