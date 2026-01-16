@@ -679,7 +679,7 @@ func TestSelectNodeFromOriginSpBlock(t *testing.T) {
 	tests := buildSelectNodeFromOriginSpBlockTests()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _ := tt.args.tp.selectNodeFromOriginSpBlock(
+			got := tt.args.tp.selectNodeFromOriginSpBlock(
 				tt.args.fJob, tt.args.selectNodes, tt.args.totalNodes, tt.args.virtualIdArr)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("%s: expected %v, got %v", tt.name, tt.want, got)

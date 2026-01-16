@@ -142,10 +142,11 @@ const (
 	getNoneJobsErr           = "get none jobs"
 	pendingTimes             = 12
 	spPendingTimes           = 6
+	processPendingTimes      = 5
+	tpPendingTimes           = 3
 	singleThreadDeletePodNum = 200
 
 	inValidTpBlock         = 0
-	backToVspPendingTimes  = 7
 	forceRackAffinityLimit = 1
 )
 
@@ -340,6 +341,7 @@ type FaultJob struct {
 	SubHealthyStrategy string
 	IsSubHealthFault   bool
 	PendingSessionNum  int
+	ProcessPauseReset  bool
 	IsFaultJob         bool
 	JobName            string
 	JobUID             api.JobID
@@ -361,10 +363,10 @@ type FaultJob struct {
 	FaultJobA5Field
 }
 
+// FaultJobA5Field object for A5 delete pod
 type FaultJobA5Field struct {
-	WhetherBackToVspSchedule bool
-	TpBlock                  int
-	IsMasterFault            bool
+	TpBlock       int
+	IsMasterFault bool
 }
 
 type deletePodInfo struct {

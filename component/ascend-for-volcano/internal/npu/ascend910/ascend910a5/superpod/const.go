@@ -19,10 +19,9 @@ package superpod
 const (
 	// UninitializedRestRackLenMapId not initialized RestRackLenMapId
 	UninitializedRestRackLenMapId int32 = -1
-	// FirstRescheduleStage the first stage of rescheduling
-	FirstRescheduleStage = 6
-	// SecondRescheduleStage the second stage of rescheduling
-	SecondRescheduleStage = 12
+	tpRescheduleStage                   = 3
+	spRescheduleStage                   = 6
+	backToJobRescheduleStage            = 12
 )
 
 const (

@@ -22,6 +22,5 @@ const (
 
 // A5Fields for a5 fields
 type A5Fields struct {
-	TpBlock                  int
-	WhetherBackToVspSchedule bool
+	TpBlock int
 }

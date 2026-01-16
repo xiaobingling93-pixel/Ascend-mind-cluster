@@ -217,6 +217,8 @@ const (
 
 	// SuperPodAnnoKey annotation key of super pod
 	SuperPodAnnoKey = "sp-block"
+	// RackAnnoKey annotation key of rack
+	RackAnnoKey = "tp-block"
 	// DistributedInferKey distributed infer
 	DistributedInferKey = "distributed"
 	// DistributedInferLabel true or false

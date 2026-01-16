@@ -53,43 +53,49 @@ func (reScheduler *ReScheduler) singlePodReschedulingUpgradeFor910A5(jobInfo *ap
 		return
 	}
 
-	if reScheduler.processPendingRules(fJob) {
-		return
-	}
 	fJob.PendingSessionNum++
 
-	if _, ok := jobInfo.PodGroup.Annotations[util.SuperPodAnnoKey]; ok {
-		if fJob.PendingSessionNum == spPendingTimes {
-			fJob.DeleteExecutedFlag = false
-		}
+	if reScheduler.processPendingRules(jobInfo, fJob) {
+		return
+	}
+
+	_, ok := jobInfo.PodGroup.Annotations[util.RackAnnoKey]
+	if fJob.PendingSessionNum == tpPendingTimes && ok {
+		fJob.DeleteExecutedFlag = false
+	}
+
+	_, ok = jobInfo.PodGroup.Annotations[util.SuperPodAnnoKey]
+	if fJob.PendingSessionNum == spPendingTimes && ok {
+		fJob.DeleteExecutedFlag = false
 	}
 
 	if fJob.PendingSessionNum == pendingTimes {
 		fJob.DeleteExecutedFlag = false
 	}
-
-	klog.V(util.LogDebugLev).Infof("rescheduling: WhetherBackToVspSchedule=%t",
-		reScheduler.Jobs[fJob.JobUID].WhetherBackToVspSchedule)
-	if reScheduler.Jobs[fJob.JobUID].WhetherBackToVspSchedule &&
-		fJob.PendingSessionNum == backToVspPendingTimes {
-		fJob.DeleteExecutedFlag = false
-	}
 }
 
-func (reScheduler *ReScheduler) processPendingRules(fJob *FaultJob) bool {
-	if sJob := reScheduler.Jobs[fJob.JobUID]; fJob.IsProcessReschedulingJob(&sJob) {
-		if fJob.PendingSessionNum < pendingTimes {
-			fJob.PendingSessionNum++
-		}
-		return true
+func (reScheduler *ReScheduler) processPendingRules(jobInfo *api.JobInfo, fJob *FaultJob) bool {
+	if sJob := reScheduler.Jobs[fJob.JobUID]; fJob.IsProcessReschedulePause(&sJob) && !fJob.ProcessPauseReset {
+		fJob.ProcessPauseReset = true
+		fJob.PendingSessionNum = 1
+		fJob.DeleteExecutedFlag = false
+		klog.V(util.LogInfoLev).Infof("process recover failed, back to pod rescheduling")
+		return false
 	}
-	if sJob := reScheduler.Jobs[fJob.JobUID]; fJob.IsProcessReschedulePause(&sJob) {
-		if fJob.PendingSessionNum < pendingTimes {
-			fJob.DeleteExecutedFlag = false
-			fJob.PendingSessionNum++
-			klog.V(util.LogInfoLev).Infof("process recover failed, back to job rescheduling")
-		}
-		return true
+
+	if sJob := reScheduler.Jobs[fJob.JobUID]; !fJob.IsProcessReschedulingJob(&sJob) {
+		return false
 	}
-	return false
+
+	_, ok := jobInfo.PodGroup.Annotations[util.RackAnnoKey]
+	if fJob.PendingSessionNum == tpPendingTimes && ok {
+		fJob.DeleteExecutedFlag = false
+	}
+
+	// set PendingSessionNum to 6 when process rescheduling is failed
+	if fJob.PendingSessionNum == spPendingTimes {
+		fJob.PendingSessionNum = processPendingTimes
+	}
+
+	return true
 }

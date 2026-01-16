@@ -52,22 +52,15 @@ func (tp *module910a5SuperPod) selectNodesForFaultJob(task *api.TaskInfo, totalN
 	}
 
 	// select nodes in original spBlocks, maybe failed
-	notReadySpBlock, err := tp.selectNodeFromOriginSpBlock(fJob, selectNodes, totalNodes, spBlockIDs)
-	if err != nil {
-		klog.V(util.LogErrorLev).Infof("the selecting node from original spBlocks err: %v", err)
-		return err
-	}
-	klog.V(util.LogInfoLev).Infof("tpBlock=%d,WhetherBackToVspSchedule=%v,PendingSessionNum=%d,"+
-		"notReadySpBlock=%v", tp.tpBlock, fJob.WhetherBackToVspSchedule,
-		fJob.PendingSessionNum, notReadySpBlock)
+	notReadySpBlock := tp.selectNodeFromOriginSpBlock(fJob, selectNodes, totalNodes, spBlockIDs)
 
-	if !fJob.WhetherBackToVspSchedule {
+	klog.V(util.LogInfoLev).Infof("tpBlock=%d, PendingSessionNum=%d,"+
+		"notReadySpBlock=%v", tp.tpBlock, fJob.PendingSessionNum, notReadySpBlock)
+
+	if fJob.PendingSessionNum < spRescheduleStage {
 		return tp.selectNodesByRack(fJob, notReadySpBlock, totalNodes, spBlockIDs, selectNodes)
 	}
 
-	klog.V(util.LogInfoLev).Infof("selectNodesForFaultJob finished, tp.whetherBackToVspSchedule is %v, "+
-		"reset to: false", tp.whetherBackToVspSchedule)
-	tp.whetherBackToVspSchedule = false
 	return nil
 }
 
@@ -98,8 +91,7 @@ func (tp *module910a5SuperPod) selectNodesByRack(fJob *rescheduling.FaultJob,
 
 	for vSuperPodId := range notReadySuperPod {
 		superNode := fJob.SuperPods[vSuperPodId][0]
-		if fJob.PendingSessionNum < FirstRescheduleStage && tp.Jobs[fJob.JobUID].Label[util.ProcessRecoverEnable] !=
-			util.EnableFunc {
+		if fJob.PendingSessionNum < tpRescheduleStage {
 			selectNodes[vSuperPodId] = getSameRackNodes(faultNodeNameMap, fJob.SuperPods[vSuperPodId],
 				totalNodes[superNode.SuperPodID])
 			spBlockIDs[vSuperPodId] = true
@@ -166,17 +158,6 @@ func getAnotherRackNodes(faultNodeNameMap map[string]struct{},
 	return newNodes
 }
 
-func (tp *module910a5SuperPod) backToVspSchedule(fJob *rescheduling.FaultJob) error {
-	const errInsufficientNodes = "there is no enough nodes for whole rack schedule"
-	klog.V(util.LogErrorLev).Infof(errInsufficientNodes)
-
-	klog.V(util.LogInfoLev).Infof("back to vsp schedule, tp.whetherBackToVspSchedule is %v, set to true",
-		tp.whetherBackToVspSchedule)
-	tp.whetherBackToVspSchedule = true
-
-	return errors.New(errInsufficientNodes)
-}
-
 func (tp *module910a5SuperPod) getRackId(superPodWithRackId map[int32][]nodeBaseInfo,
 	faultNodeNameMap map[string]struct{}, vSuperPod []plugin.SuperNode, fJob *rescheduling.FaultJob) (int32, error) {
 	filterRackIdByTpBlock(superPodWithRackId, tp.tpBlock)
@@ -185,7 +166,7 @@ func (tp *module910a5SuperPod) getRackId(superPodWithRackId map[int32][]nodeBase
 		rackIdOrder := sortRackIdByLengthInOneSuperPod(superPodWithRackId)
 		restRackLenMapId = tp.getRestRackId(rackIdOrder, superPodWithRackId)
 		if restRackLenMapId == UninitializedRestRackLenMapId {
-			return 0, tp.backToVspSchedule(fJob)
+			return 0, errors.New("there is no enough nodes for whole rack schedule")
 		}
 	}
 	return restRackLenMapId, nil
@@ -276,7 +257,7 @@ func (tp *module910a5SuperPod) isPodLevelRescheduling(fJob *rescheduling.FaultJo
 	if !ok {
 		return false
 	}
-	if fJob.PendingSessionNum > SecondRescheduleStage {
+	if fJob.PendingSessionNum > backToJobRescheduleStage {
 		return false
 	}
 	klog.V(util.LogInfoLev).Infof("label pod-rescheduling is: %s", job.Label[util.SinglePodTag])
@@ -286,9 +267,9 @@ func (tp *module910a5SuperPod) isPodLevelRescheduling(fJob *rescheduling.FaultJo
 // select node for fault job from origin vSuperPod
 func (tp *module910a5SuperPod) selectNodeFromOriginSpBlock(fJob *rescheduling.FaultJob,
 	selectNodes map[string][]plugin.SuperNode, totalNodes map[int32]superPod,
-	spBlockIDs map[string]bool) (map[string]struct{}, error) {
+	spBlockIDs map[string]bool) map[string]struct{} {
 	if selectNodes == nil || spBlockIDs == nil || len(spBlockIDs) == 0 {
-		return nil, nil
+		return nil
 	}
 	notReadySuperPod := make(map[string]struct{})
 
@@ -311,7 +292,7 @@ func (tp *module910a5SuperPod) selectNodeFromOriginSpBlock(fJob *rescheduling.Fa
 		selectNodes[vSuperPodId] = superNodes
 		spBlockIDs[vSuperPodId] = true
 	}
-	return notReadySuperPod, nil
+	return notReadySuperPod
 }
 
 // check if task is healthy at last time

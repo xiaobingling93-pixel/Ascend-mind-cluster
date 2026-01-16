@@ -44,6 +44,5 @@ func (sJob *SchedulerJob) updateSchedulerForA5Fields(oldFields A5Fields) {
 		klog.V(util.LogErrorLev).Infof("update scheduler job for a5 fields failed: %s.", util.ArgumentError)
 		return
 	}
-	sJob.WhetherBackToVspSchedule = oldFields.WhetherBackToVspSchedule
 	sJob.TpBlock = oldFields.TpBlock
 }
