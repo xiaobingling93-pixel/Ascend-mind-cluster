@@ -25,14 +25,14 @@ const (
 	DpuStatusDown = "down"
 	// DpuStatusUp dpu status up
 	DpuStatusUp = "up"
-	// DpuInfoCMDataKey mindcluster-dpuinfo-cm data key, record dpu list
-	DpuInfoCMDataKey = "DPUList"
+	// DpuInfoCMDataKey device-info-cm data key, record Dpu info
+	DpuInfoCMDataKey = "DpuInfoCfg"
+	// DpuInfoCMDpuListKey mindcluster-dpuinfo-cm data key, record dpuList
+	DpuInfoCMDpuListKey = "DpuList"
 	// DpuInfoCMBusTypeKey mindcluster-dpuinfo-cm data key, record dpu busType
 	DpuInfoCMBusTypeKey = "BusType"
 	// DpuInfoCMNpuToDpusMapKey mindcluster-dpuinfo-cm data key, record relationship between npu and dpu
 	DpuInfoCMNpuToDpusMapKey = "NpuToDpusMap"
-	// DpuInfoCMNamePrefix dpu info configmap name prefix
-	DpuInfoCMNamePrefix = "mindcluster-dpuinfo-"
 )
 
 // Device Type

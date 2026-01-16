@@ -474,10 +474,6 @@ func TestCmSwitchHandler(t *testing.T) {
 			isAdd = true
 		})
 		defer CleanFuncs()
-		convey.Convey("when newObj is nil, should not exec function", func() {
-			cmSwitchHandler(nil, nil, "add")
-			convey.So(isAdd, convey.ShouldBeFalse)
-		})
 		convey.Convey("when newObj is not nil, should exec function", func() {
 			swit := constant.SwitchFaultInfo{
 				FaultInfo:  []constant.SimpleSwitchFaultInfo{},

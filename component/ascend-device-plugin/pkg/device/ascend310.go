@@ -81,7 +81,7 @@ func (hnm *HwAscend310Manager) getNPUsByNormalMode(davinCiDev common.DavinCiDev)
 // DoWithVolcanoListAndWatch ascend310 watch device
 func (hnm *HwAscend310Manager) DoWithVolcanoListAndWatch(classifyDevs map[string][]*common.NpuDevice) {
 	devStatusSet := hnm.getDevStatesDevSet(classifyDevs)
-	if err := hnm.UpdateNodeDeviceInfo(devStatusSet, hnm.updateDeviceInfo); err != nil {
+	if err := hnm.UpdateNodeDeviceInfo(devStatusSet, common.DpuInfo{}, hnm.updateDeviceInfo); err != nil {
 		hwlog.RunLog.Errorf("update device info failed, err: %v", err)
 	}
 }
@@ -110,4 +110,9 @@ func (hnm *HwAscend310Manager) GraceTolerance(context.Context, map[string][]*com
 // GetAssociatedLogicIDs get associated logic id list, not supported currently
 func (hnm *HwAscend310Manager) GetAssociatedLogicIDs(logicID, cardID, deviceID int32) ([]int32, error) {
 	return nil, nil
+}
+
+// SetDpu writes dpuInfo into DeviceManager, not supported currently
+func (hnm *HwAscend310Manager) SetDpu(string, []common.DpuCMData, map[string][]string) {
+	return
 }

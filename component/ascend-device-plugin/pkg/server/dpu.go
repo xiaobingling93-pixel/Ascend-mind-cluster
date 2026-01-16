@@ -40,12 +40,27 @@ const (
 var (
 	lastData       []common.DpuCMData
 	lastUpdateTime time.Time
+	uniqueDpuMap   map[string]dpucontrol.BaseDpuInfo
+	npuToDpuMap    map[string][]string
 )
 
 // ListenDpu periodically query the DPU operstate and write to the configmap
 func (hdm *HwDevManager) ListenDpu(ctx context.Context) {
 	if common.ParamOption.RealCardType != api.Ascend910A5 || len(hdm.dpuManager.NpuWithDpuInfos) == 0 {
 		return
+	}
+
+	uniqueDpuMap = make(map[string]dpucontrol.BaseDpuInfo, api.NpuCountPerNode)
+	npuToDpuMap = make(map[string][]string, api.NpuCountPerNode)
+	for _, npuWithDpu := range hdm.dpuManager.NpuWithDpuInfos {
+		strKey := strconv.Itoa(int(npuWithDpu.NpuId))
+		npuToDpuMap[strKey] = make([]string, 0)
+		for _, dpu := range npuWithDpu.DpuInfo {
+			if _, exists := uniqueDpuMap[dpu.DeviceName]; !exists {
+				uniqueDpuMap[dpu.DeviceName] = dpu
+			}
+			npuToDpuMap[strKey] = append(npuToDpuMap[strKey], dpu.DeviceName)
+		}
 	}
 
 	ticker := time.NewTicker(listenDpuInterval)
@@ -64,19 +79,7 @@ func (hdm *HwDevManager) ListenDpu(ctx context.Context) {
 
 func (hdm *HwDevManager) handleDpu() {
 	var dpuList []common.DpuCMData
-	uniqueMap := make(map[string]dpucontrol.BaseDpuInfo, api.NpuCountPerNode)
-	npuToDpusMap := make(map[string][]string, api.NpuCountPerNode)
-	for _, npuWithDpu := range hdm.dpuManager.NpuWithDpuInfos {
-		strKey := strconv.Itoa(int(npuWithDpu.NpuId))
-		npuToDpusMap[strKey] = make([]string, 0)
-		for _, dpu := range npuWithDpu.DpuInfo {
-			if _, exists := uniqueMap[dpu.DeviceName]; !exists {
-				uniqueMap[dpu.DeviceName] = dpu
-			}
-			npuToDpusMap[strKey] = append(npuToDpusMap[strKey], dpu.DeviceName)
-		}
-	}
-	for _, dpu := range uniqueMap {
+	for _, dpu := range uniqueDpuMap {
 		state, err := ethtool.GetInterfaceOperState(dpu.DeviceName)
 		if err != nil {
 			hwlog.RunLog.Errorf("%s GetInterfaceOperState err: %v", api.DpuLogPrefix, err)
@@ -96,11 +99,7 @@ func (hdm *HwDevManager) handleDpu() {
 	if !needUpdate {
 		return
 	}
-	if err := hdm.manager.GetKubeClient().WriteDpuDataIntoCM(hdm.dpuManager.UserConfig.BusType, dpuList,
-		npuToDpusMap); err != nil {
-		hwlog.RunLog.Errorf("%s write DPU info failed: %v", api.DpuLogPrefix, err)
-		return
-	}
+	hdm.manager.SetDpu(hdm.dpuManager.UserConfig.BusType, dpuList, npuToDpuMap)
 	lastData = dpuList
 	lastUpdateTime = time.Now()
 }

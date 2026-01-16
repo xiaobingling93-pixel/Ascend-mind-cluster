@@ -19,11 +19,7 @@ import (
 const safeSwitchSize = 2000
 
 // ParseSwitchInfoCM get node info from configmap obj
-func ParseSwitchInfoCM(obj interface{}) (*constant.SwitchInfo, error) {
-	switchCm, ok := obj.(*v1.ConfigMap)
-	if !ok {
-		return &constant.SwitchInfo{}, fmt.Errorf("not configmap")
-	}
+func ParseSwitchInfoCM(switchCm *v1.ConfigMap) (*constant.SwitchInfo, error) {
 	switchInfoCM := constant.SwitchFaultInfoFromCm{}
 	data, ok := switchCm.Data[api.SwitchInfoCMDataKey]
 	if !ok {

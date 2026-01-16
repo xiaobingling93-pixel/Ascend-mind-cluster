@@ -42,13 +42,13 @@ func TestClientK8sMethodWriteDeviceInfoDataIntoCMCacheA5(t *testing.T) {
 			patch := gomonkey.ApplyMethodReturn(utKubeClient, "WriteDeviceInfoDataIntoCMA5",
 				errors.New("write device info data into cm A5 failed"))
 			defer patch.Reset()
-			ret := utKubeClient.WriteDeviceInfoDataIntoCMCacheA5(&nodeDeviceData, "", common.SwitchFaultInfo{})
+			ret := utKubeClient.WriteDeviceInfoDataIntoCMCacheA5(&nodeDeviceData, "", common.SwitchFaultInfo{}, common.DpuInfo{})
 			convey.So(ret, convey.ShouldNotBeNil)
 		})
 		convey.Convey("02-should return nil when write into cm success", func() {
 			patch := gomonkey.ApplyMethodReturn(utKubeClient, "WriteDeviceInfoDataIntoCMA5", nil)
 			defer patch.Reset()
-			ret := utKubeClient.WriteDeviceInfoDataIntoCMCacheA5(&nodeDeviceData, "", common.SwitchFaultInfo{})
+			ret := utKubeClient.WriteDeviceInfoDataIntoCMCacheA5(&nodeDeviceData, "", common.SwitchFaultInfo{}, common.DpuInfo{})
 			convey.So(ret, convey.ShouldBeNil)
 		})
 	})

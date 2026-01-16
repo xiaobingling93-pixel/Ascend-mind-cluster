@@ -19,40 +19,35 @@ import (
 const safeDpuCMSize = 1000
 
 // ParseDpuInfoCM get dpu info from configmap obj
-func ParseDpuInfoCM(obj interface{}) (*constant.DpuInfoCM, error) {
-	dpuCM, ok := obj.(*v1.ConfigMap)
+func ParseDpuInfoCM(dpuCm *v1.ConfigMap) (*constant.DpuInfoCM, error) {
+	dpuInfoCM := constant.DpuInfoCM{}
+	data, ok := dpuCm.Data[api.DpuInfoCMDataKey]
 	if !ok {
-		return nil, fmt.Errorf("%s not a ConfigMap", api.DpuLogPrefix)
+		return nil, fmt.Errorf("configmap %s has no key <%s>", dpuCm.Name, api.DpuInfoCMDataKey)
 	}
 
-	var dpuList constant.DpuCMDataList
-	dpuListStr, ok := dpuCM.Data[api.DpuInfoCMDataKey]
-	if !ok {
-		return nil, fmt.Errorf("%s <%s> configmap has no key <%s>", api.DpuLogPrefix, dpuCM.Name, api.DpuInfoCMDataKey)
+	if unmarshalErr := json.Unmarshal([]byte(data), &dpuInfoCM); unmarshalErr != nil {
+		return nil, fmt.Errorf("configmap %s unmarshal error: %v", dpuCm.Name, unmarshalErr)
 	}
-	if err := json.Unmarshal([]byte(dpuListStr), &dpuList); err != nil {
-		return nil, fmt.Errorf("%s <%s> configmap unmarshal data failed: <%v>", api.DpuLogPrefix, err, dpuCM.Name)
+
+	if dpuInfoCM.BusType == "" {
+		return nil, fmt.Errorf("%s has no key <%s>", api.DpuInfoCMDataKey, api.DpuInfoCMBusTypeKey)
 	}
-	busType, getBusTypeOk := dpuCM.Data[api.DpuInfoCMBusTypeKey]
-	if !getBusTypeOk {
-		return nil, fmt.Errorf("%s <%s> configmap has no key <%s>", api.DpuLogPrefix, dpuCM.Name,
-			api.DpuInfoCMBusTypeKey)
+	if dpuInfoCM.DPUList == nil {
+		return nil, fmt.Errorf("%s has no key <%s>", api.DpuInfoCMDataKey,
+			api.DpuInfoCMDpuListKey)
 	}
-	var npuToDpusMap map[string][]string
-	npuToDpusStr, getMapOk := dpuCM.Data[api.DpuInfoCMNpuToDpusMapKey]
-	if !getMapOk {
-		return nil, fmt.Errorf("%s <%s> configmap has no key <%s>", api.DpuLogPrefix, dpuCM.Name,
+	if dpuInfoCM.NpuToDpusMap == nil {
+		return nil, fmt.Errorf("%s has no key <%s>", api.DpuInfoCMDataKey,
 			api.DpuInfoCMNpuToDpusMapKey)
-	}
-	if err := json.Unmarshal([]byte(npuToDpusStr), &npuToDpusMap); err != nil {
-		return nil, fmt.Errorf("%s <%s> configmap unmarshal data failed: <%v>", api.DpuLogPrefix, err, dpuCM.Name)
 	}
 
 	result := constant.DpuInfoCM{
-		CmName:       dpuCM.Name,
-		DPUList:      dpuList,
-		BusType:      busType,
-		NpuToDpusMap: npuToDpusMap,
+		CmName:       dpuCm.Name,
+		DPUList:      dpuInfoCM.DPUList,
+		BusType:      dpuInfoCM.BusType,
+		NpuToDpusMap: dpuInfoCM.NpuToDpusMap,
+		UpdateTime:   dpuInfoCM.UpdateTime,
 	}
 	return &result, nil
 }

@@ -16,13 +16,11 @@
 package kubeclient
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 
 	"Ascend-device-plugin/pkg/common"
 	"ascend-common/api"
@@ -31,17 +29,20 @@ import (
 
 // WriteDeviceInfoDataIntoCMA5 write deviceinfo into config map for A5
 func (ki *ClientK8s) WriteDeviceInfoDataIntoCMA5(nodeDeviceData *common.NodeDeviceInfoCache,
-	manuallySeparateNPU string, switchInfo common.SwitchFaultInfo) error {
+	manuallySeparateNPU string, switchInfo common.SwitchFaultInfo, dpuInfo common.DpuInfo) error {
 
 	nodeDeviceData.DeviceInfo.UpdateTime = time.Now().Unix()
 	nodeDeviceData.CheckCode = common.MakeDataHash(nodeDeviceData.DeviceInfo)
 
-	var data, switchData []byte
+	var data, switchData, dpuData []byte
 	if data = common.MarshalData(nodeDeviceData); len(data) == 0 {
-		return fmt.Errorf("marshal nodeDeviceData failed")
+		return errors.New("marshal nodeDeviceData failed")
 	}
 	if switchData = common.MarshalData(switchInfo); len(switchData) == 0 {
-		return fmt.Errorf("marshal switchDeviceData failed")
+		return errors.New("marshal switchDeviceData failed")
+	}
+	if dpuData = common.MarshalData(dpuInfo); len(dpuData) == 0 {
+		return errors.New("marshal DpuDeviceData failed")
 	}
 	deviceInfoCM := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -53,43 +54,9 @@ func (ki *ClientK8s) WriteDeviceInfoDataIntoCMA5(nodeDeviceData *common.NodeDevi
 	deviceInfoCM.Data = map[string]string{
 		api.DeviceInfoCMDataKey:                   string(data),
 		api.SwitchInfoCMDataKey:                   string(switchData),
-		common.DeviceInfoCMManuallySeparateNPUKey: manuallySeparateNPU}
+		common.DeviceInfoCMManuallySeparateNPUKey: manuallySeparateNPU,
+		api.DpuInfoCMDataKey:                      string(dpuData),
+	}
 	hwlog.RunLog.Debugf("write device info cache into cm: %s/%s.", deviceInfoCM.Namespace, deviceInfoCM.Name)
 	return ki.createOrUpdateDeviceCM(deviceInfoCM)
-}
-
-// WriteDpuDataIntoCM write dpu info into configmap
-func (ki *ClientK8s) WriteDpuDataIntoCM(busType string, dpuList []common.DpuCMData,
-	npuToDpusMap map[string][]string) error {
-	dpuInfoCM := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      api.DpuInfoCMNamePrefix + ki.NodeName,
-			Namespace: api.KubeNS,
-			Labels:    map[string]string{api.CIMCMLabelKey: common.CmConsumerValue},
-		},
-	}
-	dpuListJsonData := common.MarshalData(dpuList)
-	npuToDpusMapJsonData := common.MarshalData(npuToDpusMap)
-	dpuInfoCM.Data = map[string]string{
-		api.DpuInfoCMBusTypeKey:      busType,
-		api.DpuInfoCMDataKey:         string(dpuListJsonData),
-		api.DpuInfoCMNpuToDpusMapKey: string(npuToDpusMapJsonData),
-	}
-	hwlog.RunLog.Debugf("%s write DPU info cache into cm: %s/%s.", api.DpuLogPrefix, dpuInfoCM.Namespace,
-		dpuInfoCM.Name)
-
-	const duration = 500 * time.Millisecond
-	backoff := wait.Backoff{
-		Steps:    3,
-		Duration: duration,
-		Factor:   2.0, // 0.5s -> 1s -> 2s
-		Jitter:   0.1,
-	}
-	return retry.OnError(backoff,
-		func(err error) bool {
-			return true
-		}, func() error {
-			return ki.createOrUpdateDeviceCM(dpuInfoCM)
-		},
-	)
 }
