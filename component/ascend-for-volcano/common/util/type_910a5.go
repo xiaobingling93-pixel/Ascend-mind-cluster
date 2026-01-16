@@ -41,6 +41,8 @@ const (
 	InvalidTpBlock = -1
 	// LeastTpBlock is the least value of tp-block
 	LeastTpBlock = 1
+	// DefaultTpBlockNum is the default value of 900SuperPod-A5-8
+	DefaultTpBlockNum = 8
 )
 
 // for a5 rescheduling
