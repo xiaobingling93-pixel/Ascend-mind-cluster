@@ -18,11 +18,15 @@ import (
 )
 
 const (
-	length1 = 1
-	length2 = 2
+	length1                  = 1
+	length2                  = 2
+	DpuInfoCMBusTypeKey      = "BusType"
+	DpuInfoCMDpuListKey      = "DpuList"
+	DpuInfoCMNpuToDpusMapKey = "NpuToDpusMap"
 )
 
 var (
+	mockBusType      = "ub"
 	mockNPUToDpusMap = map[string][]string{
 		"0": {"enps0", "enps2"},
 		"7": {"enps1", "enps3"},
@@ -33,23 +37,22 @@ var (
 	}
 )
 
-func generateParseDpuInfoSuccessTestCM() *v1.ConfigMap {
-	dataBytesList, err := json.Marshal(mockDpuList)
-	if err != nil {
-		return nil
+func generateParseDpuInfoSuccessTestCM(cmName string, dataKey string, busType string, dpuList constant.DpuCMDataList, npuToDpusMap map[string][]string) *v1.ConfigMap {
+	dpuInfo := constant.DpuInfoCM{
+		BusType:      busType,
+		DPUList:      dpuList,
+		NpuToDpusMap: npuToDpusMap,
 	}
-	dataBytesMap, err := json.Marshal(mockNPUToDpusMap)
+	bytes, err := json.Marshal(dpuInfo)
 	if err != nil {
 		return nil
 	}
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-cm",
+			Name: cmName,
 		},
 		Data: map[string]string{
-			api.DpuInfoCMBusTypeKey:      "ub",
-			api.DpuInfoCMDataKey:         string(dataBytesList),
-			api.DpuInfoCMNpuToDpusMapKey: string(dataBytesMap),
+			dataKey: string(bytes),
 		},
 	}
 	return cm
@@ -58,7 +61,8 @@ func generateParseDpuInfoSuccessTestCM() *v1.ConfigMap {
 func TestParseDpuInfoCM(t *testing.T) {
 	convey.Convey("testParseDpuInfoCM", t, func() {
 		convey.Convey("Test parse dpu info success", func() {
-			cm := generateParseDpuInfoSuccessTestCM()
+			cm := generateParseDpuInfoSuccessTestCM("test-cm", api.DpuInfoCMDataKey, mockBusType,
+				mockDpuList, mockNPUToDpusMap)
 			result, err := ParseDpuInfoCM(cm)
 			convey.So(err, convey.ShouldBeNil)
 			convey.So(result.CmName, convey.ShouldEqual, "test-cm")
@@ -67,12 +71,11 @@ func TestParseDpuInfoCM(t *testing.T) {
 		})
 
 		convey.Convey("Test parse dpu info errors", func() {
-			testParseDpuInfoCMInputNotConfigMap()
 			testParseDpuInfoCMMissingDataKey()
 			testParseDpuInfoCMInvalidDataJSON()
 			testParseDpuInfoCMMissingBusTypeKey()
+			testParseDpuInfoCMMissingDpuListKey()
 			testParseDpuInfoCMMissingNpuToDpusMapKey()
-			testParseDpuInfoCMInvalidNpuToDpusMapJSON()
 		})
 	})
 }
@@ -147,24 +150,10 @@ func TestGetSafeData(t *testing.T) {
 	})
 }
 
-func testParseDpuInfoCMInputNotConfigMap() {
-	convey.Convey("Input is not a ConfigMap", func() {
-		const mockInput = "123"
-		result, err := ParseDpuInfoCM(mockInput)
-		convey.So(result, convey.ShouldBeNil)
-		convey.So(err, convey.ShouldNotBeNil)
-	})
-}
-
 func testParseDpuInfoCMMissingDataKey() {
 	convey.Convey("ConfigMap missing DpuInfoCMDataKey", func() {
-		cm := &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "cm-missing-data"},
-			Data: map[string]string{
-				api.DpuInfoCMBusTypeKey:      "ub",
-				api.DpuInfoCMNpuToDpusMapKey: "{}",
-			},
-		}
+		cm := generateParseDpuInfoSuccessTestCM("cm-missing-data", "invalid", mockBusType,
+			mockDpuList, mockNPUToDpusMap)
 		result, err := ParseDpuInfoCM(cm)
 		convey.So(result, convey.ShouldBeNil)
 		convey.So(err, convey.ShouldNotBeNil)
@@ -174,67 +163,57 @@ func testParseDpuInfoCMMissingDataKey() {
 
 func testParseDpuInfoCMInvalidDataJSON() {
 	convey.Convey("ConfigMap DpuInfoCMDataKey has invalid JSON", func() {
+		dpuInfo := map[string]string{
+			DpuInfoCMBusTypeKey:      "ub",
+			DpuInfoCMDpuListKey:      "{bad json}",
+			DpuInfoCMNpuToDpusMapKey: "{}",
+		}
+		bytes, err := json.Marshal(dpuInfo)
 		cm := &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "cm-bad-json"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cm-bad-json",
+			},
 			Data: map[string]string{
-				api.DpuInfoCMDataKey:         "{bad json}",
-				api.DpuInfoCMBusTypeKey:      "ub",
-				api.DpuInfoCMNpuToDpusMapKey: "{}",
+				api.DpuInfoCMDataKey: string(bytes),
 			},
 		}
 		result, err := ParseDpuInfoCM(cm)
 		convey.So(result, convey.ShouldBeNil)
 		convey.So(err, convey.ShouldNotBeNil)
-		convey.So(err.Error(), convey.ShouldContainSubstring, "unmarshal data failed")
+		convey.So(err.Error(), convey.ShouldContainSubstring, "unmarshal error")
 	})
 }
 
 func testParseDpuInfoCMMissingBusTypeKey() {
 	convey.Convey("ConfigMap missing DpuInfoCMBusTypeKey", func() {
-		cm := &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "cm-missing-bus"},
-			Data: map[string]string{
-				api.DpuInfoCMDataKey:         "[]",
-				api.DpuInfoCMNpuToDpusMapKey: "{}",
-			},
-		}
+		cm := generateParseDpuInfoSuccessTestCM("cm-missing-bus", api.DpuInfoCMDataKey, "",
+			mockDpuList, mockNPUToDpusMap)
 		result, err := ParseDpuInfoCM(cm)
 		convey.So(result, convey.ShouldBeNil)
 		convey.So(err, convey.ShouldNotBeNil)
-		convey.So(err.Error(), convey.ShouldContainSubstring, api.DpuInfoCMBusTypeKey)
+		convey.So(err.Error(), convey.ShouldContainSubstring, DpuInfoCMBusTypeKey)
+	})
+}
+
+func testParseDpuInfoCMMissingDpuListKey() {
+	convey.Convey("ConfigMap missing DpuInfoCMDpuListKey", func() {
+		cm := generateParseDpuInfoSuccessTestCM("cm-missing-dpuList", api.DpuInfoCMDataKey, mockBusType,
+			nil, mockNPUToDpusMap)
+		result, err := ParseDpuInfoCM(cm)
+		convey.So(result, convey.ShouldBeNil)
+		convey.So(err, convey.ShouldNotBeNil)
+		convey.So(err.Error(), convey.ShouldContainSubstring, DpuInfoCMDpuListKey)
 	})
 }
 
 func testParseDpuInfoCMMissingNpuToDpusMapKey() {
 	convey.Convey("ConfigMap missing DpuInfoCMNpuToDpusMapKey", func() {
-		cm := &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "cm-missing-map"},
-			Data: map[string]string{
-				api.DpuInfoCMDataKey:    "[]",
-				api.DpuInfoCMBusTypeKey: "ub",
-			},
-		}
+		cm := generateParseDpuInfoSuccessTestCM("cm-missing-map", api.DpuInfoCMDataKey, mockBusType,
+			mockDpuList, nil)
 		result, err := ParseDpuInfoCM(cm)
 		convey.So(result, convey.ShouldBeNil)
 		convey.So(err, convey.ShouldNotBeNil)
-		convey.So(err.Error(), convey.ShouldContainSubstring, api.DpuInfoCMNpuToDpusMapKey)
-	})
-}
-
-func testParseDpuInfoCMInvalidNpuToDpusMapJSON() {
-	convey.Convey("ConfigMap DpuInfoCMNpuToDpusMapKey has invalid JSON", func() {
-		cm := &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "cm-bad-map-json"},
-			Data: map[string]string{
-				api.DpuInfoCMDataKey:         "[]",
-				api.DpuInfoCMBusTypeKey:      "ub",
-				api.DpuInfoCMNpuToDpusMapKey: "{bad json}",
-			},
-		}
-		result, err := ParseDpuInfoCM(cm)
-		convey.So(result, convey.ShouldBeNil)
-		convey.So(err, convey.ShouldNotBeNil)
-		convey.So(err.Error(), convey.ShouldContainSubstring, "unmarshal data failed")
+		convey.So(err.Error(), convey.ShouldContainSubstring, DpuInfoCMNpuToDpusMapKey)
 	})
 }
 

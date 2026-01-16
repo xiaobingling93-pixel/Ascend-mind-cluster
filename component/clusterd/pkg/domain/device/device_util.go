@@ -18,11 +18,7 @@ import (
 const safeDeviceSize = 1000
 
 // ParseDeviceInfoCM get device info from configmap obj
-func ParseDeviceInfoCM(obj interface{}) (*constant.DeviceInfo, error) {
-	deviceCm, ok := obj.(*v1.ConfigMap)
-	if !ok {
-		return &constant.DeviceInfo{}, fmt.Errorf("not device configmap")
-	}
+func ParseDeviceInfoCM(deviceCm *v1.ConfigMap) (*constant.DeviceInfo, error) {
 	devInfoCM := constant.DeviceInfoCM{}
 	data, ok := deviceCm.Data[api.DeviceInfoCMDataKey]
 	if !ok {

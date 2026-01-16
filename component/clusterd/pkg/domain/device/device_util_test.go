@@ -40,10 +40,6 @@ func init() {
 
 func TestParseDeviceInfoCM(t *testing.T) {
 	convey.Convey("TestParseDeviceInfoCM", t, func() {
-		convey.Convey("obj is nil", func() {
-			_, err := ParseDeviceInfoCM(nil)
-			convey.So(err.Error(), convey.ShouldEqual, "not device configmap")
-		})
 		convey.Convey("obj without DeviceInfoCfg key", func() {
 			cm := &v1.ConfigMap{}
 			cm.Name = testCmName

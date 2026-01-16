@@ -153,6 +153,7 @@ type DevManager interface {
 	GetDeviceIP(deviceType string, phyID int) (string, error)
 	WriteFaultToEvent(ctx context.Context)
 	GetAssociatedLogicIDs(logicID, cardID, deviceID int32) ([]int32, error)
+	SetDpu(string, []common.DpuCMData, map[string][]string)
 }
 
 // SetDmgr set devmanager
@@ -251,7 +252,7 @@ func (tool *AscendTools) handleManuallySeparateNPUFaultInfo() string {
 }
 
 // UpdateNodeDeviceInfo update device info
-func (tool *AscendTools) UpdateNodeDeviceInfo(devStatusSet common.DevStatusSet,
+func (tool *AscendTools) UpdateNodeDeviceInfo(devStatusSet common.DevStatusSet, dpuInfo common.DpuInfo,
 	updateDeviceInfoFunc func(map[string]string, map[string]string, common.DevStatusSet) error) error {
 	tool.checkAndInitNodeDeviceInfo()
 	waitErr := wait.PollImmediate(common.Interval*time.Second, common.Timeout*time.Second, func() (bool, error) {
@@ -277,7 +278,7 @@ func (tool *AscendTools) UpdateNodeDeviceInfo(devStatusSet common.DevStatusSet,
 			common.UpdateSwitchFaultInfoAndFaultLevel(&switchFaultInfo)
 		}
 		if common.ParamOption.RealCardType == api.Ascend910A5 {
-			return tool.writeNodeDeviceInfoDataA5(newDeviceList, manuallySeparateNPU, switchFaultInfo)
+			return tool.writeNodeDeviceInfoDataA5(newDeviceList, manuallySeparateNPU, switchFaultInfo, dpuInfo)
 		}
 		dataSame := compareDeviceList(deviceList, newDeviceList) &&
 			common.DeepEqualSwitchFaultInfo(switchFaultInfo, tool.lastSwitchFaultInfo) &&

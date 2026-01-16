@@ -19,8 +19,8 @@ import "Ascend-device-plugin/pkg/common"
 
 // WriteDeviceInfoDataIntoCMCacheA5 write deviceinfo into config map with cache for A5
 func (ki *ClientK8s) WriteDeviceInfoDataIntoCMCacheA5(nodeDeviceData *common.NodeDeviceInfoCache,
-	manuallySeparateNPU string, switchInfo common.SwitchFaultInfo) error {
-	err := ki.WriteDeviceInfoDataIntoCMA5(nodeDeviceData, manuallySeparateNPU, switchInfo)
+	manuallySeparateNPU string, switchInfo common.SwitchFaultInfo, dpuInfo common.DpuInfo) error {
+	err := ki.WriteDeviceInfoDataIntoCMA5(nodeDeviceData, manuallySeparateNPU, switchInfo, dpuInfo)
 	if err != nil {
 		return err
 	}

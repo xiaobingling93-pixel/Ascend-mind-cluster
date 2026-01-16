@@ -20,10 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
@@ -33,11 +31,8 @@ import (
 	"k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 
 	"Ascend-device-plugin/pkg/common"
-	"Ascend-device-plugin/pkg/device"
-	"Ascend-device-plugin/pkg/device/dpucontrol"
 	"Ascend-device-plugin/pkg/kubeclient"
 	"ascend-common/api"
-	"ascend-common/common-utils/ethtool"
 	"ascend-common/devmanager"
 	devcommon "ascend-common/devmanager/common"
 	"ascend-common/devmanager/dcmi"
@@ -189,53 +184,4 @@ func testListAndWatch() {
 	})
 
 	mockSend.Reset()
-}
-
-func TestHandleDpu_WriteAndNoRepeat(t *testing.T) {
-	convey.Convey("handleDpu should write DPU data once and skip when data unchanged", t, func() {
-		// prepare HwDevManager with an ascend910 manager and a dpu manager containing DPUs
-		hdm := &HwDevManager{
-			manager:    device.NewHwAscend910Manager(),
-			dpuManager: &dpucontrol.DpuFilter{},
-		}
-		// fill DPU infos (include a duplicate to ensure uniqueness handling)
-		hdm.dpuManager.NpuWithDpuInfos = []dpucontrol.NpuWithDpuInfo{
-			{NpuId: 0, DpuInfo: []dpucontrol.BaseDpuInfo{{DeviceName: "eth0", DeviceId: "id1", Vendor: "v1"}}},
-			{NpuId: 1, DpuInfo: []dpucontrol.BaseDpuInfo{{DeviceName: "eth1", DeviceId: "id2", Vendor: "v2"}}},
-		}
-		hdm.dpuManager.UserConfig.BusType = "ub"
-		// patch GetInterfaceOperState to always return 'up'
-		patchEth := gomonkey.ApplyFuncReturn(ethtool.GetInterfaceOperState, "up", nil)
-		defer patchEth.Reset()
-		// ensure manager returns a kube client so handleDpu won't nil-deref
-		mockGetClient := gomonkey.ApplyMethodReturn(hdm.manager, "GetKubeClient", &kubeclient.ClientK8s{})
-		defer mockGetClient.Reset()
-		// patch ClientK8s.WriteDpuDataIntoCM to capture args and succeed
-		writeCalled := 0
-		var capturedBus string
-		var capturedLen int
-		patchWrite := gomonkey.ApplyMethod(reflect.TypeOf(new(kubeclient.ClientK8s)), "WriteDpuDataIntoCM",
-			func(_ *kubeclient.ClientK8s, bus string, dlist []common.DpuCMData, _ map[string][]string) error {
-				writeCalled++
-				capturedBus = bus
-				capturedLen = len(dlist)
-				return nil
-			})
-		defer patchWrite.Reset()
-		// first call should write
-		hdm.handleDpu()
-		convey.So(writeCalled, convey.ShouldBeGreaterThanOrEqualTo, 1)
-		convey.So(capturedBus, convey.ShouldEqual, "ub")
-		// two unique DPUs: eth0 and eth1
-		const dpuCount = 2
-		convey.So(capturedLen, convey.ShouldEqual, dpuCount)
-		// reset counter and call again shortly: should NOT write because data unchanged
-		writeCalled = 0
-		hdm.handleDpu()
-		convey.So(writeCalled, convey.ShouldEqual, 0)
-		// force expiry of maxUpdateInterval by setting lastUpdateTime far in the past, then should write again
-		lastUpdateTime = time.Now().Add(-maxUpdateInterval - time.Minute)
-		hdm.handleDpu()
-		convey.So(writeCalled, convey.ShouldBeGreaterThanOrEqualTo, 1)
-	})
 }

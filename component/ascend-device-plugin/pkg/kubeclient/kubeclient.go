@@ -290,7 +290,7 @@ func (ki *ClientK8s) ResetDeviceInfo() {
 			RackID:      -1,
 			ServerIndex: -1,
 		}
-		if err := ki.WriteDeviceInfoDataIntoCMCacheA5(nodeDeviceData, "", common.GetSwitchFaultInfo()); err != nil {
+		if err := ki.WriteDeviceInfoDataIntoCMCacheA5(nodeDeviceData, "", common.GetSwitchFaultInfo(), common.DpuInfo{}); err != nil {
 			hwlog.RunLog.Errorf("write device info failed, error is %v", err)
 		}
 		return

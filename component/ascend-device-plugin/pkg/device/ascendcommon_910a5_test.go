@@ -44,14 +44,14 @@ func TestAscendToolsMethodWriteNodeDeviceInfoDataA5(t *testing.T) {
 			patch := gomonkey.ApplyMethodReturn(tool.client, "WriteDeviceInfoDataIntoCMCacheA5",
 				errors.New("write cm failed"))
 			defer patch.Reset()
-			ret, _ := tool.writeNodeDeviceInfoDataA5(map[string]string{}, "", common.SwitchFaultInfo{})
+			ret, _ := tool.writeNodeDeviceInfoDataA5(map[string]string{}, "", common.SwitchFaultInfo{}, common.DpuInfo{})
 			convey.So(ret, convey.ShouldBeFalse)
 		})
 		convey.Convey("02-should return true when write cm success", func() {
 			tool := mockAscendTools()
 			patch := gomonkey.ApplyMethodReturn(tool.client, "WriteDeviceInfoDataIntoCMCacheA5", nil)
 			defer patch.Reset()
-			ret, _ := tool.writeNodeDeviceInfoDataA5(map[string]string{}, "", common.SwitchFaultInfo{})
+			ret, _ := tool.writeNodeDeviceInfoDataA5(map[string]string{}, "", common.SwitchFaultInfo{}, common.DpuInfo{})
 			convey.So(ret, convey.ShouldBeTrue)
 		})
 	})

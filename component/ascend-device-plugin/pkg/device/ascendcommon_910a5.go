@@ -61,7 +61,7 @@ func (tool *AscendTools) GetRackID() int32 {
 }
 
 func (tool *AscendTools) writeNodeDeviceInfoDataA5(newDeviceList map[string]string, manuallySeparateNPU string,
-	switchFaultInfo common.SwitchFaultInfo) (bool, error) {
+	switchFaultInfo common.SwitchFaultInfo, dpuInfo common.DpuInfo) (bool, error) {
 	nodeDeviceData := &common.NodeDeviceInfoCache{
 		DeviceInfo: common.NodeDeviceInfo{
 			DeviceList: newDeviceList,
@@ -71,7 +71,7 @@ func (tool *AscendTools) writeNodeDeviceInfoDataA5(newDeviceList map[string]stri
 		ServerIndex: tool.GetServerIndex(),
 	}
 	if err := tool.client.WriteDeviceInfoDataIntoCMCacheA5(nodeDeviceData, manuallySeparateNPU,
-		switchFaultInfo); err != nil {
+		switchFaultInfo, dpuInfo); err != nil {
 		hwlog.RunLog.Errorf("write device info failed: %v", err)
 		return false, nil
 	}

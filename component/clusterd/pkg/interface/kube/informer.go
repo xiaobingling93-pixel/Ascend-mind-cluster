@@ -382,29 +382,9 @@ func InitCMInformer() {
 			},
 		},
 	})
-	addDpuCMInformer(&cmInformer)
 	AddRankTableEventHandler(&cmInformer)
 	addPingMeshConfigEventHandler(&cmInformer)
 	informerFactory.Start(informerCh)
-}
-
-func addDpuCMInformer(cmInformer *cache.SharedIndexInformer) {
-	(*cmInformer).AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: checkConfigMapIsDpuInfo,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				cmDpuHandler(nil, obj, constant.AddOperator)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				if !reflect.DeepEqual(oldObj, newObj) {
-					cmDpuHandler(oldObj, newObj, constant.UpdateOperator)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				cmDpuHandler(nil, obj, constant.DeleteOperator)
-			},
-		},
-	})
 }
 
 func addPingMeshConfigEventHandler(cmInformer *cache.SharedIndexInformer) {
@@ -494,14 +474,26 @@ func cmDeviceHandler(oldObj interface{}, newObj interface{}, operator string) {
 	var oldDevInfo *constant.DeviceInfo
 	var newDevInfo *constant.DeviceInfo
 	var err error
+	var oldCm *v1.ConfigMap
 	if oldObj != nil {
-		oldDevInfo, err = device.ParseDeviceInfoCM(oldObj)
+		oldCmTemp, ok := oldObj.(*v1.ConfigMap)
+		if !ok {
+			hwlog.RunLog.Error("oldObj not device configmap")
+			return
+		}
+		oldCm = oldCmTemp
+		oldDevInfo, err = device.ParseDeviceInfoCM(oldCm)
 		if err != nil {
 			hwlog.RunLog.Errorf("parse old cm error: %v", err)
 			return
 		}
 	}
-	newDevInfo, err = device.ParseDeviceInfoCM(newObj)
+	newCm, ok := newObj.(*v1.ConfigMap)
+	if !ok {
+		hwlog.RunLog.Error("newObj not device configmap")
+		return
+	}
+	newDevInfo, err = device.ParseDeviceInfoCM(newCm)
 	if err != nil {
 		hwlog.RunLog.Errorf("parse new cm error: %v", err)
 		return
@@ -520,10 +512,11 @@ func cmDeviceHandler(oldObj interface{}, newObj interface{}, operator string) {
 		}
 		index++
 	}
-	if deviceCm, ok := newObj.(*v1.ConfigMap); ok {
-		if _, ok := deviceCm.Data[api.SwitchInfoCMDataKey]; ok {
-			cmSwitchHandler(oldObj, newObj, operator)
-		}
+	if _, ok := newCm.Data[api.SwitchInfoCMDataKey]; ok {
+		cmSwitchHandler(oldCm, newCm, operator)
+	}
+	if _, ok := newCm.Data[api.DpuInfoCMDataKey]; ok {
+		cmDpuHandler(oldCm, newCm, operator)
 	}
 }
 
@@ -559,18 +552,18 @@ func cmNodeHandler(oldObj interface{}, newObj interface{}, operator string) {
 	}
 }
 
-func cmSwitchHandler(oldObj interface{}, newObj interface{}, operator string) {
+func cmSwitchHandler(oldCm *v1.ConfigMap, newCm *v1.ConfigMap, operator string) {
 	var oldSwitchInfo *constant.SwitchInfo
 	var newSwitchInfo *constant.SwitchInfo
 	var err error
-	if oldObj != nil {
-		oldSwitchInfo, err = switchinfo.ParseSwitchInfoCM(oldObj)
+	if oldCm != nil {
+		oldSwitchInfo, err = switchinfo.ParseSwitchInfoCM(oldCm)
 		if err != nil {
 			hwlog.RunLog.Errorf("parse old cm error: %v", err)
 			return
 		}
 	}
-	newSwitchInfo, err = switchinfo.ParseSwitchInfoCM(newObj)
+	newSwitchInfo, err = switchinfo.ParseSwitchInfoCM(newCm)
 	if err != nil {
 		hwlog.RunLog.Errorf("parse new cm error: %v", err)
 		return
@@ -597,19 +590,19 @@ func cmSwitchHandler(oldObj interface{}, newObj interface{}, operator string) {
 	}
 }
 
-func cmDpuHandler(oldObj interface{}, newObj interface{}, operator string) {
+func cmDpuHandler(oldCm *v1.ConfigMap, newCm *v1.ConfigMap, operator string) {
 	var oldDpuList *constant.DpuInfoCM
 	var newDpuList *constant.DpuInfoCM
 	var err error
 
-	if oldObj != nil {
-		oldDpuList, err = dpu.ParseDpuInfoCM(oldObj)
+	if oldCm != nil {
+		oldDpuList, err = dpu.ParseDpuInfoCM(oldCm)
 		if err != nil {
 			hwlog.RunLog.Errorf("%s parse old CM error: %v", api.DpuLogPrefix, err)
 			return
 		}
 	}
-	newDpuList, err = dpu.ParseDpuInfoCM(newObj)
+	newDpuList, err = dpu.ParseDpuInfoCM(newCm)
 	if err != nil {
 		hwlog.RunLog.Errorf("%s parse new CM error: %v", api.DpuLogPrefix, err)
 		return
@@ -627,11 +620,6 @@ func cmDpuHandler(oldObj interface{}, newObj interface{}, operator string) {
 		}
 		index++
 	}
-}
-
-// checkConfigMapIsDpuInfo check if configmap is dpu info
-func checkConfigMapIsDpuInfo(obj interface{}) bool {
-	return util.IsNSAndNameMatched(obj, api.KubeNS, api.DpuInfoCMNamePrefix)
 }
 
 // checkConfigMapIsDeviceInfo check if configmap is device info

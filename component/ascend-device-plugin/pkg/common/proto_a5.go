@@ -26,3 +26,11 @@ type DpuCMData struct {
 	// VendorID iface vendor id
 	VendorID string
 }
+
+// DpuInfo DPU Info
+type DpuInfo struct {
+	BusType      string
+	DPUList      []DpuCMData
+	NpuToDpusMap map[string][]string
+	UpdateTime   int64
+}
