@@ -59,7 +59,7 @@ func (fJob *FaultJob) GraceDeleteJobFor910A5(ssn *framework.Session, npuJob *plu
 		isSuperPod = true
 		vSuperPodIds = fJob.getVSuperPodIds()
 	}
-	fJob.judgeJobIsMasterFault(vSuperPodIds, npuJob)
+	fJob.judgeJobIsMasterFault(vSuperPodIds)
 	fJob.updateSuperPodsReschdInfo(env)
 	dpi := &deletePodInfo{
 		isSuperPod: isSuperPod,
@@ -84,7 +84,6 @@ func (fJob *FaultJob) getRestartInfosFor910A5() string {
 
 func (fJob *FaultJob) graceDeletePodsFor910A5(ssn *framework.Session, npuJob *plugin.SchedulerJob,
 	env plugin.ScheduleEnv, dpi *deletePodInfo) {
-	klog.V(util.LogInfoLev).Infof("whetherBackToVspSchedule is %v", fJob.WhetherBackToVspSchedule)
 	for id, fTask := range fJob.FaultTasks {
 		npuTask, ok := npuJob.Tasks[fTask.TaskUID]
 		if !ok {
@@ -129,7 +128,7 @@ func (fJob *FaultJob) ForceDeleteJobFor910A5(schedulerJob *plugin.SchedulerJob,
 		vSuperPodIds = fJob.getVSuperPodIds()
 	}
 	fJob.updateSuperPodsReschdInfo(env)
-	fJob.judgeJobIsMasterFault(vSuperPodIds, schedulerJob)
+	fJob.judgeJobIsMasterFault(vSuperPodIds)
 	dpi := &deletePodInfo{
 		isSuperPod: isSuperPod,
 		ids:        vSuperPodIds,
@@ -138,7 +137,7 @@ func (fJob *FaultJob) ForceDeleteJobFor910A5(schedulerJob *plugin.SchedulerJob,
 	return nil
 }
 
-func (fJob *FaultJob) judgeJobIsMasterFault(vSuperPodIds []string, schedulerJob *plugin.SchedulerJob) {
+func (fJob *FaultJob) judgeJobIsMasterFault(vSuperPodIds []string) {
 	for _, fTask := range fJob.FaultTasks {
 		if fTask.NodeRankIndex != util.Rank0 {
 			continue
@@ -147,12 +146,7 @@ func (fJob *FaultJob) judgeJobIsMasterFault(vSuperPodIds []string, schedulerJob 
 			fJob.IsMasterFault = true
 			return
 		}
-		if fJob.IsProcessReschedulingJob(schedulerJob) && fJob.inTheSameTpBlock(fTask) {
-			klog.V(util.LogInfoLev).Infof("master fault in process reschedule, start job reschedule")
-			fJob.IsMasterFault = true
-			return
-		}
-		if fJob.PendingSessionNum >= spPendingTimes && fJob.inTheSameTpBlock(fTask) {
+		if fJob.PendingSessionNum >= tpPendingTimes && fJob.inTheSameTpBlock(fTask) {
 			klog.V(util.LogInfoLev).Infof("master pod and fault task is in the same tpBlock")
 			fJob.IsMasterFault = true
 			return
@@ -195,7 +189,6 @@ func (fJob *FaultJob) getVSuperPodId(node string) string {
 func (fJob *FaultJob) forceDeletePodsFor910A5(schedulerJob *plugin.SchedulerJob, env plugin.ScheduleEnv,
 	dpi *deletePodInfo) {
 	var waitDeleteTask = make([]FaultTask, 0)
-	klog.V(util.LogInfoLev).Infof("whetherBackToVspSchedule is %v", fJob.WhetherBackToVspSchedule)
 	for id, fTask := range fJob.FaultTasks {
 		klog.V(util.LogDebugLev).Infof("not masterFault is %v, job single rescheduling is %v, not fault task is %v",
 			!fJob.IsMasterFault, fJob.IsJobSingleRescheduling(schedulerJob), !fTask.IsFaultTask)
@@ -236,19 +229,22 @@ func (fJob *FaultJob) processReschedulingSkipTaskforA5(fTask FaultTask,
 	schedulerJob *plugin.SchedulerJob) (bool, bool) {
 	// the first boolean value indicates whether the task can be skipped
 	// the second boolean value indicates whether to proceed to next check
-	if fJob.IsProcessReschedulingJob(schedulerJob) {
-		if fTask.IsFaultTask || fJob.inTheSameTpBlock(fTask) {
-			klog.V(util.LogInfoLev).Infof("delete pod in same tp block")
-			return false, false
+	if !fJob.IsProcessReschedulingJob(schedulerJob) {
+		return false, true
+	}
+
+	if !fTask.IsFaultTask {
+		if fJob.PendingSessionNum < tpPendingTimes {
+			klog.V(util.LogInfoLev).Infof("skip because %s rescheduling is the first stage", fJob.JobName)
+			return true, false
 		}
-		klog.V(util.LogInfoLev).Infof("process rescheduling will not delete pod, for no pod in same tp has failed")
-		return true, false
+		if !fJob.inTheSameTpBlock(fTask) {
+			klog.V(util.LogInfoLev).Infof("skip because %s and fault task is not inTheSameTpBlock", fTask.TaskName)
+			return true, false
+		}
 	}
-	if fJob.IsProcessReschedulePause(schedulerJob) {
-		klog.V(util.LogInfoLev).Infof("process rescheduling failed, back to job rescheduling, delete all pods")
-		return false, false
-	}
-	return false, true
+
+	return false, false
 }
 
 func (fJob *FaultJob) IsProcessReschedulePause(sJob *plugin.SchedulerJob) bool {
@@ -264,29 +260,26 @@ func (fJob *FaultJob) podReschedulingSkipTask(dpi *deletePodInfo, fTask FaultTas
 			return true
 		}
 		// single pod rescheduling stage, delete no pod
-		// virtual super pod rescheduling stage, delete all virtual super pod where fault task in
-		// virtual rack rescheduling stage, delete all virtual rack where fault task in
-		if fJob.PendingSessionNum < spPendingTimes {
+		// tp rescheduling stage, delete all tp where fault task in
+		// sp rescheduling stage, delete all sp where fault task in
+		if fJob.PendingSessionNum < tpPendingTimes {
 			klog.V(util.LogInfoLev).Infof("skip because %s rescheduling is the first stage", fJob.JobName)
 			return true
 		}
-		if fJob.WhetherBackToVspSchedule && !fJob.inTheSameVSuperPod(dpi.ids, fTask.NodeName) {
-			klog.V(util.LogInfoLev).Infof("skip because %s and fault task is not inTheSameVSuperPod", fTask.TaskName)
-			return true
-		}
-		if !fJob.WhetherBackToVspSchedule && !fJob.inTheSameTpBlock(fTask) {
+		if fJob.PendingSessionNum < spPendingTimes && !fJob.inTheSameTpBlock(fTask) {
 			klog.V(util.LogInfoLev).Infof("skip because %s and fault task is not inTheSameTpBlock", fTask.TaskName)
 			return true
 		}
+		if fJob.PendingSessionNum < pendingTimes && !fJob.inTheSameVSuperPod(dpi.ids, fTask.NodeName) {
+			klog.V(util.LogInfoLev).Infof("skip because %s and fault task is not inTheSameVSuperPod", fTask.TaskName)
+			return true
+		}
 	}
+
 	return false
 }
 
 func (fJob *FaultJob) inTheSameVSuperPod(ids []string, nodeName string) bool {
-	if !fJob.WhetherBackToVspSchedule {
-		klog.V(util.LogInfoLev).Infof("leave inTheSameVSuperPod because rescheduling hasn't back to vspschedule")
-		return false
-	}
 	for _, v := range ids {
 		nodes, ok := fJob.SuperPods[v]
 		if !ok {

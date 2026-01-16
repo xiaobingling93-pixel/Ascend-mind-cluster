@@ -53,7 +53,6 @@ type jobParams struct {
 	netUnhealthyKey          string
 	dpuUnhealthyKey          string
 	faultNPUKey              string
-	whetherBackToVspSchedule bool
 }
 
 type superPodsInfo struct {

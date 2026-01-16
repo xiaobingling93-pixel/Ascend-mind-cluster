@@ -72,7 +72,7 @@ func buildSinglePodReschedulingUpgradeFor910A5Test2() SinglePodReschedulingUpgra
 			},
 		},
 		fJob: &FaultJob{
-			PendingSessionNum: spPendingTimes - 1,
+			PendingSessionNum: spPendingTimes,
 			JobUID:            "job2",
 		},
 		reScheduler: &ReScheduler{
@@ -80,7 +80,7 @@ func buildSinglePodReschedulingUpgradeFor910A5Test2() SinglePodReschedulingUpgra
 				"job2": {},
 			},
 		},
-		wantPending: spPendingTimes,
+		wantPending: spPendingTimes + 1,
 		wantDelete:  false,
 	}
 }
@@ -97,7 +97,7 @@ func buildSinglePodReschedulingUpgradeFor910A5Test3() SinglePodReschedulingUpgra
 			},
 		},
 		fJob: &FaultJob{
-			PendingSessionNum: pendingTimes - 1,
+			PendingSessionNum: pendingTimes,
 			JobUID:            "job3",
 		},
 		reScheduler: &ReScheduler{
@@ -105,13 +105,13 @@ func buildSinglePodReschedulingUpgradeFor910A5Test3() SinglePodReschedulingUpgra
 				"job3": {},
 			},
 		},
-		wantPending: pendingTimes,
+		wantPending: pendingTimes + 1,
 		wantDelete:  false,
 	}
 }
 func buildSinglePodReschedulingUpgradeFor910A5Test4() SinglePodReschedulingUpgradeFor910A5TestCase {
 	return SinglePodReschedulingUpgradeFor910A5TestCase{
-		name: "WhetherBackToVspSchedule true, PendingSessionNum == backToVspPendingTimes",
+		name: "PendingSessionNum == tpPendingTimes, DeleteExecutedFlag set to false",
 		jobInfo: &api.JobInfo{
 			PodGroup: &api.PodGroup{
 				PodGroup: scheduling.PodGroup{
@@ -122,17 +122,15 @@ func buildSinglePodReschedulingUpgradeFor910A5Test4() SinglePodReschedulingUpgra
 			},
 		},
 		fJob: &FaultJob{
-			PendingSessionNum: backToVspPendingTimes - 1,
+			PendingSessionNum: tpPendingTimes,
 			JobUID:            "job4",
 		},
 		reScheduler: &ReScheduler{
 			Jobs: map[api.JobID]plugin.SchedulerJob{
-				"job4": {A5Fields: plugin.A5Fields{
-					WhetherBackToVspSchedule: true,
-				}},
+				"job4": {A5Fields: plugin.A5Fields{}},
 			},
 		},
-		wantPending: backToVspPendingTimes,
+		wantPending: tpPendingTimes + 1,
 		wantDelete:  false,
 	}
 }

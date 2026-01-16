@@ -213,31 +213,18 @@ func TestInTheSameTpBlock(t *testing.T) {
 }
 
 type inTheSameVSuperPodTestCase struct {
-	name                     string
-	TpBlock                  int
-	WhetherBackToVspSchedule bool
-	SuperPods                map[string][]plugin.SuperNode
-	ids                      []string
-	nodeName                 string
-	want                     bool
+	name      string
+	TpBlock   int
+	SuperPods map[string][]plugin.SuperNode
+	ids       []string
+	nodeName  string
+	want      bool
 }
 
 func buildTestCase0() inTheSameVSuperPodTestCase {
 	return inTheSameVSuperPodTestCase{
-		name:                     "00-test The precondition failed",
-		TpBlock:                  testTp2,
-		WhetherBackToVspSchedule: false,
-		ids:                      []string{},
-		nodeName:                 "",
-		want:                     false,
-	}
-}
-
-func buildTestCase1() inTheSameVSuperPodTestCase {
-	return inTheSameVSuperPodTestCase{
-		name:                     "01-test ids don't exist",
-		TpBlock:                  testTp1,
-		WhetherBackToVspSchedule: true,
+		name:    "01-test ids don't exist",
+		TpBlock: testTp1,
 		SuperPods: map[string][]plugin.SuperNode{
 			"0": {
 				{Name: "work1"},
@@ -253,11 +240,10 @@ func buildTestCase1() inTheSameVSuperPodTestCase {
 	}
 }
 
-func buildTestCase2() inTheSameVSuperPodTestCase {
+func buildTestCase1() inTheSameVSuperPodTestCase {
 	return inTheSameVSuperPodTestCase{
-		name:                     "02-test nodeName don't exist",
-		TpBlock:                  testTp1,
-		WhetherBackToVspSchedule: true,
+		name:    "02-test nodeName don't exist",
+		TpBlock: testTp1,
 		SuperPods: map[string][]plugin.SuperNode{
 			"0": {
 				{Name: "work1"},
@@ -284,7 +270,6 @@ func buildInTheSameVSuperPodTestCases() []inTheSameVSuperPodTestCase {
 	return []inTheSameVSuperPodTestCase{
 		buildTestCase0(),
 		buildTestCase1(),
-		buildTestCase2(),
 	}
 }
 
@@ -292,8 +277,7 @@ func TestInTheSameVSuperPod(t *testing.T) {
 	for _, tc := range buildInTheSameVSuperPodTestCases() {
 		fJob := &FaultJob{
 			FaultJobA5Field: FaultJobA5Field{
-				TpBlock:                  tc.TpBlock,
-				WhetherBackToVspSchedule: tc.WhetherBackToVspSchedule},
+				TpBlock: tc.TpBlock},
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			if ret := fJob.inTheSameVSuperPod(tc.ids, tc.nodeName); ret != tc.want {
@@ -358,16 +342,15 @@ func TestGetVSuperPodIds(t *testing.T) {
 }
 
 type JudgeJobIsMasterFaultTest struct {
-	name                     string
-	FaultTasks               []FaultTask
-	PendingSessionNum        int
-	TpBlock                  int
-	SuperPods                map[string][]plugin.SuperNode
-	IsMasterFault            bool
-	WhetherBackToVspSchedule bool
-	vSuperPodIds             []string
-	schedulerJob             *plugin.SchedulerJob
-	want                     bool
+	name              string
+	FaultTasks        []FaultTask
+	PendingSessionNum int
+	TpBlock           int
+	SuperPods         map[string][]plugin.SuperNode
+	IsMasterFault     bool
+	vSuperPodIds      []string
+	schedulerJob      *plugin.SchedulerJob
+	want              bool
 }
 
 func buildJudgeJobIsMasterFaultTestCase1() JudgeJobIsMasterFaultTest {
@@ -388,8 +371,9 @@ func buildJudgeJobIsMasterFaultTestCase2() JudgeJobIsMasterFaultTest {
 			{IsFaultTask: false, NodeRankIndex: "0"},
 			{IsFaultTask: true, NodeRankIndex: "1"},
 		},
-		TpBlock:      2,
-		vSuperPodIds: []string{},
+		PendingSessionNum: tpPendingTimes,
+		TpBlock:           2,
+		vSuperPodIds:      []string{},
 		schedulerJob: &plugin.SchedulerJob{
 			SchedulerJobAttr: util.SchedulerJobAttr{
 				ComJob: util.ComJob{
@@ -404,12 +388,12 @@ func buildJudgeJobIsMasterFaultTestCase2() JudgeJobIsMasterFaultTest {
 }
 func buildJudgeJobIsMasterFaultTestCase3() JudgeJobIsMasterFaultTest {
 	return JudgeJobIsMasterFaultTest{
-		name: "pendingSessionNum >= spPendingTimes, master-0 in same tp block, should set IsMasterFault true",
+		name: "pendingSessionNum >= tpPendingTimes, master-0 in same tp block, should set IsMasterFault true",
 		FaultTasks: []FaultTask{
 			{IsFaultTask: false, NodeRankIndex: "0"},
 			{IsFaultTask: true, NodeRankIndex: "1"},
 		},
-		PendingSessionNum: spPendingTimes,
+		PendingSessionNum: tpPendingTimes,
 		TpBlock:           2,
 		vSuperPodIds:      []string{},
 		schedulerJob:      &plugin.SchedulerJob{},
@@ -426,10 +410,9 @@ func buildJudgeJobIsMasterFaultTestCase4() JudgeJobIsMasterFaultTest {
 		SuperPods: map[string][]plugin.SuperNode{
 			"vsp1": {{Name: "node1"}},
 		},
-		WhetherBackToVspSchedule: true,
-		vSuperPodIds:             []string{"vsp1"},
-		schedulerJob:             &plugin.SchedulerJob{},
-		want:                     true,
+		vSuperPodIds: []string{"vsp1"},
+		schedulerJob: &plugin.SchedulerJob{},
+		want:         true,
 	}
 }
 func buildJudgeJobIsMasterFaultTestCase5() JudgeJobIsMasterFaultTest {
@@ -443,6 +426,19 @@ func buildJudgeJobIsMasterFaultTestCase5() JudgeJobIsMasterFaultTest {
 		want:         false,
 	}
 }
+func buildJudgeJobIsMasterFaultTestCase6() JudgeJobIsMasterFaultTest {
+	return JudgeJobIsMasterFaultTest{
+		name: "pendingSessionNum >= tpPendingTimes, master-0 in same tp block, should set IsMasterFault true",
+		FaultTasks: []FaultTask{
+			{IsFaultTask: false, NodeRankIndex: "0"},
+			{IsFaultTask: true, NodeRankIndex: "1"},
+		},
+		TpBlock:      2,
+		vSuperPodIds: []string{},
+		schedulerJob: &plugin.SchedulerJob{},
+		want:         false,
+	}
+}
 
 func TestJudgeJobIsMasterFault(t *testing.T) {
 	tests := []JudgeJobIsMasterFaultTest{
@@ -451,6 +447,7 @@ func TestJudgeJobIsMasterFault(t *testing.T) {
 		buildJudgeJobIsMasterFaultTestCase3(),
 		buildJudgeJobIsMasterFaultTestCase4(),
 		buildJudgeJobIsMasterFaultTestCase5(),
+		buildJudgeJobIsMasterFaultTestCase6(),
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -459,12 +456,11 @@ func TestJudgeJobIsMasterFault(t *testing.T) {
 				PendingSessionNum: tt.PendingSessionNum,
 				SuperPods:         tt.SuperPods,
 				FaultJobA5Field: FaultJobA5Field{
-					TpBlock:                  tt.TpBlock,
-					IsMasterFault:            false,
-					WhetherBackToVspSchedule: tt.WhetherBackToVspSchedule,
+					TpBlock:       tt.TpBlock,
+					IsMasterFault: false,
 				},
 			}
-			fJob.judgeJobIsMasterFault(tt.vSuperPodIds, tt.schedulerJob)
+			fJob.judgeJobIsMasterFault(tt.vSuperPodIds)
 			if fJob.IsMasterFault != tt.want {
 				t.Errorf("IsMasterFault = %v, want %v", fJob.IsMasterFault, tt.want)
 			}
@@ -578,13 +574,15 @@ type skipThisTaskTestCase struct {
 
 func buildSkipThisTaskTestCase1() skipThisTaskTestCase {
 	var tmpPatch *gomonkey.Patches = nil
+	fJob := &FaultJob{}
+	fJob.PendingSessionNum = tpPendingTimes
 	schedulerJob := &plugin.SchedulerJob{}
 	schedulerJob.Label = map[string]string{
 		util.ProcessRecoverEnable: util.EnableFunc,
 	}
 	return skipThisTaskTestCase{
 		name: "01-SkipThisTask return false when in the same tp block",
-		fJob: &FaultJob{},
+		fJob: fJob,
 		cacheFuncBefore: func() {
 			tmpPatch = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&FaultJob{}), "inTheSameTpBlock",
 				func(fTask FaultTask) bool { return true })
@@ -639,8 +637,7 @@ func buildSkipThisTaskTestCase2() skipThisTaskTestCase {
 func buildSkipThisTaskTestCase3() skipThisTaskTestCase {
 	var tmpPatch *gomonkey.Patches = nil
 	fJob := &FaultJob{}
-	fJob.PendingSessionNum = 7
-	fJob.WhetherBackToVspSchedule = true
+	fJob.PendingSessionNum = spPendingTimes
 	schedulerJob := &plugin.SchedulerJob{}
 	schedulerJob.Label = map[string]string{
 		util.SinglePodTag: util.EnableFunc,

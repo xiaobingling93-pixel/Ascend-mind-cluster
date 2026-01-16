@@ -1028,7 +1028,6 @@ func (reScheduler ReScheduler) getJobsToBeRestarted(realFaultJobs map[api.JobID]
 				fJob.JobNamespace, fJob.JobName)
 			continue
 		}
-		fJob.WhetherBackToVspSchedule = job.WhetherBackToVspSchedule
 		fJob.TpBlock = job.TpBlock
 		if fJob.TpBlock == inValidTpBlock {
 			fJob.TpBlock = forceRackAffinityLimit
