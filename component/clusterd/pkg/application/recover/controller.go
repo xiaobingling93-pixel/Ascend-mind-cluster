@@ -968,10 +968,7 @@ func (ctl *EventController) notifyFaultForNormalFaultCase(uceFaults, normalFault
 }
 
 func (ctl *EventController) updateCacheFaultAndPod() ([]*pb.FaultRank, []string, error) {
-	allFaults, allFaultRanks, err := ctl.getAllRankByTPBlock()
-	if err != nil {
-		return allFaults, allFaultRanks, err
-	}
+	allFaults, allFaultRanks := ctl.normalFaultAssociateSameNodeRank()
 	ctl.setCacheFault(nil, allFaults)
 	faultPod, err := common.GetPodMap(ctl.jobInfo.JobId, allFaultRanks)
 	if err != nil {
@@ -1457,7 +1454,7 @@ func (ctl *EventController) handleFaultRetry() (string, common.RespCode, error) 
 	}
 	hwlog.RunLog.Infof("change process rescheduling label %s success,"+
 		" pgName=%s, uuid=%s", constant.ProcessRecoverPause, ctl.jobInfo.PgName, ctl.uuid)
-
+	ctl.sendDumpExit()
 	scheduleSuccess := false
 	for i := 1; i <= constant.CheckPGRunningRetryTimes/2; i++ {
 		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
