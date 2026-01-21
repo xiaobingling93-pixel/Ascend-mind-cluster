@@ -16,7 +16,7 @@
 # ==============================================================================
 import os
 import logging
-from typing import Dict
+from typing import Dict, List, Type
 
 from ascend_fd.controller.job_worker import generate_parse_job, generate_diag_job
 from ascend_fd.pkg.diag.root_cluster import start_rc_diag_job
@@ -25,7 +25,8 @@ from ascend_fd.wrapper import PrintWrapper, JsonWrapper
 from ascend_fd.utils.status import InnerError, PathError, ParamError, BaseError
 from ascend_fd.utils.tool import safe_write_open, safe_walk, get_version, get_build_time, MultiProcessJob, \
     SHOW_IP_MAX, DOUBLE_SEP, SHOE_INFER_GROUP_MAX
-from ascend_fd.pkg.parse.parser_saver import ParsedDataSaver, SaverFactory, BaseLogSaver
+from ascend_fd.pkg.parse.parser_saver import ParsedDataSaver, SaverFactory, BaseLogSaver, HostLogSaver, TrainLogSaver, \
+    CustomLogSaver
 from ascend_fd.model.cfg import DiagCFG, ParseCFG
 from ascend_fd.pkg.parse.knowledge_graph.kg_parse_job import get_single_parse_data
 from ascend_fd.pkg.diag.knowledge_graph.kg_diag_job import single_diag_job
@@ -84,25 +85,41 @@ class ParseController:
         return output_path
 
     @staticmethod
-    def _find_paths_by_sub_cmd(args) -> dict:
+    def _find_paths_by_sub_cmd(args) -> Dict[Type[BaseLogSaver], str]:
+        """
+        Find log paths based on command line arguments for different saver types.
+        """
         founded_path = dict()
         for saver in SaverFactory.list_savers_classes():
-            for cmd in saver.CMD_ARG_KEYS:
-                cmd_input_path = getattr(args, cmd, "")
-                if cmd_input_path:
-                    founded_path[saver.CENTRALIZED_STORAGE_DIRECTORY] = cmd_input_path
+            saver_log_path = ParseController._get_saver_log_path(args, saver.CMD_ARG_KEYS)
+            if not saver_log_path and saver in [TrainLogSaver, HostLogSaver] and args.input_path is not None:
+                founded_path[saver] = args.input_path
+                continue
+            if saver_log_path:
+                founded_path[saver] = saver_log_path
         return founded_path
 
     @staticmethod
-    def _get_log_path_by_saver_config(args, saver: BaseLogSaver, collected_paths: dict) -> str:
-        if saver.CENTRALIZED_STORAGE_DIRECTORY is not None:
-            return collected_paths.get(saver.CENTRALIZED_STORAGE_DIRECTORY, "")
-        # those savers which do not have a CENTRALIZED_STORAGE_DIRECTORY are assigned by cmd args
-        for arg_key in saver.CMD_ARG_KEYS:
-            cmd_input_path = getattr(args, arg_key, "")
-            if cmd_input_path:
-                return cmd_input_path
-        return args.input_path
+    def _get_saver_log_path(args, cmd_arg_keys: List[str]) -> str:
+        """
+        Get the log path from command line arguments based on the provided argument keys.
+        """
+        for cmd in cmd_arg_keys:
+            saver_log_path = getattr(args, cmd, "")
+            if saver_log_path:
+                return saver_log_path
+        return ""
+
+    @staticmethod
+    def _build_saver_directory_mapping(found_paths: Dict[Type[BaseLogSaver], str]) -> Dict[str, Type[BaseLogSaver]]:
+        """
+        Create mapping from target directory names to saver classes that haven't been matched yet.
+        """
+        target_dir_to_saver_map = dict()
+        for saver in SaverFactory.list_savers_classes():
+            if saver.CENTRALIZED_STORAGE_DIRECTORY is not None and saver not in found_paths:
+                target_dir_to_saver_map[saver.CENTRALIZED_STORAGE_DIRECTORY] = saver
+        return target_dir_to_saver_map
 
     def init_cfg(self, args):
         """
@@ -114,7 +131,7 @@ class ParseController:
 
         savers_for_current_task = []
         for saver_class in SaverFactory.list_savers_classes():
-            log_path = self._get_log_path_by_saver_config(args, saver_class, collected_paths)
+            log_path = collected_paths.get(saver_class, "")
 
             if log_path:
                 saver = SaverFactory.create_saver(saver_class.__name__)
@@ -151,22 +168,19 @@ class ParseController:
         """
         return get_single_parse_data(self.cfg)
 
-    def _deep_find_input_path(self, args):
+    def _deep_find_input_path(self, args) -> Dict[Type[BaseLogSaver], str]:
         """
         Find various log dir name based on folder-traversal
 
         :param args: command args
-        :return: a dict of various log paths, keys: CENTRALIZED_STORAGE_DIRECTORY for savers, values: paths
+        :return: a dict of various log paths, keys: saver(child of BaseLogSaver), values: path
             example:
             {
-                "process_log": "",
-                "environment_check": "",
-                "bmc_log": "",
-                "lcne_log": "",
-                "device_log": "",
-                "dl_log": "",
-                "amct_log": "",
-                "mindie": ""
+                ProcessLogSaver: "",
+                EnvInfoSaver: "",
+                TrainLogSaver: "",
+                HostLogSaver: "",
+                ...
             }
         """
         found_paths = self._find_paths_by_sub_cmd(args)
@@ -174,19 +188,16 @@ class ParseController:
             # 自定义清洗日志只支持--custom_log，不支持-i
             custom_log = getattr(args, "custom_log", "")
             if custom_log:
-                found_paths.update({"custom_log": custom_log})
+                found_paths.update({CustomLogSaver: custom_log})
             return found_paths
-        # only those savers which specify a CENTRALIZED_STORAGE_DIRECTORY are the targets
-        target_dirs = [
-            saver.CENTRALIZED_STORAGE_DIRECTORY for saver in SaverFactory.list_savers_classes()
-            if saver.CENTRALIZED_STORAGE_DIRECTORY is not None
-        ]
+        # those savers still not have a log path are the target,
+        # and the target dirs are their CENTRALIZED_STORAGE_DIRECTORY
+        target_dir_to_saver_map = self._build_saver_directory_mapping(found_paths)
         for root, dirs, _ in safe_walk(args.input_path, self.INPUT_DIR_DEPTH):
-            for target in set(target_dirs) & set(dirs):
-                if target not in found_paths:
-                    found_paths[target] = os.path.join(root, target)
-            if len(found_paths) == len(target_dirs):
-                break
+            for target in set(target_dir_to_saver_map.keys()) & set(dirs):
+                corresponding_saver = target_dir_to_saver_map[target]
+                if corresponding_saver not in found_paths:
+                    found_paths[corresponding_saver] = os.path.join(root, target)
         return found_paths
 
 

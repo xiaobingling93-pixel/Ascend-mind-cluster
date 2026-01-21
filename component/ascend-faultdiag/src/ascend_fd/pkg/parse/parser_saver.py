@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Type
 from abc import ABC, abstractmethod
 
 from ascend_fd.configuration.config import CUSTOM_CONFIG_PATH
@@ -91,7 +91,7 @@ class SaverFactory:
         return [cls.create_saver(name) for name in saver_names]
 
     @classmethod
-    def list_savers_classes(cls):
+    def list_savers_classes(cls) -> List[Type[BaseLogSaver]]:
         return list(cls.__registry.values())
 
     @classmethod
@@ -1045,7 +1045,7 @@ class AMCTLogSaver(BaseLogSaver):
 class MindieLogSaver(BaseLogSaver):
     LOG_TYPE = "mindie log"
     CENTRALIZED_STORAGE_DIRECTORY = "mindie"
-    CMD_ARG_KEYS = ["mindie"]
+    CMD_ARG_KEYS = ["mindie_log"]
 
     MINDIE_KEY = "mindie-"
     LOG_SUFFIX = ".log"
