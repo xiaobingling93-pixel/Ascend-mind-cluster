@@ -1000,7 +1000,7 @@ void Controller::GenerateStrategyX1(bool isPreLocked, std::vector<std::string> &
     }
 
     strategies.push_back(STRATEGY_DUMP);
-    if (replicaManager_.GetCanRepair()) {
+    if (!replicaManager_.GetCanRepair()) {
         return;
     }
 
