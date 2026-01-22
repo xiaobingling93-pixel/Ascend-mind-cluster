@@ -69,6 +69,15 @@ var (
 	runcName        = runcFile
 	deviceRegx      = fmt.Sprintf(`^%s(%s|%s|%s|%s)-(\d+)$`, api.Ascend, api.Ascend910No,
 		api.Ascend310BNo, api.Ascend310PNo, api.Ascend310No)
+
+	// Device lists for different chip types
+	ascend910A5ManagerDevices = []string{hisiHdc}
+	defaultManagerDevices     = []string{devmmSvm, hisiHdc}
+
+	// managerDevicesMap maps device types to their corresponding manager devices
+	managerDevicesMap = map[string][]string{
+		Ascend910A5: ascend910A5ManagerDevices,
+	}
 )
 
 const (
@@ -84,7 +93,9 @@ const (
 	Ascend310B = api.Ascend310B
 	// Ascend910 ascend 910 chip
 	Ascend910 = api.Ascend910
-	ascend    = api.Ascend
+	// Ascend910A5 asecnd 910a5 chip
+	Ascend910A5 = api.Ascend910A5
+	ascend      = api.Ascend
 
 	devicePath           = "/dev/"
 	davinciName          = "davinci"
@@ -124,6 +135,10 @@ func GetDeviceTypeByChipName(chipName string) string {
 	}
 	if strings.Contains(chipName, api.Ascend310PNo) {
 		return Ascend310P
+	}
+	// This uses HasPrefix because A5 chips have specific prefix pattern: 910_95XX
+	if strings.HasPrefix(chipName, api.Ascend910A5Prefix) {
+		return Ascend910A5
 	}
 	if strings.Contains(chipName, api.Ascend310No) {
 		return Ascend310
@@ -341,7 +356,6 @@ func getDeviceListFromVisibleValue(visibleValue string) ([]int, error) {
 func parseAscendDevices(visibleDevices string) ([]int, error) {
 	devicesList := strings.Split(visibleDevices, ",")
 	devices := make([]int, 0, len(devicesList))
-	chipType := ""
 
 	for _, d := range devicesList {
 		matchGroups := regexp.MustCompile(deviceRegx).FindStringSubmatch(strings.TrimSpace(d))
@@ -353,22 +367,7 @@ func parseAscendDevices(visibleDevices string) ([]int, error) {
 			return nil, fmt.Errorf("invalid device id: %s", d)
 		}
 
-		if chipType == "" {
-			chipType = matchGroups[1]
-		}
-		if chipType != "" && chipType != matchGroups[1] {
-			return nil, fmt.Errorf("invalid device chip type: %s", d)
-		}
-
 		devices = append(devices, n)
-
-	}
-	chipName, err := dcmi.GetChipName()
-	if err != nil {
-		return nil, fmt.Errorf("get chip name error: %v", err)
-	}
-	if ascend+chipType != GetDeviceTypeByChipName(chipName) {
-		return nil, fmt.Errorf("chip type not match really: %s", chipType)
 	}
 
 	sort.Slice(devices, func(i, j int) bool { return i < j })
@@ -487,13 +486,18 @@ func addAscend310BManagerDevice(spec *specs.Spec) error {
 	return addDeviceToSpec(spec, davinciManagerPath, dContainerPath)
 }
 
-func addCommonManagerDevice(spec *specs.Spec) error {
-	var commonManagerDevices = []string{
-		devmmSvm,
-		hisiHdc,
+// getCommonManagerDevices returns chip-specific manager device list.
+func getCommonManagerDevices(devType string) []string {
+	if devices, ok := managerDevicesMap[devType]; ok {
+		return devices
 	}
+	return defaultManagerDevices
+}
 
-	for _, device := range commonManagerDevices {
+// addCommonManagerDevice adds common manager devices to spec based on device type
+func addCommonManagerDevice(spec *specs.Spec, devType string) error {
+	devices := getCommonManagerDevices(devType)
+	for _, device := range devices {
 		dPath := devicePath + device
 		if err := addDeviceToSpec(spec, dPath, dPath); err != nil {
 			return fmt.Errorf("failed to add common manage device to spec : %v", err)
@@ -510,7 +514,7 @@ func addManagerDevice(spec *specs.Spec) error {
 	}
 	devType := GetDeviceTypeByChipName(chipName)
 	hwlog.RunLog.Infof("device type is: %s", devType)
-	if devType != "" {
+	if devType != "" && devType != Ascend910A5 {
 		dPath := devicePath + dvppCmdList
 		if err := addDeviceToSpec(spec, dPath, dPath); err != nil {
 			hwlog.RunLog.Warnf("failed to add dvpp_cmdlist to spec : %v", err)
@@ -534,7 +538,7 @@ func addManagerDevice(spec *specs.Spec) error {
 	// do nothing
 	case Atlas200ISoc, Atlas200:
 	default:
-		if err = addCommonManagerDevice(spec); err != nil {
+		if err = addCommonManagerDevice(spec, devType); err != nil {
 			return fmt.Errorf("add common manage device error: %v", err)
 		}
 	}
