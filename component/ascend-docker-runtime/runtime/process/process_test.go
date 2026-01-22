@@ -36,6 +36,7 @@ import (
 	"github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"ascend-docker-runtime/mindxcheckutils"
 	"ascend-docker-runtime/runtime/dcmi"
@@ -400,7 +401,7 @@ func TestModifySpecFilePatch4(t *testing.T) {
 }
 
 func TestReadSpecFile(t *testing.T) {
-	convey.Convey("test ReadSpecFil", t, func() {
+	convey.Convey("test ReadSpecFile", t, func() {
 		convey.Convey("01-get file stat error, should return error", func() {
 			patch := gomonkey.ApplyFuncReturn(os.Stat, nil, testError)
 			defer patch.Reset()
@@ -413,7 +414,7 @@ func TestReadSpecFile(t *testing.T) {
 			_, err := readSpecFile("/valid/path")
 			convey.So(err, convey.ShouldBeError)
 		})
-		patch1 := gomonkey.ApplyFuncReturn(os.OpenFile, os.File{}, nil)
+		patch1 := gomonkey.ApplyFuncReturn(os.OpenFile, &os.File{}, nil)
 		defer patch1.Reset()
 		convey.Convey("03-check file error, should return error", func() {
 			patch := patch1.ApplyFuncReturn(mindxcheckutils.CheckFileInfo, testError)
@@ -424,12 +425,12 @@ func TestReadSpecFile(t *testing.T) {
 		patch2 := patch1.ApplyFuncReturn(mindxcheckutils.CheckFileInfo, nil)
 		defer patch2.Reset()
 		convey.Convey("04-read file error, should return error", func() {
-			patch := patch2.ApplyFuncReturn(os.ReadFile, nil, testError)
+			patch := patch2.ApplyFuncReturn(ioutil.ReadAll, nil, testError)
 			defer patch.Reset()
 			_, err := readSpecFile("/valid/path")
 			convey.So(err, convey.ShouldBeError)
 		})
-		patch3 := patch2.ApplyFuncReturn(os.ReadFile, []byte("invalid json"), nil)
+		patch3 := patch2.ApplyFuncReturn(ioutil.ReadAll, []byte("invalid json"), nil)
 		defer patch3.Reset()
 		convey.Convey("05-unmarshal error, should return error", func() {
 			patch := patch3.ApplyFuncReturn(json.Unmarshal, testError)
@@ -437,7 +438,7 @@ func TestReadSpecFile(t *testing.T) {
 			_, err := readSpecFile("/valid/path")
 			convey.So(err, convey.ShouldBeError)
 		})
-		convey.Convey("06-os.OpenFile error, should return error", func() {
+		convey.Convey("06-success case", func() {
 			patch := patch3.ApplyFuncReturn(json.Unmarshal, nil)
 			defer patch.Reset()
 			_, err := readSpecFile("/valid/path")
@@ -976,25 +977,30 @@ func TestAddCommonManagerDevice(t *testing.T) {
 	})
 	defer statStub.Reset()
 
-	spec := specs.Spec{
-		Linux: &specs.Linux{
-			Devices: []specs.LinuxDevice{},
-			Resources: &specs.LinuxResources{
-				Devices: []specs.LinuxDeviceCgroup{},
-			},
+	tests := []struct {
+		name        string
+		deviceType  string
+		expectError bool
+	}{
+		{
+			name:        "Ascend910A2（910B）",
+			deviceType:  api.Ascend910B,
+			expectError: false,
+		},
+		{
+			name:        "Ascend910A3",
+			deviceType:  api.Ascend910A3,
+			expectError: false,
+		},
+		{
+			name:        "Ascend910A5",
+			deviceType:  api.Ascend910A5,
+			expectError: false,
 		},
 	}
 
-	err := addCommonManagerDevice(&spec)
-	assert.Nil(t, err)
-}
-
-// TestAddCommonManagerDevicePatch1 tests the function addCommonManagerDevice
-func TestAddCommonManagerDevicePatch1(t *testing.T) {
-	convey.Convey("test addCommonManagerDevice patch1", t, func() {
-		convey.Convey("01-addDeviceToSpec error, should return error", func() {
-			patch := gomonkey.ApplyFuncReturn(addDeviceToSpec, testError)
-			defer patch.Reset()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			spec := specs.Spec{
 				Linux: &specs.Linux{
 					Devices: []specs.LinuxDevice{},
@@ -1003,8 +1009,58 @@ func TestAddCommonManagerDevicePatch1(t *testing.T) {
 					},
 				},
 			}
-			err := addCommonManagerDevice(&spec)
+
+			err := addCommonManagerDevice(&spec, tt.deviceType)
+			if tt.expectError {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+// TestAddCommonManagerDevicePatch1 tests the function addCommonManagerDevice
+func TestAddCommonManagerDevicePatch1(t *testing.T) {
+	convey.Convey("test addCommonManagerDevice patch1", t, func() {
+		convey.Convey("01-addDeviceToSpec error, should return error", func() {
+			patch := gomonkey.ApplyFunc(addDeviceToSpec, func(spec *specs.Spec, dHostPath, dContainerPath string) error {
+				return testError
+			})
+			defer patch.Reset()
+
+			spec := specs.Spec{
+				Linux: &specs.Linux{
+					Devices: []specs.LinuxDevice{},
+					Resources: &specs.LinuxResources{
+						Devices: []specs.LinuxDeviceCgroup{},
+					},
+				},
+			}
+			err := addCommonManagerDevice(&spec, Ascend910)
 			convey.So(err, convey.ShouldBeError)
+		})
+		convey.Convey("02-Ascend910A5 skip dvpp_cmdlist, should return nil", func() {
+			callCount := 0
+			patch := gomonkey.ApplyFunc(addDeviceToSpec, func(spec *specs.Spec, dHostPath, dContainerPath string) error {
+				if strings.Contains(dContainerPath, "dvpp_cmdlist") {
+					callCount++
+				}
+				return nil
+			})
+			defer patch.Reset()
+
+			spec := specs.Spec{
+				Linux: &specs.Linux{
+					Devices: []specs.LinuxDevice{},
+					Resources: &specs.LinuxResources{
+						Devices: []specs.LinuxDeviceCgroup{},
+					},
+				},
+			}
+			err := addCommonManagerDevice(&spec, Ascend910A5)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(callCount, convey.ShouldEqual, 0) // Verify that dvpp_cmdlist was not added.
 		})
 	})
 }
@@ -1523,6 +1579,60 @@ func TestCheckVisibleDevicePatch1(t *testing.T) {
 			defer patch.Reset()
 			_, err := checkVisibleDevice(testSpec)
 			convey.So(err, convey.ShouldBeError)
+		})
+	})
+}
+
+func TestGetDeviceTypeByChipName5(t *testing.T) {
+	tests := []struct {
+		name     string
+		chipName string
+		expected string
+	}{
+		{
+			name:     "Ascend910A5 chip type",
+			chipName: "910_95",
+			expected: Ascend910A5,
+		},
+		{
+			name:     "Ascend910A5 chip with suffix",
+			chipName: "910_95XX",
+			expected: Ascend910A5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			devType := GetDeviceTypeByChipName(tt.chipName)
+			assert.EqualValues(t, tt.expected, devType)
+		})
+	}
+}
+
+// TestGetCommonManagerDevices tests the function getCommonManagerDevices
+func TestGetCommonManagerDevices(t *testing.T) {
+	var (
+		ascend910A5DeviceLen = 1
+		defaultDeviceLen     = 2
+	)
+
+	convey.Convey("test getCommonManagerDevices", t, func() {
+		convey.Convey("01-Ascend910A5 should only return hisi_hdc", func() {
+			devices := getCommonManagerDevices(Ascend910A5)
+			convey.So(len(devices), convey.ShouldEqual, ascend910A5DeviceLen)
+			convey.So(devices[0], convey.ShouldEqual, hisiHdc)
+		})
+		convey.Convey("02-other devices should return both devmm_svm and hisi_hdc", func() {
+			devices := getCommonManagerDevices(Ascend910)
+			convey.So(len(devices), convey.ShouldEqual, defaultDeviceLen)
+			convey.So(devices, convey.ShouldContain, devmmSvm)
+			convey.So(devices, convey.ShouldContain, hisiHdc)
+		})
+		convey.Convey("03-unknown device type should return default device list", func() {
+			devices := getCommonManagerDevices("UnknownDevice")
+			convey.So(len(devices), convey.ShouldEqual, defaultDeviceLen)
+			convey.So(devices, convey.ShouldContain, devmmSvm)
+			convey.So(devices, convey.ShouldContain, hisiHdc)
 		})
 	})
 }
