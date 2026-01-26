@@ -214,6 +214,10 @@ func (fJob *FaultJob) forceDeletePodsFor910A5(schedulerJob *plugin.SchedulerJob,
 }
 
 func (fJob *FaultJob) skipThisTask(dpi *deletePodInfo, fTask FaultTask, schedulerJob *plugin.SchedulerJob) bool {
+	// if upgrade is not allowed, only the fault task can be deleted
+	if !fJob.allowUpgradePodRescheduling() {
+		return !fTask.IsFaultTask
+	}
 	// when master pod fault or not pod rescheduling or fault pod, delete pod
 	if fJob.IsMasterFault {
 		return false

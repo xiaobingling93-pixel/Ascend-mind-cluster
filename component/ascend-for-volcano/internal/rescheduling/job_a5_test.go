@@ -20,11 +20,12 @@ Package rescheduling is using for HuaWei Ascend pin fault rescheduling.
 package rescheduling
 
 import (
-	"github.com/agiledragon/gomonkey/v2"
-	"k8s.io/client-go/kubernetes"
 	"reflect"
 	"strconv"
 	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"k8s.io/client-go/kubernetes"
 	"volcano.sh/volcano/pkg/scheduler/api"
 	"volcano.sh/volcano/pkg/scheduler/framework"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
@@ -666,11 +667,133 @@ func buildSkipThisTaskTestCase3() skipThisTaskTestCase {
 	}
 }
 
+func buildSkipThisTaskTestCase4() skipThisTaskTestCase {
+	return skipThisTaskTestCase{
+		name: "04-SkipThisTask allow-upgrade-false fault-task",
+		fJob: &FaultJob{
+			ReScheduleLimit: util.ReschedulingUpperLimitPod, // allowUpgradePodRescheduling() returns false
+		},
+		cacheFuncBefore: func() {},
+		cacheFuncAfter:  func() {},
+		fTask: FaultTask{
+			IsFaultTask: true,
+		},
+		dpi: &deletePodInfo{},
+		schedulerJob: &plugin.SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{}},
+			},
+		},
+		want: false, // Should not skip fault task when allowUpgrade is false
+	}
+}
+
+func buildSkipThisTaskTestCase5() skipThisTaskTestCase {
+	return skipThisTaskTestCase{
+		name: "05-SkipThisTask allow-upgrade-false non-fault-task",
+		fJob: &FaultJob{
+			ReScheduleLimit: util.ReschedulingUpperLimitPod, // allowUpgradePodRescheduling() returns false
+		},
+		cacheFuncBefore: func() {},
+		cacheFuncAfter:  func() {},
+		fTask: FaultTask{
+			IsFaultTask: false,
+		},
+		dpi: &deletePodInfo{},
+		schedulerJob: &plugin.SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{}},
+			},
+		},
+		want: true, // Should skip non-fault task when allowUpgrade is false
+	}
+}
+
+func buildSkipThisTaskTestCase6() skipThisTaskTestCase {
+	return skipThisTaskTestCase{
+		name: "06-SkipThisTask is-master-fault",
+		fJob: &FaultJob{
+			ReScheduleLimit: "", // allowUpgradePodRescheduling() returns true
+			FaultJobA5Field: FaultJobA5Field{
+				IsMasterFault: true,
+			},
+		},
+		cacheFuncBefore: func() {},
+		cacheFuncAfter:  func() {},
+		fTask: FaultTask{
+			IsFaultTask: false,
+		},
+		dpi: &deletePodInfo{},
+		schedulerJob: &plugin.SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{}},
+			},
+		},
+		want: false, // Should not skip when IsMasterFault is true
+	}
+}
+
+func buildSkipThisTaskTestCase7() skipThisTaskTestCase {
+	return skipThisTaskTestCase{
+		name: "07-SkipThisTask process-rescheduling-skip",
+		fJob: &FaultJob{
+			ReScheduleLimit:   "", // allowUpgradePodRescheduling() returns true
+			PendingSessionNum: tpPendingTimes - 1,
+			FaultTasks:        []FaultTask{{IsFaultTask: true, NodeRankIndex: "0"}},
+		},
+		cacheFuncBefore: func() {},
+		cacheFuncAfter:  func() {},
+		fTask: FaultTask{
+			IsFaultTask:   false,
+			NodeRankIndex: "1",
+		},
+		dpi: &deletePodInfo{},
+		schedulerJob: &plugin.SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{util.ProcessRecoverEnable: util.EnableFunc}},
+			},
+		},
+		want: true, // Should skip when process rescheduling is in first stage
+	}
+}
+
+func buildSkipThisTaskTestCase8() skipThisTaskTestCase {
+	return skipThisTaskTestCase{
+		name: "08-SkipThisTask pod-rescheduling-skip",
+		fJob: &FaultJob{
+			ReScheduleLimit:   "",           // allowUpgradePodRescheduling() returns true
+			PendingSessionNum: pendingTimes, // Set to a value >= spPendingTimes
+			FaultTasks:        []FaultTask{{IsFaultTask: true, NodeName: "test-node"}},
+		},
+		cacheFuncBefore: func() {},
+		cacheFuncAfter:  func() {},
+		fTask: FaultTask{
+			IsFaultTask: false,
+			NodeName:    "test-node", // Same node as fault task
+		},
+		dpi: &deletePodInfo{
+			isSuperPod: true,
+			ids:        []string{"test-id"},
+		},
+		schedulerJob: &plugin.SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{Label: map[string]string{util.SinglePodTag: util.EnableFunc}},
+			},
+		},
+		want: false, // Should not skip when pod rescheduling
+	}
+}
+
 func buildSkipThisTaskTestCases() []skipThisTaskTestCase {
 	return []skipThisTaskTestCase{
 		buildSkipThisTaskTestCase1(),
 		buildSkipThisTaskTestCase2(),
 		buildSkipThisTaskTestCase3(),
+		buildSkipThisTaskTestCase4(),
+		buildSkipThisTaskTestCase5(),
+		buildSkipThisTaskTestCase6(),
+		buildSkipThisTaskTestCase7(),
+		buildSkipThisTaskTestCase8(),
 	}
 }
 
