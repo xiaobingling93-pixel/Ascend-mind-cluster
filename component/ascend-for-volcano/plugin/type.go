@@ -98,6 +98,7 @@ var (
 	// add annotation from pod, if new anno key is needed add by pod, add key in this slice
 	annotationKeysForPodGroup = []string{
 		util.SuperPodAnnoKey,
+		util.TpBlockAnnoKey,
 		util.SchedulePolicyAnnoKey,
 		util.SuperPodFitAnnoKey,
 		util.MinAvailableKey,
