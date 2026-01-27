@@ -53,14 +53,14 @@ func (c *telegrafLogger) logf(ctx context.Context, level Level, format string, a
 	for char, replacement := range dangerousChars {
 		sanitized = strings.ReplaceAll(sanitized, char, replacement)
 	}
-	if level < InfoLevel || c.acc == nil {
-		fn, ok := logfFuncs[level]
-		if !ok {
-			hwlog.RunLog.Warnf("unknown log level: %v", level)
-			return
-		}
+	fn, ok := logfFuncs[level]
+	if !ok {
+		hwlog.RunLog.Warnf("unknown log level: %v", level)
+		return
+	}
+	fn(hwlog.DeepIncrease(ctx), sanitized, args...)
 
-		fn(hwlog.DeepIncrease(ctx), sanitized, args...)
+	if level < InfoLevel || c.acc == nil {
 		return
 	}
 

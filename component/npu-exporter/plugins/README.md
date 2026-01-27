@@ -11,7 +11,7 @@
     - IsSupporterd：检测当前环境，判断是否支持当前设备的检测。
     - PreCollect：正式开始采集前执行一次，可用于设备初始化。可以为空。
     - PostCollect：采集结束后执行一次，可用于数据的回收。可以为空。
-- `register.go`，提供插件注册函数，在npu-exporter启动时完成插件注册并完成dcmi接口初始化，**RegisterPlugin函数签名不要修改**，自定义插件通过`AddPluginCollector`接口注册，指标名称需要与`pluginConfiguration.json`中的指标组名称保持一致
+- `register.go`，提供插件注册函数，在npu-exporter启动时完成插件注册并完成dcmi接口初始化，**RegisterPlugin函数签名不要修改**，在RegisterPlugin函数中通过`registerPlugin(插件名称, &插件类{})`完成注册，指标名称需要与`pluginConfiguration.json`中的指标组名称保持一致
 
 对于插件指标组内定义的指标名称，不要与现有代码中已定义的插件指标（当前NPU指标、插件指标）重名
 
@@ -211,7 +211,6 @@ DCMIDLLEXPORT int dcmi_get_device_health(int card_id, int device_id, unsigned in
 package plugins
 
 import (
-	"strings"
 	"sync"
 	"time"
 
@@ -219,6 +218,7 @@ import (
 
 	"huawei.com/npu-exporter/v6/collector/common"
 	"huawei.com/npu-exporter/v6/collector/container"
+	"huawei.com/npu-exporter/v6/utils"
 	"huawei.com/npu-exporter/v6/utils/logger"
 )
 
@@ -294,14 +294,14 @@ func (c *PluginInfoCollector) UpdateTelegraf(fieldsMap map[string]map[string]int
 	if fieldsMap[common.GeneralDevTagKey] == nil {
 		fieldsMap[common.GeneralDevTagKey] = make(map[string]interface{})
 	}
-	doUpdateTelegraf(fieldsMap[common.GeneralDevTagKey], PluginInfoDesc, pluginCache.(float64), "")
+	utils.DoUpdateTelegraf(fieldsMap[common.GeneralDevTagKey], PluginInfoDesc, pluginCache.(float64), "")
 	// update npu plugin info
 	const NpuLogicID = "1"
 	value := float64(npuPluginCache.(int32))
 	if fieldsMap[NpuLogicID] == nil {
 		fieldsMap[NpuLogicID] = make(map[string]interface{})
 	}
-	doUpdateTelegraf(fieldsMap[NpuLogicID], PluginNpuInfoDesc, value, "")
+	utils.DoUpdateTelegraf(fieldsMap[NpuLogicID], PluginNpuInfoDesc, value, "")
 	return fieldsMap
 }
 
@@ -320,26 +320,6 @@ func (c *PluginInfoCollector) IsSupported(n *common.NpuCollector) bool {
 	logger.Debug("PluginInfoCollector IsSupported")
 	return true
 }
-
-// getDescName parse metrics name from prometheus.Desc object
-func getDescName(desc *prometheus.Desc) string {
-	str := desc.String()
-	startIndex := strings.Index(str, "fqName: ") + len("fqName: ")
-	readfqName := str[startIndex:]
-
-	endIndex := strings.Index(readfqName, ",")
-	if endIndex != -1 {
-		readfqName = readfqName[:endIndex]
-	}
-
-	readfqName = strings.Trim(readfqName, "\"")
-	return readfqName
-}
-
-func doUpdateTelegraf(fieldMap map[string]interface{}, desc *prometheus.Desc, value interface{}, extInfo string) {
-	fieldMap[getDescName(desc)+extInfo] = value
-}
-
 
 ```
 
@@ -366,22 +346,30 @@ func doUpdateTelegraf(fieldMap map[string]interface{}, desc *prometheus.Desc, va
 package plugins
 
 import (
-	"huawei.com/npu-exporter/v6/collector/config"
-	"huawei.com/npu-exporter/v6/utils/logger"
+  "huawei.com/npu-exporter/v6/collector/common"
+  "huawei.com/npu-exporter/v6/collector/config"
+  "huawei.com/npu-exporter/v6/utils/logger"
 )
 
 // RegisterPlugin register plugin collector
 func RegisterPlugin() {
-	err := config.AddPluginCollector(pluginName, &PluginInfoCollector{})
-	if err != nil {
-		logger.Errorf("add plugin failed: %v\n", err)
-	}
-	logger.Infof("add plugin ok: %v\n", pluginName)
-	err = DcLoad()
-	if err != nil {
-		logger.Errorf("dcmi init failed: %v\n", err)
-		return
-	}
+  registerPlugin("text", &TextMetricsInfoCollector{})
+  // Add custom plugins to the plugins slice here
+  // add DcLoad() if you want to use dcmi to get npu info
+  err := DcLoad()
+  if err != nil {
+    logger.Errorf("dcmi init failed: %v\n", err)
+    return
+  }
+  // pluginName should be consistent with the name in pluginConfiguration.json
+  registerPlugin("MyPlugin", &PluginInfoCollector{})
+}
+
+func registerPlugin(pluginName string, c common.MetricsCollector) {
+  err := config.AddPluginCollector(pluginName, c)
+  if err != nil {
+    logger.Errorf("%v", err)
+  }
 }
 
 ```

@@ -16,6 +16,8 @@
 package common
 
 import (
+	"time"
+
 	"ascend-common/devmanager/common"
 )
 
@@ -47,4 +49,11 @@ type HuaWeiAIChip struct {
 	PCIeBusInfo string
 	// ElabelInfo elabel info including SN
 	ElabelInfo *common.ElabelInfo `json:"elabel_info"`
+}
+
+// TelegrafData represents the data structure for metrics collection and export, compatible with Telegraf format.'
+type TelegrafData struct {
+	Labels    map[string]string
+	Metrics   map[string]interface{}
+	Timestamp time.Time
 }

@@ -15,7 +15,21 @@
 // Package plugins for custom metrics
 package plugins
 
+import (
+	"huawei.com/npu-exporter/v6/collector/common"
+	"huawei.com/npu-exporter/v6/collector/config"
+	"huawei.com/npu-exporter/v6/utils/logger"
+)
+
 // RegisterPlugin register plugin collector
 func RegisterPlugin() {
+	registerPlugin("text", &TextMetricsInfoCollector{})
+	// Add custom plugins to the plugins slice here
+}
 
+func registerPlugin(pluginName string, c common.MetricsCollector) {
+	err := config.AddPluginCollector(pluginName, c)
+	if err != nil {
+		logger.Errorf("%v", err)
+	}
 }

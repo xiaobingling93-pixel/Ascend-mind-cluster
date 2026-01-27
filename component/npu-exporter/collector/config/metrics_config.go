@@ -63,6 +63,9 @@ var (
 		{metricsGroup: groupOptical, state: stateOn},
 		{metricsGroup: groupHbm, state: stateOn},
 	}
+	defaultPluginConfigs = []map[string]string{
+		{metricsGroup: groupText, state: stateOn},
+	}
 )
 
 const (
@@ -80,6 +83,8 @@ const (
 	groupVersion = "version"
 	groupOptical = "optical"
 	groupHbm     = "hbm"
+	// groupText represents text-based metrics collected by plugin collectors
+	groupText = "text"
 
 	stateOn  = "ON"
 	stateOFF = "OFF"
@@ -98,7 +103,8 @@ func loadConfiguration() {
 		initConfiguration(fileBytes, &presetConfigs)
 	}
 	if fileBytes := loadFromFile(PluginConfigPath); fileBytes == nil {
-		logger.Warnf("load config from file %s failed, use empty config", PluginConfigPath)
+		logger.Warnf("load config from file %s failed, use default config", PluginConfigPath)
+		pluginConfigs = defaultPluginConfigs
 	} else {
 		initConfiguration(fileBytes, &pluginConfigs)
 	}

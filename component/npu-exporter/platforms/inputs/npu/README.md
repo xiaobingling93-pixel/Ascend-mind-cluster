@@ -20,6 +20,7 @@ cp -r mind-cluster/component/npu-exporter/platforms/inputs/npu telegraf/plugins/
 ```
 将插件注册到telegraf(其中路径按实际修改)
 ```shell
+sed -i '$a\\r\nimport _ "github.com/influxdata/telegraf/plugins/inputs/npu"' mind-cluster/component/npu-exporter/platforms/inputs/all/npu.go
 cp -r mind-cluster/component/npu-exporter/platforms/inputs/all/npu.go telegraf/plugins/inputs/all
 ```
 将telegraf源码中的Makefile里的“CGO_ENABLED=0”改为“CGO_ENABLED=1”

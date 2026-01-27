@@ -69,6 +69,8 @@ const (
 	BitSize = 64
 	// GeneralDevTagKey is the default value of devTagKey in telegraf, it means the metric is not related to any device
 	GeneralDevTagKey = "GeneralDevTagKey"
+	// KeyForTextMetrics is the key for text metrics
+	KeyForTextMetrics = "KeyForTextMetrics"
 )
 
 // log limit domains for metrics
