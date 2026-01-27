@@ -67,23 +67,43 @@ func (npu *WatchNPU) Gather(acc telegraf.Accumulator) error {
 	fieldsMap = npu.gatherChain(fieldsMap, common.ChainForMultiGoroutine, containerMap, chips)
 	fieldsMap = npu.gatherChain(fieldsMap, common.ChainForCustomPlugin, containerMap, chips)
 
-	generalFields := fieldsMap[common.GeneralDevTagKey]
-	acc.AddFields(devName, generalFields, map[string]string{"device": devTagValue})
+	handleGeneralMetrics(acc, fieldsMap, devName, devTagValue)
+	handleTextMetrics(acc, fieldsMap)
 
-	// after the report is completed, deleted to avoid repeated reporting in the for loop
-	delete(fieldsMap, common.GeneralDevTagKey)
 	for key, fields := range fieldsMap {
-
 		ids := strings.Split(key, "_")
 		devTag := map[string]string{"device": devTagValue + "-" + ids[0]}
 		if len(ids) >= num2 {
 			devTag["vdev_id"] = ids[1]
 		}
-
 		acc.AddFields(devName, fields, devTag)
 	}
 
 	return nil
+}
+
+func handleTextMetrics(acc telegraf.Accumulator, fieldsMap map[string]map[string]interface{}) {
+	textMetrics := fieldsMap[common.KeyForTextMetrics]
+	for key, datas := range textMetrics {
+		data, ok := datas.(common.TelegrafData)
+		if !ok {
+			continue
+		}
+		splitArr := strings.Split(key, "-")
+		if len(splitArr) < num2 {
+			continue
+		}
+		acc.AddFields(splitArr[0], data.Metrics, data.Labels, data.Timestamp)
+	}
+	delete(fieldsMap, common.KeyForTextMetrics)
+}
+
+func handleGeneralMetrics(acc telegraf.Accumulator, fieldsMap map[string]map[string]interface{}, devName string, devTagValue string) {
+	generalMetrics := fieldsMap[common.GeneralDevTagKey]
+	acc.AddFields(devName, generalMetrics, map[string]string{"device": devTagValue})
+
+	// after the report is completed, deleted to avoid repeated reporting in the for loop
+	delete(fieldsMap, common.GeneralDevTagKey)
 }
 
 func (npu *WatchNPU) gatherChain(fieldsMap map[string]map[string]interface{}, chain []common.MetricsCollector,
