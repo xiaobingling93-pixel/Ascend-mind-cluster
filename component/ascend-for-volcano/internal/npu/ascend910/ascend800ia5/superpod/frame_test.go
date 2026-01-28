@@ -1490,3 +1490,46 @@ func TestSelectNodesForFaultPod(t *testing.T) {
 	})
 
 }
+
+const (
+	mockJobUID = "vcjob/job0"
+)
+
+func TestIfPodLevelRescheduling(t *testing.T) {
+	t.Run("01-IfPodLevelRescheduling return true when pod-rescheduling label is on", func(t *testing.T) {
+		module := &module800SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{util.SinglePodTag: util.EnableFunc}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.ifPodLevelRescheduling(fJob); !res {
+			t.Errorf("ifPodLevelRescheduling() res = %v, wantRes is true", res)
+		}
+	})
+	t.Run("02-IfPodLevelRescheduling return true when process-recover-enable label is on", func(t *testing.T) {
+		module := &module800SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{util.ProcessRecoverEnable: util.EnableFunc}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.ifPodLevelRescheduling(fJob); !res {
+			t.Errorf("ifPodLevelRescheduling() res = %v, wantRes is true", res)
+		}
+	})
+	t.Run("03-IfPodLevelRescheduling return false when both labels are not on", func(t *testing.T) {
+		module := &module800SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.ifPodLevelRescheduling(fJob); res {
+			t.Errorf("ifPodLevelRescheduling() res = %v, wantRes is false", res)
+		}
+	})
+}

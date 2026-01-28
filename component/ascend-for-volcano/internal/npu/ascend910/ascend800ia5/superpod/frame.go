@@ -644,8 +644,9 @@ func (tp *module800SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob)
 	if !ok {
 		return false
 	}
-	klog.V(util.LogInfoLev).Infof("label pod-rescheduling is: %s", job.Label[util.SinglePodTag])
-	return job.Label[util.SinglePodTag] == util.EnableFunc
+	klog.V(util.LogInfoLev).Infof("label pod-rescheduling is: %s, label process_recover_enable is: %s",
+		job.Label[util.SinglePodTag], job.Label[util.ProcessRecoverEnable])
+	return fJob.IsJobSingleRescheduling(&job) || fJob.IsProcessReschedulingJob(&job)
 }
 
 func (tp *module800SuperPod) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
 
 	"volcano.sh/volcano/pkg/scheduler/api"
 
@@ -745,4 +746,47 @@ func TestGetRestRackId(t *testing.T) {
 			}
 		})
 	}
+}
+
+const (
+	mockJobUID = "vcjob/job0"
+)
+
+func TestIsPodLevelRescheduling(t *testing.T) {
+	t.Run("01-isPodLevelRescheduling return true when pod-rescheduling label is on", func(t *testing.T) {
+		module := &module910a5SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{util.SinglePodTag: util.EnableFunc}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.isPodLevelRescheduling(fJob); !res {
+			t.Errorf("isPodLevelRescheduling() res = %v, wantRes is true", res)
+		}
+	})
+	t.Run("02-isPodLevelRescheduling return true when process-recover-enable label is on", func(t *testing.T) {
+		module := &module910a5SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{util.ProcessRecoverEnable: util.EnableFunc}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.isPodLevelRescheduling(fJob); !res {
+			t.Errorf("isPodLevelRescheduling() res = %v, wantRes is true", res)
+		}
+	})
+	t.Run("03-isPodLevelRescheduling return false when both labels are not on", func(t *testing.T) {
+		module := &module910a5SuperPod{}
+		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
+		sJob := plugin.SchedulerJob{}
+		sJob.Label = map[string]string{}
+		module.Jobs = map[api.JobID]plugin.SchedulerJob{
+			mockJobUID: sJob,
+		}
+		if res := module.isPodLevelRescheduling(fJob); res {
+			t.Errorf("isPodLevelRescheduling() res = %v, wantRes is false", res)
+		}
+	})
 }
