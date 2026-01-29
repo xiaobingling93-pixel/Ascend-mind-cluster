@@ -22,6 +22,7 @@ import (
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/l2fault"
 	"clusterd/pkg/domain/pod"
+	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/kube"
 )
 
@@ -184,8 +185,9 @@ func (processor *jobRankFaultInfoProcessor) appendFilterFaultCodeAndLevel(jobId,
 		return faultList
 	}
 	newFaultList := make([]constant.DeviceFault, 0, len(faultList)+len(filterFault))
+	hasRetryStrategy := podgroup.JudgeRetryByJobKey(jobId)
 	for faultCode, faultLevel := range filterFault {
-		if faultdomain.IsUceFault(faultCode) || faultdomain.IsHcclRetryFault(faultCode) {
+		if hasRetryStrategy && (faultdomain.IsUceFault(faultCode) || faultdomain.IsHcclRetryFault(faultCode)) {
 			continue
 		}
 		found := false

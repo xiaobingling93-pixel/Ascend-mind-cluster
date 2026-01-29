@@ -19,6 +19,7 @@ import (
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/job"
 	"clusterd/pkg/domain/pod"
+	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/interface/kube"
 )
 
@@ -456,7 +457,7 @@ func TestAppendFilterFaultCodeAndLevel(t *testing.T) {
 		patches := gomonkey.ApplyPrivateMethod(recoverinplace.RecoverInplaceProcessor, "GetFilterFaultCodeAndLevel",
 			func(jobId, nodeName, deviceName string) map[string]string {
 				return filterFault
-			})
+			}).ApplyFuncReturn(podgroup.JudgeRetryByJobKey, true)
 		defer patches.Reset()
 		faultList := []constant.DeviceFault{{FaultCode: "fakeCode1", FaultLevel: "level3"}}
 		codeList := JobFaultRankProcessor.appendFilterFaultCodeAndLevel("", "", "", faultList)
