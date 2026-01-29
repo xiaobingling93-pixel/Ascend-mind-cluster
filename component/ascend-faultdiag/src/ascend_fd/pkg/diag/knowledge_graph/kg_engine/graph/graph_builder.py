@@ -16,9 +16,9 @@
 # ==============================================================================
 from typing import Dict
 
-from ascend_fd.utils.regular_table import TRACEBACK_FAULT_ENTITY_ATTR
+from ascend_fd.utils.regular_table import TRAIN_CALL_FAULT_ENTITY_ATTR
 from ascend_fd.utils.fault_code import PRE_TRACEBACK_FAULT, CANN_ERRCODE_CUSTOM, PYTORCH_ERRCODE_COMMON, \
-    MINDIE_ERRCODE_COMMON
+    MINDIE_ERRCODE_COMMON, PRE_SEG_FAULT
 from ascend_fd.pkg.diag.knowledge_graph.kg_engine.graph.graph import Graph
 from ascend_fd.utils.load_kg_config import Schema, SchemaEntity
 from ascend_fd.pkg.diag.knowledge_graph.kg_engine.graph.vertex import Edge, Vertex
@@ -59,8 +59,8 @@ class GraphBuilder:
         for event in self.pkg_data.event_map.values():
             event_code = event.get(self._EVENT_CODE, "")
             is_custom_event = event.get("is_custom_event", False)
-            # 有效的故障事件：非traceback故障并且非自定义故障
-            if not event_code.startswith(PRE_TRACEBACK_FAULT) and not is_custom_event:
+            # 有效的故障事件：非train call故障并且非自定义故障
+            if not event_code.startswith((PRE_TRACEBACK_FAULT, PRE_SEG_FAULT)) and not is_custom_event:
                 self.has_effective_event = True
                 break
 
@@ -91,9 +91,9 @@ class GraphBuilder:
             schema_entity = self.schema.get_schema_entity(MINDIE_ERRCODE_COMMON)
             self.schema.add_custom_event_to_schema(event_code, schema_entity)
             return schema_entity
-        # traceback faults are displayed only when there is no valid fault event.
-        if not self.has_effective_event and event_code.startswith(PRE_TRACEBACK_FAULT):
-            return SchemaEntity(entity_code=event_code, attribute=TRACEBACK_FAULT_ENTITY_ATTR)
+        # trian call faults are displayed only when there is no valid fault event.
+        if not self.has_effective_event and event_code.startswith((PRE_TRACEBACK_FAULT, PRE_SEG_FAULT)):
+            return SchemaEntity(entity_code=event_code, attribute=TRAIN_CALL_FAULT_ENTITY_ATTR)
         return self.schema.get_schema_entity(event_code)
 
     def _add_edges(self):

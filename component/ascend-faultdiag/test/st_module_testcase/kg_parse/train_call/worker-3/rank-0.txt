@@ -1,0 +1,36 @@
+================================================类型：Traceback正常打印===============================================================
+Error executing job with overrides: []
+Traceback (most recent call last):
+  File "/home/ma-user/modelarts/user-job-dir/pangu_rft_data_sampler/ray_gpt.py", line 44, in <module>
+    main()
+  File "/home/ma-user/anaconda3/envs/PyTorch-2.1.0/lib/python3.9/site-packages/ray/_private/worker.py", line 864, in get_objects
+    raise value.as_instanceof_cause()
+ray.exceptions.RayTaskError(RayActorError): ray::main_task() (pid=23525, ip=172.16.47.95)
+  File "/home/ma-user/modelarts/user-job-dir/pangu_rft_data_sampler/ray_gpt.py", line 39, in main_task
+    trainer = get_trainer(config.training.stage)(config)
+  File "/home/ma-user/modelarts/user-job-dir/pangu_rft_data_sampler/trainer/rlxf/single_controller/ray/base.py", line 64, in func
+    output = ray.get(output)
+ray.exceptions.RayActorError: The actor died unexpectedly before finishing this task.
+	class_name: create_colocated_worker_cls.<locals>.WorkerDict
+	ip: 172.16.22.183
+The actor is dead because its worker process has died. Worker exit type: SYSTEM_ERROR Worker exit detail: Worker unexpectedly exits with a connection error code 2. End of file. There are some potential root causes. (1) The process is killed by SIGKILL by OOM killer due to high memory usage. (2) ray stop --force is called. (3) The worker is crashed unexpectedly due to SIGSEGV or other unexpected errors.
+(WorkerDict pid=7435, ip=172.16.22.183) [ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+=====================================================类型：Traceback无结尾error==========================================================
+Traceback (most recent call last):
+  File "/cache/algorithm/pretrain_vlm_mm_dataloader.py", line 782, in <module>
+    pretrain(
+  File "/cache/algorithm/mindspeed_llm/training/training.py", line 558, in pretrain
+    iteration, num_floating_point_operations_so_far = train(*train_args)
+  File "/cache/algorithm/mindspeed_llm/training/training.py", line 757, in train
+1111111111
+2222222222
+=====================================================类型：Traceback结尾error不顶格==========================================================
+Traceback (most recent call last):
+  File "/cache/algorithm/pretrain_vlm_mm_dataloader.py", line 782, in <module>
+    pretrain(
+  File "/cache/algorithm/mindspeed_llm/training/training.py", line 558, in pretrain
+    iteration, num_floating_point_operations_so_far = train(*train_args)
+  File "/cache/algorithm/mindspeed_llm/training/training.py", line 757, in train
+111111111 TimeException: MemcpyAsync failed!
+222222222
+333333333

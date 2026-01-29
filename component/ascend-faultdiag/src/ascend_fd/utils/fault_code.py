@@ -79,6 +79,8 @@ PHYSICAL_CARD_DROPPING = "Comp_NPU_DRV_Custom_01"
 SOFTWARE_CARD_DROPPING = "Comp_NPU_DRV_Custom_02"
 # PRE_TRACEBACK_FAULT, Prefix of fault code of python traceback
 PRE_TRACEBACK_FAULT = "AISW_TRACEBACK"
+# PRE_SEG_FAULT, Prefix of fault code of segmentation fault
+PRE_SEG_FAULT = "AISW_SEG"
 # PRE_SWITCH_FAULT, Prefix of fault code of Switch
 PRE_SWITCH_FAULT = "Comp_Switch"
 
