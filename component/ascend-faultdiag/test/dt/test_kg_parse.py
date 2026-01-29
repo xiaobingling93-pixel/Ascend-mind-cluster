@@ -67,6 +67,27 @@ class KgParseTestCase(unittest.TestCase):
         self.amct_code = "AISW_CANN_AMCT_ALL_001"
         self.npu_device_code = "Comp_Network_Custom_11"
         self.mindio_code = "AISW_MindIO_TTP_01"
+        self.train_call_faults = {
+            "worker-0": {
+                "AISW_SEG_InitException": 7,
+                "AISW_SEG_UnknownError": 10
+            },
+            "worker-1": {
+                "AISW_TRACEBACK_RuntimeError": 6,
+                "AISW_SEG_UnknownError": 6,
+                "AISW_TRACEBACK_UnknownError": 7
+            },
+            "worker-2": {
+                "AISW_TRACEBACK_DataError": 11,
+                "AISW_TRACEBACK_InitError": 11,
+                "AISW_TRACEBACK_UnknownError": 12
+            },
+            "worker-3": {
+                "AISW_TRACEBACK_ray.exceptions.RayTaskError": 6,
+                "AISW_TRACEBACK_UnknownError": 6,
+                "AISW_TRACEBACK_TimeException": 7
+            }
+        }
         self.test_regex = {
             self.test_code: {self.IN: ["E30008"]},
             self.custom_code: {
@@ -209,6 +230,21 @@ class KgParseTestCase(unittest.TestCase):
         self.amct_log_dict = {
             "amct_path": [os.path.join(TESTCASE_KG_PARSE_INPUT, "amct_log/amct_onnx.log")]
         }
+
+    def test_train_call_parse_func(self):
+        worker_num = 4
+        for num in range(worker_num):
+            file_list = [os.path.join(TESTCASE_KG_PARSE_INPUT, "train_call", f"worker-{num}", "rank-0.txt")]
+            parse_ctx = KGParseCtx(parse_file_path=KGParseFilePath(train_log_path=file_list))
+            self.train_parser.parse(parse_ctx, f"test_task_{num}")
+            event_result_list = self.train_parser._parse_single_file(file_list[0])
+            assert_res = {}
+            for event in event_result_list:
+                event_code = event.get(EVENT_CODE, "")
+                assert_res.update({
+                    event_code: len(event.get("key_info", "").split("\n"))
+                })
+            self.assertEqual(sorted(self.train_call_faults.get(f"worker-{num}", {}).items()), sorted(assert_res.items()))
 
     def test_train_log_parse_func(self):
         parse_ctx = KGParseCtx(parse_file_path=KGParseFilePath(train_log_path=self.train_input_file_list))

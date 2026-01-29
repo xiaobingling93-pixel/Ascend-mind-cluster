@@ -147,7 +147,7 @@ ERROR_CODE_COMPONENT = {
 
 zh_lb = get_label_for_language(specified_language="zh")
 en_lb = get_label_for_language(specified_language="en")
-TRACEBACK_FAULT_ENTITY_ATTR = {
+TRAIN_CALL_FAULT_ENTITY_ATTR = {
     "class": "User",
     "component": "AI Framework",
     "module": "Python",

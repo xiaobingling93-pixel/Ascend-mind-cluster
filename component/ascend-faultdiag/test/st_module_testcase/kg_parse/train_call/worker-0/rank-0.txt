@@ -1,0 +1,38 @@
+=============================================类型：Segmentation fault,有error结尾==================================================================
+(WorkerDict pid=7435, ip=172.16.22.183) [2025-11-24 22:27:20,620 E 7435 7435] logging.cc:361:     @ ... and at least 178 more frames
+(WorkerDict pid=7435, ip=172.16.22.183) Fatal Python error: Segmentation fault
+(WorkerDict pid=7435, ip=172.16.22.183)
+(WorkerDict pid=7435, ip=172.16.22.183) Stack (most recent call first):
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/home/ma-user/anaconda3/envs/PyTorch-2.1.0/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1527 in _call_impl
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/home/ma-user/anaconda3/envs/PyTorch-2.1.0/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1518 in _wrapped_call_impl
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/home/ma-user/modelarts/user-job-dir/pangu_rft_data_sampler/resources/tokenizer/pangu_vl/pangu_pi_model.py", line 327 in forward
+(WorkerDict pid=7428, ip=172.16.22.183) InitException: xxx failed!
+(WorkerDict pid=7425, ip=172.16.22.183) INFO:vllm_adapter.vllm_v_0_6_3.spmd_gpu_executor:# GPU blocks: 9963, # CPU blocks: 4818
+
+=============================================类型：Segmentation fault==================================================================
+Fatal Python error: Segmentation fault
+
+Current thread 0x00007f89a9fef700 (most recent call first):
+  File "/usr/local/lib/python3.9/site-packages/xxx/xxx.py", line 28 in func_name
+  File "/usr/local/lib/python3.9/site-packages/yyy/yyy.py", line 156 in run
+  File "/root/your_code.py", line 105 in <module>
+
+Extension modules loaded: numpy, pandas, cv2, torch, _ctypes (total: 5)
+
+Segmentation fault (core dumped)
+111
+22222
+
+=============================================类型：Segmentation fault，有前缀==================================================================
+(WorkerDict pid=7435, ip=172.16.22.183) Fatal Python error: Segmentation fault
+(WorkerDict pid=7435, ip=172.16.22.183)
+(WorkerDict pid=7435, ip=172.16.22.183) Current thread 0x00007f89a9fef700 (most recent call first):
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/usr/local/lib/python3.9/site-packages/xxx/xxx.py", line 28 in func_name
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/usr/local/lib/python3.9/site-packages/yyy/yyy.py", line 156 in run
+(WorkerDict pid=7435, ip=172.16.22.183)   File "/root/your_code.py", line 105 in <module>
+(WorkerDict pid=7435, ip=172.16.22.183)
+(WorkerDict pid=7435, ip=172.16.22.183) Extension modules loaded: numpy, pandas, cv2, torch, _ctypes (total: 5)
+(WorkerDict pid=7435, ip=172.16.22.183)
+(WorkerDict pid=7435, ip=172.16.22.183) Segmentation fault (core dumped)
+111
+22222

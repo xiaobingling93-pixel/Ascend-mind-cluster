@@ -27,7 +27,7 @@ from ascend_fd.pkg.diag.message import MULTI_FAULT_IN_KNOWLEDGE_GRAPH, SOME_SUBT
 from ascend_fd.utils.constant.str_const import SUPER_POD_SCENE
 from ascend_fd.utils.fault_code import KG_DIAGNOSIS_NORMAL, HCCL_FAULT_LIST, DEVICE_CQE_FAULT, LINK_DOWN_FAULT, \
     LINK_STATUS_CHANGE, PRE_TRACEBACK_FAULT, CANN_ERRCODE_CUSTOM, AISW_CANN_MEMORY_INFO, OOM_CANN_FAULT_LIST, \
-    PRE_SWITCH_FAULT, MINDIE_ERRCODE_COMMON
+    PRE_SWITCH_FAULT, MINDIE_ERRCODE_COMMON, PRE_SEG_FAULT
 from ascend_fd.utils.load_kg_config import EntityAttribute
 from ascend_fd.utils.regular_table import SORT_RULES, LOWEST_PRIORITY_NUM, PRE_COMP_OS_FAULT, PRE_COMP_SWITCH_FAULT, \
     PRE_AMCT_FAULT, MIN_TIME, MAX_TIME, OS_FAULT_PREFIX, MINDIE_FAULT_PREFIX
@@ -626,14 +626,14 @@ def _categorize_and_sort_root_cause_(root_cause_list: list):
     :param root_cause_list: kg diagnostic result for all worker, the key is code
     :return: result_list
     """
-    traceback_list = []
+    train_call_list = []
     cann_custom_list = []
     normal_and_pta_list = []
     amct_list = []
     mindie_custom_list = []
     for root_cause_item in root_cause_list:
-        if str(root_cause_item.get('code', '')).startswith(PRE_TRACEBACK_FAULT):
-            traceback_list.append(root_cause_item)
+        if str(root_cause_item.get('code', '')).startswith((PRE_TRACEBACK_FAULT, PRE_SEG_FAULT)):
+            train_call_list.append(root_cause_item)
             continue
         if str(root_cause_item.get('code', '')).startswith(CANN_ERRCODE_CUSTOM):
             cann_custom_list.append(root_cause_item)
@@ -648,10 +648,10 @@ def _categorize_and_sort_root_cause_(root_cause_list: list):
 
     normal_and_pta_list.sort(key=_root_cause_sort_func)
     cann_custom_list.sort(key=_root_cause_sort_func)
-    traceback_list.sort(key=_root_cause_sort_func)
+    train_call_list.sort(key=_root_cause_sort_func)
     amct_list.sort(key=_root_cause_sort_func)
 
-    return normal_and_pta_list + mindie_custom_list + cann_custom_list + traceback_list + amct_list
+    return normal_and_pta_list + mindie_custom_list + cann_custom_list + train_call_list + amct_list
 
 
 def _format_and_sort_fault_chains(fault_chains_dict: dict) -> list:
@@ -737,17 +737,17 @@ def _remove_non_root_cause(code_dict: dict):
     :param code_dict: kg diagnostic result for all worker, the key is code
     :return: root cause list
     """
-    # if result contains other fault, remove KG_DIAGNOSIS_NORMAL code. 事件优先级: TraceBack > NORMAL_OR_UNSUPPORTED
+    # if result contains other fault, remove KG_DIAGNOSIS_NORMAL. 事件优先级: Train call fault > NORMAL_OR_UNSUPPORTED
     if KG_DIAGNOSIS_NORMAL in code_dict and len(code_dict) > 1:
         code_dict.pop(KG_DIAGNOSIS_NORMAL, None)
 
-    code_keys_without_traceback = set()
+    code_keys_without_train_call_faults = set()
     for code_key in code_dict.keys():
-        if not code_key.startswith((PRE_TRACEBACK_FAULT, PRE_SWITCH_FAULT)):
-            code_keys_without_traceback.add(code_key)
+        if not code_key.startswith((PRE_TRACEBACK_FAULT, PRE_SWITCH_FAULT, PRE_SEG_FAULT)):
+            code_keys_without_train_call_faults.add(code_key)
 
     # if result contains non-HCCL fault, remove HCCL_FAULT_LIST code.
-    if code_keys_without_traceback - set(HCCL_FAULT_LIST):
+    if code_keys_without_train_call_faults - set(HCCL_FAULT_LIST):
         [code_dict.pop(code, None) for code in HCCL_FAULT_LIST]
 
     # if result contains LINK_DOWN_FAULT, remove DEVICE_CQE_FAULT code.

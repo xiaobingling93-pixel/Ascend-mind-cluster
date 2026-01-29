@@ -21,7 +21,7 @@ import logging
 from typing import Union
 
 from ascend_fd.model.context import KGParseCtx
-from ascend_fd.utils.fault_code import PYTORCH_ERRCODE_COMMON, PRE_TRACEBACK_FAULT
+from ascend_fd.utils.fault_code import PYTORCH_ERRCODE_COMMON, PRE_TRACEBACK_FAULT, PRE_SEG_FAULT
 from ascend_fd.utils.regular_table import TRAIN_LOG_SOURCE, KG_MAX_TIME
 from ascend_fd.utils.tool import safe_read_open_with_size, PatternSingleOrMultiLineMatcher, MultiProcessJob
 from ascend_fd.pkg.parse.parser_saver import LogInfoSaver
@@ -92,14 +92,15 @@ class TrainLogParser(FileParser):
         """
         self.occur_time = self._determine_occur_time(file_source)
         event_storage = EventStorage()
-        traceback_parser = TracebackInfoParser(self.occur_time, self._get_source_file(file_source))
+        TracebackInfoParser(self.occur_time, self._get_source_file(file_source))
+        SegInfoParser(self.occur_time, self._get_source_file(file_source))
         self.train_framework = self._get_train_framework_type(file_source)
         self._filter_parsers_conf_by_train_framework(self.train_framework)
         if self.is_sdk_input:
-            self._parse_sdk_input(event_storage, file_source, traceback_parser)
+            self._parse_sdk_input(event_storage, file_source)
         else:
-            self._parse_filestream(event_storage, file_source, traceback_parser)
-        return event_storage.generate_event_list() + traceback_parser.get_event_list()
+            self._parse_filestream(event_storage, file_source)
+        return event_storage.generate_event_list() + TrainCallFaultParser.get_all_events()
 
     def _determine_occur_time(self, file_source: [str, LogInfoSaver]):
         if isinstance(file_source, str):
@@ -107,7 +108,7 @@ class TrainLogParser(FileParser):
                 time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(os.path.getmtime(file_source))))
         return getattr(file_source, "modification_time", "") or self.params.get("end_time") or KG_MAX_TIME
 
-    def _parse_single_train_log(self, line: str, event_storage: EventStorage, traceback_parser, multi_line_locator):
+    def _parse_single_train_log(self, line: str, event_storage: EventStorage, multi_line_locator):
         """
         Process single line of train log, return a non-empty event dict if matched
         """
@@ -118,7 +119,7 @@ class TrainLogParser(FileParser):
         if self.TYPE_OF_MA_LOG in line:  # MA logs support only user-defined faults
             event_dict = self.parse_from_user_repository(line) if self.custom_config.enable_model_asrt else {}
         else:
-            traceback_parser.parse_line(line)
+            TrainCallFaultParser.parse_all(line)
             # update matcher index for multiline parsing
             self._update_matcher_by_locator(multi_line_locator)
             event_dict = self.parse_single_line(line, framework_name=self.train_framework)
@@ -139,16 +140,16 @@ class TrainLogParser(FileParser):
             return
         self.pattern_matcher.update_stream(multi_line_locator)
 
-    def _parse_sdk_input(self, event_storage: EventStorage, file_source: LogInfoSaver, traceback_parser):
+    def _parse_sdk_input(self, event_storage: EventStorage, file_source: LogInfoSaver):
         self.pattern_matcher.log_lines = file_source.log_lines
         for idx, line in enumerate(file_source.log_lines):
-            event_dict = self._parse_single_train_log(line, event_storage, traceback_parser, multi_line_locator=idx)
+            event_dict = self._parse_single_train_log(line, event_storage, multi_line_locator=idx)
             if not event_dict:
                 continue
             self._complete_event_dict(event_dict, file_source)
             event_storage.record_event(event_dict)
 
-    def _parse_filestream(self, event_storage: EventStorage, file_path: str, traceback_parser):
+    def _parse_filestream(self, event_storage: EventStorage, file_path: str):
         """
         For cmd input, parse from filestream for a limited file size
         """
@@ -159,8 +160,7 @@ class TrainLogParser(FileParser):
                 line = file_stream.readline()
                 if not line:
                     break
-                event_dict = self._parse_single_train_log(line, event_storage, traceback_parser,
-                                                          multi_line_locator=file_stream)
+                event_dict = self._parse_single_train_log(line, event_storage, multi_line_locator=file_stream)
                 if not event_dict:
                     continue
                 self._complete_event_dict(event_dict, file_path)
@@ -223,76 +223,190 @@ class TrainLogParser(FileParser):
         return ""
 
 
-class TracebackInfoParser:
-    TRACEBACK_HEADER = "Traceback (most recent call last):"
-    TRACEBACK_ERROR_PATTERN = re.compile("(^[\w\.]{1,100}Error|^[\w\.]{0,100}Exception)")
+class TrainCallFaultParser:
+    TRAIN_CALL_HEADER = ""
+    PRE_TRAIN_CALL_FAULT = ""
+    UNKNOWN_TRAIN_CALL_FAULT = ""
+    ERROR_PATTERN = re.compile(r'[\w.]{1,100}')
     MAX_LINE = 200
-    UNKNOWN_TRACEBACK = f"{PRE_TRACEBACK_FAULT}_UnknownError"
+    ERROR_STR = "Error"
+    EXCEPTION_STR = "Exception"
+    _SUB_INSTANCES = []
 
     def __init__(self, default_time, source_file):
-        self.traceback_info = []
-        self.traceback_events = {}
+        self.train_call_info = []
+        self.train_call_events = {}
         self.default_time = default_time
         self.source_file = source_file
+        self.prefix = ""
+        self.has_same_prefix = False
+        self._register_instance(self)
+
+    @classmethod
+    def parse_all(cls, line):
+        """
+        Parse all train log
+        :param line: the origin log line
+        """
+        for ins in cls._SUB_INSTANCES:
+            ins.parse_line(line)
+
+    @classmethod
+    def get_all_events(cls):
+        """
+        Get all events
+        :return: all fault events
+        """
+        all_events = []
+        for ins in cls._SUB_INSTANCES:
+            all_events.extend(ins.get_event_list())
+        cls.clear_sub_instance()
+        return all_events
+
+    @classmethod
+    def clear_sub_instance(cls):
+        """
+        Clean sub instance
+        """
+        cls._SUB_INSTANCES = []
+
+    @classmethod
+    def _register_instance(cls, instance):
+        """
+        Registering subclass instances
+        :param instance: subclass instance
+        """
+        cls._SUB_INSTANCES.append(instance)
 
     def parse_line(self, line):
         """
-        Parse the train log line, find the traceback info block
+        Parse the train log line, find the train call info block
         :param line: the origin log line
         """
+        if not self.TRAIN_CALL_HEADER or not self.PRE_TRAIN_CALL_FAULT or not self.UNKNOWN_TRAIN_CALL_FAULT:
+            return
         line = line.rstrip()
-        if line.startswith(self.TRACEBACK_HEADER) or line.endswith(self.TRACEBACK_HEADER):
-            self.traceback_info.append(line)
+        if line.startswith(self.TRAIN_CALL_HEADER):
+            self.train_call_info.append(line)
             return
-        if not self.traceback_info:
+        if line.endswith(self.TRAIN_CALL_HEADER):
+            self.train_call_info.append(line)
+            self.prefix = line.split(self.TRAIN_CALL_HEADER)[0]
             return
-        self.traceback_info.append(line)
-        if len(self.traceback_info) == self.MAX_LINE and self.UNKNOWN_TRACEBACK not in self.traceback_events:
-            self.traceback_events.update({
-                self.UNKNOWN_TRACEBACK:
-                    {
-                        "event_code": self.UNKNOWN_TRACEBACK,
-                        "key_info": "\n".join(self.traceback_info),
-                        "source_device": "Unknown",
-                        "occur_time": self.default_time,
-                        "source_file": self.source_file
-                    }
-            })
-            self.traceback_info.clear()
+
+        if not self.train_call_info:
             return
-        error_re = self.TRACEBACK_ERROR_PATTERN.match(line)
-        if error_re:
-            error_name = error_re.group(1)
-            event_code = f"{PRE_TRACEBACK_FAULT}_{error_name}"
-            if event_code not in self.traceback_events:
-                self.traceback_events.update({
-                    event_code:
-                        {
-                            "event_code": event_code,
-                            "key_info": "\n".join(self.traceback_info),
-                            "source_device": "Unknown",
-                            "occur_time": self.default_time,
-                            "source_file": self.source_file
-                        }
-                })
-            self.traceback_info.clear()
+        if len(self.train_call_info) == 1 and line.startswith(self.prefix.strip()):
+            self.has_same_prefix = True
+
+        self.train_call_info.append(line)
+        if len(self.train_call_info) == self.MAX_LINE and self.UNKNOWN_TRAIN_CALL_FAULT not in self.train_call_events:
+            self._update_events()
+            self._clear_cache_info()
             return
+
+        if self.has_same_prefix:
+            temp_line = line[len(self.prefix):] if line.startswith(self.prefix.strip()) else line
+            self._deal_same_prefix(temp_line)
+            return
+        self._match_specific_err(line)
 
     def get_event_list(self):
         """
-        Get the traceback events list
-        :return: all traceback events list
+        Get the train call events list
+        :return: all train call events list
         """
-        if self.traceback_info and self.UNKNOWN_TRACEBACK not in self.traceback_events:
-            self.traceback_events.update({
-                self.UNKNOWN_TRACEBACK:
-                    {
-                        "event_code": self.UNKNOWN_TRACEBACK,
-                        "key_info": "\n".join(self.traceback_info),
-                        "source_device": "Unknown",
-                        "occur_time": self.default_time,
-                        "source_file": self.source_file
-                    }
-            })
-            self.traceback_info.clear()
-        return list(self.traceback_events.values())
+        if self.train_call_info and self.UNKNOWN_TRAIN_CALL_FAULT not in self.train_call_events:
+            self._update_events()
+            self._clear_cache_info()
+        return list(self.train_call_events.values())
+
+    def _match_specific_err(self, line):
+        """
+        Match specific error pattern
+        :param line: the origin log line
+        """
+        error_name = self._get_error_name(line)
+        if not error_name:
+            return
+        event_code = f"{self.PRE_TRAIN_CALL_FAULT}_{error_name}"
+        if event_code not in self.train_call_events:
+            self._update_events(event_code)
+        self._clear_cache_info()
+
+    def _get_error_name(self, line):
+        """
+        Get error name
+        :param line: the origin log line
+        :return: error name
+        """
+        if self.ERROR_STR in line:
+            prefix = line.split(self.ERROR_STR, 1)[0]
+            find_datas = self.ERROR_PATTERN.findall(prefix)
+            if find_datas:
+                return f"{find_datas[-1]}{self.ERROR_STR}"
+        if self.EXCEPTION_STR in line:
+            prefix = line.split(self.EXCEPTION_STR, 1)[0]
+            if not prefix or prefix.endswith(' '):
+                return self.EXCEPTION_STR
+            find_datas = self.ERROR_PATTERN.findall(prefix)
+            if find_datas:
+                return f"{find_datas[-1]}{self.EXCEPTION_STR}"
+        return ""
+
+    def _deal_same_prefix(self, line):
+        """
+        Deal the prefix of train call events
+        :param line: the log line without a prefix
+        """
+        # processing blank line and rows containing critical logs
+        keyword_line = ("  ", "\t", "Extension modules", "Segmentation fault")
+        if not line or line.startswith(keyword_line) or "(most recent call first):" in line:
+            return
+        self._match_specific_err(line)
+        if self.train_call_info and self.UNKNOWN_TRAIN_CALL_FAULT not in self.train_call_events:
+            self.train_call_info.pop(-1)
+            self._update_events()
+        self._clear_cache_info()
+
+    def _clear_cache_info(self):
+        """
+        Clear cache info
+        """
+        self.train_call_info.clear()
+        self.prefix = ""
+        self.has_same_prefix = False
+
+    def _update_events(self, event_code=""):
+        """
+        Update train call events
+        :param event_code: event code
+        """
+        event_code = event_code or self.UNKNOWN_TRAIN_CALL_FAULT
+        self.train_call_events.update({
+            event_code: {
+                "event_code": event_code,
+                "key_info": "\n".join(self.train_call_info),
+                "source_device": "Unknown",
+                "occur_time": self.default_time,
+                "source_file": self.source_file
+            }
+        })
+
+
+class TracebackInfoParser(TrainCallFaultParser):
+    TRAIN_CALL_HEADER = "Traceback (most recent call last):"
+    PRE_TRAIN_CALL_FAULT = PRE_TRACEBACK_FAULT
+    UNKNOWN_TRAIN_CALL_FAULT = f"{PRE_TRAIN_CALL_FAULT}_UnknownError"
+
+    def __init__(self, default_time, source_file):
+        super().__init__(default_time, source_file)
+
+
+class SegInfoParser(TrainCallFaultParser):
+    TRAIN_CALL_HEADER = "Fatal Python error: Segmentation fault"
+    PRE_TRAIN_CALL_FAULT = PRE_SEG_FAULT
+    UNKNOWN_TRAIN_CALL_FAULT = f"{PRE_TRAIN_CALL_FAULT}_UnknownError"
+
+    def __init__(self, default_time, source_file):
+        super().__init__(default_time, source_file)
