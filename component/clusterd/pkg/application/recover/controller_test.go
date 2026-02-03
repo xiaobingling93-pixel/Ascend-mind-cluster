@@ -804,6 +804,16 @@ func TestGetCtxAndEventChan(t *testing.T) {
 	})
 }
 
+func TestGetCtlResetTimes(t *testing.T) {
+	convey.Convey("Testing getCtlResetTime", t, func() {
+		jobInfo := newJobInfoWithStrategy(nil)
+		serviceCtx := context.Background()
+		ctl := NewEventController(jobInfo, keepAliveSeconds, serviceCtx)
+		ctl.ctlResetTime = 1
+		convey.So(ctl.getCtlResetTime(), convey.ShouldEqual, 1)
+	})
+}
+
 func TestListenEvent(t *testing.T) {
 	convey.Convey("Testing listenEvent", t, func() {
 		jobInfo := newJobInfoWithStrategy(nil)
