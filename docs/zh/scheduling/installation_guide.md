@@ -1466,6 +1466,13 @@ K8s集群中，如果将包含昇腾AI处理器的节点作为K8s的管理节点
     <td class="cellrowborder" valign="top" width="42.199999999999996%" headers="mcps1.2.4.1.3 "><a name="ul202825181508"></a><a name="ul202825181508"></a><ul id="ul202825181508"><li>node-role.kubernetes.io/worker=worker</li><li>workerselector=dls-worker-node</li><li>host-arch=huawei-arm或host-arch=huawei-x86</li><li>accelerator=huawei-Ascend310P</li><li>servertype=soc</li><li>（可选）nodeDEnable=on</li></ul>
     </td>
     </tr>
+    <tr id="row328212184011"><td class="cellrowborder" valign="top" width="31.840000000000003%" headers="mcps1.2.4.1.1 "><p id="p20562266579"><a name="p20562266579"></a><a name="p20562266579"></a>计算节点</p>
+ 	</td>
+ 	<td class="cellrowborder" valign="top" width="25.96%" headers="mcps1.2.4.1.2 "><p id="p228281818011"><a name="p228281818011"></a><a name="p228281818011"></a><span id="ph928241810010"><a name="ph928241810010"></a><a name="ph928241810010"></a><span id="ph122828181609"><a name="ph122828181609"></a><a name="ph122828181609"></a>Atlas 350 标卡</span></span></p>
+ 	</td>
+ 	<td class="cellrowborder" valign="top" width="42.199999999999996%" headers="mcps1.2.4.1.3 "><a name="ul202825181508"></a><a name="ul202825181508"></a><ul id="ul202825181508"><li>node-role.kubernetes.io/worker=worker</li><li>workerselector=dls-worker-node</li><li>host-arch=huawei-arm或host-arch=huawei-x86</li><li>accelerator=huawei-Ascend910</li><li>servertype=soc</li><li>（可选）nodeDEnable=on</li><li>（可选）accelerator-type</li></ul>
+ 	</td>
+ 	</tr>
     </tbody>
     </table>
 

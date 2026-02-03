@@ -52,7 +52,7 @@
 
 |名称|作用|取值|使用组件|
 |--|--|--|--|
-|ring-controller.atlas|标识Atlas的Pod|<li>ascend-910</li><li>ascend-{xxx}b</li>|Ascend Device Plugin|
+|ring-controller.atlas|标识Atlas的Pod|<li>ascend-910</li><li>ascend-{xxx}b</li><li>huawei.com/npu</li>|Ascend Device Plugin|
 |vnpu-dvpp|标记Pod设置的DVPP|<li>yes：该Pod使用DVPP。</li><li>no：该Pod不使用DVPP。</li><li>null：默认值。不关注是否使用DVPP。</li>|Volcano|
 |vnpu-level|标记选择虚拟化实例模板的等级|<li>low：低配，默认值。</li><li>high：性能优先。</li>|Volcano|
 |version|标记Pod的版本|字符串|Ascend Operator|
