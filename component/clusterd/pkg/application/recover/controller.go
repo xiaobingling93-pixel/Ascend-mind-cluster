@@ -99,7 +99,7 @@ type EventController struct {
 	reportStatusChan            chan *pb.RecoverStatusRequest
 	scheduleResultChan          chan bool
 	isChanClosed                bool
-	jobCanceled                 bool
+	ctlResetTime                int64
 	lock                        sync.RWMutex
 	stressTestParam             common.StressTestParam
 	stressTestResponse          chan *pb.StressTestResponse
@@ -242,8 +242,8 @@ func (ctl *EventController) reset(stop bool) {
 		ctl.closeControllerChan()
 		ctl.isChanClosed = true
 	}
+	ctl.ctlResetTime = time.Now().UnixMilli()
 	if stop {
-		ctl.jobCanceled = true
 		return
 	}
 	ctl.initControllerChan()
@@ -498,6 +498,12 @@ func (ctl *EventController) getCtxAndEventChan() (context.Context, chan string) 
 	ctl.lock.RLock()
 	defer ctl.lock.RUnlock()
 	return ctl.controllerContext, ctl.events
+}
+
+func (ctl *EventController) getCtlResetTime() int64 {
+	ctl.lock.RLock()
+	defer ctl.lock.RUnlock()
+	return ctl.ctlResetTime
 }
 
 func (ctl *EventController) selectEventChan(ctx context.Context, eventChan chan string) bool {
@@ -1582,6 +1588,7 @@ func (ctl *EventController) pgStatusEnqueue(pgRunning bool) {
 }
 
 func (ctl *EventController) listenScheduleResult() {
+	preReSetTime := ctl.getCtlResetTime()
 	if !(ctl.restartFaultProcess && ctl.configTargetStrategy(constant.ProcessRecoverInPlaceStrategyName)) &&
 		!ctl.configTargetStrategy(constant.ProcessRecoverStrategyName) {
 		hwlog.RunLog.Infof("job %s does not support recover or recover-in-place strategy, "+
@@ -1611,7 +1618,7 @@ func (ctl *EventController) listenScheduleResult() {
 	for !podgroup.JudgeIsRunningByJobKey(ctl.jobInfo.JobId) || !ctl.checkWhetherRestartPodPodsChanged() ||
 		(!ctl.restartFaultProcess && !ctl.checkWhetherPodChanged()) {
 		time.Sleep(time.Second * constant.SleepSecondBeforeCheckPGRunning)
-		if ctl.jobCanceled {
+		if ctl.getCtlResetTime() != preReSetTime {
 			return
 		}
 		if len(ctl.latestStrategy) > 0 && ctl.latestStrategy[len(ctl.latestStrategy)-1] == constant.
