@@ -15,6 +15,6 @@
 # limitations under the License.
 # ==============================================================================
 """
-Function: collector log fetcher init modules
+Function: inspection init modules
 Modified Records: 2026-02-04
 """
