@@ -33,6 +33,7 @@ import (
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/domain/statistics"
+	"clusterd/pkg/domain/superpod"
 	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
@@ -1583,8 +1584,8 @@ func TestWaitScaleOutJobObjectNil(t *testing.T) {
 			state: common.NewStateMachine(common.ScaleInRunningState, []common.TransRule{
 				{Src: common.ScaleInRunningState, Event: common.FinishEvent,
 					Dst: common.InitState, Handler: func() (nextEvent string, code common.RespCode, err error) {
-						return "", 0, err
-					}},
+					return "", 0, err
+				}},
 			}),
 			events:            make(chan string, 1),
 			controllerContext: context.Background(),
@@ -1605,8 +1606,8 @@ func TestWaitScaleOutJobSucceeded(t *testing.T) {
 			state: common.NewStateMachine(common.ScaleInRunningState, []common.TransRule{
 				{Src: common.ScaleInRunningState, Event: common.FinishEvent,
 					Dst: common.InitState, Handler: func() (nextEvent string, code common.RespCode, err error) {
-						return "", 0, err
-					}},
+					return "", 0, err
+				}},
 			}),
 			events:            make(chan string, 1),
 			controllerContext: context.Background(),
@@ -1828,5 +1829,37 @@ func TestNormalFaultAssociateSameNodeRankForExitPod(t *testing.T) {
 			convey.So(exitRanks, convey.ShouldResemble, []string{"1", "5"})
 			convey.So(restartRanks, convey.ShouldResemble, []string{"8"})
 		})
+	})
+}
+
+// TestIsA5JobReturnTrue tests A5 device returns true
+func TestIsA5JobReturnTrue(t *testing.T) {
+	convey.Convey("A5 device should return true", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{JobId: "test-job-id"},
+		}
+		patch := gomonkey.ApplyFunc(pod.GetPodByJobId, func(jobKey string) map[string]v1.Pod {
+			return map[string]v1.Pod{"pod-1": {Spec: v1.PodSpec{NodeName: "node-1"}}}
+		}).ApplyFunc(superpod.ListClusterDevice, func() []*api.SuperPodDevice {
+			return []*api.SuperPodDevice{{NodeDeviceMap: map[string]*api.NodeDevice{"node-1": {ServerType: api.VersionA5}}}}
+		})
+		defer patch.Reset()
+		convey.So(ctl.isA5Job(), convey.ShouldBeTrue)
+	})
+}
+
+// TestIsA5JobReturnFalse tests non-A5 device returns false
+func TestIsA5JobReturnFalse(t *testing.T) {
+	convey.Convey("non-A5 device should return false", t, func() {
+		ctl := &EventController{
+			jobInfo: common.JobBaseInfo{JobId: "test-job-id"},
+		}
+		patch := gomonkey.ApplyFunc(pod.GetPodByJobId, func(jobKey string) map[string]v1.Pod {
+			return map[string]v1.Pod{"pod-1": {Spec: v1.PodSpec{NodeName: "node-1"}}}
+		}).ApplyFunc(superpod.ListClusterDevice, func() []*api.SuperPodDevice {
+			return []*api.SuperPodDevice{{NodeDeviceMap: map[string]*api.NodeDevice{"node-1": {ServerType: api.VersionA3}}}}
+		})
+		defer patch.Reset()
+		convey.So(ctl.isA5Job(), convey.ShouldBeFalse)
 	})
 }
