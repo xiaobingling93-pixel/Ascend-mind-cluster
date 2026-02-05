@@ -186,7 +186,7 @@ func (s *FaultRecoverService) notifyFaultInfoForJob(faultInfo constant.JobFaultI
 		hwlog.RunLog.Errorf("jobId=%s not exist", faultInfo.JobId)
 		return
 	}
-	if len(faultInfo.FaultList) > 0 || len(faultInfo.FaultDevice) > 0 {
+	if len(faultInfo.FaultList) > 0 {
 		hwlog.RunLog.Infof("get fault info from fault center,jobId:%s,faultList=%v", faultInfo.JobId, faultInfo.FaultList)
 		hwlog.RunLog.Infof("get fault info from fault center,jobId:%s,faultDevice=%v", faultInfo.JobId, faultInfo.FaultDevice)
 	}
