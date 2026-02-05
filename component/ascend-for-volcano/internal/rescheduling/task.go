@@ -151,6 +151,7 @@ func newFaultTaskDefault(task *api.TaskInfo, job *FaultJob, env plugin.ScheduleE
 		faultType:          NodeHealthy,
 		IsNpuTask:          util.IsNPUTask(task),
 		Annotations:        task.Pod.Annotations,
+		Labels:             task.Pod.Labels,
 	}
 	if faultTask.NodeName == "" {
 		faultTask.NodeName = env.SuperPodInfo.SuperPodMapFaultTaskNodes[job.JobUID][task.Name]

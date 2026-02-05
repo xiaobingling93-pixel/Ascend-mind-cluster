@@ -210,6 +210,13 @@ func (fJob *FaultJob) ForceDeleteJob(schedulerJob *plugin.SchedulerJob,
 		if fTask.IsFaultTask && fTask.NodeRankIndex == util.Rank0 && schedulerJob.NPUJob.IsNPUJob() {
 			isMasterFault = true
 		}
+		if replicaType, ok := fTask.Labels[util.ReplicaTypeKey]; ok {
+			isMasterFault = isMasterFault && replicaType != util.ReplicaTypeValueWorker
+		}
+		if isMasterFault {
+			klog.V(util.LogInfoLev).Infof("job %v is master fault", schedulerJob.Name)
+			break
+		}
 	}
 	isSuperPod, ids := fJob.getFaultJobSuperPodInfo(schedulerJob)
 	fJob.updateSuperPodsReschdInfo(env)

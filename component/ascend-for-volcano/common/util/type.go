@@ -312,6 +312,10 @@ const (
 const (
 	// Rank0 default time of pod deleted
 	Rank0 = "0"
+	// ReplicaTypeKey label key replica-type
+	ReplicaTypeKey = "training.kubeflow.org/replica-type"
+	// ReplicaTypeValueWorker replica-type label value
+	ReplicaTypeValueWorker = "worker"
 )
 
 const (

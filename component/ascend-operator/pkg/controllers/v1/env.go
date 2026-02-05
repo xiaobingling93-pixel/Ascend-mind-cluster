@@ -191,6 +191,7 @@ func (r *ASJobReconciler) setCommonEnv(pi *podInfo, podTemplate *corev1.PodTempl
 			addEnvValue(podTemplate, mindxServerDomainEnv, mindxDefaultServerDomain, i)
 			addEnvValue(podTemplate, hostNetwork, strconv.FormatBool(pi.spec.Template.Spec.HostNetwork), i)
 			addHcclSuperPodIdEnv(pi, podTemplate, i)
+			addEnvValue(podTemplate, replicaType, string(pi.rtype), i)
 			hwlog.RunLog.Debugf(logEnvPattern, podTemplate.Name, podTemplate.Spec.Containers[i].Env)
 		}
 	}

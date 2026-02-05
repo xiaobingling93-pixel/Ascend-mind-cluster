@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"ascend-common/api"
+	"ascend-common/api/ascend-operator/apis/batch/v1"
 	mindxdlv1 "ascend-operator/pkg/api/v1"
 )
 
@@ -111,7 +112,8 @@ func fakeExpectEnvsForSetCommonEnv02() []corev1.EnvVar {
 		{Name: mindxServerIPEnv, Value: ""},
 		{Name: mindxServerDomainEnv, Value: mindxDefaultServerDomain},
 		{Name: hostNetwork, Value: fakeHostNetwork},
-		{Name: hcclSuperPodLogicId, Value: "0"}}
+		{Name: hcclSuperPodLogicId, Value: "0"},
+		{Name: replicaType, Value: string(v1.ReplicaTypeWorker)}}
 }
 
 func fakeExpectEnvsForSetCommonEnv03() []corev1.EnvVar {
@@ -121,7 +123,9 @@ func fakeExpectEnvsForSetCommonEnv03() []corev1.EnvVar {
 		{Name: mindxServerIPEnv, Value: ""},
 		{Name: mindxServerDomainEnv, Value: mindxDefaultServerDomain},
 		{Name: hostNetwork, Value: fakeHostNetwork},
-		{Name: hcclSuperPodLogicId, Value: "0"}}
+		{Name: hcclSuperPodLogicId, Value: "0"},
+		{Name: replicaType, Value: string(v1.ReplicaTypeWorker)},
+	}
 }
 
 // TestSetCommonEnv test setCommonEnv

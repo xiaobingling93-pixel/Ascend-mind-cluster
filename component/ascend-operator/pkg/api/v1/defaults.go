@@ -115,12 +115,15 @@ func SetDefaultsAscendJob(job *AscendJob) {
 	// Update the key of replicaSpecs to camel case.
 	setTypeNamesToCamelCase(job)
 
-	for _, spec := range job.Spec.ReplicaSpecs {
+	for replicaType, spec := range job.Spec.ReplicaSpecs {
 		if spec == nil {
 			continue
 		}
 		// Set default replicas to 1.
 		setDefaultReplicas(spec)
+		if replicaType == ReplicaTypeWorker {
+			continue
+		}
 		// Set default port to ml container.
 		setDefaultPort(&spec.Template.Spec)
 	}
