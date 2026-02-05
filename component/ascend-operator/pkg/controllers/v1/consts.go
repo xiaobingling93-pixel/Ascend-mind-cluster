@@ -82,6 +82,7 @@ const (
 
 	hostNetwork = "HostNetwork"
 	npuPod      = "NPU_POD"
+	replicaType = "REPLICA_TYPE"
 
 	mindxServerIPEnv         = "MINDX_SERVER_IP"                              // clusterd grpc service env name
 	mindxServerDomainEnv     = "MINDX_SERVER_DOMAIN"                          // clusterd grpc service domain env name
