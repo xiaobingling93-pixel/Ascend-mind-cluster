@@ -28,6 +28,7 @@ import (
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/domain/statistics"
+	"clusterd/pkg/domain/superpod"
 	"clusterd/pkg/interface/grpc/recover"
 	"clusterd/pkg/interface/kube"
 )
@@ -1021,6 +1022,10 @@ func (ctl *EventController) handleNotifyGlobalFault() (string, common.RespCode, 
 }
 
 func (ctl *EventController) dealWithForceRelease() bool {
+	if ctl.isA5Job() {
+		hwlog.RunLog.Infof("jobId=%s is A5 job, skip SDID-based force release", ctl.jobInfo.JobId)
+		return true
+	}
 	hwlog.RunLog.Infof("jobId=%s force release", ctl.jobInfo.JobId)
 	faultPods := ctl.GetFaultPod()
 	hwlog.RunLog.Infof("jobId=%s force release nodes %v", ctl.jobInfo.JobId, faultPods)
@@ -1034,6 +1039,28 @@ func (ctl *EventController) dealWithForceRelease() bool {
 	time.Sleep(constant.ReleaseTimeOut)
 	hwlog.RunLog.Warnf("jobId=%s force release finish", ctl.jobInfo.JobId)
 	return true
+}
+
+func (ctl *EventController) isA5Job() bool {
+	pods := pod.GetPodByJobId(ctl.jobInfo.JobId)
+	clusterDevices := superpod.ListClusterDevice()
+	for _, podInfo := range pods {
+		if podInfo.Spec.NodeName == "" {
+			continue
+		}
+		if isNodeDeviceA5(podInfo.Spec.NodeName, clusterDevices) {
+			return true
+		}
+	}
+	return false
+}
+func isNodeDeviceA5(nodeName string, clusterDevices []*api.SuperPodDevice) bool {
+	for _, superPodDevice := range clusterDevices {
+		if nodeDevice, exists := superPodDevice.NodeDeviceMap[nodeName]; exists {
+			return nodeDevice.ServerType == api.VersionA5
+		}
+	}
+	return false
 }
 
 func (ctl *EventController) firstChooseStrategy() string {
