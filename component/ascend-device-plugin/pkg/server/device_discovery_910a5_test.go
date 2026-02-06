@@ -51,7 +51,7 @@ var (
 	mockErr                   = errors.New("test error")
 	mockChipInfo              = &devcommon.ChipInfo{
 		Type:    "Ascend",
-		Name:    "910_9574",
+		Name:    "Ascend950PR",
 		Version: "V1",
 	}
 	mockBoardInfo = devcommon.BoardInfo{
@@ -163,7 +163,7 @@ func testLabelNode() {
 	convey.Convey("chipName label correct", func() {
 		newLabelMap, err := testHdm.updateChipNameToNode()
 		convey.So(err, convey.ShouldBeNil)
-		convey.So(newLabelMap[common.ChipNameLabel], convey.ShouldEqual, "910_9574")
+		convey.So(newLabelMap[common.ChipNameLabel], convey.ShouldEqual, "Ascend950PR")
 	})
 }
 

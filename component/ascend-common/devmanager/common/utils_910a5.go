@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	prefix91095    = "910_95"
+	prefix91095    = "Ascend950"
 	chipNameMaxLen = 32
 )
 
