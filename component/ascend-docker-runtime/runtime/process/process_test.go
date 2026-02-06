@@ -1591,12 +1591,12 @@ func TestGetDeviceTypeByChipName5(t *testing.T) {
 	}{
 		{
 			name:     "Ascend910A5 chip type",
-			chipName: "910_95",
+			chipName: "Ascend950",
 			expected: Ascend910A5,
 		},
 		{
 			name:     "Ascend910A5 chip with suffix",
-			chipName: "910_95XX",
+			chipName: "Ascend950XX",
 			expected: Ascend910A5,
 		},
 	}

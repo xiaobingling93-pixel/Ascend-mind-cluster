@@ -7,6 +7,6 @@ package api
 const (
 	// Ascend910A5 ascend Ascend910A5 chip
 	Ascend910A5 = "Ascend910A5"
-	// Ascend910A5Prefix: This uses HasPrefix because A5 chips have specific prefix pattern: 910_95XX
-	Ascend910A5Prefix = "910_95"
+	// Ascend910A5Prefix: This uses HasPrefix because A5 chips have specific prefix pattern: Ascend950XX
+	Ascend910A5Prefix = "Ascend950"
 )

@@ -136,7 +136,7 @@ func GetDeviceTypeByChipName(chipName string) string {
 	if strings.Contains(chipName, api.Ascend310PNo) {
 		return Ascend310P
 	}
-	// This uses HasPrefix because A5 chips have specific prefix pattern: 910_95XX
+	// This uses HasPrefix because A5 chips have specific prefix pattern: Ascend950XX
 	if strings.HasPrefix(chipName, api.Ascend910A5Prefix) {
 		return Ascend910A5
 	}
