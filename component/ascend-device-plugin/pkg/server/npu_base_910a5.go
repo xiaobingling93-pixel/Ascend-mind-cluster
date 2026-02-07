@@ -60,6 +60,9 @@ const (
 	decimal        = 10
 	hexadecimal    = 16
 	addrNumsLength = 2
+	dieIdMaskNum   = 0x04
+	portIdMaskNum  = 0x7F
+	rightShiftLen  = 3
 )
 
 var npuBase *NpuBase
@@ -160,6 +163,14 @@ func (p *ProductBase) isServer() bool {
 		return false
 	}
 	return !p.isPodScene()
+}
+
+func (p *ProductBase) isStandCard() bool {
+	if p == nil {
+		hwlog.RunLog.Error("product info is empty")
+		return false
+	}
+	return p.cardType == common.A5300ICardName || p.cardType == common.A54P300ICardName
 }
 
 // getTopoFileInfo get topo info
@@ -311,6 +322,9 @@ func (n *NpuBase) getNetTypeAndFeIDListByRankLevel(rankLevel int) (string, []uin
 	}
 	switch rankLevel {
 	case api.RankLevel0:
+		if n.productInfo.isStandCard() {
+			return api.LevelInfoTypeUB, []uint{common.UrmaFeId0}
+		}
 		return api.LevelInfoTypeUB, []uint{common.UrmaFeId1}
 	case api.RankLevel1:
 		return api.LevelInfoTypeUB, []uint{common.UrmaFeId0}
@@ -469,29 +483,23 @@ func (n *NpuBase) getPortsList(phyId int32, eid string, rLevel int) ([]string, e
 		n.eidPortMap[eidPortMapKey] = ports
 		return ports, nil
 	}
-	x, err := getSuffixAndCheckEid(eid, rLevel)
+
+	// full mesh calculate get ports
+	dieId, portId, err := getDieIdAndPortId(eid)
 	if err != nil {
-		return nil, err
+		return ports, err
 	}
-	if x <= common.PhyLimit && x > common.PhyLowerLimit {
-		// full mesh calculate get ports
-		ports = getFullMeshPorts(x, ports)
-	} else if x >= common.LogicLowerLimit && x <= common.LogicUpperLimit {
-		// get topo path info
-		topoInfo, err := n.productInfo.getTopoFileInfo()
-		if err != nil {
-			return ports, fmt.Errorf("get port list by eid failed: get phy id err:<%v>", err)
-		}
-		dieId := ((x - common.LogicLowerLimit) / common.LogicPortNumPerDie) % common.DieNumPerDev
-		for _, edge := range topoInfo.EdgeList {
-			if edge.NetLayer == rLevel && edge.LocalA == int(phyId) && edge.LinkType == "PEER2NET" {
-				ports = savePortsResultByDieId(edge, dieId, ports, portsMap)
-			}
-		}
-		if len(ports) == 0 {
-			hwlog.RunLog.Warnf("eid<%s> ports info is not found in topo file, edge list count %d",
-				eid, len(topoInfo.EdgeList))
-			return ports, nil
+
+	ports = append(ports, fmt.Sprintf("%d/%d", dieId, portId))
+	// get topo path info
+	topoInfo, err := n.productInfo.getTopoFileInfo()
+	if err != nil {
+		return ports, fmt.Errorf("get topoInfo failed: err:<%v>", err)
+	}
+
+	for _, edge := range topoInfo.EdgeList {
+		if edge.NetLayer == rLevel && edge.LocalA == int(phyId) && edge.LinkType == common.Peer2Net {
+			ports = savePortsResultByDieId(edge, dieId, ports, portsMap)
 		}
 	}
 	hwlog.RunLog.Infof("get port list success, save cache key:<%s>, value:%v, rLevel:<%d>",
@@ -500,34 +508,45 @@ func (n *NpuBase) getPortsList(phyId int32, eid string, rLevel int) ([]string, e
 	return ports, nil
 }
 
-func getFullMeshPorts(x int64, ports []string) []string {
-	dieId := ((x - 1) / common.PhyPortNumPerDie) % common.DieNumPerDev
-	port := (x - 1) % common.PhyPortNumPerDie
-	ports = append(ports, strconv.FormatInt(dieId, decimal)+"/"+strconv.FormatInt(port, decimal))
-	return ports
-}
+func getDieIdAndPortId(eid string) (byte, byte, error) {
+	const portMinLimit, twoNum, threeNum, portMaxLimit = 1, 2, 3, 9
+	if len(eid) < threeNum {
+		return 0, 0, fmt.Errorf("eid:<%v> len is invalid, which should be greater equal than %d", eid, threeNum)
+	}
 
-func getSuffixAndCheckEid(eid string, rLevel int) (int64, error) {
-	var x int64
-	// rLevel is 2 , not need x
-	if rLevel == api.RankLevel2 {
-		return x, nil
-	}
-	if len(eid) < common.DieNumPerDev {
-		return x, fmt.Errorf("eid:<%s> len is invalid, which should be greater equal than %d",
-			eid, common.DieNumPerDev)
-	}
-	xStr := eid[len(eid)-common.DieNumPerDev:]
-	x, err := strconv.ParseInt(xStr, hexadecimal, 0)
+	var dieId, portId byte
+	dieIdStr := eid[len(eid)-threeNum : len(eid)-twoNum] // third-to-last character for dieId
+	portIdStr := eid[len(eid)-twoNum:]                   // last two characters for portId calculation
+	dieIdInt, err := strconv.ParseInt(dieIdStr, hexadecimal, 0)
 	if err != nil {
-		return x, fmt.Errorf("eid:<%s> is invalid, parse to int failed, err: %v", eid, err)
+		return 0, 0, fmt.Errorf("dieId:<%v> is invalid, parse to int failed, err: %v", dieIdInt, err)
 	}
-	if x <= common.PhyLowerLimit || (x > common.PhyLimit && x < common.LogicLowerLimit) || x > common.LogicUpperLimit {
-		return x, fmt.Errorf("eid:<%s> is invalid, last byte value is %d, should be in range [%d, %d] or [%d, %d]",
-			eid, x, common.PhyLowerLimit, common.PhyLimit, common.LogicLowerLimit, common.LogicUpperLimit)
+
+	// dieId & 0x04(0000 0100) to get the 3rd bit of dieId lower byte
+	if (dieIdInt & dieIdMaskNum) != 0 {
+		dieId = 1
+	} else {
+		dieId = 0
 	}
-	hwlog.RunLog.Debugf("get eid:<%s> x value:<%d>", eid, x)
-	return x, nil
+
+	portInt, err := strconv.ParseInt(portIdStr, hexadecimal, 0)
+	if err != nil {
+		return 0, 0, fmt.Errorf("portId:<%v> is invalid, parse to int failed, err: %v", portInt, err)
+	}
+
+	// Mask with 0x7F (0111 1111) to discard the MSB (Most Significant Bit), then right shift by 3 bits to drop the 3 least significant bits.
+	// Example: 0x28 (0010 1000)
+	// 1. Masking: 0x28 & 0x7F -> 0010 1000
+	// 2. Shifting: 0010 1000 >> 3 -> 0000 0101 (Decimal: 5)
+	portId = byte((portInt & portIdMaskNum) >> rightShiftLen)
+	if portId <= 0 || portId > portMaxLimit {
+		return 0, 0, fmt.Errorf("portId:<%v> is out of range [%d-%d]", portId, portMinLimit, portMaxLimit)
+	}
+
+	// 3. PortId - 1
+	portId -= 1
+
+	return dieId, portId, nil
 }
 
 func savePortsResult(edge Edge, ports []string, portsMap map[string]struct{}) []string {
@@ -542,7 +561,7 @@ func savePortsResult(edge Edge, ports []string, portsMap map[string]struct{}) []
 	return ports
 }
 
-func savePortsResultByDieId(edge Edge, dieId int64, ports []string, portsMap map[string]struct{}) []string {
+func savePortsResultByDieId(edge Edge, dieId byte, ports []string, portsMap map[string]struct{}) []string {
 	for _, addr := range edge.LocalAPorts {
 		if _, ok := portsMap[addr]; ok {
 			continue

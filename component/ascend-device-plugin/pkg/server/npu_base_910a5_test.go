@@ -37,6 +37,7 @@ import (
 const (
 	expectedFeId   = 1
 	testPortLength = 2
+	expectedPortId = 4
 	// byte mask which is not for d2d usage
 	byteMaskNotForD2D byte = 0x01 << 3
 )
@@ -164,28 +165,50 @@ func TestGetEidPortMapKey(t *testing.T) {
 	})
 }
 
-// TestGetSuffixAndCheckEid test get suffix and check eid
-func TestGetSuffixAndCheckEid(t *testing.T) {
-	convey.Convey("test method getSuffixAndCheckEid", t, func() {
-		convey.Convey("01-rLevel is 2, return 0", func() {
-			x, _ := getSuffixAndCheckEid("", api.RankLevel2)
-			convey.So(x, convey.ShouldEqual, 0)
+func TestGetDieIdAndPortId(t *testing.T) {
+	convey.Convey("test get dieId and portId from EID string", t, func() {
+		convey.Convey("When the EID is valid", func() {
+			eid := "0x00000000000002000100000dfdf0f28"
+			dieId, portId, err := getDieIdAndPortId(eid)
+
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(dieId, convey.ShouldEqual, 1)
+			convey.So(portId, convey.ShouldEqual, expectedPortId)
 		})
-		convey.Convey("02-eid len is 0, return err", func() {
-			_, err := getSuffixAndCheckEid("1", 1)
-			convey.So(err.Error(), convey.ShouldEqual, "eid:<1> len is invalid, which should be greater equal than 2")
+
+		convey.Convey("When dieId bit 3 is zero", func() {
+			eid := "0x00000000000002000100000dfdf0028"
+			die, port, err := getDieIdAndPortId(eid)
+
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(die, convey.ShouldEqual, 0)
+			convey.So(port, convey.ShouldEqual, expectedPortId)
 		})
-		convey.Convey("03-eid parse int error, return err", func() {
-			_, err := getSuffixAndCheckEid("1xx", 1)
-			convey.So(err.Error(), convey.ShouldStartWith, "eid:<1xx> is invalid, parse to int failed, err: ")
+
+		convey.Convey("When port number is less out of allowed range", func() {
+			_, _, err := getDieIdAndPortId("400")
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "out of range")
 		})
-		convey.Convey("04-x value is 0, return err", func() {
-			_, err := getSuffixAndCheckEid("100", 1)
-			convey.So(err.Error(), convey.ShouldStartWith, "eid:<100> is invalid, last byte value is ")
+
+		convey.Convey("When port number is greater out of allowed range", func() {
+			_, _, err = getDieIdAndPortId("450")
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "out of range")
 		})
-		convey.Convey("05-x value valid ok, return x", func() {
-			x, _ := getSuffixAndCheckEid("1b6", 1)
-			convey.So(x, convey.ShouldEqual, common.LogicLowerLimit+1)
+
+		convey.Convey("When the EID is too short", func() {
+			eid := "12"
+			_, _, err := getDieIdAndPortId(eid)
+
+			convey.So(err, convey.ShouldNotBeNil)
+			convey.So(err.Error(), convey.ShouldContainSubstring, "greater equal than 3")
+		})
+
+		convey.Convey("When the EID has invalid hex characters", func() {
+			eid := "ID-S0-G28" // 'G' isn't hexadecimal
+			_, _, err = getDieIdAndPortId(eid)
+			convey.So(err, convey.ShouldNotBeNil)
 		})
 	})
 }
@@ -213,7 +236,7 @@ func TestGetPortListByEid(t *testing.T) {
 			npu := NewNpuBase()
 			npu.productInfo = &ProductBase{superPodType: 2}
 			_, err := npu.GetPortListByEid(1, "1", 1)
-			convey.So(err.Error(), convey.ShouldEqual, "eid:<1> len is invalid, which should be greater equal than 2")
+			convey.So(err.Error(), convey.ShouldEqual, "eid:<1> len is invalid, which should be greater equal than 3")
 		})
 		convey.Convey("03-hit cache, return ports", func() {
 			npu := NewNpuBase()
@@ -602,7 +625,7 @@ func TestGetPortsList(t *testing.T) {
 			convey.So(len(ports), convey.ShouldEqual, testPortLength)
 		})
 		convey.Convey("03-getPortsList level 1 full mesh", func() {
-			ports, _ := npu.getPortsList(1, "18c", 1)
+			ports, _ := npu.getPortsList(1, "42A", 1)
 			convey.So(ports[0], convey.ShouldEqual, "1/4")
 		})
 		convey.Convey("04-getPortsList level 1 read topo info", func() {
@@ -614,7 +637,7 @@ func TestGetPortsList(t *testing.T) {
 					return topoInfo, nil
 				})
 			defer mock1.Reset()
-			ports, _ := npu.getPortsList(1, "1b6", 1)
+			ports, _ := npu.getPortsList(1, "A17", 1)
 			convey.So(ports[0], convey.ShouldEqual, "0/1")
 		})
 	})
