@@ -63,9 +63,10 @@ var (
 	descOpticalRxPower3 = colcommon.BuildDesc("npu_chip_optical_rx_power_3", "npu interface receive optical-rx-power-3")
 
 	notSupportedOpticalDevices = map[uint32]bool{
-		api.A5300IMainBoardID:     true,
-		api.A5300I4PMainBoardID:   true,
-		api.A5900Pod1DMainBoardID: true,
+		api.Atlas3501PMainBoardID: true,
+		api.Atlas3502PMainBoardID: true,
+		api.Atlas3504PMainBoardID: true,
+		api.Atlas9501DMainBoardID: true,
 	}
 )
 

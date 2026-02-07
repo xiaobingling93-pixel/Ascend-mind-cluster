@@ -36,7 +36,7 @@ func TestOpticalCollectorIsSupported(t *testing.T) {
 		patches := gomonkey.NewPatches()
 		convey.Convey(c.name, t, func() {
 			defer patches.Reset()
-			patches.ApplyMethodReturn(n.Dmgr, "GetMainBoardId", uint32(api.A5900Pod1DMainBoardID))
+			patches.ApplyMethodReturn(n.Dmgr, "GetMainBoardId", uint32(api.Atlas9501DMainBoardID))
 			patches.ApplyMethodReturn(n.Dmgr, "GetDevType", c.deviceType)
 			patches.ApplyMethodReturn(n.Dmgr, "IsTrainingCard", true)
 			isSupported := c.collectorType.IsSupported(n)
