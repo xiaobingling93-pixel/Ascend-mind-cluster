@@ -38,6 +38,12 @@ var (
 	cardLabelForProduct   = append(colcommon.CardLabel, "product_type")
 	cardLabelForNpuName   = make([]string, len(colcommon.CardLabel))
 	cardLabelForContainer []string
+
+	notSupportedNetworkHealthDevices = map[uint32]bool{
+		api.Atlas3501PMainBoardID: true,
+		api.Atlas3502PMainBoardID: true,
+		api.Atlas3504PMainBoardID: true,
+	}
 )
 
 var (
@@ -197,7 +203,9 @@ func (c *BaseInfoCollector) CollectToCache(n *colcommon.NpuCollector, chipList [
 		}
 		collectPower(logicID, dmgr, cache)
 		collectUtil(logicID, dmgr, cache)
-		setNetHealthStatus(logicID, dmgr, cache)
+		if isSupportNetworkHealthDevices(n.Dmgr.GetDevType(), chip.MainBoardId) {
+			setNetHealthStatus(logicID, dmgr, cache)
+		}
 		setProcessInfo(logicID, dmgr, cache)
 
 		cache.timestamp = time.Now()
@@ -235,8 +243,10 @@ func (c *BaseInfoCollector) UpdatePrometheus(ch chan<- prometheus.Metric, n *col
 		doUpdateMetricWithValidateNum(ch, timestamp, float64(cache.VectorUtilization), cardLabel, descVectorUtil)
 		doUpdateMetricWithValidateNum(ch, timestamp, 1, cardLabel, descNpuName)
 		doUpdateMetricWithValidateNum(ch, timestamp, float64(getHealthCode(cache.HealthStatus)), cardLabel, descHealthStatus)
-		doUpdateMetricWithValidateNum(ch, timestamp, float64(getHealthCode(cache.NetHealthStatus)),
-			cardLabel, descNetworkStatus)
+		if isSupportNetworkHealthDevices(n.Dmgr.GetDevType(), cache.chip.MainBoardId) {
+			doUpdateMetricWithValidateNum(ch, timestamp, float64(getHealthCode(cache.NetHealthStatus)),
+				cardLabel, descNetworkStatus)
+		}
 
 		updateContainerInfo(ch, containerInfo, cardLabel, &cache, chipWithVnpu)
 
@@ -337,7 +347,9 @@ func (c *BaseInfoCollector) UpdateTelegraf(fieldsMap map[string]map[string]inter
 		doUpdateTelegrafWithValidateNum(fieldMap, descVectorUtil, float64(cache.VectorUtilization), "")
 		doUpdateTelegrafWithValidateNum(fieldMap, descOverUtil, float64(cache.OverallUtilization), "")
 		doUpdateTelegrafWithValidateNum(fieldMap, descHealthStatus, float64(getHealthCode(cache.HealthStatus)), "")
-		doUpdateTelegrafWithValidateNum(fieldMap, descNetworkStatus, float64(getHealthCode(cache.NetHealthStatus)), "")
+		if isSupportNetworkHealthDevices(n.Dmgr.GetDevType(), chip.MainBoardId) {
+			doUpdateTelegrafWithValidateNum(fieldMap, descNetworkStatus, float64(getHealthCode(cache.NetHealthStatus)), "")
+		}
 		doUpdateTelegraf(fieldMap, descNpuName, chip.ChipInfo.Name, "")
 
 		updateProcessInfoForTelegraf(&cache, fieldMap)
@@ -457,4 +469,11 @@ func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *chip
 		info = &common.DevProcessInfo{}
 	}
 	hwChip.DevProcessInfo = info
+}
+
+func isSupportNetworkHealthDevices(devType string, mainBoardId uint32) bool {
+	if devType == api.Ascend910A5 && notSupportedNetworkHealthDevices[mainBoardId] {
+		return false
+	}
+	return true
 }

@@ -168,16 +168,20 @@ const (
 	BwPrefix = "npu_chip_info_hccs_bandwidth_info_"
 	// AscendDeviceInfo
 	AscendDeviceInfo = "ASCEND_VISIBLE_DEVICES"
+
+	MetricsPrefix = "npu_chip_info_"
 )
 
 // main board identifiers
 const (
-	// A5300IMainBoardID board id of 300I A5 MainBoard
-	A5300IMainBoardID = 0x68
-	// A5300I4PMainBoardID board id of 300I A5 4P MainBoard
-	A5300I4PMainBoardID = 0x6c
-	// A5900Pod1DMainBoardID board id of A5 1D MainBoard
-	A5900Pod1DMainBoardID = 0x07
+	// Atlas3501PMainBoardID board id of Atlas350 MainBoard
+	Atlas3501PMainBoardID = 0x68
+	// Atlas3502PMainBoardID board id of Atlas350 2P MainBoard
+	Atlas3502PMainBoardID = 0x6b
+	// Atlas3504PMainBoardID board id of Atlas350 4P MainBoard
+	Atlas3504PMainBoardID = 0x6c
+	// Atlas9501DMainBoardID board id of Atlas950 1D MainBoard
+	Atlas9501DMainBoardID = 0x07
 )
 
 const (

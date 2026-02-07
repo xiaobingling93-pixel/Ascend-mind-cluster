@@ -191,3 +191,10 @@ func updateFrame[T any](cacheKey string, n *colcommon.NpuCollector, containerMap
 		callBack(chip, cache, cardLabel)
 	}
 }
+
+func logWarnMetricsWithLimit(metric string, logicID int32, err error) {
+	logger.LogfWithOptions(logger.WarnLevel, logger.LogOptions{
+		Domain: metric,
+		ID:     logicID},
+		"logicID(%d),%v", logicID, err)
+}
