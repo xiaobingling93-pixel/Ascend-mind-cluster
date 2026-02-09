@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"sync/atomic"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
@@ -41,20 +42,46 @@ import (
 )
 
 const (
-	phyIDNum    = 1
-	logicIDNum  = 2
-	vDevIDNum   = 3
-	aiCoreNum   = 4
-	aiCoreCount = 8
-	vDevChipID  = 100
-	FaultOnce   = 1
-	NoneFault   = 0
+	phyIDNum        = 1
+	logicIDNum      = 2
+	vDevIDNum       = 3
+	aiCoreNum       = 4
+	aiCoreCount     = 8
+	vDevChipID      = 100
+	FaultOnce       = 1
+	NoneFault       = 0
+	routineWaitTime = 50 * time.Millisecond
 
 	atlas300VPro     = "Atlas 300V Pro"
 	ascend910FakeID0 = "Ascend910-0"
 	ascend910FakeID1 = "Ascend910-1"
 	ascend910FakeID2 = "Ascend910-2"
 )
+
+func TestAsyncReleaseAutoFill(t *testing.T) {
+	convey.Convey("should release auto fill when all ids convert successfully", t, func() {
+		tool := mockAscendTools()
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		var removeCacheCalled int32 = 0
+		patches.ApplyFunc(common.RemoveTimeoutReasonCache,
+			func(id common.LogicId, code string) {
+				atomic.StoreInt32(&removeCacheCalled, 1)
+			})
+
+		patches.ApplyFunc(time.After, func(d time.Duration) <-chan time.Time {
+			ch := make(chan time.Time, 1)
+			ch <- time.Now()
+			return ch
+		})
+
+		tool.asyncReleaseAutoFill(context.Background(), []common.PhyId{phyIDNum}, 0)
+		time.Sleep(routineWaitTime)
+		called := atomic.LoadInt32(&removeCacheCalled)
+		convey.So(called, convey.ShouldEqual, 1)
+	})
+}
 
 func deepCopyGroupDevice(groupDevice map[string][]*common.NpuDevice) map[string][]*common.NpuDevice {
 	newGroupDevice := make(map[string][]*common.NpuDevice, len(groupDevice))

@@ -98,6 +98,10 @@ func RemoveTimeoutReasonCache(logic LogicId, faultCode string) {
 		hwlog.RunLog.Infof(
 			"remove timeout reason, logic %v, reason %v", logic, removedReasons.toString())
 	}
+	// if there is no ManuallySeparateNPU in reason then remove logicId from ManuallySeparateNPU
+	if !upgradeFaultCacheMgr.cache[logic].checkLevel(ManuallySeparateNPU) {
+		DeleteManuallyFaultInfo(int32(logic))
+	}
 }
 
 // GetAndCleanRemovedReasonEvent get and clean removed reason when notify to k8s event
@@ -123,6 +127,7 @@ const (
 	AutofillUpgradeType  UpgradeTypeEnum = "FaultAutofill"
 	validSplitNum                        = 2
 	invalidPhyId                         = PhyId(-1)
+	AutofillFaultCode    string          = "AutofillFaultCode"
 )
 
 // UpgradeFaultReason indicate the reason of card which is upgrade
@@ -144,8 +149,8 @@ type LogicId int32
 // PhyId used in configmap
 type PhyId int32
 
-// ReasonKey the reason key of upgrade fault includes phy id or logic id
-type ReasonKey interface {
+// DeviceKey the key of upgrade fault includes phy id or logic id
+type DeviceKey interface {
 	LogicId | PhyId
 }
 
@@ -237,7 +242,7 @@ func (reasonSet UpgradeFaultReasonSet) copy() UpgradeFaultReasonSet {
 	return res
 }
 
-type UpgradeFaultReasonMap[T ReasonKey] map[T]UpgradeFaultReasonSet
+type UpgradeFaultReasonMap[T DeviceKey] map[T]UpgradeFaultReasonSet
 
 func (reasonMap UpgradeFaultReasonMap[ReasonKey]) Equals(otherReasonMap UpgradeFaultReasonMap[ReasonKey]) bool {
 	if len(reasonMap) != len(otherReasonMap) {
@@ -381,19 +386,24 @@ func StringToReasonCm(cm string) (UpgradeFaultReasonMap[PhyId], error) {
 // When configmap ManuallySeparateNPU changed
 // 1. if Npu is in ManuallySeparateNPU not in UpgradeFaultReason, then UpgradeFaultReason should fill the reason
 // 2. if Npu is not in ManuallySeparateNPU but in UpgradeFaultReason, then UpgradeFaultReason should remove the reason
-func (reasonMap UpgradeFaultReasonMap[PhyId]) FixManuallySeparateReason(manuallySeparateNPU []PhyId) {
+func (reasonMap UpgradeFaultReasonMap[PhyId]) FixManuallySeparateReason(manuallySeparateNPU []PhyId) []PhyId {
 	shouldManuallySeparateList := make(map[PhyId]struct{})
 	// 1. insert missing ManuallySeparateNPU
+	autoFillPhyIds := make([]PhyId, 0)
 	for _, phyId := range manuallySeparateNPU {
 		shouldManuallySeparateList[phyId] = struct{}{}
 		reasonSet, found := reasonMap[phyId]
 		if !found {
-			reasonMap.UpdateReason(phyId, time.Now().UnixMilli(), "", ManuallySeparateNPU, AutofillUpgradeType)
+			reasonMap.UpdateReason(phyId, time.Now().UnixMilli(),
+				AutofillFaultCode, ManuallySeparateNPU, AutofillUpgradeType)
+			autoFillPhyIds = append(autoFillPhyIds, phyId)
 			continue
 		}
 		exist := reasonSet.checkLevel(ManuallySeparateNPU)
 		if !exist {
-			reasonMap.UpdateReason(phyId, time.Now().UnixMilli(), "", ManuallySeparateNPU, AutofillUpgradeType)
+			reasonMap.UpdateReason(phyId, time.Now().UnixMilli(),
+				AutofillFaultCode, ManuallySeparateNPU, AutofillUpgradeType)
+			autoFillPhyIds = append(autoFillPhyIds, phyId)
 		}
 	}
 	// 2. remove redundant ManuallySeparateNPU
@@ -402,6 +412,7 @@ func (reasonMap UpgradeFaultReasonMap[PhyId]) FixManuallySeparateReason(manually
 			reasonMap.removeFaultLevel(phyId, ManuallySeparateNPU)
 		}
 	}
+	return autoFillPhyIds
 }
 
 // UpdateReason update reason cache
