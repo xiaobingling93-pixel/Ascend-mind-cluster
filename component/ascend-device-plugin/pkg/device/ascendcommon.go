@@ -154,7 +154,7 @@ type DevManager interface {
 	WriteFaultToEvent(ctx context.Context)
 	GetAssociatedLogicIDs(logicID, cardID, deviceID int32) ([]int32, error)
 	SetDpu(string, []common.DpuCMData, map[string][]string)
-	LoadDeviceInfoCm()
+	LoadDeviceInfoCm(ctx context.Context)
 }
 
 // SetDmgr set devmanager
@@ -261,7 +261,7 @@ func (tool *AscendTools) handleManuallySeparateNPUFaultInfo() (string, []common.
 }
 
 // LoadDeviceInfoCm load device info cm into cache
-func (tool *AscendTools) LoadDeviceInfoCm() {
+func (tool *AscendTools) LoadDeviceInfoCm(ctx context.Context) {
 	deviceInfoName := tool.client.DeviceInfoName
 	deviceInfo, err := tool.client.GetConfigMap(deviceInfoName, api.KubeNS)
 	if err != nil {
@@ -288,15 +288,44 @@ func (tool *AscendTools) LoadDeviceInfoCm() {
 		reasonCm = make(common.UpgradeFaultReasonMap[common.PhyId])
 	}
 	// 2. load upgrade fault reason
-	reasonCm.FixManuallySeparateReason(manuallySeparateNPUs)
+	autoFillPhyIds := reasonCm.FixManuallySeparateReason(manuallySeparateNPUs)
+
 	// 3. convert cm to cache
 	cache, err := reasonCm.ConvertCmToCache(tool.GetDmgr().GetLogicIDFromPhysicID)
 	if err != nil {
 		hwlog.RunLog.Errorf("convert cm to cache err: %v", err)
 		return
 	}
-	// 4. save
+	// 4. save reason cache
 	common.SaveUpgradeFaultCache(cache)
+	// 5. FaultAutoFill should release in one day
+	timeout := common.GetAutofillReasonReleaseTime()
+	if len(autoFillPhyIds) > 0 && timeout != common.MaxReleaseTimeWindow {
+		tool.asyncReleaseAutoFill(ctx, autoFillPhyIds, timeout)
+	}
+}
+
+func (tool *AscendTools) asyncReleaseAutoFill(ctx context.Context, autoFillPhyIds []common.PhyId, timeout int64) {
+	autoFillLogicIds := make([]common.LogicId, 0, len(autoFillPhyIds))
+	for _, phyId := range autoFillPhyIds {
+		logicId, err := tool.GetDmgr().GetLogicIDFromPhysicID(int32(phyId))
+		if err != nil {
+			hwlog.RunLog.Errorf("convert phy id %v to logic id err: %v", phyId, err)
+			continue
+		}
+		autoFillLogicIds = append(autoFillLogicIds, common.LogicId(logicId))
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(timeout) * time.Second):
+			hwlog.RunLog.Infof("logicIds %v release auto fill fault", autoFillLogicIds)
+			for _, id := range autoFillLogicIds {
+				common.RemoveTimeoutReasonCache(id, common.AutofillFaultCode)
+			}
+		}
+	}()
 }
 
 // UpdateNodeDeviceInfo update device info

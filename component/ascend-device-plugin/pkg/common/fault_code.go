@@ -167,6 +167,8 @@ var (
 	networkFaultConfigureFailedMsg = "%x is a network fault and cannot be configured to %s now, " +
 		"fault handling policy is set to NotHandleFault"
 	hbmTool = NewHbmFaultManager()
+	// autoFillReasonReleaseTimeWindow indicate that some reason is automatic fill should release in future
+	autoFillReasonReleaseTimeWindow int64 = 0
 )
 
 // ManuallyFaultInfo save the info of ManuallySeparateNPU
@@ -509,6 +511,7 @@ func LoadFaultCustomization(faultCustomizationByte []byte) error {
 	}
 	loadGraceToleranceCustomization(faultCustomization.GraceTolerance)
 	loadFaultFrequencyCustomization(faultCustomization.FaultFrequency)
+	setAutofillReasonReleaseTime()
 	loadFaultDurationCustomization(faultCustomization.FaultDuration)
 	return nil
 }
@@ -646,6 +649,37 @@ func loadGraceToleranceCustomization(customization GraceToleranceCustomization) 
 		hwlog.RunLog.Debugf("modify WaitFaultSelfHealingTime(%d) success", customization.WaitFaultSelfHealingTime)
 		WaitFaultSelfHealingTime = time.Duration(customization.WaitFaultSelfHealingTime)
 	}
+}
+
+func setAutofillReasonReleaseTime() {
+	faultFrequencyMapLock.Lock()
+	defer faultFrequencyMapLock.Unlock()
+	if autoFillReasonReleaseTimeWindow != 0 {
+		hwlog.RunLog.Warnf("AutoFillReasonReleaseTimeWindow has been set, "+
+			"current value is %v", autoFillReasonReleaseTimeWindow)
+		return
+	}
+	autoFillReasonReleaseTimeWindow = 0
+	// check all ReleaseTimeWindow, set the max ReleaseTimeWindow into AutoFillReasonReleaseTimeWindow
+	for _, cache := range faultFrequencyMap {
+		if cache.ReleaseTimeWindow == MaxReleaseTimeWindow {
+			continue
+		}
+		if autoFillReasonReleaseTimeWindow < cache.ReleaseTimeWindow {
+			autoFillReasonReleaseTimeWindow = cache.ReleaseTimeWindow
+		}
+	}
+	// if all fault code are not configured ReleaseTimeWindow then do not release autofill reason
+	if autoFillReasonReleaseTimeWindow == 0 {
+		autoFillReasonReleaseTimeWindow = MaxReleaseTimeWindow
+	}
+	hwlog.RunLog.Infof("AutoFillReasonReleaseTimeWindow is %v", autoFillReasonReleaseTimeWindow)
+}
+
+func GetAutofillReasonReleaseTime() int64 {
+	faultFrequencyMapLock.Lock()
+	defer faultFrequencyMapLock.Unlock()
+	return autoFillReasonReleaseTimeWindow
 }
 
 func loadFaultFrequencyCustomization(customizations []FaultFrequencyCustomization) {
@@ -945,7 +979,8 @@ func handleFrequencyFault(logicId int32, frequencyCache *FaultFrequencyCache, ev
 	lenFrequencyCache := len(frequencyCache.Frequency[logicId])
 	if int64(lenFrequencyCache) >= frequencyCache.Times {
 		hwlog.RunLog.Infof("FaultFrequency detected, event id: %s, logic id: %d, fault occurred times: %d, "+
-			"fault level: %s", eventId, logicId, len(frequencyCache.Frequency[logicId]), frequencyCache.FaultHandling)
+			"fault level: %s, faultTimes: %v", eventId, logicId, lenFrequencyCache, frequencyCache.FaultHandling,
+			frequencyCache.Frequency[logicId])
 		if frequencyCache.FaultHandling == ManuallySeparateNPU {
 			hwlog.RunLog.Infof("detect ManuallySeparateNPU, logic id: %d", logicId)
 			SaveManuallyFaultInfo(logicId)
@@ -957,11 +992,8 @@ func handleFrequencyFault(logicId int32, frequencyCache *FaultFrequencyCache, ev
 	} else {
 		if time.Now().UnixMilli()-lastRecoverTime > frequencyCache.ReleaseTimeWindow*SecondMagnification {
 			RemoveTimeoutReasonCache(LogicId(logicId), eventId)
-			if frequencyCache.FaultHandling == ManuallySeparateNPU {
-				DeleteManuallyFaultInfo(logicId)
-				RemoveManuallySeparateReasonCache([]LogicId{LogicId(logicId)})
-			}
 		} else {
+			// if fault has in upgrade reason then update the fault time
 			if CheckUpgradeFaultCache(LogicId(logicId), eventId, frequencyCache.FaultHandling, FrequencyUpgradeType) {
 				InsertUpgradeFaultCache(LogicId(logicId), lastFaultTime, eventId,
 					frequencyCache.FaultHandling, FrequencyUpgradeType)
