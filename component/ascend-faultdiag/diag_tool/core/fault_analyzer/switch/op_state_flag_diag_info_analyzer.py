@@ -74,7 +74,7 @@ class OpStateFlagDiagInfoAnalyzer(Analyzer):
                 domain = [Domain(DeviceType.SWITCH, swi_info.swi_id),
                           Domain(DeviceType.SWI_PORT, op_model.interface_name)]
                 lane_fault_info = '\n'.join(fault_info_list)
-                fault_info = f"端口{op_model.interface_name} flag信息异常: {lane_fault_info}"
+                fault_info = f"端口{op_model.interface_name} flag信息异常：\n{lane_fault_info}"
                 result = DiagResult(domain, fault_info, "请检查端口")
                 results.append(result)
         return results

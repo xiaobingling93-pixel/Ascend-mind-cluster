@@ -43,7 +43,7 @@ class BmcErrCodeAnalyzer(Analyzer):
         if not search_data:
             return domain
         hardware_info = search_data.groupdict()
-        npu = hardware_info.get("npu") or hardware_info.get("npu1")
+        npu = hardware_info.get("npu") or hardware_info.get("npu1") or hardware_info.get("npu2")
         chip = hardware_info.get("chip")
         if npu:
             domain.append(Domain(DeviceType.NPU.value, npu))

@@ -18,6 +18,7 @@
 import sys
 
 DEFAULT_LOGGER_NAME = "diag_tool"
+DEFAULT_CONSOLE_LOGGER_NAME = "diag_tool_console"
 # 闪断关键字
 NPU_LINK_DOWN = "LINK DOWN"
 NPU_LINK_UP = "LINK UP"

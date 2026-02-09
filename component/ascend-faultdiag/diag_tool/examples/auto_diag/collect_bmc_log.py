@@ -33,6 +33,5 @@ class CollectBmcLog:
         await CollectBmcLogService(self.diag_ctx).run()
 
 
-
 if __name__ == '__main__':
     asyncio.run(CollectBmcLog().main())

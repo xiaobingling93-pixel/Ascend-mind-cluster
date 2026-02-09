@@ -71,6 +71,7 @@ class CrcRisingCheckItem(Analyzer):
                     Domain(DeviceType.SWITCH, local_if_info.device_name),
                     Domain(DeviceType.SWI_PORT, local_if_info.interface)
                 ]
-                DiagResult(domain, fault_info=fault_info, suggestion="请检查端口", err_code=alarm_info.alarm_id)
-
+                result.append(
+                    DiagResult(domain, fault_info=fault_info, suggestion="请检查端口", err_code=alarm_info.alarm_id)
+                )
         return result
