@@ -15,19 +15,26 @@
 # limitations under the License.
 # ==============================================================================
 
-import abc
-from abc import ABC
-from typing import List
+from setuptools import setup, find_packages
 
-from diag_tool.core.model.cluster_info_cache import ClusterInfoCache
-from diag_tool.core.model.diag_result import DiagResult
+from diag_tool.core.config.tool_config import ToolConfig
 
-
-class Analyzer(ABC):
-
-    def __init__(self, cluster_info: ClusterInfoCache):
-        self.cluster_info = cluster_info
-
-    @abc.abstractmethod
-    def analyse(self) -> List[DiagResult]:
-        pass
+setup(
+    name="mindcluster-diag_tool",
+    version=ToolConfig().version,
+    description="MindCluster device link diagnostic tool",
+    author="Huawei Technologies Co., Ltd",
+    url="https://gitcode.com/Ascend/mind-cluster",
+    packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        '': ['*.ini', '*.json'],
+    },
+    install_requires=[],
+    entry_points={
+        'console_scripts': [
+            'mind-diag=diag_tool.cli:main',
+        ],
+    },
+    python_requires='>=3.7',
+)

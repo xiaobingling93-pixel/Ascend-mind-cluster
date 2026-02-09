@@ -43,7 +43,7 @@ class FormParser:
         root = {}
         route_stack = [(-1, root)]
         last_key = ""
-        cur_node = None
+        cur_node = {}
         for line in content.splitlines():
             line = line.rstrip()
             if not line:

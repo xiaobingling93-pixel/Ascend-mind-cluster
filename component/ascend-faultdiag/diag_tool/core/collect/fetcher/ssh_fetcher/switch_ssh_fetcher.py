@@ -24,7 +24,7 @@ from diag_tool.core.common import constants, diag_enum
 from diag_tool.core.config import chip_port_range, port_mapping_config
 from diag_tool.core.log_parser.base import FindResult
 from diag_tool.core.model.hccs import ProxyTimeoutStatis, HccsChipPortSnr, HccsSerdesDumpInfo
-from diag_tool.core.model.switch import InterfaceBrief
+from diag_tool.core.model.switch import InterfaceBrief, PortDownStatus
 from diag_tool.utils.executors import AsyncSSHExecutor, CmdTask
 from diag_tool.utils.table_parser import TableParser
 
@@ -58,7 +58,7 @@ class SwiSshFetcher(SshFetcher, SwitchFetcher):
         # 1.拼接命令
         all_cmd_list = []
         for interface_brief in interface_briefs:
-            all_cmd_list.append(f"dis optical-module interface {interface_brief.interface}")
+            all_cmd_list.append(f"dis optical-module interface {interface_brief.interface} | no-more")
         all_cmd_str = "\n".join(all_cmd_list)
         # 2. 执行命令
         all_cmd_res = await self.executor.run_cmd(CmdTask(all_cmd_str))
@@ -225,3 +225,6 @@ class SwiSshFetcher(SshFetcher, SwitchFetcher):
 
     async def fetch_interface_port_mapping(self) -> str:
         return ""
+
+    async def fetch_port_down_status(self) -> List[PortDownStatus]:
+        return []

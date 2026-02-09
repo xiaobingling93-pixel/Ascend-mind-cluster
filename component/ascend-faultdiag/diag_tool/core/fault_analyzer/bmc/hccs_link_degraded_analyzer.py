@@ -44,7 +44,9 @@ class CpuBoardUbcInfo(JsonObj):
 class HccsLinkDegradedAnalyzer(Analyzer):
     _ERROR_CODE = "0x28000049"
     _HCCS_LINK_DEGRADED_PATTERN = re.compile(
-        r"CPU(?P<cpu_id>\d+) UBC(?P<ubc_id>\d+) macro(?P<macro_id>\d+) on CPU board (?P<cud_board_id>\d+)")
+        r"CPU(?P<cpu_id>\d{1,2}) UBC(?P<ubc_id>\d{1,2}) macro(?P<macro_id>\d{1,2}) on CPU board (?P<cud_board_id>\d"
+        r"{1,2})"
+    )
 
     def __init__(self, cluster_info: ClusterInfoCache):
         super().__init__(cluster_info)

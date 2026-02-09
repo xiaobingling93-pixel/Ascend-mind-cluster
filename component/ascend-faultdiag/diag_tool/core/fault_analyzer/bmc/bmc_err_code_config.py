@@ -37,7 +37,8 @@ class BmcErrCodeEvent(JsonObj):
         self.keywords = keywords
 
 
-_HARDWARE_PATTERN = re.compile(r"NPU Board(?P<npu>\d{1,2})( NPU\d-(?P<chip>\d{1,2}))?|NPU(?P<npu1>\d{1,2})")
+_HARDWARE_PATTERN = re.compile(r"NPU Board(?P<npu>\d{1,2})( NPU\d-(?P<chip>\d{1,2}))?|NPU(?P<npu1>\d{1,2})|AI Module("
+                               r"?P<npu2>\d{1,2})")
 
 _ERR_CODE_EVENT_LIST = [
     BmcErrCodeEvent(0x80e01801, "发生多Bit ECC故障", "请对该NPU HBM进行压测", _HARDWARE_PATTERN),

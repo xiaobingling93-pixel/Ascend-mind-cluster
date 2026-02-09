@@ -77,6 +77,30 @@ class SimpleLogger:
 
 DIAG_LOGGER = SimpleLogger().get_logger()
 
+
+class ConsoleLogger:
+    def __init__(self, logger_name: str = constants.DEFAULT_CONSOLE_LOGGER_NAME, level: int = logging.INFO):
+        """
+        初始化简单控制台日志模块
+        :param logger_name: 日志器名称
+        :param level: 日志级别（DEBUG/INFO/WARNING/ERROR/CRITICAL）
+        """
+        self.logger = logging.getLogger(logger_name)
+        self.logger.setLevel(level)
+        self.logger.handlers = []
+
+        # 添加控制台处理器（只打印内容）
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter('%(message)s'))
+        self.logger.addHandler(console_handler)
+
+    def get_logger(self) -> logging.Logger:
+        """获取配置好的日志器"""
+        return self.logger
+
+
+CONSOLE_LOGGER = ConsoleLogger().get_logger()
+
 # 使用示例
 if __name__ == "__main__":
     # 方式1：自定义配置
@@ -87,3 +111,7 @@ if __name__ == "__main__":
     custom_logger.warning("这是警告日志")
     custom_logger.error("这是错误日志")
     custom_logger.critical("这是严重错误日志")
+
+    # 方式2：简单控制台日志（只打印内容）
+    simple_logger = CONSOLE_LOGGER
+    simple_logger.info("这是简单普通信息日志")
