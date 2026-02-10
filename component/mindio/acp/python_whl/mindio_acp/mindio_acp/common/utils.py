@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import time
 from mindio_acp.common.mindio_logger import LOGGER
 MAX_FILE_PATH = 1024
 
@@ -70,3 +71,18 @@ def get_relative_path(path):
         return path[next_slash_index + 1:]
 
     return path
+
+
+def time_used_info(func):
+    """
+    Print interface execution time
+    """
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        time_ms = (end_time - start_time) * 1000
+        LOGGER.info(f'func_name: {func.__name__}, took {time_ms:.3f} ms to execute')
+        return result
+
+    return wrapper

@@ -19,6 +19,7 @@ from typing import Union, Dict
 from collections import namedtuple
 
 from mindio_acp.common import mindio_logger
+from mindio_acp.common.utils import time_used_info
 from mindio_acp.acc_io.mindio_help import torch_initialize_helper
 from mindio_acp.acc_io.mindio_help import torch_register_checker_helper
 from mindio_acp.acc_io.mindio_help import torch_load_helper
@@ -31,7 +32,7 @@ logging = mindio_logger.LOGGER
 DEFAULT_MAX_FILE_SIZE = 1024 * 1024 * 1024
 ONE_HOUR_SEC = 60 * 60
 
-
+@time_used_info
 def initialize(server_info: Dict[str, str] = None) -> int:
     """
     initialize mindio_acp module man manually.
@@ -60,7 +61,7 @@ def register_checker(callback, check_dict, user_context, timeout_sec):
         return None
     return torch_register_checker_helper(callback, check_dict, user_context, timeout_sec)
 
-
+@time_used_info
 def multi_save(obj: Union[Dict, bytes], path_list: list):
     """
     Use mindio format to save torch ckpt from memfs or real paths
@@ -73,7 +74,7 @@ def multi_save(obj: Union[Dict, bytes], path_list: list):
     """
     return torch_multi_save_helper(obj, path_list)
 
-
+@time_used_info
 def save(obj: Union[Dict, bytes], path: str, open_way='memfs') -> int:
     """
     Use mindio format to save torch ckpt from memfs or real path
@@ -88,7 +89,7 @@ def save(obj: Union[Dict, bytes], path: str, open_way='memfs') -> int:
     path = os.path.realpath(path)
     return torch_save_helper(obj, path, open_way)
 
-
+@time_used_info
 def load(path, open_way='memfs', map_location=None, weights_only=True) -> Dict:
     """
     Use mindio format to load torch ckpt from memfs or real path
@@ -105,7 +106,7 @@ def load(path, open_way='memfs', map_location=None, weights_only=True) -> Dict:
     path = os.path.realpath(path)
     return torch_load_helper(path, open_way, map_location, weights_only)
 
-
+@time_used_info
 def preload(*path) -> int:
     """
     Use mindio format async load torch ckpt from real path, and save it into memfs
