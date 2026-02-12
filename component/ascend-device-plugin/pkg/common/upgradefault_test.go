@@ -45,6 +45,7 @@ const (
 	testLogicID3        LogicId         = 1003
 	testFaultTime       int64           = 1700000000000
 	testFaultCode                       = "E1001"
+	testFaultCode2                      = "E1002"
 	testFaultLevel                      = "critical"
 	testFaultLevel2                     = "warning"
 	manuallySeparateNPU                 = "ManuallySeparateNPU"
@@ -215,7 +216,7 @@ func TestRemoveTimeoutReasonCache(t *testing.T) {
 					faultReasonKey: upgradeFaultReason,
 				},
 			}
-			RemoveTimeoutReasonCache(testLogicID1, testFaultCode)
+			RemoveTimeoutReasonCache(testLogicID1)
 			convey.So(len(upgradeFaultCacheMgr.cache), convey.ShouldEqual, 0)
 			convey.So(len(upgradeFaultCacheMgr.removedEvent), convey.ShouldBeGreaterThan, 0)
 		})
@@ -236,7 +237,7 @@ func TestRemoveTimeoutReasonCache(t *testing.T) {
 					faultReasonKey: upgradeFaultReason,
 				},
 			}
-			RemoveTimeoutReasonCache(testLogicID1, "E9999")
+			RemoveTimeoutReasonCache(testLogicID1, CodeMatcher(testFaultCode2))
 			convey.So(len(upgradeFaultCacheMgr.cache), convey.ShouldEqual, 1)
 		})
 	})

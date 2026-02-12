@@ -687,7 +687,7 @@ func loadFaultFrequencyCustomization(customizations []FaultFrequencyCustomizatio
 	faultFrequencyMapLock.Lock()
 	defer faultFrequencyMapLock.Unlock()
 	for _, cus := range customizations {
-		if !validateFaultFrequencyCustomization(cus) {
+		if !validateFaultFrequencyCustomization(&cus) {
 			continue
 		}
 		for _, id := range cus.EventId {
@@ -716,8 +716,7 @@ func loadFaultFrequencyCustomization(customizations []FaultFrequencyCustomizatio
 						ReleaseTimeWindow: cus.ReleaseTimeWindow,
 					},
 				}
-				hwlog.RunLog.Debugf("insert FaultFrequency for event id %s success, TimeWindow: %d, "+
-					"Times: %d, FaultHandling: %s", id, cus.TimeWindow, cus.Times, cus.FaultHandling)
+				hwlog.RunLog.Debugf("insert FaultFrequency for event id %s success: %v", id, cus)
 			}
 		}
 	}
@@ -773,7 +772,7 @@ func insertFrequencyFaultRecover(logicId int32, eventId int64, faultRecoverTime 
 		"occurrence times :%d", eventIdStr, logicId, faultRecoverTime, len(frequencyCache.Frequency[logicId]))
 }
 
-func validateFaultFrequencyCustomization(customization FaultFrequencyCustomization) bool {
+func validateFaultFrequencyCustomization(customization *FaultFrequencyCustomization) bool {
 	if len(customization.EventId) == 0 {
 		hwlog.RunLog.Warnf("empty event id in this FaultFrequency, skip")
 		return false
@@ -972,9 +971,6 @@ func handleFrequencyFault(logicId int32, frequencyCache *FaultFrequencyCache, ev
 	}
 	lastFaultTime := frequencyCache.LastFaultTime[logicId]
 	lastRecoverTime := frequencyCache.LastFaultRecoverTime[logicId]
-	if lastRecoverTime < lastFaultTime {
-		hwlog.RunLog.Warnf("lastRecoverTime %d < lastFaultTime %d!", lastRecoverTime, lastFaultTime)
-	}
 	frequencyCache.Frequency[logicId] = frequencyCache.Frequency[logicId][index:]
 	lenFrequencyCache := len(frequencyCache.Frequency[logicId])
 	if int64(lenFrequencyCache) >= frequencyCache.Times {
@@ -990,8 +986,9 @@ func handleFrequencyFault(logicId int32, frequencyCache *FaultFrequencyCache, ev
 		InsertUpgradeFaultCache(LogicId(logicId), lastFaultTime, eventId,
 			frequencyCache.FaultHandling, FrequencyUpgradeType)
 	} else {
-		if time.Now().UnixMilli()-lastRecoverTime > frequencyCache.ReleaseTimeWindow*SecondMagnification {
-			RemoveTimeoutReasonCache(LogicId(logicId), eventId)
+		if lastRecoverTime >= lastFaultTime &&
+			time.Now().UnixMilli()-lastRecoverTime > frequencyCache.ReleaseTimeWindow*SecondMagnification {
+			RemoveTimeoutReasonCache(LogicId(logicId), CodeMatcher(eventId))
 		} else {
 			// if fault has in upgrade reason then update the fault time
 			if CheckUpgradeFaultCache(LogicId(logicId), eventId, frequencyCache.FaultHandling, FrequencyUpgradeType) {
@@ -1029,7 +1026,6 @@ func GetFaultTypeFromFaultDuration(logicId int32, mode string) string {
 			continue
 		}
 
-		_, configFrequency := faultFrequencyMap[eventId]
 		if faultDurationData.TimeoutStatus {
 			hwlog.RunLog.Debugf("FaultDuration detected, event id: %s, logic id: %d, "+
 				"fault duration time: %.2f seconds, "+
@@ -1038,15 +1034,12 @@ func GetFaultTypeFromFaultDuration(logicId int32, mode string) string {
 				faultDurationCache.FaultHandling)
 			faultTypes = append(faultTypes, faultDurationCache.FaultHandling)
 			// if duration fault configured and not configure frequency then insert fault upgrade
-			if !configFrequency {
-				InsertUpgradeFaultCache(LogicId(logicId), faultDurationData.FaultAlarmTime, eventId,
-					faultDurationCache.FaultHandling, DurationUpgradeType)
-			}
+			InsertUpgradeFaultCache(LogicId(logicId), faultDurationData.FaultAlarmTime, eventId,
+				faultDurationCache.FaultHandling, DurationUpgradeType)
 		} else {
 			// if not configure frequency and recover time is timeout then remove upgrade reason
-			if faultDurationData.FaultRecoverDurationTime > faultDurationCache.RecoverTimeout*SecondMagnification &&
-				!configFrequency {
-				RemoveTimeoutReasonCache(LogicId(logicId), eventId)
+			if faultDurationData.FaultRecoverDurationTime > faultDurationCache.RecoverTimeout*SecondMagnification {
+				RemoveTimeoutReasonCache(LogicId(logicId), CodeMatcher(eventId), TypeMatcher(DurationUpgradeType))
 			}
 		}
 	}

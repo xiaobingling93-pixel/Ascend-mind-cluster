@@ -1104,7 +1104,7 @@ func TestValidateFaultFrequencyCustomizationPart1(t *testing.T) {
 				FaultHandling: ManuallySeparateNPU,
 			},
 		}
-		result := validateFaultFrequencyCustomization(faultFrequencyCustomization)
+		result := validateFaultFrequencyCustomization(&faultFrequencyCustomization)
 		convey.So(result, convey.ShouldEqual, true)
 	})
 }
@@ -1120,7 +1120,7 @@ func TestValidateFaultFrequencyCustomizationPart2(t *testing.T) {
 				FaultHandling: ManuallySeparateNPU,
 			},
 		}
-		result := validateFaultFrequencyCustomization(faultFrequencyCustomization)
+		result := validateFaultFrequencyCustomization(&faultFrequencyCustomization)
 		convey.So(result, convey.ShouldEqual, false)
 	})
 	convey.Convey("test validateFaultFrequencyCustomization failed case2", t, func() {
@@ -1132,7 +1132,7 @@ func TestValidateFaultFrequencyCustomizationPart2(t *testing.T) {
 				FaultHandling: ManuallySeparateNPU,
 			},
 		}
-		result := validateFaultFrequencyCustomization(faultFrequencyCustomization)
+		result := validateFaultFrequencyCustomization(&faultFrequencyCustomization)
 		convey.So(result, convey.ShouldEqual, false)
 	})
 	convey.Convey("test validateFaultFrequencyCustomization failed case3", t, func() {
@@ -1144,7 +1144,7 @@ func TestValidateFaultFrequencyCustomizationPart2(t *testing.T) {
 				FaultHandling: ManuallySeparateNPU,
 			},
 		}
-		result := validateFaultFrequencyCustomization(faultFrequencyCustomization)
+		result := validateFaultFrequencyCustomization(&faultFrequencyCustomization)
 		convey.So(result, convey.ShouldEqual, false)
 	})
 	convey.Convey("test validateFaultFrequencyCustomization failed case4", t, func() {
@@ -1156,7 +1156,7 @@ func TestValidateFaultFrequencyCustomizationPart2(t *testing.T) {
 				FaultHandling: "separatesNPU",
 			},
 		}
-		result := validateFaultFrequencyCustomization(faultFrequencyCustomization)
+		result := validateFaultFrequencyCustomization(&faultFrequencyCustomization)
 		convey.So(result, convey.ShouldEqual, false)
 	})
 }
@@ -1181,16 +1181,18 @@ func TestLoadFaultFrequencyCustomizationCase1(t *testing.T) {
 				LastFaultTime:        map[int32]int64{},
 				LastFaultRecoverTime: make(map[int32]int64),
 				FaultFrequency: FaultFrequency{
-					TimeWindow:    86400,
-					Times:         2,
-					FaultHandling: ManuallySeparateNPU}},
+					TimeWindow:        86400,
+					Times:             2,
+					ReleaseTimeWindow: MaxReleaseTimeWindow,
+					FaultHandling:     ManuallySeparateNPU}},
 			strings.ToLower(faultCode2): {Frequency: make(map[int32][]int64, common.MaxErrorCodeCount),
 				LastFaultTime:        map[int32]int64{},
 				LastFaultRecoverTime: make(map[int32]int64),
 				FaultFrequency: FaultFrequency{
-					TimeWindow:    86400,
-					Times:         3,
-					FaultHandling: ManuallySeparateNPU}}}
+					TimeWindow:        86400,
+					Times:             3,
+					ReleaseTimeWindow: MaxReleaseTimeWindow,
+					FaultHandling:     ManuallySeparateNPU}}}
 		faultFrequencyMap = make(map[string]*FaultFrequencyCache, common.MaxErrorCodeCount)
 		loadFaultFrequencyCustomization(faultFrequencyCustomizations)
 		convey.So(faultFrequencyMap, convey.ShouldResemble, expectVal)
