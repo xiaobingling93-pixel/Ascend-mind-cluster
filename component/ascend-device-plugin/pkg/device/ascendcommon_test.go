@@ -23,9 +23,9 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
-	"sync/atomic"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
@@ -66,7 +66,7 @@ func TestAsyncReleaseAutoFill(t *testing.T) {
 
 		var removeCacheCalled int32 = 0
 		patches.ApplyFunc(common.RemoveTimeoutReasonCache,
-			func(id common.LogicId, code string) {
+			func(id common.LogicId, matchers ...common.ReasonKeyMatcher) {
 				atomic.StoreInt32(&removeCacheCalled, 1)
 			})
 

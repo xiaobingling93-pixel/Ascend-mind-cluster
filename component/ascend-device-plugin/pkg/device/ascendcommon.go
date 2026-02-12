@@ -322,7 +322,7 @@ func (tool *AscendTools) asyncReleaseAutoFill(ctx context.Context, autoFillPhyId
 		case <-time.After(time.Duration(timeout) * time.Second):
 			hwlog.RunLog.Infof("logicIds %v release auto fill fault", autoFillLogicIds)
 			for _, id := range autoFillLogicIds {
-				common.RemoveTimeoutReasonCache(id, common.AutofillFaultCode)
+				common.RemoveTimeoutReasonCache(id, common.CodeMatcher(common.AutofillFaultCode))
 			}
 		}
 	}()

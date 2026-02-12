@@ -79,7 +79,7 @@ func RemoveManuallySeparateReasonCache(logicIds []LogicId) {
 	upgradeFaultCacheMgr.cacheLock.Lock()
 	defer upgradeFaultCacheMgr.cacheLock.Unlock()
 	for _, id := range logicIds {
-		removedReasons := upgradeFaultCacheMgr.cache.removeFaultLevel(id, ManuallySeparateNPU)
+		removedReasons := upgradeFaultCacheMgr.cache.remove(id, LevelMatcher(ManuallySeparateNPU))
 		if len(removedReasons) > 0 {
 			upgradeFaultCacheMgr.removedEvent.addReasons(id, removedReasons)
 			hwlog.RunLog.Infof(
@@ -89,10 +89,10 @@ func RemoveManuallySeparateReasonCache(logicIds []LogicId) {
 }
 
 // RemoveTimeoutReasonCache when release timeout window reach then reach them from cache
-func RemoveTimeoutReasonCache(logic LogicId, faultCode string) {
+func RemoveTimeoutReasonCache(logic LogicId, matchers ...ReasonKeyMatcher) {
 	upgradeFaultCacheMgr.cacheLock.Lock()
 	defer upgradeFaultCacheMgr.cacheLock.Unlock()
-	removedReasons := upgradeFaultCacheMgr.cache.removeFaultCode(logic, faultCode)
+	removedReasons := upgradeFaultCacheMgr.cache.remove(logic, matchers...)
 	if len(removedReasons) > 0 {
 		upgradeFaultCacheMgr.removedEvent.addReasons(logic, removedReasons)
 		hwlog.RunLog.Infof(
@@ -141,6 +141,35 @@ type UpgradeFaultReasonKey struct {
 	FaultCode   string          `json:"fault_code"`
 	FaultLevel  string          `json:"fault_level"`
 	UpgradeType UpgradeTypeEnum `json:"upgrade_type"`
+}
+
+func (reasonKey UpgradeFaultReasonKey) match(matchers ...ReasonKeyMatcher) bool {
+	for _, matcher := range matchers {
+		if !matcher(reasonKey) {
+			return false
+		}
+	}
+	return true
+}
+
+type ReasonKeyMatcher func(UpgradeFaultReasonKey) bool
+
+func CodeMatcher(faultCode string) ReasonKeyMatcher {
+	return func(key UpgradeFaultReasonKey) bool {
+		return faultCode == key.FaultCode
+	}
+}
+
+func LevelMatcher(faultLevel string) ReasonKeyMatcher {
+	return func(key UpgradeFaultReasonKey) bool {
+		return faultLevel == key.FaultLevel
+	}
+}
+
+func TypeMatcher(upgradeType UpgradeTypeEnum) ReasonKeyMatcher {
+	return func(key UpgradeFaultReasonKey) bool {
+		return upgradeType == key.UpgradeType
+	}
 }
 
 // LogicId used in cache
@@ -223,10 +252,10 @@ func (reasonSet UpgradeFaultReasonSet) removeLevel(faultLevel string) UpgradeFau
 	return removedReason
 }
 
-func (reasonSet UpgradeFaultReasonSet) removeFaultCode(faultCode string) UpgradeFaultReasonSet {
+func (reasonSet UpgradeFaultReasonSet) remove(matchers ...ReasonKeyMatcher) UpgradeFaultReasonSet {
 	removedReason := make(UpgradeFaultReasonSet)
 	for reasonKey, reasonVal := range reasonSet {
-		if reasonKey.FaultCode == faultCode {
+		if reasonKey.match(matchers...) {
 			delete(reasonSet, reasonKey)
 			removedReason[reasonKey] = reasonVal
 		}
@@ -266,27 +295,13 @@ func (reasonMap UpgradeFaultReasonMap[LogicId]) addReasons(logicId LogicId, othe
 	reasonMap[logicId] = reasons
 }
 
-func (reasonMap UpgradeFaultReasonMap[ReasonKey]) removeFaultLevel(
-	id ReasonKey, faultLevel string) UpgradeFaultReasonSet {
-	reasons, found := reasonMap[id]
-	removedReasons := make(UpgradeFaultReasonSet)
-	if !found {
-		return removedReasons
-	}
-	removedReasons = reasons.removeLevel(faultLevel)
-	if len(reasons) == 0 {
-		delete(reasonMap, id)
-	}
-	return removedReasons
-}
-
-func (reasonMap UpgradeFaultReasonMap[LogicId]) removeFaultCode(
-	logicId LogicId, faultCode string) UpgradeFaultReasonSet {
+func (reasonMap UpgradeFaultReasonMap[LogicId]) remove(logicId LogicId,
+	matchers ...ReasonKeyMatcher) UpgradeFaultReasonSet {
 	reasons, found := reasonMap[logicId]
 	if !found {
 		return make(UpgradeFaultReasonSet)
 	}
-	removedReasons := reasons.removeFaultCode(faultCode)
+	removedReasons := reasons.remove(matchers...)
 	if len(reasons) == 0 {
 		delete(reasonMap, logicId)
 	}
@@ -409,7 +424,7 @@ func (reasonMap UpgradeFaultReasonMap[PhyId]) FixManuallySeparateReason(manually
 	// 2. remove redundant ManuallySeparateNPU
 	for phyId := range reasonMap {
 		if _, found := shouldManuallySeparateList[phyId]; !found {
-			reasonMap.removeFaultLevel(phyId, ManuallySeparateNPU)
+			reasonMap.remove(phyId, LevelMatcher(ManuallySeparateNPU))
 		}
 	}
 	return autoFillPhyIds
