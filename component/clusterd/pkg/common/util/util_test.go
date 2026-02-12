@@ -360,3 +360,15 @@ func TestMergeStringMapList(t *testing.T) {
 		})
 	})
 }
+
+func TestMergeStringMapListOnlyNewKeys(t *testing.T) {
+	convey.Convey("Test MergeStringMapListOnlyNewKeys", t, func() {
+		convey.Convey("When new contains new key, then return expectedMap", func() {
+			oldMap := map[string]string{"key1": "value1"}
+			newMap := map[string]string{"key1": "value2", "key3": "value3"}
+			expectedMap := map[string]string{"key1": "value1", "key3": "value3"}
+			MergeStringMapListOnlyNewKeys(oldMap, newMap)
+			convey.So(oldMap, convey.ShouldResemble, expectedMap)
+		})
+	})
+}

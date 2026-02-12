@@ -19,6 +19,14 @@ import (
 
 var normalFaultLevel = []string{NotHandleFault, SubHealthFault, NormalNPU, NormalNetwork}
 
+var levelStrMap = map[string]faultLevelStatus{
+	NotHandleFaultLevelStr:      {NotHandleFaultLevel, HealthyState},
+	SubHealthFaultLevelStr:      {SubHealthFaultLevel, SubHealthyState},
+	RestartRequestFaultLevelStr: {RestartRequestFaultLevel, UnHealthyState},
+	PreSeparateFaultLevelStr:    {PreSeparateFaultLevel, PreSeparateState},
+	SeparateFaultLevelStr:       {SeparateFaultLevel, UnHealthyState},
+}
+
 func (cm *AdvanceDeviceFaultCm) addFault(addFault DeviceFault) bool {
 	if cm.FaultDeviceList == nil {
 		cm.FaultDeviceList = make(map[string][]DeviceFault)
@@ -410,6 +418,79 @@ func updateFaultReceiveTimeForSwitchs(cmFaultTimeAndLevelMap map[string]FaultTim
 // AddFaultAndFix add fault in the switchCM
 func (cm *SwitchInfo) AddFaultAndFix(addFault SimpleSwitchFaultInfo) {
 	cm.SwitchFaultInfo.FaultInfo = append(cm.FaultInfo, addFault)
+}
+
+// AddFaultAndFix1 add fault in the switchCM
+func (cm *SwitchInfo) AddFaultAndFix1(addFault SimpleSwitchFaultInfo,
+	faultTimeAndLevel FaultTimeAndLevel) {
+	_, found := findItem(&addFault, cm.FaultInfo)
+	if found {
+		return
+	}
+	if cm.FaultInfo == nil {
+		cm.FaultInfo = make([]SimpleSwitchFaultInfo, 0)
+	}
+	if cm.FaultTimeAndLevelMap == nil {
+		cm.FaultTimeAndLevelMap = make(map[string]FaultTimeAndLevel)
+	}
+	cm.FaultInfo = append(cm.FaultInfo, addFault)
+	cm.FaultTimeAndLevelMap[addFault.GetFaultTimeAndLevelKey()] = faultTimeAndLevel
+	cm.updateFaultLevelAndNodeStatus()
+}
+
+// DelFaultAndFix delete fault in the switchCM
+func (cm *SwitchInfo) DelFaultAndFix(addFault SimpleSwitchFaultInfo) {
+	faultTimeAndLevelKey := addFault.GetFaultTimeAndLevelKey()
+	index, found := findItem(&addFault, cm.FaultInfo)
+	if !found {
+		return
+	}
+	cm.FaultInfo = append(cm.FaultInfo[:index], cm.FaultInfo[index+1:]...)
+	delete(cm.FaultTimeAndLevelMap, faultTimeAndLevelKey)
+	cm.updateFaultLevelAndNodeStatus()
+}
+
+func findItem(addFault *SimpleSwitchFaultInfo, faultInfos []SimpleSwitchFaultInfo) (int, bool) {
+	for i, faultInfo := range faultInfos {
+		if faultInfo == *addFault {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+func (cm *SwitchInfo) updateFaultLevelAndNodeStatus() {
+	maxLevel := -1
+	for _, faultInfo := range cm.FaultInfo {
+		faultTimeAndLevel, ok := cm.FaultTimeAndLevelMap[faultInfo.GetFaultTimeAndLevelKey()]
+		if !ok {
+			continue
+		}
+		level, status := mapFaultLevelToStatus(faultTimeAndLevel.FaultLevel)
+		if level > maxLevel {
+			cm.NodeStatus = status
+			cm.FaultLevel = faultTimeAndLevel.FaultLevel
+			maxLevel = level
+		}
+	}
+	if maxLevel == -1 {
+		cm.NodeStatus = HealthyState
+		cm.FaultLevel = NotHandleFault
+	}
+}
+
+func mapFaultLevelToStatus(faultLevel string) (int, string) {
+	if status, ok := levelStrMap[faultLevel]; ok {
+		return status.faultLevel, status.nodeStatus
+	}
+	hwlog.RunLog.Warnf("unknown fault level %v", faultLevel)
+	return NotHandleFaultLevel, HealthyState
+}
+
+// GetFaultTimeAndLevelKey get fault time and leve key
+func (fi SimpleSwitchFaultInfo) GetFaultTimeAndLevelKey() string {
+	return fi.AssembledFaultCode + "_" + strconv.Itoa(int(fi.SwitchChipId)) +
+		"_" + strconv.Itoa(int(fi.SwitchPortId))
 }
 
 // IsSame compare with another cm

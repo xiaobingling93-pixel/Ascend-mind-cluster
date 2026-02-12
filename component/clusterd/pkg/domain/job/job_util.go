@@ -15,6 +15,7 @@ import (
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/custom"
 	"clusterd/pkg/domain/pod"
 	"clusterd/pkg/domain/podgroup"
 )
@@ -102,6 +103,7 @@ func InitCmAndCache(podGroup v1beta1.PodGroup, podsInJob map[string]v1.Pod) {
 		hwlog.RunLog.Debugf("init job:%s success", jobInfo.Name)
 		SaveJobCache(jobInfo.Key, jobInfo)
 	}
+
 }
 
 func getSidFromLabels(labels map[string]string) string {
@@ -329,8 +331,13 @@ func IsMindIeServerPod(podInfo v1.Pod) bool {
 		podInfo.Labels[constant.MindIeAppTypeLabelKey] == constant.ServerAppType
 }
 
-// GetMindIeServerJobAndUsedDeviceInfoMap get mindie server job info map and job used device info map
-func GetMindIeServerJobAndUsedDeviceInfoMap() (map[string]map[string]constant.JobInfo,
+// IsMindIeServerJob check job is mindie server job
+func IsMindIeServerJob(jobInfo *constant.JobInfo) bool {
+	return jobInfo != nil && jobInfo.MultiInstanceJobId != "" && jobInfo.AppType == constant.ServerAppType
+}
+
+// GetCustomFilterFaultJobAndUsedDeviceInfoMap get custom filter fault job info map and job used device info map
+func GetCustomFilterFaultJobAndUsedDeviceInfoMap() (map[string]map[string]constant.JobInfo,
 	map[string]map[string]sets.String) {
 	jobInfoMap := make(map[string]map[string]constant.JobInfo)
 	deviceInfoMap := make(map[string]map[string]sets.String)
@@ -340,11 +347,11 @@ func GetMindIeServerJobAndUsedDeviceInfoMap() (map[string]map[string]constant.Jo
 		if len(podsInJob) == 0 {
 			continue
 		}
+		if !custom.JudgeFilterFaultAnnosByJobKey(jobKey) {
+			continue
+		}
 		jobUsedDevices := sets.String{}
 		for _, podInfo := range podsInJob {
-			if !IsMindIeServerPod(podInfo) {
-				continue
-			}
 			nodeName := podInfo.Spec.NodeName
 			if _, exists := jobInfoMap[nodeName]; !exists {
 				jobInfoMap[nodeName] = make(map[string]constant.JobInfo)

@@ -515,3 +515,9 @@ type SimplePodInfo struct {
 	PodRank  string
 	NodeName string
 }
+
+// faultLevelStatus fault level and node status
+type faultLevelStatus struct {
+	faultLevel int
+	nodeStatus string
+}

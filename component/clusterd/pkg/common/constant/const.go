@@ -3,6 +3,8 @@
 // Package constant is grpc common types and functions
 package constant
 
+import "time"
+
 // process signal type
 const (
 	// KillMasterSignalType kill master agent
@@ -241,14 +243,34 @@ const (
 	CardDPUUnhealthy = "CardDPUUnhealthy"
 	// SubHealthFault  sub healthy fault
 	SubHealthFault = "SubHealthFault"
-	// NotHandleFaultLevelStr NotHandle Fault Level Str
-	NotHandleFaultLevelStr = "NotHandle"
-	// PreSeparateFaultLevelStr PreSeparate Fault Level Str
-	PreSeparateFaultLevelStr = "PreSeparate"
 	// PreSeparateFault pre-separate fault
 	PreSeparateFault = "PreSeparateFault"
 	// SeparateFault separate fault
 	SeparateFault = "SeparateFault"
+)
+
+// switch fault level
+const (
+	// NotHandleFaultLevel NotHandle Fault Level
+	NotHandleFaultLevel = 0
+	// SubHealthFaultLevel SubHealth Fault Level
+	SubHealthFaultLevel = 1
+	// RestartRequestFaultLevel RestartRequest Fault Level
+	RestartRequestFaultLevel = 2
+	// PreSeparateFaultLevel PreSeparate Fault Level
+	PreSeparateFaultLevel = 3
+	// SeparateFaultLevel Separate Fault Level
+	SeparateFaultLevel = 4
+	// NotHandleFaultLevelStr NotHandle Fault Level Str
+	NotHandleFaultLevelStr = "NotHandle"
+	// SubHealthFaultLevelStr SubHealth Fault Level Str
+	SubHealthFaultLevelStr = "SubHealthFault"
+	// RestartRequestFaultLevelStr RestartRequest Fault Level Str
+	RestartRequestFaultLevelStr = "RestartRequest"
+	// PreSeparateFaultLevelStr PreSeparate Fault Level Str
+	PreSeparateFaultLevelStr = "PreSeparate"
+	// SeparateFaultLevelStr Separate Fault Level Str
+	SeparateFaultLevelStr = "Separate"
 )
 
 // About cm keys
@@ -413,4 +435,15 @@ const (
 	FailedReasonShouldReport = "should report fault"
 	// FailedReasonFaultTimeOut fault timeout
 	FailedReasonFaultTimeOut = "fault time out"
+)
+
+const (
+	// CustomFilterFaultCodeAnnoKey custom filter fault code annotation key
+	CustomFilterFaultCodeAnnoKey = "huawei.com/schedule_filter_faultCode"
+	// CustomFilterFaultLevelAnnoKey custom filter fault level annotation key
+	CustomFilterFaultLevelAnnoKey = "huawei.com/schedule_filter_faultLevel"
+	// CustomFilterFaultDefaultTimeout custom filter fault default time out
+	CustomFilterFaultDefaultTimeout = 60 * time.Second
+	// EachFaultFilterConfigMaxLen max length of each fault filter config
+	EachFaultFilterConfigMaxLen = 2
 )

@@ -17,6 +17,7 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/custom"
 	"clusterd/pkg/domain/pod"
 )
 
@@ -403,7 +404,7 @@ func TestIsInferenceJob(t *testing.T) {
 }
 
 func TestGetMindIeServerJobDeviceInfoMap(t *testing.T) {
-	convey.Convey("test GetMindIeServerJobAndUsedDeviceInfoMap", t, func() {
+	convey.Convey("test GetCustomFilterFaultJobAndUsedDeviceInfoMap", t, func() {
 		convey.Convey("if there is an mindie server job on the current node, return mindie server jobId", func() {
 			demoPod := getDemoPod(jobName1, jobNameSpace, podUid1)
 			demoPod.Spec = v1.PodSpec{NodeName: nodeName1}
@@ -411,14 +412,14 @@ func TestGetMindIeServerJobDeviceInfoMap(t *testing.T) {
 				jobUid1: getDemoJob(jobName1, jobNameSpace, jobUid1),
 			}).ApplyFuncReturn(pod.GetPodByJobId, map[string]v1.Pod{
 				podUid1: *demoPod,
-			}).ApplyFuncReturn(IsMindIeServerPod, true)
+			}).ApplyFuncReturn(custom.JudgeFilterFaultAnnosByJobKey, true)
 			defer patch.Reset()
-			jobInfoMap, deviceInfoMap := GetMindIeServerJobAndUsedDeviceInfoMap()
+			jobInfoMap, deviceInfoMap := GetCustomFilterFaultJobAndUsedDeviceInfoMap()
 			convey.So(jobInfoMap, convey.ShouldNotBeEmpty)
 			convey.So(deviceInfoMap, convey.ShouldNotBeEmpty)
 		})
 		convey.Convey("if there is no mindie server job on the current node, return mindie server jobId", func() {
-			jobInfoMap, deviceInfoMap := GetMindIeServerJobAndUsedDeviceInfoMap()
+			jobInfoMap, deviceInfoMap := GetCustomFilterFaultJobAndUsedDeviceInfoMap()
 			convey.So(jobInfoMap, convey.ShouldBeEmpty)
 			convey.So(deviceInfoMap, convey.ShouldBeEmpty)
 		})

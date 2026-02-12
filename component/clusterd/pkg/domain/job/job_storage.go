@@ -14,6 +14,8 @@ import (
 	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
+	"clusterd/pkg/domain/custom"
+	"clusterd/pkg/domain/podgroup"
 	"clusterd/pkg/domain/superpod"
 )
 
@@ -77,6 +79,15 @@ func SaveJobCache(jobKey string, jobInfo constant.JobInfo) {
 	if jobInfo.Sid != "" {
 		existingSids.Store(jobInfo.Sid, jobKey)
 	}
+	saveExtraCache(&jobInfo)
+}
+
+func saveExtraCache(jobInfo *constant.JobInfo) {
+	podGroup := podgroup.GetPodGroup(jobInfo.Key)
+	custom.CustomFault.SetCustomFilterCodes(jobInfo.Key, podGroup.Annotations[constant.CustomFilterFaultCodeAnnoKey],
+		IsMindIeServerJob(jobInfo))
+	custom.CustomFault.SetCustomFilterLevels(jobInfo.Key, podGroup.Annotations[constant.CustomFilterFaultLevelAnnoKey],
+		IsMindIeServerJob(jobInfo))
 }
 
 // DeleteJobCache delete job cache info
@@ -86,6 +97,13 @@ func DeleteJobCache(jobKey string) {
 	}
 	hwlog.RunLog.Infof("delete job cache, jobKey: %v", jobKey)
 	jobSummaryMap.Delete(jobKey)
+
+	deleteExtraCache(jobKey)
+}
+
+func deleteExtraCache(jobKey string) {
+	custom.CustomFault.DeleteCustomFilterCodes(jobKey)
+	custom.CustomFault.DeleteCustomFilterLevels(jobKey)
 }
 
 func findJobByFilter(filter func(constant.JobInfo) bool) constant.JobInfo {

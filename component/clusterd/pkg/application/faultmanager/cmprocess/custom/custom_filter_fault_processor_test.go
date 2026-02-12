@@ -17,6 +17,8 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/common/util"
+	"clusterd/pkg/domain/custom"
+	"clusterd/pkg/domain/job"
 	"clusterd/pkg/interface/common"
 )
 
@@ -53,7 +55,7 @@ func mockSwitchContent() constant.OneConfigmapContent[*constant.SwitchInfo] {
 }
 
 func mockNodeJobInfoMap() map[string]map[string]constant.JobInfo {
-	return map[string]map[string]constant.JobInfo{nodeName1: {jobId1: {}}}
+	return map[string]map[string]constant.JobInfo{nodeName1: {jobId1: {Key: jobId1}}}
 }
 
 func mockNodeJobUsedDeviceMap() map[string]map[string]sets.String {
@@ -131,23 +133,22 @@ func TestProcessDeviceFaults(t *testing.T) {
 		deviceContent := mockDeviceContent()
 		jobInfoMap := mockNodeJobInfoMap()
 		jobUsedDeviceMap := mockNodeJobUsedDeviceMap()
-		convey.Convey("if node has no mindie server job info, return result is empty", func() {
+		convey.Convey("if node has empty job info, return result is empty", func() {
 			res := processor.processDeviceFaults(deviceContent, map[string]map[string]constant.JobInfo{},
 				jobUsedDeviceMap)
 			convey.So(len(res) == 0, convey.ShouldBeTrue)
 		})
-		convey.Convey("if copy device fault cm fail, return result is empty", func() {
-			patch := gomonkey.ApplyFuncReturn(copyAdvanceDeviceFaultCm, nil, errors.New("test err"))
+		convey.Convey("if collectAndRemoveDeviceFaults ret has no fault, return result is empty", func() {
+			patch := gomonkey.ApplyFuncReturn(collectAndRemoveDeviceFaults, &constant.AdvanceDeviceFaultCm{})
 			defer patch.Reset()
 			res := processor.processDeviceFaults(deviceContent, jobInfoMap, jobUsedDeviceMap)
 			convey.So(len(res) == 0, convey.ShouldBeTrue)
 		})
-		convey.Convey("if process device faults success, return result is not empty", func() {
+		convey.Convey("if collectAndRemoveDeviceFaults ret has fault, return result is not empty", func() {
 			faultDeviceList := make(map[string][]constant.DeviceFault)
 			faultDeviceList[deviceName1] = []constant.DeviceFault{mockDeviceFault()}
-			patch := gomonkey.ApplyFuncReturn(copyAdvanceDeviceFaultCm, &constant.AdvanceDeviceFaultCm{
-				FaultDeviceList: faultDeviceList,
-			}, nil)
+			patch := gomonkey.ApplyFuncReturn(collectAndRemoveDeviceFaults, &constant.AdvanceDeviceFaultCm{
+				FaultDeviceList: faultDeviceList})
 			defer patch.Reset()
 			res := processor.processDeviceFaults(deviceContent, jobInfoMap, jobUsedDeviceMap)
 			convey.So(len(res) == 1, convey.ShouldBeTrue)
@@ -160,19 +161,18 @@ func TestProcessSwitchFaults(t *testing.T) {
 		processor := &customProcessor{}
 		switchContent := mockSwitchContent()
 		jobInfoMap := mockNodeJobInfoMap()
-		convey.Convey("if node has no mindie server job info, return result is empty", func() {
+		convey.Convey("if node has empty job info, return result is empty", func() {
 			res := processor.processSwitchFaults(switchContent, map[string]map[string]constant.JobInfo{})
 			convey.So(len(res) == 0, convey.ShouldBeTrue)
 		})
-		convey.Convey("if copy switch info fail, return result is empty", func() {
-			patch := gomonkey.ApplyFuncReturn(copySwitchInfo, nil, errors.New("test err"))
+		convey.Convey("if collectAndRemoveSwitchFaults ret has empty faults, return result is empty", func() {
+			patch := gomonkey.ApplyFuncReturn(collectAndRemoveSwitchFaults, &constant.SwitchInfo{})
 			defer patch.Reset()
 			res := processor.processSwitchFaults(switchContent, jobInfoMap)
 			convey.So(len(res) == 0, convey.ShouldBeTrue)
 		})
-		convey.Convey("if process switch faults success, return result is not empty", func() {
-			patch := gomonkey.ApplyFuncReturn(copySwitchInfo, &constant.SwitchInfo{}, nil).
-				ApplyFuncReturn(getDeletedSwitchFault, []constant.SimpleSwitchFaultInfo{{}})
+		convey.Convey("if collectAndRemoveSwitchFaults ret has faults, return result is not empty", func() {
+			patch := gomonkey.ApplyFuncReturn(collectAndRemoveSwitchFaults, mockSwitchInfo())
 			defer patch.Reset()
 			res := processor.processSwitchFaults(switchContent, jobInfoMap)
 			convey.So(len(res) == 1, convey.ShouldBeTrue)
@@ -218,16 +218,12 @@ func TestCopySwitchInfo(t *testing.T) {
 
 func TestCollectAndRemoveDeviceFaults(t *testing.T) {
 	convey.Convey("Test collectAndRemoveDeviceFaults", t, func() {
-		processor := &customProcessor{}
 		src := mockAdvanceDeviceFaultCm()
-		dst := &constant.AdvanceDeviceFaultCm{
-			FaultDeviceList: map[string][]constant.DeviceFault{},
-		}
 		jobInfoMap := map[string]constant.JobInfo{jobId1: {}}
 		usedDeviceInfoMap := map[string]sets.String{jobId1: sets.NewString(deviceName1)}
 		patch := gomonkey.ApplyFuncReturn(getDeletedDeviceFault, src.FaultDeviceList[deviceName1])
 		defer patch.Reset()
-		processor.collectAndRemoveDeviceFaults(src, dst, jobInfoMap, usedDeviceInfoMap)
+		dst := collectAndRemoveDeviceFaults(src, jobInfoMap, usedDeviceInfoMap)
 		convey.So(len(src.FaultDeviceList[deviceName1]) == 0, convey.ShouldBeTrue)
 		convey.So(len(dst.FaultDeviceList[deviceName1]) == 1, convey.ShouldBeTrue)
 	})
@@ -240,6 +236,13 @@ func TestGetDeletedDeviceFault(t *testing.T) {
 		jobUsedDeviceMap := mockJobUsedDeviceMap()
 		convey.Convey("if job not use any device, remove fault from delete list", func() {
 			res := getDeletedDeviceFault(faults, deviceName1, jobInfoMap, map[string]sets.String{})
+			convey.So(len(res) == 0, convey.ShouldBeTrue)
+		})
+		convey.Convey("When job is not subscribed, remove fault from delete list", func() {
+			common.SetPublisher(&mockFaultPublisher{isSubscribed: false})
+			patch := gomonkey.ApplyFuncReturn(job.IsMindIeServerJob, true)
+			defer patch.Reset()
+			res := getDeletedDeviceFault(faults, deviceName2, jobInfoMap, jobUsedDeviceMap)
 			convey.So(len(res) == 0, convey.ShouldBeTrue)
 		})
 		convey.Convey("if fault has no time and level info, remove fault from delete list", func() {
@@ -261,35 +264,42 @@ func TestGetDeletedDeviceFault(t *testing.T) {
 }
 
 func TestGetDeletedSwitchFault(t *testing.T) {
-	convey.Convey("test getDeletedSwitchFault", t, func() {
+	convey.Convey("test collectAndRemoveSwitchFaults", t, func() {
 		switchInfo := mockSwitchInfo()
 		jobInfoMap := mockJobInfoMap()
 		convey.Convey("if switchInfo has no fault time and level for faultcode, remove fault from delete list",
 			func() {
 				switchWithoutTimeAndLevel := mockSwitchInfo()
 				switchWithoutTimeAndLevel.FaultTimeAndLevelMap = map[string]constant.FaultTimeAndLevel{}
-				res := getDeletedSwitchFault(switchWithoutTimeAndLevel, jobInfoMap)
-				convey.So(len(res) == 0, convey.ShouldBeTrue)
+				deletedSwitchInfo := collectAndRemoveSwitchFaults(switchWithoutTimeAndLevel, jobInfoMap)
 				convey.So(len(switchWithoutTimeAndLevel.FaultInfo) > 0, convey.ShouldBeTrue)
+				convey.So(len(deletedSwitchInfo.FaultInfo) == 0, convey.ShouldBeTrue)
 			})
+		convey.Convey("When job is not subscribed, remove fault from delete list", func() {
+			common.SetPublisher(&mockFaultPublisher{isSubscribed: false})
+			patch := gomonkey.ApplyFuncReturn(job.IsMindIeServerJob, true)
+			defer patch.Reset()
+			deletedSwitchInfo := collectAndRemoveSwitchFaults(switchInfo, jobInfoMap)
+			convey.So(len(switchInfo.FaultInfo) > 0, convey.ShouldBeTrue)
+			convey.So(len(deletedSwitchInfo.FaultInfo) == 0, convey.ShouldBeTrue)
+		})
 		convey.Convey("if should report fault, remove fault from delete list", func() {
 			patch := gomonkey.ApplyFuncReturn(shouldReportFault, true)
 			defer patch.Reset()
-			res := getDeletedSwitchFault(switchInfo, jobInfoMap)
-			convey.So(len(res) == 0, convey.ShouldBeTrue)
+			deletedSwitchInfo := collectAndRemoveSwitchFaults(switchInfo, jobInfoMap)
 			convey.So(len(switchInfo.FaultInfo) > 0, convey.ShouldBeTrue)
+			convey.So(len(deletedSwitchInfo.FaultInfo) == 0, convey.ShouldBeTrue)
 		})
 		convey.Convey("if should not report fault, add fault to delete list", func() {
 			delete(switchInfo.FaultTimeAndLevelMap, faultCode1+"_0_0")
 			patch := gomonkey.ApplyFuncReturn(shouldReportFault, false)
 			defer patch.Reset()
-			res := getDeletedSwitchFault(switchInfo, jobInfoMap)
-			convey.So(len(res) == 1, convey.ShouldBeTrue)
+			deletedSwitchInfo := collectAndRemoveSwitchFaults(switchInfo, jobInfoMap)
 			convey.So(len(switchInfo.FaultInfo) > 0, convey.ShouldBeTrue)
+			convey.So(len(deletedSwitchInfo.FaultInfo) > 0, convey.ShouldBeTrue)
 			convey.So(switchInfo.FaultLevel == constant.NotHandleFault, convey.ShouldBeTrue)
 			convey.So(switchInfo.NodeStatus == constant.HealthyState, convey.ShouldBeTrue)
 		})
-
 	})
 }
 
@@ -307,7 +317,15 @@ type testShouldReportFaultCases struct {
 	timeout     time.Duration
 }
 
-func TestShouldReportFault(t *testing.T) {
+func mockMindIEServerJob(jobKey string) constant.JobInfo {
+	return constant.JobInfo{
+		Key:                jobKey,
+		MultiInstanceJobId: "mindie",
+		AppType:            constant.ServerAppType,
+	}
+}
+
+func TestShouldReportFaultForMindIEJob(t *testing.T) {
 	convey.Convey("Test shouldReportFault behavior under different conditions", t, func() {
 		mockPubSubscribed := &mockFaultPublisher{isSubscribed: true}
 		mockPubNotSubscribed := &mockFaultPublisher{isSubscribed: false}
@@ -324,21 +342,20 @@ func TestShouldReportFault(t *testing.T) {
 		}
 
 		testCases := testShouldReportFaultCases{
-			jobId1:      "test-job-1",
+			jobId1:      "jobId1",
 			deviceName1: "npu-0",
-			timeout:     selfrecoverFaultTimeout,
+			timeout:     constant.CustomFilterFaultDefaultTimeout,
 		}
 
 		patchWithOffset := func(offset time.Duration) *gomonkey.Patches {
 			ts := time.Now().Add(offset).UnixMilli()
 			return patchNow(ts)
 		}
-
-		convey.Convey("When fault level is not L2, should report fault", func() {
+		convey.Convey("When fault level is not in custom filter fault levels, should report fault", func() {
 			fault := baseFaultTimeAndLevel
 			fault.FaultLevel = constant.NotHandleFaultLevelStr
 
-			res := shouldReportFault(fault, constant.JobInfo{}, "", "")
+			res := shouldReportFault(fault, constant.JobInfo{}, "", "", nil, nil)
 			convey.So(res, convey.ShouldBeTrue)
 		})
 
@@ -352,33 +369,21 @@ func testL2LevelFaultScenarios(l2Fault constant.FaultTimeAndLevel, testCases tes
 	patchWithOffset func(time.Duration) *gomonkey.Patches,
 	mockPubSubscribed, mockPubNotSubscribed *mockFaultPublisher) {
 	convey.Convey("For L2 level faults (RestartRequest)", func() {
-		convey.Convey("When fault duration exceeds 60s, should report", func() {
+		convey.Convey("When fault level duration exceeds 60s, should report", func() {
 			patch := patchWithOffset(testCases.timeout + time.Second)
 			defer patch.Reset()
 
-			res := shouldReportFault(l2Fault, constant.JobInfo{}, "", "")
+			res := shouldReportFault(l2Fault, constant.JobInfo{}, "", "", nil,
+				custom.GetDefaultMindIeServerFilterLevels())
 			convey.So(res, convey.ShouldBeTrue)
 		})
 
-		convey.Convey("When job is not subscribed, should report", func() {
-			common.SetPublisher(mockPubNotSubscribed)
-			patch := patchWithOffset(testCases.timeout-time.Second).
-				ApplyFuncReturn(common.Publisher.IsSubscribed, false)
+		convey.Convey("When fault code duration not exceeds 60s, should not report", func() {
+			patch := patchWithOffset(testCases.timeout - time.Second)
 			defer patch.Reset()
-
 			res := shouldReportFault(l2Fault, constant.JobInfo{Key: testCases.jobId1},
-				testCases.deviceName1, "")
-			convey.So(res, convey.ShouldBeTrue)
-		})
-
-		convey.Convey("When job is subscribed, should NOT report", func() {
-			common.SetPublisher(mockPubSubscribed)
-			patch := patchWithOffset(testCases.timeout-time.Second).
-				ApplyFuncReturn(common.Publisher.IsSubscribed, true)
-			defer patch.Reset()
-
-			res := shouldReportFault(l2Fault, constant.JobInfo{Key: testCases.jobId1},
-				testCases.deviceName1, "")
+				testCases.deviceName1, constant.DevCqeFaultCode,
+				custom.GetDefaultMindIeServerFilterCodes(), custom.GetDefaultMindIeServerFilterLevels())
 			convey.So(res, convey.ShouldBeFalse)
 		})
 	})
