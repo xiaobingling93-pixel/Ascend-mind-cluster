@@ -212,12 +212,20 @@ const (
 	SignalTypeFault = "fault"
 	// Comma comma
 	Comma = ","
+	// InvalidComma invalid comma
+	InvalidComma = "，"
 	// Minus minus
 	Minus = "-"
+	// Colon colon
+	Colon = ":"
+	// InvalidColon invalid colon
+	InvalidColon = "："
 	// EmptyDeviceId device id for node or switch fault
 	EmptyDeviceId = "-1"
 	// FormatBase The base number used to convert int to string
 	FormatBase = 10
+	// FormatBitSize64 The bit size number used to convert int to string
+	FormatBitSize64 = 64
 	// DefaultJobId default job id for cluster dimension
 	DefaultJobId = "-1"
 	// NPUNameLength length of npu name,ascend910-0

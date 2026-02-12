@@ -200,6 +200,19 @@ func MergeStringMapList[T any](old, new map[string]T) {
 	}
 }
 
+// MergeStringMapListOnlyNewKeys merge new map to old map, if key exists, skip merge to old map
+func MergeStringMapListOnlyNewKeys[T any](old, new map[string]T) {
+	if old == nil || new == nil {
+		return
+	}
+	for k, v := range new {
+		if _, exist := old[k]; exist {
+			continue
+		}
+		old[k] = v
+	}
+}
+
 // GetStringMapValueList get value list of string map
 func GetStringMapValueList[T any](o map[string]T) []T {
 	ret := make([]T, 0, len(o))

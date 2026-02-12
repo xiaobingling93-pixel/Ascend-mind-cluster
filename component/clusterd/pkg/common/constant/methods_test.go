@@ -5,6 +5,7 @@ package constant
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartystreets/goconvey/convey"
 
@@ -401,7 +402,7 @@ func TestNodeInfoBusinessDataIsNotEqual(t *testing.T) {
 	})
 }
 
-func TestSwitchAddFaultAndFix1(t *testing.T) {
+func TestSwitchAddFaultAndFix(t *testing.T) {
 	convey.Convey("add switch fault ok", t, func() {
 		cm := &SwitchInfo{}
 		fault := SimpleSwitchFaultInfo{}
@@ -449,4 +450,37 @@ func TestGetResourceFromTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSwitchAddFaultAndFixAndDelFaultAndFix(t *testing.T) {
+	convey.Convey("TestSwitchAddFaultAndFixAndDelFaultAndFix", t, func() {
+		cm := &SwitchInfo{}
+		fault := SimpleSwitchFaultInfo{
+			AssembledFaultCode: "[0x00f103b6,155908,na,na]",
+			SwitchChipId:       1,
+			SwitchPortId:       0,
+		}
+		currentTime := time.Now().UnixMilli()
+		faultTimeAndLevel := FaultTimeAndLevel{
+			FaultTime: currentTime, FaultReceivedTime: currentTime, FaultLevel: NotHandleFaultLevelStr}
+		convey.Convey("add and delete switch fault ok", func() {
+			cm.AddFaultAndFix1(fault, faultTimeAndLevel)
+			convey.So(len(cm.FaultInfo), convey.ShouldEqual, 1)
+			convey.So(len(cm.FaultTimeAndLevelMap), convey.ShouldEqual, 1)
+			convey.So(cm.NodeStatus, convey.ShouldEqual, HealthyState)
+			convey.So(cm.FaultLevel, convey.ShouldEqual, NotHandleFaultLevelStr)
+
+			// skip add switch fault
+			cm.AddFaultAndFix1(fault, faultTimeAndLevel)
+			convey.So(len(cm.FaultInfo), convey.ShouldEqual, 1)
+			convey.So(len(cm.FaultTimeAndLevelMap), convey.ShouldEqual, 1)
+
+			// delete switch fault ok
+			cm.DelFaultAndFix(fault)
+			convey.So(len(cm.FaultInfo), convey.ShouldEqual, 0)
+			convey.So(len(cm.FaultTimeAndLevelMap), convey.ShouldEqual, 0)
+			convey.So(cm.NodeStatus, convey.ShouldEqual, HealthyState)
+			convey.So(cm.FaultLevel, convey.ShouldEqual, NotHandleFault)
+		})
+	})
 }
