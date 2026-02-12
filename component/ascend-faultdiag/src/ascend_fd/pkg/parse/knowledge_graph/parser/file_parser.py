@@ -17,7 +17,7 @@
 import logging
 import os.path
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Dict
 
 from ascend_fd.configuration.config import CUSTOM_CONFIG_PATH
 from ascend_fd.model.parse_info import KGParseFilePath
@@ -226,7 +226,7 @@ class FileParser(ABC):
             kg_logger.warning("No %s files found in the directory", self.TARGET_FILE_PATTERNS)
         return log_list
 
-    def parse_from_user_repository(self, line: str) -> dict[str, str]:
+    def parse_from_user_repository(self, line: str) -> Dict[str, str]:
         for code, params in self.user_conf.items():
             if self.pattern_matcher.compare(params, line):
                 key_info = self.pattern_matcher.key_info or line
@@ -246,7 +246,7 @@ class FileParser(ABC):
             event_dict = self.match_event_code(log_data, self.regex_conf.get(COMPOSITE_SWITCH_CHIP_SOURCE, {}))
         return event_dict
 
-    def parse_single_line(self, line: str, framework_name="") -> dict:
+    def parse_single_line(self, line: str, framework_name=""):
         """
         Parse singe line of log file, the log file type can be train log, NPU log, CANN log and OS log
         :param line: the single line to be parsed
@@ -263,7 +263,7 @@ class FileParser(ABC):
             if not self.pattern_matcher.compare(params, log_data):
                 continue
             key_info = self.pattern_matcher.key_info or log_data
-            event_dict = {EVENT_CODE: code, "key_info": key_info, CUSTOM_EVENT: True}
+            event_dict = {EVENT_CODE: code, "key_info": key_info, CUSTOM_EVENT: False}
             attr_result = self.pattern_matcher.match_attr(params.get("attr_regex", ""), key_info)
             if not attr_result:
                 return event_dict

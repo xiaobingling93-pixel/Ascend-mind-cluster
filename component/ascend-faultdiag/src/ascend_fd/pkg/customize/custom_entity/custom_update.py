@@ -37,7 +37,7 @@ def update_entity(data_path: str = None, sdk_entity: dict = None, output_dict: d
     :return operation result
     """
     origin_conf = safe_read_json(KNOWLEDGE_GRAPH_CONF)
-    origin_entities = origin_conf.setdefault("knowledge-re pository", {})
+    origin_entities = origin_conf.setdefault("knowledge-repository", {})
     origin_entity_codes = set(origin_entities.keys())
 
     user_conf = safe_read_json(DEFAULT_USER_CONF) if os.path.exists(DEFAULT_USER_CONF) else {}
