@@ -95,22 +95,22 @@ func (tp *module800ia5stacking) CheckNodeNPUByTask(task *api.TaskInfo, node plug
 		return err
 	}
 	nodeAcceleratorType := node.Label[util.AcceleratorType]
-	klog.V(util.LogInfoLev).Infof("node %s: accelerator-type=%s", node.Name, nodeAcceleratorType)
+	klog.V(util.LogDebugLev).Infof("node %s: accelerator-type=%s", node.Name, nodeAcceleratorType)
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 	// Get available NPU resource topology information on the current node
 	nodeTop, err := tp.getUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	// Determine if the node and task's NPU configurations match
 	if err = tp.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("%s JudgeNodeAndTaskNPU err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s JudgeNodeAndTaskNPU err: %s", tp.GetPluginName(), err.Error())
 		return fmt.Errorf("npu topology not meet job require,network unhealthy card is [ %s ]",
 			node.Annotation[tp.netUnhealthyKey])
 	}

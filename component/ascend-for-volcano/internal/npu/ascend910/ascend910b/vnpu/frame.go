@@ -104,7 +104,7 @@ func (tp *virtual910NPU) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.Node
 		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes %s.", err)
 		return err
 	}
-	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
+	klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
 		task.Name, sMap)
 	return tp.vHandle.DynamicVNPU.ScoreBestNPUNodes(task, nodes, sMap)
 }

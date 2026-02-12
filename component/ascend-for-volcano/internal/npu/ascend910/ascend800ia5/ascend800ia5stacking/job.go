@@ -33,7 +33,7 @@ func (tp *module800ia5stacking) JudgeNodeAndTaskNPU(taskNPU int, nodeTop []int) 
 		return nil
 	}
 	meetErr := fmt.Errorf("%v not meet req npu(%d)", nodeTop, taskNPU)
-	klog.V(util.LogErrorLev).Infof("cardIDs:<%v> not meet task reqNum<%d>.", nodeTop, taskNPU)
+	klog.V(util.LogDebugLev).Infof("cardIDs:<%v> not meet task reqNum<%d>.", nodeTop, taskNPU)
 	return meetErr
 }
 

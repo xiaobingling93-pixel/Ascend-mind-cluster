@@ -50,13 +50,13 @@ func (reScheduler *ReScheduler) Execute(env *plugin.ScheduleEnv, ssn *framework.
 	// 1. restart Fault Jobs that are recorded in cache
 	if restartErr := reScheduler.RestartNeedForceDeleteJobs(ssn, *env); restartErr != nil &&
 		restartErr.Error() != util.ArgumentError {
-		klog.V(util.LogErrorLev).Infof("RestartNeedForceDeleteJobs: %s", restartErr.Error())
+		klog.V(util.LogWarningLev).Infof("RestartNeedForceDeleteJobs: %s", restartErr.Error())
 	}
 	// 2. get all jobs in session
 	runningJobs := reScheduler.GetRunningJobs(ssn)
 	// 3. get nodes of session and fault jobs
 	if err := reScheduler.AddFaultJobWithSession(runningJobs, *env); err != nil {
-		klog.V(util.LogErrorLev).Infof("AddFaultJobWithSession %s", err)
+		klog.V(util.LogWarningLev).Infof("AddFaultJobWithSession %s", err)
 	}
 	// 4. restart the fault jobs
 	if restartErr := reScheduler.RestartFaultJobs(ssn, *env); restartErr != nil {

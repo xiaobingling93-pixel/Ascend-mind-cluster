@@ -40,14 +40,14 @@ func judgeNodeAndTaskNPU(taskNPU int, nodeTop []int) error {
 	default:
 		// single pod(task) cannot require npu not belong to mode
 		// this kind job has been deal with job logical
-		klog.V(util.LogErrorLev).Infof("judgeNodeAndTaskNPU err: task req npu is invalid.")
+		klog.V(util.LogDebugLev).Infof("judgeNodeAndTaskNPU err: task req npu is invalid.")
 	}
 
 	if reFlag {
 		return nil
 	}
 	meetErr := fmt.Errorf("%v not meet req npu(%d)", nodeTop, taskNPU)
-	klog.V(util.LogErrorLev).Infof("cardIDs:<%v> not meet task reqNum<%d>.", nodeTop, taskNPU)
+	klog.V(util.LogDebugLev).Infof("cardIDs:<%v> not meet task reqNum<%d>.", nodeTop, taskNPU)
 	return meetErr
 }
 

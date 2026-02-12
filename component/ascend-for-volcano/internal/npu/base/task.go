@@ -43,13 +43,13 @@ func (tp *NPUHandler) GetTaskReqNPUNum(task *api.TaskInfo) (int, error) {
 	nJob, jOK := tp.Jobs[task.Job]
 	if !jOK {
 		err := fmt.Errorf("%s is not npu job", task.Job)
-		klog.V(util.LogErrorLev).Infof("GetTaskReqNPUNum err: %s,%s,%#v", err, util.SafePrint(task.Job), tp.Jobs)
+		klog.V(util.LogDebugLev).Infof("GetTaskReqNPUNum err: %s,%s,%#v", err, util.SafePrint(task.Job), tp.Jobs)
 		return 0, err
 	}
 	nTask, tOK := nJob.Tasks[task.UID]
 	if !tOK {
 		err := fmt.Errorf("task<%s> is not npu task", task.Name)
-		klog.V(util.LogErrorLev).Infof("GetTaskReqNPUNum err: %s,%s,%#v", err, util.SafePrint(task.UID), tp.Tasks)
+		klog.V(util.LogDebugLev).Infof("GetTaskReqNPUNum err: %s,%s,%#v", err, util.SafePrint(task.UID), tp.Tasks)
 		return 0, err
 	}
 	klog.V(util.LogDebugLev).Infof("GetTaskReqNPUNum task req npu<%s>-<%d> ", nTask.ReqNPUName, nTask.ReqNPUNum)
@@ -66,7 +66,7 @@ func (tp *NPUHandler) SetNPUTopologyToPodFn(task *api.TaskInfo, top []int, node 
 	// to device-plugin judge pending pod.
 	tmp := strconv.FormatInt(time.Now().UnixNano(), util.Base10)
 	task.Pod.Annotations[util.PodPredicateTime] = tmp
-	klog.V(util.LogInfoLev).Infof("%s setNPUTopologyToPod %s==%v top:%s.", tp.GetPluginName(),
+	klog.V(util.LogDebugLev).Infof("%s setNPUTopologyToPod %s==%v top:%s.", tp.GetPluginName(),
 		task.Name, tmp, topologyStr)
 	tp.setHardwareTypeToPod(task, node)
 	tp.setRealUsedNpuToPod(task, top, topologyStr, node)
@@ -121,7 +121,7 @@ func (tp *NPUHandler) setRealUsedNpuToPod(task *api.TaskInfo, top []int, topolog
 		klog.V(util.LogDebugLev).Infof("device-ips(%d) not equal require npu(%d)", len(ipMap), len(top))
 		return
 	}
-	klog.V(util.LogInfoLev).Info("pod had used all card of node, set configuration in annotation")
+	klog.V(util.LogDebugLev).Info("pod had used all card of node, set configuration in annotation")
 	inst := util.Instance{
 		PodName:    task.Name,
 		ServerID:   string(task.Pod.UID),

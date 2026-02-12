@@ -54,16 +54,16 @@ func (tp *chip4nodex) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 	}
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 	if err = tp.judgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("the node judgeNodeAndTaskNPU failed, node name %s, err: %s",
+		klog.V(util.LogDebugLev).Infof("the node judgeNodeAndTaskNPU failed, node name %s, err: %s",
 			node.Name, err.Error())
 		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
@@ -80,7 +80,7 @@ func (tp *chip4nodex) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 	}
 	taskNPUNum, getErr := tp.GetTaskReqNPUNum(task)
 	if getErr != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum %s: %s", tp.GetPluginName(), task.Name, getErr)
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum %s: %s", tp.GetPluginName(), task.Name, getErr)
 		return getErr
 	}
 
@@ -90,14 +90,14 @@ func (tp *chip4nodex) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		}
 		nNode, ok := tp.Nodes[node.Name]
 		if !ok {
-			klog.V(util.LogWarningLev).Infof("%s %s ScoreBestNPUNodes %s is not npu node",
+			klog.V(util.LogDebugLev).Infof("%s %s ScoreBestNPUNodes %s is not npu node",
 				tp.GetPluginName(), task.Name, node.Name)
 			continue
 		}
 		// Get the list of NPUs currently available on the node
 		cardIds, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
 		if err != nil {
-			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)
+			klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)
 			continue
 		}
 
@@ -107,7 +107,7 @@ func (tp *chip4nodex) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		}
 		sMap[node.Name] = tp.scoreNodeForGeneral(taskNPUNum, cardIds)
 	}
-	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
+	klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes task<%s> sMap<%v>", tp.GetPluginName(),
 		task.Name, sMap)
 	return nil
 }

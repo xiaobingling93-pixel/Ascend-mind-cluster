@@ -96,7 +96,7 @@ func (tp *VirtualNPU) CheckNodeNPUByDyTask(task *api.TaskInfo, node plugin.NPUNo
 	}
 	klog.V(util.LogDebugLev).Infof("check dynamic vNPU %s on %s", task.Name, node.Name)
 	if !node.ValidVNode {
-		klog.V(util.LogInfoLev).Infof("dynamic vNPU node<%s> not valid vNode", node.Name)
+		klog.V(util.LogDebugLev).Infof("dynamic vNPU node<%s> not valid vNode", node.Name)
 		return errors.New("checkNodeNPUByDyTask invalid VNode")
 	}
 	if node.IsNodeNotMeetRes(taskResReq) {
@@ -124,7 +124,7 @@ func (tp *DynamicVNPU) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeIn
 		klog.V(util.LogDebugLev).Infof("ScoreBestNPUNodes failed: %s", util.ArgumentError)
 		return errors.New(util.ArgumentError)
 	}
-	klog.V(util.LogInfoLev).Infof("dynamic vnpu task<%s> ScoreBestNPUNodes", task.Name)
+	klog.V(util.LogDebugLev).Infof("dynamic vnpu task<%s> ScoreBestNPUNodes", task.Name)
 	if len(scoreMap) == 0 {
 		return errors.New(util.ArgumentError)
 	}

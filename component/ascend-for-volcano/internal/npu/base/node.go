@@ -43,7 +43,7 @@ func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([
 	nodeTop := util.ChangeTopToIntArray(topStr, tp.GetAnnoPreVal())
 	if len(nodeTop) > tp.MaxNodeNPUNum {
 		err := fmt.Errorf("node npu top<%v> is invalid", nodeTop)
-		klog.V(util.LogWarningLev).Infof("%s GetUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
 	if !disFlag || !tp.IsNetworkFaultAttention {
@@ -53,7 +53,7 @@ func (tp *NPUHandler) GetUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([
 	// for distributed job, need to remove the net unhealthy npu
 	netUnhealthyTop, err := tp.getNetUnhealthyNPU(node)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("getNetUnhealthyNPU err: %s", err)
+		klog.V(util.LogDebugLev).Infof("getNetUnhealthyNPU err: %s", err)
 		return nil, err
 	}
 

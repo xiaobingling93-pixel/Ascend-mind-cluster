@@ -39,7 +39,7 @@ func (fNode *FaultNode) createFaultCardHandlers(node *plugin.NPUNode) []FaultCar
 	}
 	allCards, err := fNode.getAllNPUCardsFromDeviceInfo(node)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("get all fault card info for node %s, err %v", node.Name, err.Error())
+		klog.V(util.LogWarningLev).Infof("get all fault card info for node %s, err %v", node.Name, err.Error())
 		return faultCards
 	}
 	for _, card := range allCards {
@@ -50,14 +50,14 @@ func (fNode *FaultNode) createFaultCardHandlers(node *plugin.NPUNode) []FaultCar
 		}
 
 		if faultCard.isCardUnhealthy(fNode.UnhealthyNPU) {
-			klog.V(util.LogDebugLev).Infof("card %s is unhealthy", faultCard.NPUName)
+			klog.V(util.LogInfoLev).Infof("card %s is unhealthy in node %s", faultCard.NPUName, node.Name)
 			faultCard.setIsFaultCard(true)
 			faultCard.setFaultType(CardUnhealthy)
 			faultCards = append(faultCards, faultCard)
 			continue
 		}
 		if faultCard.isCardNetworkUnhealthy(fNode.NetworkUnhealthyNPU) {
-			klog.V(util.LogDebugLev).Infof("card %s is network unhealthy", faultCard.NPUName)
+			klog.V(util.LogInfoLev).Infof("card %s is network unhealthy in node %s", faultCard.NPUName, node.Name)
 			faultCard.setIsFaultCard(true)
 			faultCard.setFaultType(CardNetworkUnhealthy)
 			faultCards = append(faultCards, faultCard)
@@ -128,38 +128,38 @@ func (fNode *FaultNode) updateFaultNodesFromDeviceInfo(node *plugin.NPUNode) {
 		klog.V(util.LogDebugLev).Infof("not npu node: %s", fNode.NodeName)
 		return
 	}
-	klog.V(util.LogInfoLev).Infof("update information from device info for node %s", node.Name)
+	klog.V(util.LogDebugLev).Infof("update information from device info for node %s", node.Name)
 	tmpUnhealthyNPUs, err := fNode.getUnhealthyCardsFromDeviceInfo(node)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("getUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
+		klog.V(util.LogWarningLev).Infof("getUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setUnhealthyNPUList(tmpUnhealthyNPUs)
 	if len(tmpUnhealthyNPUs) > 0 {
-		klog.V(util.LogWarningLev).Infof("Unhealthy cards from device info: %v", tmpUnhealthyNPUs)
+		klog.V(util.LogInfoLev).Infof("node %s Unhealthy cards from device info: %v", node.Name, tmpUnhealthyNPUs)
 	}
 
 	tmpNetworkUnhealthyNPUs, err := fNode.getNetworkUnhealthyCardsFromDeviceInfo(node)
 	if err != nil {
-		klog.V(util.LogInfoLev).Infof("getNetworkUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
+		klog.V(util.LogWarningLev).Infof("getNetworkUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setNetworkUnhealthyNPUList(tmpNetworkUnhealthyNPUs)
 	if len(tmpNetworkUnhealthyNPUs) > 0 {
-		klog.V(util.LogWarningLev).Infof("Network unhealthy cards from device info: %v", tmpNetworkUnhealthyNPUs)
+		klog.V(util.LogInfoLev).Infof("node %s Network-unhealthy cards from device info: %v",
+			node.Name, tmpNetworkUnhealthyNPUs)
 	}
 
 	tmpDpuUnhealthyNPUs, err := fNode.getDpuUnhealthyCardsFromDeviceInfo(node)
 	if err != nil {
-		klog.V(util.LogInfoLev).Infof("getDpuUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
+		klog.V(util.LogWarningLev).Infof("getDpuUnhealthyCardsFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setDpuUnhealthyNPUList(tmpDpuUnhealthyNPUs)
 	if len(tmpDpuUnhealthyNPUs) > 0 {
-		klog.V(util.LogWarningLev).Infof("DPU unhealthy cards from device info: %v, node: %s",
-			tmpDpuUnhealthyNPUs, node.Name)
+		klog.V(util.LogInfoLev).Infof("node %s DPU unhealthy cards from device info: %v", node.Name, tmpDpuUnhealthyNPUs)
 	}
 
 	deviceFaultReason, err := fNode.getNodeDeviceFaultFromDeviceInfo(node)
 	if err != nil {
-		klog.V(util.LogDebugLev).Infof("GetNodeDeviceFaultFromDeviceInfo: %s", util.SafePrint(err))
+		klog.V(util.LogWarningLev).Infof("GetNodeDeviceFaultFromDeviceInfo: %s", util.SafePrint(err))
 	}
 	fNode.setFaultDeviceList(deviceFaultReason)
 	fNode.setNodeHasCardSubHealthFault()
@@ -181,7 +181,7 @@ func (fNode *FaultNode) getNodeDeviceFaultFromDeviceInfo(node *plugin.NPUNode) (
 
 // updateFaultNodesAttr update Information from device Info
 func (fNode *FaultNode) updateFaultNodesAttr(node *plugin.NPUNode) {
-	klog.V(util.LogInfoLev).Infof("Update node attributes, node name=%s", node.Name)
+	klog.V(util.LogDebugLev).Infof("Update node attributes, node name=%s", node.Name)
 	// 1. create fault Card Object
 	tmpFaultCards := fNode.createFaultCardHandlers(node)
 	fNode.setFaultCards(tmpFaultCards)
@@ -195,7 +195,7 @@ func (fNode *FaultNode) updateFaultNodesAttr(node *plugin.NPUNode) {
 	fNode.setNodeHealthyBySwitch(node)
 
 	if fNode.NodeHealthState == NodeUnhealthy {
-		klog.V(util.LogErrorLev).Infof("the node state is unhealthy, node name=%s", node.Name)
+		klog.V(util.LogWarningLev).Infof("the node state is unhealthy, node name=%s", node.Name)
 		return
 	}
 
@@ -206,7 +206,6 @@ func (fNode *FaultNode) updateFaultNodesAttr(node *plugin.NPUNode) {
 
 func (fNode *FaultNode) setNodeHealthyByNodeD(node *plugin.NPUNode) {
 	if !fNode.isNodeDEnabled(node) {
-		klog.V(util.LogDebugLev).Infof("node %s nodeD not enabled", node.Name)
 		fNode.setNodeDValue(false)
 		return
 	}
@@ -217,7 +216,7 @@ func (fNode *FaultNode) setNodeHealthyByNodeD(node *plugin.NPUNode) {
 		// 2 reason:
 		// if haven't got the healthy status reported by noded, will not set node status to unhealthy;
 		// when there are no faults on the node, node info cm does not exist.
-		klog.V(util.LogInfoLev).Infof("failed to obtain node[%s] healthy status from noded configmap", node.Name)
+		klog.V(util.LogWarningLev).Infof("failed to obtain node[%s] healthy status from noded configmap", node.Name)
 		return
 	}
 	if healthyStatus == util.NodeUnHealthy {
@@ -272,7 +271,7 @@ func (fNode *FaultNode) isNodeDEnabled(node *plugin.NPUNode) bool {
 	case nodeDEnableOffValue:
 		return false
 	default:
-		klog.V(util.LogErrorLev).Infof("isEnableFaultNode not support %s.", value)
+		klog.V(util.LogDebugLev).Infof("isEnableFaultNode not support %s.", value)
 		return false
 	}
 }

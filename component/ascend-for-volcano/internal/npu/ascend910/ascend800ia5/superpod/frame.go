@@ -148,18 +148,18 @@ func (tp *module800SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.
 
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum/tp.spBlock > 1)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof(getNPUFromPodFailedPattern, tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	if err = tp.NPUHandler.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("%s JudgeNodeAndTaskNPU err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s JudgeNodeAndTaskNPU err: %s", tp.GetPluginName(), err.Error())
 		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
 	return nil
@@ -194,18 +194,19 @@ func (tp *module800SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.
 	}()
 
 	if *job.JobReadyTag && len(job.SuperPods) != 0 {
-		klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes %s: job is ready, skip", tp.GetPluginName(),
+		klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes %s: job is ready, skip", tp.GetPluginName(),
 			task.Name)
 		return nil
 	}
-
+	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes npuTaskNum: %d, nodes: %d, schedulingTaskNum: %d, "+
+		"total task: %d", tp.GetPluginName(), tp.NPUTaskNum, len(nodes), tp.SchedulingTaskNum, tp.NPUTaskNum)
 	if tp.NPUTaskNum == 1 {
 		nodes = tp.selectNodesWithLeastResourceForSingle(nodes)
 	}
 
 	if tp.NPUTaskNum > len(nodes) && tp.SchedulingTaskNum == len(tp.Tasks) {
 		*job.JobReadyTag = false
-		return fmt.Errorf("select node failed by not enough node")
+		return fmt.Errorf("not enough node, npuTaskNum: %d, nodes: %d", tp.NPUTaskNum, len(nodes))
 	}
 
 	selectedNodes, err := tp.selectSuperPodForJob(task, nodes, sMap)
@@ -312,7 +313,7 @@ func (tp *module800SuperPod) selectNodesWithLeastResourceForSingle(nodes []*api.
 
 func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*api.NodeInfo,
 	sMap map[string]float64) (map[string][]plugin.SuperNode, error) {
-	klog.V(util.LogInfoLev).Infof("input nodes num(%d) for task %s", len(nodes), task.Name)
+	klog.V(util.LogInfoLev).Infof("%s input nodes num(%d) for task %s", tp.GetPluginName(), len(nodes), task.Name)
 	totalNodes := tp.getSuperPodTop(nodes)
 	if !tp.checkSpBlockGtZero() {
 		return nil, fmt.Errorf("select super pod failed, sp-block less than 0")
@@ -342,7 +343,8 @@ func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*a
 
 	if spi.countVSuperPod < len(unReadyID) && (!tp.isSoftSuperPodAffinity ||
 		(tp.isSoftSuperPodAffinity && isSuperPodRescheduling)) {
-		return nil, fmt.Errorf("select super pod failed, required %d, total %d", len(unReadyID), spi.countVSuperPod)
+		return nil, fmt.Errorf("select super pod failed, required vitural-super-pod %d, total %d", len(unReadyID),
+			spi.countVSuperPod)
 	}
 	tp.selectNodes(unReadyID, &spi, selectNodes, len(vSuperPodID))
 
@@ -354,7 +356,7 @@ func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]sup
 	for _, node := range nodes {
 		nNode, ok := tp.Nodes[node.Name]
 		if !ok {
-			klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes %s is not npu node",
+			klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes %s is not npu node",
 				tp.GetPluginName(), node.Name)
 			continue
 		}
@@ -363,6 +365,10 @@ func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]sup
 			totalNodes[nNode.SuperPodID] = superPod{}
 		}
 		totalNodes[nNode.SuperPodID][node.Name] = nNode
+	}
+	klog.V(util.LogInfoLev).Info("super pod top: ")
+	for id, sp := range totalNodes {
+		klog.V(util.LogInfoLev).Infof("super-pod-id: %d, node count: %d detail: %v", id, len(sp), sp.NodeNames())
 	}
 	return totalNodes
 }
@@ -566,7 +572,7 @@ func (tp *module800SuperPod) schedulable(fJob *rescheduling.FaultJob, totalNodes
 	return ifSchedule(count, totalNodes)
 }
 
-func ifSchedule(count map[int32]int, totalNodes map[int32]map[string]plugin.NPUNode) bool {
+func ifSchedule(count map[int32]int, totalNodes map[int32]superPod) bool {
 	if len(count) == 0 || len(totalNodes) == 0 {
 		return false
 	}
@@ -650,7 +656,7 @@ func (tp *module800SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob)
 }
 
 func (tp *module800SuperPod) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,
-	notReadySuperPod map[string]struct{}, totalNodes map[int32]map[string]plugin.NPUNode,
+	notReadySuperPod map[string]struct{}, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
 	if fJob == nil || fJob.SuperPods == nil {
 		return
@@ -685,7 +691,7 @@ func (tp *module800SuperPod) selectNodeForPodLevelRescheduling(fJob *reschedulin
 	}
 }
 
-func selectNodesForFaultPod(fJob *rescheduling.FaultJob, ids []int, totalNodes map[int32]map[string]plugin.NPUNode,
+func selectNodesForFaultPod(fJob *rescheduling.FaultJob, ids []int, totalNodes map[int32]superPod,
 	spn plugin.SuperNode, superPodId string) {
 	for _, id := range ids {
 		for _, node := range totalNodes[spn.SuperPodID] {
