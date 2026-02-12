@@ -42,16 +42,13 @@ import (
 // init the SchedulerJob's init.
 func (sJob *SchedulerJob) init(vcJob *api.JobInfo, sHandle *ScheduleHandler) error {
 	if sJob == nil || vcJob == nil {
-		klog.V(util.LogErrorLev).Infof("SchedulerJob_Init: parameter is nil.")
 		return errors.New("parameter is nil")
 	}
 	if initErr := sJob.initByJobInfo(vcJob); initErr != nil {
-		klog.V(util.LogDebugLev).Infof("%s initByJobInfo %s", vcJob.UID, initErr)
 		return initErr
 	}
 
 	if !sJob.isJobSupportByPlugin() {
-		klog.V(util.LogDebugLev).Infof("%s IsJobSupportByPlugin not has suitable plugin.", sJob.Name)
 		return fmt.Errorf("%s's plugin not regist", sJob.Name)
 	}
 
@@ -752,8 +749,8 @@ func (sHandle *ScheduleHandler) recordJobPendingMessage(vcJob SchedulerJob) {
 
 // JobValid the job valid, used by volcano frame.
 func (sHandle *ScheduleHandler) JobValid(obj interface{}) *api.ValidateResult {
-	klog.V(util.LogInfoLev).Infof("enter job valid")
-	defer klog.V(util.LogInfoLev).Infof("leave job valid")
+	klog.V(util.LogDebugLev).Infof("enter job valid")
+	defer klog.V(util.LogDebugLev).Infof("leave job valid")
 
 	if sHandle == nil || *sHandle.FrameAttr.IsFirstSession {
 		return &api.ValidateResult{Pass: false, Reason: objectNilError,
@@ -769,7 +766,7 @@ func (sHandle *ScheduleHandler) JobValid(obj interface{}) *api.ValidateResult {
 
 	if !isJobInitial(job) {
 		reason := "job is not ready"
-		klog.V(util.LogErrorLev).Infof("%s job(%s) not ready:%s.", PluginName, job.Name,
+		klog.V(util.LogWarningLev).Infof("%s job(%s) not ready:%s.", PluginName, job.Name,
 			job.PodGroup.Status.Phase)
 		return &api.ValidateResult{Pass: false, Reason: reason,
 			Message: fmt.Sprintf("validJobFn [%#v] failed:%s", obj, reason)}
@@ -815,7 +812,7 @@ func (sJob *SchedulerJob) checkNodeNum(taskInfo *api.TaskInfo, vcNode NPUNode) e
 	}
 	vcTask, ok := sJob.NPUJob.Tasks[taskInfo.UID]
 	if !ok {
-		klog.V(util.LogErrorLev).Infof("checkNodeNum %+v.", sJob.SchedulerJobAttr.NPUJob)
+		klog.V(util.LogDebugLev).Infof("checkNodeNum %+v.", sJob.SchedulerJobAttr.NPUJob)
 		return fmt.Errorf("no %s in SchedulerJob", taskInfo.UID)
 	}
 	nodeNPUNum, ok := vcNode.Idle[v1.ResourceName(vcTask.ReqNPUName)]

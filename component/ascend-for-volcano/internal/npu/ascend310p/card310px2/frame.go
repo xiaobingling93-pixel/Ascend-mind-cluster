@@ -51,7 +51,7 @@ func (tp *card310px2) ValidNPUJob() *api.ValidateResult {
 	if tp == nil {
 		return &api.ValidateResult{Pass: false, Reason: util.ArgumentError, Message: util.ArgumentError}
 	}
-	klog.V(util.LogInfoLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
+	klog.V(util.LogDebugLev).Infof("ValidNPUJob %v.", tp.GetPluginName())
 	klog.V(util.LogDebugLev).Infof("%s ValidNPUJob card-mode job<%s> has <%d> tasks.",
 		tp.GetPluginName(), tp.Name, len(tp.Tasks))
 	if tp.SchedulerJobAttr.Label[util.DistributedInferKey] == util.DistributedInferLabel &&
@@ -76,18 +76,18 @@ func (tp *card310px2) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 	}
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	if err = tp.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogInfoLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return fmt.Errorf("checkNodeNPUByTask %s : %v", util.NodeNotMeetTopologyWarning, err)
 	}
 
@@ -103,13 +103,13 @@ func (tp *card310px2) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 	}
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	if taskNPUNum < 1 || taskNPUNum > tp.MaxCardNPUNum {
 		err = fmt.Errorf("task<%s> req npu num<%d> is invalid", task.Name, taskNPUNum)
-		klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 

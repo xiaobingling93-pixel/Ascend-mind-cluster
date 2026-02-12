@@ -378,17 +378,17 @@ func TestIfScheduleCase1(t *testing.T) {
 	convey.Convey("Test ifSchedule case 2", t, func() {
 		convey.Convey("When count or totalNodes is empty", func() {
 			convey.Convey("Empty count map", func() {
-				result := ifSchedule(map[int32]int{}, map[int32]map[string]plugin.NPUNode{1: {"node1": {}}})
+				result := ifSchedule(map[int32]int{}, map[int32]superPod{1: {"node1": {}}})
 				convey.So(result, convey.ShouldBeFalse)
 			})
 
 			convey.Convey("Empty totalNodes map", func() {
-				result := ifSchedule(map[int32]int{1: 1}, map[int32]map[string]plugin.NPUNode{})
+				result := ifSchedule(map[int32]int{1: 1}, map[int32]superPod{})
 				convey.So(result, convey.ShouldBeFalse)
 			})
 
 			convey.Convey("Both empty", func() {
-				result := ifSchedule(map[int32]int{}, map[int32]map[string]plugin.NPUNode{})
+				result := ifSchedule(map[int32]int{}, map[int32]superPod{})
 				convey.So(result, convey.ShouldBeFalse)
 			})
 		})
@@ -398,7 +398,7 @@ func TestIfScheduleCase1(t *testing.T) {
 				num1: num2, // Need 2 nodes
 				num2: num1, // Need 1 node
 			}
-			totalNodes := map[int32]map[string]plugin.NPUNode{
+			totalNodes := map[int32]superPod{
 				num1: {"node1": {}, "node2": {}, "node3": {}}, // 3 available
 				num2: {"node4": {}},                           // 1 available
 			}
@@ -412,7 +412,7 @@ func TestIfScheduleCase1(t *testing.T) {
 				count := map[int32]int{
 					num1: num3, // Need 3 nodes
 				}
-				totalNodes := map[int32]map[string]plugin.NPUNode{
+				totalNodes := map[int32]superPod{
 					num1: {"node1": {}, "node2": {}}, // Only 2 available
 				}
 
@@ -425,7 +425,7 @@ func TestIfScheduleCase1(t *testing.T) {
 					num1: num2, // Need 2 nodes (OK)
 					num2: num2, // Need 2 nodes (Only 1 available)
 				}
-				totalNodes := map[int32]map[string]plugin.NPUNode{
+				totalNodes := map[int32]superPod{
 					num1: {"node1": {}, "node2": {}},
 					num2: {"node3": {}},
 				}
@@ -444,7 +444,7 @@ func TestIfScheduleCase2(t *testing.T) {
 				num1: num1, // Need 1 node
 				num3: num1, // Super pod 3 doesn't exist
 			}
-			totalNodes := map[int32]map[string]plugin.NPUNode{
+			totalNodes := map[int32]superPod{
 				num1: {"node1": {}},
 				num2: {"node2": {}},
 			}
@@ -458,7 +458,7 @@ func TestIfScheduleCase2(t *testing.T) {
 				count := map[int32]int{
 					num1: num2, // Need exactly 2 nodes
 				}
-				totalNodes := map[int32]map[string]plugin.NPUNode{
+				totalNodes := map[int32]superPod{
 					num1: {"node1": {}, "node2": {}}, // Exactly 2 available
 				}
 
@@ -470,7 +470,7 @@ func TestIfScheduleCase2(t *testing.T) {
 				count := map[int32]int{
 					num1: 0, // Need 0 nodes
 				}
-				totalNodes := map[int32]map[string]plugin.NPUNode{
+				totalNodes := map[int32]superPod{
 					num1: {"node1": {}}, // 1 available (but not needed)
 				}
 
@@ -1480,7 +1480,7 @@ func TestSelectNodesForFaultPod(t *testing.T) {
 			"0": superNodes,
 		}
 		ids := []int{0}
-		totalNodes := map[int32]map[string]plugin.NPUNode{0: {"node1": {}}}
+		totalNodes := map[int32]superPod{0: {"node1": {}}}
 		spn := plugin.SuperNode{
 			SuperPodID: 0,
 		}

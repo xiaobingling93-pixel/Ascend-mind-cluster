@@ -102,7 +102,7 @@ func (tp *module910a5SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugi
 
 	for _, checker := range checkers {
 		if err := checker(task, node); err != nil {
-			klog.V(util.LogErrorLev).Infof("%s %s", errStr, err.Error())
+			klog.V(util.LogDebugLev).Infof("%s %s", errStr, err.Error())
 			return err
 		}
 	}

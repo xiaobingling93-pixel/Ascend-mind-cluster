@@ -180,7 +180,7 @@ func (tp *chip4nodex) getNodeBestScoreIn4Pmesh(taskNPUNum int, npuTop []int) (in
 
 // scoreNodeFor4Pmesh Scoring logic in scenarios where 4Pmesh && need Affinity
 func (tp *chip4nodex) scoreNodeFor4Pmesh(taskNPUNum int, npuTop []int) float64 {
-	klog.V(util.LogInfoLev).Info("begin to score node in 4Pmesh scenario")
+	klog.V(util.LogDebugLev).Info("begin to score node in 4Pmesh scenario")
 	bestScore, err := tp.getNodeBestScoreIn4Pmesh(taskNPUNum, npuTop)
 	if err != nil {
 		klog.V(util.LogWarningLev).Infof("%s ScoreBestNPUNodes getErr: %s", tp.GetPluginName(), err)

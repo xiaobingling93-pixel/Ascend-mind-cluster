@@ -139,17 +139,17 @@ func (tp *NPUHandler) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode
 		tp.GetPluginName(), task.Name, node.Name)
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s CheckNodeNPUByTask err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum > 1 || tp.IsInstanceOfJobGroup())
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("task %s CheckNodeNPUByTask err: %s", task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof("task %s CheckNodeNPUByTask err: %s", task.Name, err.Error())
 		return err
 	}
 	if err := tp.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("task %s CheckNodeNPUByTask err: %s", task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof("task %s CheckNodeNPUByTask err: %s", task.Name, err.Error())
 		return err
 	}
 	return nil
@@ -169,7 +169,7 @@ func (tp *NPUHandler) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 		}
 		nodeTop, err := tp.GetUsableTopFromNode(nNode, tp.NPUTaskNum > 1)
 		if err != nil {
-			klog.V(util.LogErrorLev).Infof("task %s ScoreBestNPUNodes err: %s", task.Name, err.Error())
+			klog.V(util.LogDebugLev).Infof("task %s ScoreBestNPUNodes err: %s", task.Name, err.Error())
 			continue
 		}
 		if len(nodeTop) > tp.MaxNodeNPUNum {
@@ -186,12 +186,12 @@ func (tp *NPUHandler) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInf
 func (tp *NPUHandler) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
 	if tp == nil || task == nil || len(node.Annotation) == 0 {
 		err := errors.New(util.ArgumentError)
-		klog.V(util.LogErrorLev).Infof("UseAnnotation err: %s.", err.Error())
+		klog.V(util.LogDebugLev).Infof("UseAnnotation err: %s.", err.Error())
 		return nil
 	}
 	selectedNPU, err := tp.SelectNPUFromNode(task, node)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("task %s UseAnnotation err: %s.", task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof("task %s UseAnnotation err: %s.", task.Name, err.Error())
 		return nil
 	}
 	klog.V(util.LogInfoLev).Infof("%s UseAnnotation task<%s> select npu <%v>.",
@@ -281,7 +281,7 @@ func (tp *NPUHandler) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode)
 	}
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("selectNPUFromNode err: %s", err.Error())
+		klog.V(util.LogDebugLev).Infof("selectNPUFromNode err: %s", err.Error())
 		return nil, err
 	}
 

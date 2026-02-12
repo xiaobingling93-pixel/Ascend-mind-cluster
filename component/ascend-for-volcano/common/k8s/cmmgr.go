@@ -57,11 +57,11 @@ func InitCmInformer(k8sClient kubernetes.Interface, useClusterD bool) {
 		return
 	}
 	if !needStartInformer {
-		klog.V(util.LogDebugLev).Info("node need to start informer will return")
+		klog.V(util.LogInfoLev).Info("node need to start informer will return")
 		return
 	}
 	if time.Now().Unix()-lastInformerRestartTime < minRestartInterval && informerStartTimes != util.NPUIndex1 {
-		klog.V(util.LogDebugLev).Infof("time after last informer restart is <%v> less than 10 min",
+		klog.V(util.LogInfoLev).Infof("time after last informer restart is <%v> less than 10 min",
 			time.Now().Unix()-lastInformerRestartTime)
 		return
 	}
@@ -69,7 +69,7 @@ func InitCmInformer(k8sClient kubernetes.Interface, useClusterD bool) {
 		close(stopCh)
 	}
 	stopCh = make(chan struct{})
-	klog.V(util.LogWarningLev).Infof("start informer at <%v>, the <%v> times start informer ",
+	klog.V(util.LogInfoLev).Infof("start informer at <%v>, the <%v> times start informer ",
 		time.Now().Unix(), informerStartTimes+1)
 	defer func() {
 		lastInformerRestartTime = time.Now().Unix()

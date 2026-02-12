@@ -66,6 +66,6 @@ func (tp *card310x4) JudgeNodeAndTaskNPU(taskNPUNum int, nodeTop []int) error {
 	}
 
 	var meetErr = fmt.Errorf("req npu(%d) illegal not meet node top<%v>", taskNPUNum, nodeTop)
-	klog.V(util.LogErrorLev).Infof("%s judgeNodeAndTaskNPU err: %v.", tp.GetPluginName(), meetErr)
+	klog.V(util.LogDebugLev).Infof("%s judgeNodeAndTaskNPU err: %v.", tp.GetPluginName(), meetErr)
 	return meetErr
 }

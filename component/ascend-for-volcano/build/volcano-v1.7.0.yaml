@@ -174,7 +174,7 @@ spec:
                   --logtostderr=false
                   --log_dir=/var/log/mindx-dl/volcano-scheduler
                   --log_file=/var/log/mindx-dl/volcano-scheduler/volcano-scheduler.log
-                  -v=2 2>&1"]
+                  -v=3 2>&1"]
           imagePullPolicy: "IfNotPresent"
           resources:
             requests:

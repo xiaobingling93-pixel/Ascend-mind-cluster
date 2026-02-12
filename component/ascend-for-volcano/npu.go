@@ -20,6 +20,7 @@ Package main is using for HuaWei Ascend pin affinity schedule.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -249,33 +250,41 @@ func jobEnqueueable(job interface{}, ssn *framework.Session, tp *huaweiNPUPlugin
 
 func getNpuNum(ssn *framework.Session, tp *huaweiNPUPlugin, npuName string) int {
 	var tNpuNum int
+	errs := util.NewErrorCollector("getNpuNum", util.DefaultPrintLimit)
 	for _, node := range ssn.Nodes {
 		vcNode, ok := tp.Scheduler.Nodes[node.Name]
 		if !ok {
-			klog.V(util.LogErrorLev).Infof("AddJobEnqueueableFn add node failed,%s is not in cache", node.Name)
+			klog.V(util.LogDebugLev).Infof("AddJobEnqueueableFn add node failed,%s is not in cache", node.Name)
+			errs.Add(node.Name, errors.New("node is not in cache"))
 			continue
 		}
 		deviceInfo, ok := vcNode.Annotation[npuName]
 		if !ok || len(deviceInfo) == 0 {
 			klog.V(util.LogDebugLev).Infof("AddJobEnqueueableFn add node failed,"+
 				"%s deviceList is empty", node.Name)
+			errs.Add(node.Name, errors.New("node deviceList is empty"))
 			continue
 		}
 		deviceList := strings.Split(deviceInfo, ",")
-		klog.V(util.LogInfoLev).Infof("Add enqueue node %s deviceList is: %#v", vcNode.Name, deviceList)
+		klog.V(util.LogDebugLev).Infof("Add enqueue node %s deviceList is: %#v", vcNode.Name, deviceList)
 		npuNum, ok := vcNode.Idle[v1.ResourceName(npuName)]
 		if !ok || len(deviceList) > int(npuNum/util.NPUHexKilo) {
-			klog.V(util.LogErrorLev).Infof("Add enqueue node %s device info is %v and k8s is %v", vcNode.Name,
+			klog.V(util.LogDebugLev).Infof("Add enqueue node %s device info is %v and k8s is %v", vcNode.Name,
 				len(deviceList), int(npuNum/util.NPUHexKilo))
+			errs.Add(node.Name, fmt.Errorf("node resource is not stable, device info is %v and k8s is %v",
+				len(deviceList), int(npuNum/util.NPUHexKilo)))
 			continue
 		}
 		if capVal, exist := vcNode.Capability[v1.ResourceName(npuName)]; !exist || capVal < npuNum {
 			klog.V(util.LogErrorLev).Infof("Add enqueue node %s cap<%v> is less than idle<%v>, waiting "+
 				"kubelet report correctly", vcNode.Name, int(capVal/util.NPUHexKilo), int(npuNum/util.NPUHexKilo))
+			errs.Add(node.Name, fmt.Errorf("node resource is not init, cap<%v> is less than idle<%v>",
+				int(capVal/util.NPUHexKilo), int(npuNum/util.NPUHexKilo)))
 			continue
 		}
 		tNpuNum += len(deviceList)
 	}
+	errs.Print()
 	return tNpuNum
 }
 

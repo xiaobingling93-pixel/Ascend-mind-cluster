@@ -74,13 +74,13 @@ func (tp *module910a5SuperPod) getUsableTopFromNode(node plugin.NPUNode) ([]int,
 func (tp *module910a5SuperPod) checkNodeStaticParams(_ *api.TaskInfo, node plugin.NPUNode) error {
 	// node in super-pod has super-podID which is not less than 0
 	if node.SuperPodID < 0 {
-		klog.V(util.LogErrorLev).Infof("node super-pod-id is invalid for node=%s, id=%d", node.Name, node.SuperPodID)
+		klog.V(util.LogDebugLev).Infof("node super-pod-id is invalid for node=%s, id=%d", node.Name, node.SuperPodID)
 		return fmt.Errorf("the super-pod-id of node is invalid for node=%s, id=%d",
 			node.Name, node.SuperPodID)
 	}
 
 	if node.RackID < 0 {
-		klog.V(util.LogErrorLev).Infof("node rack-id is invalid for node=%s, id=%d", node.Name, node.RackID)
+		klog.V(util.LogDebugLev).Infof("node rack-id is invalid for node=%s, id=%d", node.Name, node.RackID)
 		return fmt.Errorf("node rack-id is invalid for node=%s, id=%d", node.Name, node.RackID)
 	}
 	return nil
@@ -89,18 +89,18 @@ func (tp *module910a5SuperPod) checkNodeStaticParams(_ *api.TaskInfo, node plugi
 func (tp *module910a5SuperPod) checkNodeNPUNums(task *api.TaskInfo, node plugin.NPUNode) error {
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	nodeTop, err := tp.getUsableTopFromNode(node)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	if err = tp.NPUHandler.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("%s JudgeNodeAndTaskNPU err: %s", task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof("%s JudgeNodeAndTaskNPU err: %s", task.Name, err.Error())
 		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
 	return nil

@@ -44,11 +44,11 @@ func (fJob *FaultJob) GetJobFaultRescheduleLabel() string {
 	}
 	value, ok := fJob.Labels[JobRescheduleLabelKey]
 	if !ok {
-		klog.V(util.LogInfoLev).Infof(
+		klog.V(util.LogDebugLev).Infof(
 			"GetJobFaultRescheduleLabel %s. %s no job reschedule label", value, fJob.JobUID)
 		return JobOffRescheduleLabelValue
 	}
-	klog.V(util.LogInfoLev).Infof("GetJobFaultRescheduleLabel job: %s, label: %s", fJob.JobUID, value)
+	klog.V(util.LogDebugLev).Infof("GetJobFaultRescheduleLabel job: %s, label: %s", fJob.JobUID, value)
 	return value
 }
 
@@ -710,17 +710,17 @@ func (fJob *FaultJob) setReScheduleLimit() {
 func (fJob *FaultJob) setFaultRetryTimeOfJob() {
 	value, ok := fJob.Labels[FaultRetryTimesKey]
 	if !ok {
-		klog.V(util.LogInfoLev).Infof("get job<%s> label<%s> failed", fJob.JobUID, FaultRetryTimesKey)
+		klog.V(util.LogDebugLev).Infof("get job<%s> label<%s> failed", fJob.JobUID, FaultRetryTimesKey)
 		fJob.FaultRetryTimes = 0
 		return
 	}
 	v, err := strconv.Atoi(value)
 	if err != nil {
-		klog.V(util.LogInfoLev).Infof("Failed to convert fault-retry-times <%s> of job <%s> into number",
+		klog.V(util.LogDebugLev).Infof("Failed to convert fault-retry-times <%s> of job <%s> into number",
 			value, fJob.JobUID)
 		fJob.FaultRetryTimes = 0
 	}
-	klog.V(util.LogInfoLev).Infof("get job: %s, fault-retry-times: %s", fJob.JobUID, value)
+	klog.V(util.LogDebugLev).Infof("get job: %s, fault-retry-times: %s", fJob.JobUID, value)
 	fJob.FaultRetryTimes = v
 }
 

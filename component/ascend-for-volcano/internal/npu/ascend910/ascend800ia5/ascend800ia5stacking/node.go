@@ -38,7 +38,7 @@ import (
 func (tp *module800ia5stacking) getUsableTopFromNode(node plugin.NPUNode, disFlag bool) ([]int, error) {
 	nodeTop, err := tp.GetUsableTopFromNode(node, disFlag)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("getUsableTopFromNode err: %s", err)
+		klog.V(util.LogDebugLev).Infof("getUsableTopFromNode err: %s", err)
 		return nil, err
 	}
 
@@ -48,13 +48,13 @@ func (tp *module800ia5stacking) getUsableTopFromNode(node plugin.NPUNode, disFla
 	networkUnhealthyTopStr, ok := node.Annotation[tp.netUnhealthyKey]
 	if !ok {
 		err := fmt.Errorf("node<%s> don't have resource<%s>", node.Name, tp.netUnhealthyKey)
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
 	networkUnhealthyTop := util.ChangeTopToIntArray(networkUnhealthyTopStr, tp.GetAnnoPreVal())
 	if len(networkUnhealthyTop) > tp.MaxNodeNPUNum {
 		err := fmt.Errorf("node<%s> npu networkUnhealthy top<%v> is invalid", node.Name, networkUnhealthyTop)
-		klog.V(util.LogWarningLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s getUsableTopFromNode err: %s", tp.GetPluginName(), err.Error())
 		return nil, err
 	}
 	res := util.RemoveCommonElement(nodeTop, networkUnhealthyTop)

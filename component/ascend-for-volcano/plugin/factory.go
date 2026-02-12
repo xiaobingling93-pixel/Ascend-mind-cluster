@@ -76,7 +76,7 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 		// get ownerInfo, deployment job need
 		ownerInfo, err := getOwnerInfo(jobInfo, sHandle.FrameAttr)
 		if err != nil {
-			klog.V(util.LogDebugLev).Infof("%s getOwnerInfo failed: %s.", jobInfo.Name, util.SafePrint(err))
+			klog.V(util.LogWarningLev).Infof("%s getOwnerInfo failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
 		}
 		sJob := SchedulerJob{
@@ -87,7 +87,7 @@ func (sHandle *ScheduleHandler) InitJobsFromSsn(ssn *framework.Session) {
 			A5Fields:          A5Fields{},
 		}
 		if err := sJob.init(jobInfo, sHandle); err != nil {
-			klog.V(util.LogDebugLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
+			klog.V(util.LogWarningLev).Infof("%s InitJobsFromSsn failed: %s.", jobInfo.Name, util.SafePrint(err))
 			continue
 		}
 		// here we should sync a5 fields for use later in scheduling
@@ -239,9 +239,9 @@ func (sHandle *ScheduleHandler) initStaticParameters(configs map[string]string) 
 		sHandle.FrameAttr.UseClusterD = getUseClusterDConfig(configs)
 		sHandle.FrameAttr.ForceEnqueue = getForceEnqueueConfig(configs)
 		sHandle.FrameAttr.SelfMaintainAvailCard = getSelfMaintainAvailCard(configs)
-		klog.V(util.LogWarningLev).Info("param nslbVersion, sharedTorNum, useClusterInfoManager and self-maintain-mount-card " +
+		klog.V(util.LogInfoLev).Info("param nslbVersion, sharedTorNum, useClusterInfoManager and self-maintain-mount-card " +
 			"init success. can not change them and it will not be changed during normal operation of the volcano")
-		klog.V(util.LogWarningLev).Infof("init static parameters, nslbversion is <%v>, SharedTorNum <%v>, UseClusterD"+
+		klog.V(util.LogInfoLev).Infof("init static parameters, nslbversion is <%v>, SharedTorNum <%v>, UseClusterD"+
 			" is <%v>", sHandle.FrameAttr.NslbVersion, sHandle.FrameAttr.SharedTorNum, sHandle.FrameAttr.UseClusterD)
 	})
 }
@@ -284,7 +284,7 @@ func (sHandle *ScheduleHandler) initJobsPlugin() {
 	for _, vcJob := range sHandle.Jobs {
 		if vcJob.policyHandler == nil {
 			if vcJob.ReqNPUNum > 0 {
-				klog.V(util.LogErrorLev).Infof("initJobsPlugin %s's plugin not register.", vcJob.Name)
+				klog.V(util.LogWarningLev).Infof("initJobsPlugin %s's plugin not register.", vcJob.Name)
 			}
 			continue
 		}
@@ -316,7 +316,7 @@ func (sHandle *ScheduleHandler) preStartPlugin(ssn *framework.Session) {
 			if strings.Contains(err.Error(), util.ArgumentError) {
 				continue
 			}
-			klog.V(util.LogErrorLev).Infof("PreStartPlugin %s %s.", job.Name, err)
+			klog.V(util.LogWarningLev).Infof("PreStartPlugin %s %s.", job.Name, err)
 		}
 	}
 }
@@ -625,7 +625,7 @@ func getSuperPodInfoFromConfig(key string, configurations map[string]string) int
 // checkGraceDeleteTimeValid used by GetGraceDeleteTime for validity checking
 func checkGraceDeleteTimeValid(overTime int64) bool {
 	if overTime < minGraceOverTime || overTime > maxGraceOverTime {
-		klog.V(util.LogErrorLev).Infof("GraceOverTime value should be range [2, 3600], configured is [%d], "+
+		klog.V(util.LogWarningLev).Infof("GraceOverTime value should be range [2, 3600], configured is [%d], "+
 			"GraceOverTime will not be changed", overTime)
 		return false
 	}
@@ -636,22 +636,22 @@ func checkGraceDeleteTimeValid(overTime int64) bool {
 
 // getGraceDeleteTime get grace delete time
 func getGraceDeleteTime(conf map[string]string) int64 {
-	klog.V(util.LogInfoLev).Info("enter GetGraceDeleteTime ...")
-	defer klog.V(util.LogInfoLev).Info("leave GetGraceDeleteTime ...")
+	klog.V(util.LogDebugLev).Info("enter GetGraceDeleteTime ...")
+	defer klog.V(util.LogDebugLev).Info("leave GetGraceDeleteTime ...")
 	if len(conf) == 0 {
-		klog.V(util.LogErrorLev).Infof("GetGraceDeleteTime failed: %s, no conf", util.ArgumentError)
+		klog.V(util.LogWarningLev).Infof("GetGraceDeleteTime failed: %s, no conf", util.ArgumentError)
 		return DefaultGraceOverTime
 	}
 	// get grace over time by user configuration
 	overTimeStr, ok := conf[GraceOverTimeKey]
 	if !ok {
-		klog.V(util.LogErrorLev).Info("set GraceOverTime failed and will not be changed, " +
+		klog.V(util.LogWarningLev).Info("set GraceOverTime failed and will not be changed, " +
 			"key grace-over-time doesn't exists.")
 		return DefaultGraceOverTime
 	}
 	overTime, err := strconv.ParseInt(overTimeStr, util.Base10, util.BitSize64)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("set GraceOverTime failed and will not be changed, "+
+		klog.V(util.LogWarningLev).Infof("set GraceOverTime failed and will not be changed, "+
 			"grace-over-time is invalid [%s].", util.SafePrint(overTimeStr))
 		return DefaultGraceOverTime
 	}
@@ -666,7 +666,7 @@ func getGraceDeleteTime(conf map[string]string) int64 {
 func getUseClusterDConfig(conf map[string]string) bool {
 	useClusterInfoManager, ok := conf[util.UseClusterInfoManager]
 	if !ok {
-		klog.V(util.LogDebugLev).Info("CheckUseCIMByConfig doesn't exist useClusterInfoManager.")
+		klog.V(util.LogWarningLev).Info("CheckUseCIMByConfig doesn't exist useClusterInfoManager.")
 		return true
 	}
 	return useClusterInfoManager == "true"
@@ -675,7 +675,7 @@ func getUseClusterDConfig(conf map[string]string) bool {
 func getForceEnqueueConfig(conf map[string]string) bool {
 	forceEnqueue, ok := conf[util.ForceEnqueue]
 	if !ok {
-		klog.V(util.LogDebugLev).Info("forceEnqueue doesn't exist in config, set as true.")
+		klog.V(util.LogWarningLev).Info("forceEnqueue doesn't exist in config, set as true.")
 		return true
 	}
 	return forceEnqueue == "true"
@@ -685,7 +685,7 @@ func getForceEnqueueConfig(conf map[string]string) bool {
 func getSelfMaintainAvailCard(conf map[string]string) bool {
 	selfMaintainAvailCard, ok := conf[util.SelfMaintainAvailCard]
 	if !ok {
-		klog.V(util.LogDebugLev).Info("CheckUseCIMByConfig doesn't exist self-maintain-available-card.")
+		klog.V(util.LogWarningLev).Info("CheckUseCIMByConfig doesn't exist self-maintain-available-card.")
 		return true
 	}
 	return selfMaintainAvailCard == "true"
@@ -696,7 +696,7 @@ func getPresetVirtualDeviceConfig(conf map[string]string) bool {
 	// get segmentEnable by user configuration
 	segmentEnable, ok := conf[util.SegmentEnable]
 	if !ok {
-		klog.V(util.LogDebugLev).Info("checkVNPUSegmentEnable doesn't exist presetVirtualDevice.")
+		klog.V(util.LogWarningLev).Info("checkVNPUSegmentEnable doesn't exist presetVirtualDevice.")
 		return false
 	}
 	return segmentEnable == "true"

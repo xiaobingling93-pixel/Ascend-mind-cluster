@@ -176,18 +176,18 @@ func (tp *module910SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.
 
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
+		klog.V(util.LogDebugLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
 		return err
 	}
 
 	nodeTop, err := tp.GetUsableTopFromNode(node, tp.NPUTaskNum/tp.spBlock > 1 || tp.IsInstanceOfJobGroup())
 	if err != nil {
-		klog.V(util.LogErrorLev).Infof(getNPUFromPodFailedPattern, task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof(getNPUFromPodFailedPattern, task.Name, err.Error())
 		return err
 	}
 
 	if err = tp.JudgeNodeAndTaskNPU(taskNPUNum, nodeTop); err != nil {
-		klog.V(util.LogErrorLev).Infof("%s JudgeNodeAndTaskNPU err: %s", task.Name, err.Error())
+		klog.V(util.LogDebugLev).Infof("%s JudgeNodeAndTaskNPU err: %s", task.Name, err.Error())
 		return fmt.Errorf("checkNodeNPUByTask %s err: %s", util.NodeNotMeetTopologyWarning, err.Error())
 	}
 	return nil
@@ -210,16 +210,16 @@ func (tp *module910SuperPod) checkNodeForHotSwitch(task *api.TaskInfo, node plug
 		if ok {
 			rank, err = strconv.Atoi(rankIndex)
 			if err != nil {
-				klog.V(util.LogWarningLev).Infof("%s %s ScoreBestNPUNodes %s: rankIndex is not int",
+				klog.V(util.LogDebugLev).Infof("%s %s ScoreBestNPUNodes %s: rankIndex is not int",
 					tp.GetPluginName(), task.Name, task.Name)
 				return err
 			}
 		} else {
-			klog.V(util.LogWarningLev).Infof("%s %s ScoreBestNPUNodes %s: rankIndex is not exist",
+			klog.V(util.LogDebugLev).Infof("%s %s ScoreBestNPUNodes %s: rankIndex is not exist",
 				tp.GetPluginName(), task.Name, task.Name)
 			nTask, ok := job.Tasks[task.UID]
 			if !ok {
-				klog.V(util.LogErrorLev).Infof("%s scoreNodeForReadyJob %s: task is not exist", tp.GetPluginName(), task.Name)
+				klog.V(util.LogDebugLev).Infof("%s scoreNodeForReadyJob %s: task is not exist", tp.GetPluginName(), task.Name)
 				return fmt.Errorf("%s scoreNodeForReadyJob %s: task is not exist", tp.GetPluginName(), task.Name)
 			}
 			rank = nTask.Index
@@ -227,14 +227,14 @@ func (tp *module910SuperPod) checkNodeForHotSwitch(task *api.TaskInfo, node plug
 
 		superPodRankIndex, localRank := getSuperPodRanks(job, rank)
 		if superPodRankIndex == "" {
-			return fmt.Errorf("")
+			return fmt.Errorf("%s checkNodeForHotSwitch: get superPodRankIndex failed", tp.GetPluginName())
 		}
 		sp, ok := job.SuperPods[superPodRankIndex]
 		if !ok {
 			return fmt.Errorf("logic super pod is not found for pod<%s>", task.Name)
 		}
 		if len(sp) <= localRank {
-			return fmt.Errorf("")
+			return fmt.Errorf("%s checkNodeForHotSwitch: the rank is out of index", tp.GetPluginName())
 		}
 		if sp[localRank].SuperPodID != node.SuperPodID {
 			return fmt.Errorf("cur node<%s> which is in super pod<%d> not in origin super pod<%d>, can not be selected for pod<%s>", node.Name, node.SuperPodID, sp[localRank].SuperPodID, task.Name)
@@ -246,54 +246,41 @@ func (tp *module910SuperPod) checkNodeForHotSwitch(task *api.TaskInfo, node plug
 func (tp *module910SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo,
 	sMap map[string]float64) error {
 	if tp == nil || task == nil || len(nodes) == 0 || len(sMap) == 0 {
-		err := errors.New(util.ArgumentError)
-		klog.V(util.LogErrorLev).Infof("ScoreBestNPUNodes %s.", err)
-		return err
+		return errors.New(util.ArgumentError)
 	}
-
 	job, ok := tp.ScheduleEnv.Jobs[task.Job]
 	if !ok {
 		return fmt.Errorf("%s ScoreBestNPUNodes %s: job is not exist", tp.GetPluginName(), task.Name)
 	}
-
 	defer func() {
 		tp.ScheduleEnv.Jobs[task.Job] = job
 	}()
-
 	if !*job.JobReadyTag {
 		return nil
 	}
-
 	defer func() {
-		if *job.JobReadyTag {
-			if podGroupEnable, exist := job.Label[plugin.PodGroupScheduleKey]; exist && podGroupEnable == plugin.PodGroupScheduleValue {
-				tp.scoreNodeBatchForReadyJob(task, &job, sMap)
-				return
-			}
-			tp.scoreNodeForReadyJob(task, job, sMap)
-		}
+		tp.selectNodeFromCache(&job, task, sMap)
 	}()
-
 	if *job.JobReadyTag && len(job.SuperPods) != 0 {
-		klog.V(util.LogErrorLev).Infof("%s ScoreBestNPUNodes %s: job is ready, skip", tp.GetPluginName(),
+		klog.V(util.LogDebugLev).Infof("%s ScoreBestNPUNodes %s: job is ready, skip", tp.GetPluginName(),
 			task.Name)
 		return nil
 	}
-
+	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes npuTaskNum: %d, nodes: %d, schedulingTaskNum: %d, "+
+		"total task: %d", tp.GetPluginName(), tp.NPUTaskNum, len(nodes), tp.SchedulingTaskNum, tp.NPUTaskNum)
 	if tp.NPUTaskNum == 1 {
 		nodes = tp.selectNodesWithLeastResourceForSingle(nodes)
 	}
-
 	if tp.NPUTaskNum > len(nodes) && tp.SchedulingTaskNum == len(tp.Tasks) {
 		*job.JobReadyTag = false
-		return fmt.Errorf("select node failed by not enough node")
+		return fmt.Errorf("not enough node, npuTaskNum: %d, nodes: %d", tp.NPUTaskNum, len(nodes))
 	}
-
 	selectedNodes, err := tp.selectSuperPodForJob(task, nodes, sMap)
 	if err != nil {
 		*job.JobReadyTag = false
 		return err
 	}
+	logSelectedNodes(job, selectedNodes)
 	*job.JobReadyTag = true
 	job.SuperPods = selectedNodes
 	for id, sp := range selectedNodes {
@@ -302,6 +289,16 @@ func (tp *module910SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.
 		}
 	}
 	return nil
+}
+
+func (tp *module910SuperPod) selectNodeFromCache(job *plugin.SchedulerJob, task *api.TaskInfo, sMap map[string]float64) {
+	if *job.JobReadyTag {
+		if podGroupEnable, exist := job.Label[plugin.PodGroupScheduleKey]; exist && podGroupEnable == plugin.PodGroupScheduleValue {
+			tp.scoreNodeBatchForReadyJob(task, job, sMap)
+			return
+		}
+		tp.scoreNodeForReadyJob(task, *job, sMap)
+	}
 }
 
 func (tp *module910SuperPod) scoreNodeBatchForReadyJob(task *api.TaskInfo, job *plugin.SchedulerJob,
@@ -507,6 +504,10 @@ func (tp *module910SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]sup
 		}
 		totalNodes[nNode.SuperPodID][node.Name] = nNode
 	}
+	klog.V(util.LogInfoLev).Info("super pod top: ")
+	for id, sp := range totalNodes {
+		klog.V(util.LogInfoLev).Infof("super-pod-id: %d, node count: %d detail: %v", id, len(sp), sp.NodeNames())
+	}
 	return totalNodes
 }
 
@@ -687,7 +688,7 @@ func (tp *module910SuperPod) schedulable(fJob *rescheduling.FaultJob, totalNodes
 	return ifSchedule(count, totalNodes)
 }
 
-func ifSchedule(count map[int32]int, totalNodes map[int32]map[string]plugin.NPUNode) bool {
+func ifSchedule(count map[int32]int, totalNodes map[int32]superPod) bool {
 	for id, res := range count {
 		if len(totalNodes[id]) < res {
 			return false
@@ -751,7 +752,7 @@ func (tp *module910SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob)
 }
 
 func (tp *module910SuperPod) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,
-	notReadySuperPod map[string]struct{}, totalNodes map[int32]map[string]plugin.NPUNode,
+	notReadySuperPod map[string]struct{}, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
 	if selectNodes == nil || vSuperPodID == nil {
 		return
@@ -780,7 +781,7 @@ func (tp *module910SuperPod) selectNodeForPodLevelRescheduling(fJob *reschedulin
 	}
 }
 
-func selectNodesForFaultPod(fJob *rescheduling.FaultJob, ids []int, totalNodes map[int32]map[string]plugin.NPUNode,
+func selectNodesForFaultPod(fJob *rescheduling.FaultJob, ids []int, totalNodes map[int32]superPod,
 	spn plugin.SuperNode, superPodId string) {
 	for _, id := range ids {
 		for _, node := range totalNodes[spn.SuperPodID] {
@@ -901,7 +902,7 @@ func (tp *module910SuperPod) classifySuperPod(totalNodes map[int32]superPod) sup
 	column := 0
 	remainder := 0
 	for index, sp := range totalNodes {
-		klog.V(util.LogInfoLev).Infof("super-pod: %d, len: %d", index, len(sp))
+		klog.V(util.LogDebugLev).Infof("super-pod: %d, len: %d", index, len(sp))
 		if len(sp) < tp.spBlock && tp.Label[superPodAffinity] != softRequire {
 			continue
 		}
@@ -914,7 +915,7 @@ func (tp *module910SuperPod) classifySuperPod(totalNodes map[int32]superPod) sup
 			column = nodesExceptReserve / tp.spBlock
 			remainder = nodesExceptReserve % tp.spBlock
 		}
-		klog.V(util.LogInfoLev).Infof("super-pod: %d, column: %d, remainder: %d", index, column,
+		klog.V(util.LogDebugLev).Infof("super-pod: %d, column: %d, remainder: %d", index, column,
 			remainder)
 		if len(firstLevelRemainTop[remainder][column]) == 0 {
 			firstLevelRemainTop[remainder][column] = make([]superPod, 0, 1)
@@ -940,7 +941,7 @@ func (tp *module910SuperPod) selectNodes(unReadyID []string, spi *superPodInfo,
 
 func (tp *module910SuperPod) selectFromSmallerSuperPods(unReadyID []string, spi *superPodInfo,
 	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
-	klog.V(util.LogInfoLev).Infof("select from smaller super pods, totalCount: %d", totalCount)
+	klog.V(util.LogInfoLev).Infof("select from smaller super pods, totalCount: %d", *totalCount)
 	for i := 0; i < len(spi.firstLevel); i++ {
 		for j := 1; j < len(spi.firstLevel[0]) && j <= *totalCount; j++ {
 			if *totalCount == 0 {
@@ -954,7 +955,7 @@ func (tp *module910SuperPod) selectFromSmallerSuperPods(unReadyID []string, spi 
 
 func (tp *module910SuperPod) selectFromBiggerSuperPods(unReadyID []string, spi *superPodInfo,
 	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
-	klog.V(util.LogInfoLev).Infof("select from bigger super pods, totalCount: %d", totalCount)
+	klog.V(util.LogInfoLev).Infof("select from bigger super pods, totalCount: %d", *totalCount)
 	for j := *totalCount + 1; j < len(spi.firstLevel[0]); j++ {
 		for i := 0; i < len(spi.firstLevel); i++ {
 			if *totalCount == 0 {
@@ -969,8 +970,7 @@ func (tp *module910SuperPod) selectFromBiggerSuperPods(unReadyID []string, spi *
 func (tp *module910SuperPod) selectFromSuperPodsWithReserve(unReadyID []string, spi *superPodInfo,
 	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
 	klog.V(util.LogInfoLev).Infof("select from super pods which is less than sp block when exept reserve, "+
-		"totalCount: %d",
-		totalCount)
+		"totalCount: %d", *totalCount)
 	for i := tp.spBlock - 1; i > -1; i-- {
 		for j := 0; j < len(spi.firstLevel[0]); j++ {
 			if *totalCount == 0 {
@@ -1156,7 +1156,7 @@ func (tp *module910SuperPod) UseAnnotation(task *api.TaskInfo, node plugin.NPUNo
 		klog.V(util.LogErrorLev).Infof("%s UseAnnotation err:%s.", tp.GetPluginName(), err)
 		return nil
 	}
-	klog.V(util.LogInfoLev).Infof("%s UseAnnotation %s select %v from node %s.", tp.GetPluginName(), task.Name,
+	klog.V(util.LogDebugLev).Infof("%s UseAnnotation %s select %v from node %s.", tp.GetPluginName(), task.Name,
 		selectedNPU, node.Name)
 
 	tp.SetNPUTopologyToPodFn(task, selectedNPU, node)
@@ -1213,4 +1213,15 @@ func getSuperPodRanks(job plugin.SchedulerJob, rank int) (string, int) {
 		rank, cumulativeNodes,
 	)
 	return "", 0
+}
+
+func logSelectedNodes(job plugin.SchedulerJob, selectedNodes map[string][]plugin.SuperNode) {
+	message := ""
+	for vid, sp := range selectedNodes {
+		message += fmt.Sprintf("vsp-id: %s, nodes: ", vid)
+		for _, node := range sp {
+			message += node.Name + ", "
+		}
+	}
+	klog.V(util.LogInfoLev).Infof("Selected nodes for job %s: %s", job.Name, message)
 }

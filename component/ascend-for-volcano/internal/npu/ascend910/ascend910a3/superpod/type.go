@@ -56,7 +56,15 @@ type superPodInfo struct {
 
 type remainderTop = [][][]superPod
 
-type superPod = map[string]plugin.NPUNode
+type superPod map[string]plugin.NPUNode
+
+func (s superPod) NodeNames() []string {
+	var nodeNames []string
+	for k := range s {
+		nodeNames = append(nodeNames, k)
+	}
+	return nodeNames
+}
 
 type vPodIdRecorder struct {
 	unReadyId  []string

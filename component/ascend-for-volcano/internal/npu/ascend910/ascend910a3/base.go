@@ -78,7 +78,7 @@ func (tp *Base910A3) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode, 
 		klog.V(util.LogErrorLev).Infof("%s getUsableTopFromNode err: %#v", tp.GetPluginName(), err)
 		return nil, err
 	}
-	klog.V(util.LogInfoLev).Infof("node %s usable npu list: %v", node.Name, npuTop)
+	klog.V(util.LogDebugLev).Infof("node %s usable npu list: %v", node.Name, npuTop)
 	if len(npuTop) < taskNPUNum {
 		return nil, fmt.Errorf("node<%s> don't have enough usable npu", node.Name)
 	}
@@ -91,7 +91,7 @@ func (tp *Base910A3) SelectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode, 
 
 func (tp *Base910A3) selectNPUForA3Job(taskNPUNum int, npuTop []int, node plugin.NPUNode) ([]int, error) {
 	sort.Ints(npuTop)
-	klog.V(util.LogInfoLev).Infof("%s select %d NPU Node(%s) nodeTop<%v>", tp.GetPluginName(), taskNPUNum,
+	klog.V(util.LogDebugLev).Infof("%s select %d NPU Node(%s) nodeTop<%v>", tp.GetPluginName(), taskNPUNum,
 		node.Name, npuTop)
 	cardTop := tp.GetNodeCardTopology(npuTop)
 
@@ -102,7 +102,7 @@ func (tp *Base910A3) selectNPUForA3Job(taskNPUNum int, npuTop []int, node plugin
 	sort.Slice(cardTopSlice, func(i, j int) bool {
 		return len(cardTopSlice[i]) < len(cardTopSlice[j])
 	})
-	klog.V(util.LogInfoLev).Infof("%s selectNPUFromNode cardTopSlice<%v>", tp.GetPluginName(), cardTopSlice)
+	klog.V(util.LogDebugLev).Infof("%s selectNPUFromNode cardTopSlice<%v>", tp.GetPluginName(), cardTopSlice)
 	var selected []int
 	for _, card := range cardTopSlice {
 		if taskNPUNum == 0 {
