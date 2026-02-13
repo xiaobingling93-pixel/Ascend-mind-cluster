@@ -17,7 +17,7 @@ limitations under the License.
 /*
 Package superpod is using for HuaWei ascend 800I A5 SuperPod affinity schedule.
 */
-package superpod
+package chip8node8sp
 
 import (
 	"errors"
@@ -38,7 +38,7 @@ import (
 
 // New return npu plugin
 func New(name string) base.AscendHandler {
-	m := &module800SuperPod{}
+	m := &chip8node8sp{}
 	m.SetPluginName(name)
 	m.SetAnnoName(util.NPU910CardName)
 	m.SetAnnoPreVal(util.NPU910CardNamePre)
@@ -49,14 +49,14 @@ func New(name string) base.AscendHandler {
 }
 
 // ValidNPUJob verify the validity of job parameters
-func (tp *module800SuperPod) ValidNPUJob() *api.ValidateResult {
+func (tp *chip8node8sp) ValidNPUJob() *api.ValidateResult {
 	if res := tp.checkSpBlock(); res != nil {
 		return res
 	}
 	return tp.checkRequireNPU()
 }
 
-func (tp *module800SuperPod) checkSpBlock() *api.ValidateResult {
+func (tp *chip8node8sp) checkSpBlock() *api.ValidateResult {
 	if tp.SpBlockNPUNum <= 0 {
 		return &api.ValidateResult{
 			Pass:    false,
@@ -89,7 +89,7 @@ func (tp *module800SuperPod) checkSpBlock() *api.ValidateResult {
 	return nil
 }
 
-func (tp *module800SuperPod) checkRequireNPU() *api.ValidateResult {
+func (tp *chip8node8sp) checkRequireNPU() *api.ValidateResult {
 	if tp.NPUTaskNum == 1 {
 		if tp.ReqNPUNum == 1 || tp.ReqNPUNum <= nodeNPUNumber {
 			if tp.ReqNPUNum != tp.SpBlockNPUNum {
@@ -120,7 +120,7 @@ func (tp *module800SuperPod) checkRequireNPU() *api.ValidateResult {
 	return tp.checkReqNPUEqualNodeNPU()
 }
 
-func (tp *module800SuperPod) checkReqNPUEqualNodeNPU() *api.ValidateResult {
+func (tp *chip8node8sp) checkReqNPUEqualNodeNPU() *api.ValidateResult {
 	for _, task := range tp.Tasks {
 		// npu num required by task in distributed job must be node npu num
 		if task.ReqNPUNum != nodeNPUNumber {
@@ -135,7 +135,7 @@ func (tp *module800SuperPod) checkReqNPUEqualNodeNPU() *api.ValidateResult {
 }
 
 // CheckNodeNPUByTask check nod npu meet task req
-func (tp *module800SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode) error {
+func (tp *chip8node8sp) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.NPUNode) error {
 	if tp == nil || task == nil || len(node.Annotation) == 0 {
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogErrorLev).Infof("CheckNodeNPUByTask err: %s", err)
@@ -166,7 +166,7 @@ func (tp *module800SuperPod) CheckNodeNPUByTask(task *api.TaskInfo, node plugin.
 }
 
 // ScoreBestNPUNodes get best nodes score for job
-func (tp *module800SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo,
+func (tp *chip8node8sp) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.NodeInfo,
 	sMap map[string]float64) error {
 	if tp == nil || task == nil || len(nodes) == 0 || len(sMap) == 0 {
 		err := errors.New(util.ArgumentError)
@@ -225,7 +225,7 @@ func (tp *module800SuperPod) ScoreBestNPUNodes(task *api.TaskInfo, nodes []*api.
 	return nil
 }
 
-func (tp *module800SuperPod) scoreNodeForReadyJob(task *api.TaskInfo, job plugin.SchedulerJob,
+func (tp *chip8node8sp) scoreNodeForReadyJob(task *api.TaskInfo, job plugin.SchedulerJob,
 	sMap map[string]float64) {
 	if len(sMap) == 0 {
 		klog.V(util.LogErrorLev).Infof("scoreNodeForReadyJob: sMap is nil")
@@ -274,7 +274,7 @@ func (tp *module800SuperPod) scoreNodeForReadyJob(task *api.TaskInfo, job plugin
 	}
 }
 
-func (tp *module800SuperPod) selectNodesWithLeastResourceForSingle(nodes []*api.NodeInfo) []*api.NodeInfo {
+func (tp *chip8node8sp) selectNodesWithLeastResourceForSingle(nodes []*api.NodeInfo) []*api.NodeInfo {
 	klog.V(util.LogInfoLev).Infof("%s ScoreBestNPUNodes : len(tp.Tasks) == 1", tp.GetPluginName())
 	resourceName := v1.ResourceName(tp.ReqNPUName)
 	sort.Slice(nodes, func(i, j int) bool {
@@ -311,7 +311,7 @@ func (tp *module800SuperPod) selectNodesWithLeastResourceForSingle(nodes []*api.
 	return preFitNodes
 }
 
-func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*api.NodeInfo,
+func (tp *chip8node8sp) selectSuperPodForJob(task *api.TaskInfo, nodes []*api.NodeInfo,
 	sMap map[string]float64) (map[string][]plugin.SuperNode, error) {
 	klog.V(util.LogInfoLev).Infof("%s input nodes num(%d) for task %s", tp.GetPluginName(), len(nodes), task.Name)
 	totalNodes := tp.getSuperPodTop(nodes)
@@ -351,7 +351,7 @@ func (tp *module800SuperPod) selectSuperPodForJob(task *api.TaskInfo, nodes []*a
 	return selectNodes, nil
 }
 
-func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]superPod {
+func (tp *chip8node8sp) getSuperPodTop(nodes []*api.NodeInfo) map[int32]superPod {
 	totalNodes := make(map[int32]superPod)
 	for _, node := range nodes {
 		nNode, ok := tp.Nodes[node.Name]
@@ -373,7 +373,7 @@ func (tp *module800SuperPod) getSuperPodTop(nodes []*api.NodeInfo) map[int32]sup
 	return totalNodes
 }
 
-func (tp *module800SuperPod) selectNodesForFaultJob(task *api.TaskInfo, totalNodes map[int32]superPod,
+func (tp *chip8node8sp) selectNodesForFaultJob(task *api.TaskInfo, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool, sMap map[string]float64,
 	nodes []*api.NodeInfo) (map[string][]plugin.SuperNode, error) {
 	if tp == nil || task == nil {
@@ -425,7 +425,7 @@ func (tp *module800SuperPod) selectNodesForFaultJob(task *api.TaskInfo, totalNod
 //   - All normal nodes used by the job have been released
 //
 // Returns false if any normal node is still occupied
-func (tp *module800SuperPod) isDelayingJob(fJob *rescheduling.FaultJob, nodes []*api.NodeInfo) bool {
+func (tp *chip8node8sp) isDelayingJob(fJob *rescheduling.FaultJob, nodes []*api.NodeInfo) bool {
 	if tp == nil || fJob == nil || fJob.FaultTasks == nil {
 		return false
 	}
@@ -452,7 +452,7 @@ func (tp *module800SuperPod) isDelayingJob(fJob *rescheduling.FaultJob, nodes []
 	return true
 }
 
-func (tp *module800SuperPod) selectNodeFromOriginVSuperPod(fJob *rescheduling.FaultJob, sMap map[string]float64,
+func (tp *chip8node8sp) selectNodeFromOriginVSuperPod(fJob *rescheduling.FaultJob, sMap map[string]float64,
 	selectNodes map[string][]plugin.SuperNode, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool) (map[string]struct{}, error) {
 	if tp == nil || fJob == nil {
@@ -471,7 +471,7 @@ func (tp *module800SuperPod) selectNodeFromOriginVSuperPod(fJob *rescheduling.Fa
 	return tp.selectForJobRescheduling(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
 }
 
-func (tp *module800SuperPod) selectForJobRescheduling(fJob *rescheduling.FaultJob, sMap map[string]float64,
+func (tp *chip8node8sp) selectForJobRescheduling(fJob *rescheduling.FaultJob, sMap map[string]float64,
 	selectNodes map[string][]plugin.SuperNode, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool) (map[string]struct{}, error) {
 	if selectNodes == nil || vSuperPodID == nil {
@@ -499,7 +499,7 @@ func (tp *module800SuperPod) selectForJobRescheduling(fJob *rescheduling.FaultJo
 	return notReadySuperPod, nil
 }
 
-func (tp *module800SuperPod) selectForPodRescheduling(fJob *rescheduling.FaultJob,
+func (tp *chip8node8sp) selectForPodRescheduling(fJob *rescheduling.FaultJob,
 	selectNodes map[string][]plugin.SuperNode, vSuperPodID map[string]bool) (map[string]struct{}, error) {
 	if selectNodes == nil || vSuperPodID == nil {
 		return nil, nil
@@ -539,7 +539,7 @@ func judgeLasTimeTaskIsHealthy(fJob *rescheduling.FaultJob, nodeName string) boo
 	return true
 }
 
-func (tp *module800SuperPod) schedulable(fJob *rescheduling.FaultJob, totalNodes map[int32]superPod) bool {
+func (tp *chip8node8sp) schedulable(fJob *rescheduling.FaultJob, totalNodes map[int32]superPod) bool {
 	if tp == nil || fJob == nil {
 		return false
 	}
@@ -585,7 +585,7 @@ func ifSchedule(count map[int32]int, totalNodes map[int32]superPod) bool {
 	return true
 }
 
-func (tp *module800SuperPod) isContain(superPod []plugin.SuperNode, name string, jobId api.JobID) (bool, int) {
+func (tp *chip8node8sp) isContain(superPod []plugin.SuperNode, name string, jobId api.JobID) (bool, int) {
 	if tp == nil {
 		return false, -1
 	}
@@ -601,7 +601,7 @@ func (tp *module800SuperPod) isContain(superPod []plugin.SuperNode, name string,
 	return false, -1
 }
 
-func (tp *module800SuperPod) selectNodeFromOriginSuperPod(fJob *rescheduling.FaultJob,
+func (tp *chip8node8sp) selectNodeFromOriginSuperPod(fJob *rescheduling.FaultJob,
 	notReadySuperPod map[string]struct{}, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
 	if tp == nil || fJob == nil || fJob.SuperPods == nil || len(fJob.SuperPods) == 0 {
@@ -641,7 +641,7 @@ func getFaultNodeNameMap(job *rescheduling.FaultJob) map[string]struct{} {
 	return faultNodeNameMap
 }
 
-func (tp *module800SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob) bool {
+func (tp *chip8node8sp) ifPodLevelRescheduling(fJob *rescheduling.FaultJob) bool {
 	if tp == nil || fJob == nil {
 		return false
 	}
@@ -655,7 +655,7 @@ func (tp *module800SuperPod) ifPodLevelRescheduling(fJob *rescheduling.FaultJob)
 	return fJob.IsJobSingleRescheduling(&job) || fJob.IsProcessReschedulingJob(&job)
 }
 
-func (tp *module800SuperPod) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,
+func (tp *chip8node8sp) selectNodeForPodLevelRescheduling(fJob *rescheduling.FaultJob,
 	notReadySuperPod map[string]struct{}, totalNodes map[int32]superPod,
 	vSuperPodID map[string]bool, selectNodes map[string][]plugin.SuperNode) {
 	if fJob == nil || fJob.SuperPods == nil {
@@ -720,7 +720,7 @@ func inSuperPods(fJob *rescheduling.FaultJob, superPodId string, node plugin.NPU
 	return false
 }
 
-func (tp *module800SuperPod) getLogicSuperPodFaultTaskIds(fJob *rescheduling.FaultJob, superPodId string) []int {
+func (tp *chip8node8sp) getLogicSuperPodFaultTaskIds(fJob *rescheduling.FaultJob, superPodId string) []int {
 	if tp == nil || fJob == nil {
 		return nil
 	}
@@ -779,133 +779,176 @@ func getSelectNodes(faultNodeNameMap map[string]struct{}, spNodes []plugin.Super
 	return newNodes
 }
 
-func (tp *module800SuperPod) initRemainderTop() [][][]superPod {
+func (tp *chip8node8sp) initRemainderTop() [][][]superPod {
+	// Calculate maximum multiple for 3D array initialization
 	maxMultiple := tp.FrameAttr.SuperPodSize/tp.spBlock + 1
-	rmd := make([][][]superPod, tp.spBlock)
-	for i := range rmd {
-		rmd[i] = make([][]superPod, maxMultiple)
+	remainderTop := make([][][]superPod, tp.spBlock)
+	for i := range remainderTop {
+		remainderTop[i] = make([][]superPod, maxMultiple)
 	}
-	return rmd
+	return remainderTop
 }
 
-func (tp *module800SuperPod) classifySuperPod(totalNodes map[int32]superPod) (superPodInfo, error) {
-	firstLevelRemainTop := tp.initRemainderTop()
-	countVSuperPod := 0
+func (tp *chip8node8sp) classifySuperPod(totalNodes map[int32]superPod) (superPodInfo, error) {
+	// Initialize 3D array for super node classification
+	remainderTop := tp.initRemainderTop()
+	virtualSuperPodCount := 0
 	column := 0
 	remainder := 0
+
 	if !tp.checkSpBlockGtZero() {
 		return superPodInfo{}, fmt.Errorf("classify super pod failed, sp-block less than 0")
 	}
-	for index, sp := range totalNodes {
-		klog.V(util.LogInfoLev).Infof("super-pod: %d, len: %d", index, len(sp))
-		if len(sp) < tp.spBlock && !tp.isSoftSuperPodAffinity {
+
+	// Iterate through all super nodes for classification
+	for superPodID, nodesInSuperPod := range totalNodes {
+		superPodSize := len(nodesInSuperPod)
+		klog.V(util.LogInfoLev).Infof("super-pod: %d, node count: %d", superPodID, superPodSize)
+
+		// Skip super nodes with fewer nodes than spBlock under non-soft affinity strategy
+		if superPodSize < tp.spBlock && !tp.isSoftSuperPodAffinity {
 			continue
 		}
-		if tp.FrameAttr.SuperPodSize < len(sp) {
-			klog.V(util.LogErrorLev).Infof("please adjust super-pod-size, now super-pod-size(%d) "+
-				"less than superPod's node size(%d)", tp.FrameAttr.SuperPodSize, len(sp))
+
+		// Check if super node size exceeds configured SuperPodSize
+		if tp.FrameAttr.SuperPodSize < superPodSize {
+			klog.V(util.LogErrorLev).Infof("please adjust super-pod-size, current(%d) is less than superPod's node size(%d)",
+				tp.FrameAttr.SuperPodSize, superPodSize)
 			return superPodInfo{}, fmt.Errorf("super-pod-size is smaller than superPod's node size")
 		}
-		countVSuperPod += len(sp) / tp.spBlock
-		nodesExceptReserve := len(sp) - tp.FrameAttr.ReservePodSize
-		if nodesExceptReserve < 0 {
+
+		// Calculate the number of virtual super pods that can be provided
+		virtualSuperPodCount += superPodSize / tp.spBlock
+
+		// Calculate effective nodes after deducting reserved nodes
+		effectiveNodes := superPodSize - tp.FrameAttr.ReservePodSize
+		if effectiveNodes < 0 {
 			column = 0
-			remainder = len(sp) % tp.spBlock
+			remainder = superPodSize % tp.spBlock
 		} else {
-			column = nodesExceptReserve / tp.spBlock
-			remainder = nodesExceptReserve % tp.spBlock
+			column = effectiveNodes / tp.spBlock
+			remainder = effectiveNodes % tp.spBlock
 		}
-		klog.V(util.LogInfoLev).Infof("super-pod: %d, column: %d, remainder: %d", index, column,
-			remainder)
-		if len(firstLevelRemainTop[remainder][column]) == 0 {
-			firstLevelRemainTop[remainder][column] = make([]superPod, 0, 1)
+
+		klog.V(util.LogInfoLev).Infof("super-pod: %d, column: %d, remainder: %d", superPodID, column, remainder)
+
+		// Add super node to corresponding position in 3D array
+		if len(remainderTop[remainder][column]) == 0 {
+			remainderTop[remainder][column] = make([]superPod, 0, 1)
 		}
-		firstLevelRemainTop[remainder][column] = append(firstLevelRemainTop[remainder][column], sp)
+		remainderTop[remainder][column] = append(remainderTop[remainder][column], nodesInSuperPod)
 	}
 
 	return superPodInfo{
-		firstLevel:     firstLevelRemainTop,
-		countVSuperPod: countVSuperPod,
+		firstLevel:     remainderTop,
+		countVSuperPod: virtualSuperPodCount,
 	}, nil
 }
 
-func (tp *module800SuperPod) selectNodes(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode, maxId int) {
-	totalCount := len(unReadyID)
-	if spi == nil {
+func (tp *chip8node8sp) selectNodes(unReadyVirtualPodIDs []string, superPodInfo *superPodInfo,
+	selectNodesMap map[string][]plugin.SuperNode, maxID int) {
+	// Initialize the number of virtual super pods to select
+	remainingToSelect := len(unReadyVirtualPodIDs)
+
+	if superPodInfo == nil {
 		klog.V(util.LogErrorLev).Info("select nodes failed, super pod info is nil")
 		return
 	}
-	tp.selectFromSmallerSuperPods(unReadyID, spi, selectNodes, &totalCount)
-	tp.selectFromBiggerSuperPods(unReadyID, spi, selectNodes, &totalCount)
-	tp.selectFromSuperPodsWithReserve(unReadyID, spi, selectNodes, &totalCount)
-	tp.selectFromSuperPodsWithSoftStrategy(unReadyID, spi, selectNodes, &totalCount, maxId)
+
+	// Select from different types of super nodes by priority
+	tp.selectFromSmallerSuperPods(unReadyVirtualPodIDs, superPodInfo, selectNodesMap, &remainingToSelect)
+	tp.selectFromBiggerSuperPods(unReadyVirtualPodIDs, superPodInfo, selectNodesMap, &remainingToSelect)
+	tp.selectFromSuperPodsWithReserve(unReadyVirtualPodIDs, superPodInfo, selectNodesMap, &remainingToSelect)
+	tp.selectFromSuperPodsWithSoftStrategy(unReadyVirtualPodIDs, superPodInfo, selectNodesMap, &remainingToSelect, maxID)
 }
 
-func (tp *module800SuperPod) selectFromSmallerSuperPods(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
-	klog.V(util.LogInfoLev).Infof("select from smaller super pods, totalCount: %d", *totalCount)
-	for i := 0; i < len(spi.firstLevel); i++ {
-		for j := 1; j < len(spi.firstLevel[0]) && j <= *totalCount; j++ {
-			if *totalCount == 0 {
+func (tp *chip8node8sp) selectFromSmallerSuperPods(unReadyVirtualPodIDs []string, superPodInfo *superPodInfo,
+	selectNodesMap map[string][]plugin.SuperNode, remainingToSelect *int) {
+	klog.V(util.LogInfoLev).Infof("select from smaller super pods, remaining: %d", *remainingToSelect)
+
+	// Iterate through the first and second layers of the 3D array to select smaller super nodes
+	for remainderIndex := 0; remainderIndex < len(superPodInfo.firstLevel); remainderIndex++ {
+		for columnIndex := 1; columnIndex < len(superPodInfo.firstLevel[0]) && columnIndex <= *remainingToSelect; columnIndex++ {
+			if *remainingToSelect == 0 {
 				return
 			}
-			spi.firstLevel[i][j] = tp.selectNodesFromSuperPodsExceptReserve(unReadyID, totalCount,
-				spi.firstLevel[i][j], selectNodes)
+			// Select from super nodes after deducting reserved nodes
+			superPodInfo.firstLevel[remainderIndex][columnIndex] = tp.selectNodesFromSuperPodsExceptReserve(
+				unReadyVirtualPodIDs, remainingToSelect,
+				superPodInfo.firstLevel[remainderIndex][columnIndex], selectNodesMap)
 		}
 	}
 }
 
-func (tp *module800SuperPod) selectFromBiggerSuperPods(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
-	klog.V(util.LogInfoLev).Infof("select from bigger super pods, totalCount: %d", *totalCount)
-	for j := *totalCount + 1; j < len(spi.firstLevel[0]); j++ {
-		for i := 0; i < len(spi.firstLevel); i++ {
-			if *totalCount == 0 {
+func (tp *chip8node8sp) selectFromBiggerSuperPods(unReadyVirtualPodIDs []string, superPodInfo *superPodInfo,
+	selectNodesMap map[string][]plugin.SuperNode, remainingToSelect *int) {
+	klog.V(util.LogInfoLev).Infof("select from bigger super pods, remaining: %d", *remainingToSelect)
+
+	// Iterate through the second and first layers of the 3D array to select larger super nodes
+	for columnIndex := *remainingToSelect + 1; columnIndex < len(superPodInfo.firstLevel[0]); columnIndex++ {
+		for remainderIndex := 0; remainderIndex < len(superPodInfo.firstLevel); remainderIndex++ {
+			if *remainingToSelect == 0 {
 				return
 			}
-			spi.firstLevel[i][j] = tp.selectNodesFromSuperPodsExceptReserve(unReadyID, totalCount,
-				spi.firstLevel[i][j], selectNodes)
+			// Select from super nodes after deducting reserved nodes
+			superPodInfo.firstLevel[remainderIndex][columnIndex] = tp.selectNodesFromSuperPodsExceptReserve(
+				unReadyVirtualPodIDs, remainingToSelect,
+				superPodInfo.firstLevel[remainderIndex][columnIndex], selectNodesMap)
 		}
 	}
 }
 
-func (tp *module800SuperPod) selectFromSuperPodsWithReserve(unReadyID []string, spi *superPodInfo,
-	selectNodes map[string][]plugin.SuperNode, totalCount *int) {
-	klog.V(util.LogInfoLev).Infof("select from super pods which is less than sp block when except reserve, "+
-		"totalCount: %d", *totalCount)
-	for i := tp.spBlock - 1; i > -1; i-- {
-		for j := 0; j < len(spi.firstLevel[0]); j++ {
-			if *totalCount == 0 {
+func (tp *chip8node8sp) selectFromSuperPodsWithReserve(unReadyVirtualPodIDs []string, superPodInfo *superPodInfo,
+	selectNodesMap map[string][]plugin.SuperNode, remainingToSelect *int) {
+	klog.V(util.LogInfoLev).Infof("select from super pods with reserve, remaining: %d", *remainingToSelect)
+
+	// Select from super nodes with node count close to spBlock (considering reserved nodes)
+	for remainderIndex := tp.spBlock - 1; remainderIndex > -1; remainderIndex-- {
+		for columnIndex := 0; columnIndex < len(superPodInfo.firstLevel[0]); columnIndex++ {
+			if *remainingToSelect == 0 {
 				return
 			}
-			tp.selectNodesFromSuperPods(unReadyID, totalCount, spi.firstLevel[i][j], selectNodes)
+			// Select directly from super nodes
+			tp.selectNodesFromSuperPods(unReadyVirtualPodIDs, remainingToSelect,
+				superPodInfo.firstLevel[remainderIndex][columnIndex], selectNodesMap)
 		}
 	}
 }
 
-func (tp *module800SuperPod) selectNodesFromSuperPodsExceptReserve(unReadyID []string, totalCount *int,
-	superPods []superPod, selectNodes map[string][]plugin.SuperNode) []superPod {
-	for i := 0; i < len(superPods); i++ {
-		klog.V(util.LogInfoLev).Infof("totalCount: %d, len of superPods: %d", *totalCount, len(superPods))
+func (tp *chip8node8sp) selectNodesFromSuperPodsExceptReserve(unReadyVirtualPodIDs []string, remainingToSelect *int,
+	superPods []superPod, selectNodesMap map[string][]plugin.SuperNode) []superPod {
+	for superPodIndex := 0; superPodIndex < len(superPods); superPodIndex++ {
+		klog.V(util.LogInfoLev).Infof("remaining: %d, superPods count: %d", *remainingToSelect, len(superPods))
+
+		// Loop selection until full or super node resources are insufficient
 		for {
-			if *totalCount == 0 {
+			if *remainingToSelect == 0 {
 				return superPods
 			}
-			if *totalCount-1 >= len(unReadyID) {
-				klog.V(util.LogErrorLev).Infof("index out of range, totalCount: %d, unReadyID: %d",
-					*totalCount-1, len(unReadyID))
+
+			// Check if index is out of bounds
+			if *remainingToSelect-1 >= len(unReadyVirtualPodIDs) {
+				klog.V(util.LogErrorLev).Infof("index out of range, remaining: %d, unReadyVirtualPodIDs: %d",
+					*remainingToSelect-1, len(unReadyVirtualPodIDs))
 				return superPods
 			}
-			if len(superPods[i])-tp.FrameAttr.ReservePodSize < tp.spBlock {
-				klog.V(util.LogInfoLev).Infof("num(%d) of superPods[%d] is less than spBlock when except reserve, "+
-					"skip this superPod", len(superPods[i]), i)
+
+			// Check if super node nodes after deducting reserved nodes meet spBlock requirements
+			if len(superPods[superPodIndex])-tp.FrameAttr.ReservePodSize < tp.spBlock {
+				klog.V(util.LogInfoLev).Infof("superPod[%d] nodes(%d) less than spBlock when except reserve, skip",
+					superPodIndex, len(superPods[superPodIndex]))
 				break
 			}
-			superPods[i] = tp.selectNodesFromSuperPod(unReadyID[*totalCount-1], superPods[i], selectNodes)
-			klog.V(util.LogInfoLev).Infof("after select, len of reserveNodes: %d", len(superPods[i]))
-			*totalCount--
-			if len(superPods[i])-tp.FrameAttr.ReservePodSize < tp.spBlock {
+
+			// Select nodes from a single super node
+			superPods[superPodIndex] = tp.selectNodesFromSuperPod(
+				unReadyVirtualPodIDs[*remainingToSelect-1], superPods[superPodIndex], selectNodesMap)
+
+			klog.V(util.LogInfoLev).Infof("after select, reserveNodes count: %d", len(superPods[superPodIndex]))
+			*remainingToSelect--
+
+			// Check again if super node nodes after deducting reserved nodes meet spBlock requirements
+			if len(superPods[superPodIndex])-tp.FrameAttr.ReservePodSize < tp.spBlock {
 				break
 			}
 		}
@@ -913,82 +956,113 @@ func (tp *module800SuperPod) selectNodesFromSuperPodsExceptReserve(unReadyID []s
 	return superPods
 }
 
-func (tp *module800SuperPod) selectNodesFromSuperPods(unReadyID []string, totalCount *int,
-	superPods []superPod, selectNodes map[string][]plugin.SuperNode) []superPod {
+func (tp *chip8node8sp) selectNodesFromSuperPods(unReadyVirtualPodIDs []string, remainingToSelect *int,
+	superPods []superPod, selectNodesMap map[string][]plugin.SuperNode) []superPod {
+	// Sort super nodes by size in descending order
 	sort.Slice(superPods, func(i, j int) bool {
 		return len(superPods[i]) > len(superPods[j])
 	})
-	k := 0
+
+	superPodIndex := 0
 	for {
-		if *totalCount == 0 || k == len(superPods) {
+		if *remainingToSelect == 0 || superPodIndex == len(superPods) {
 			return superPods
 		}
-		if *totalCount-1 >= len(unReadyID) {
-			klog.V(util.LogErrorLev).Infof("index out of range, totalCount: %d, unReadyID: %d",
-				*totalCount-1, len(unReadyID))
+
+		// Check if index is out of bounds
+		if *remainingToSelect-1 >= len(unReadyVirtualPodIDs) {
+			klog.V(util.LogErrorLev).Infof("index out of range, remaining: %d, unReadyVirtualPodIDs: %d",
+				*remainingToSelect-1, len(unReadyVirtualPodIDs))
 			return superPods
 		}
-		if len(superPods[k]) < tp.spBlock {
-			k++
+
+		// Skip super nodes with fewer nodes than spBlock
+		if len(superPods[superPodIndex]) < tp.spBlock {
+			superPodIndex++
 			continue
 		}
-		superPods[k] = tp.selectNodesFromSuperPod(unReadyID[*totalCount-1], superPods[k], selectNodes)
-		*totalCount--
-		k++
+
+		// Select nodes from a single super node
+		superPods[superPodIndex] = tp.selectNodesFromSuperPod(
+			unReadyVirtualPodIDs[*remainingToSelect-1], superPods[superPodIndex], selectNodesMap)
+		*remainingToSelect--
+		superPodIndex++
 	}
 }
 
-func (tp *module800SuperPod) selectNodesFromSuperPod(vid string, superPod map[string]plugin.NPUNode,
-	selectNodes map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
-	count := 0
-	reserveNode := make(map[string]plugin.NPUNode, len(superPod)-tp.spBlock)
-	if selectNodes == nil {
-		return reserveNode
+func (tp *chip8node8sp) selectNodesFromSuperPod(virtualPodID string, superPodNodes map[string]plugin.NPUNode,
+	selectNodesMap map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
+	// Initialize counters and reserved node map
+	selectedCount := 0
+	reserveNodes := make(map[string]plugin.NPUNode, len(superPodNodes)-tp.spBlock)
+
+	if selectNodesMap == nil {
+		return reserveNodes
 	}
-	if len(superPod) < tp.spBlock && !tp.isSoftSuperPodAffinity {
-		return superPod
+
+	// Under non-soft affinity strategy, super nodes with fewer nodes than spBlock do not participate in selection
+	if len(superPodNodes) < tp.spBlock && !tp.isSoftSuperPodAffinity {
+		return superPodNodes
 	}
+
+	// Get rescheduling cache
 	rescheduleCache := rescheduling.GetReSchedulerCache()
-	subHealthyNodes := make([]plugin.NPUNode, 0, len(superPod))
-	for _, nNode := range superPod {
-		subHealthy := false
+	subHealthyNodes := make([]plugin.NPUNode, 0, len(superPodNodes))
+
+	// Iterate through all nodes in the super node
+	for _, node := range superPodNodes {
+		isSubHealthy := false
+
+		// Check if node is sub-healthy
 		if rescheduleCache != nil {
-			fNode, exist := rescheduleCache.FaultNodes[nNode.Name]
-			if exist && (fNode.HasCardSubHealthFault || fNode.HasSwitchSubHealthFault) {
-				subHealthy = true
+			faultNode, exist := rescheduleCache.FaultNodes[node.Name]
+			if exist && (faultNode.HasCardSubHealthFault || faultNode.HasSwitchSubHealthFault) {
+				isSubHealthy = true
 			}
 		}
-		if count >= tp.spBlock || subHealthy {
-			reserveNode[nNode.Name] = nNode
-			subHealthyNodes = append(subHealthyNodes, nNode)
+
+		// If selection is full or node is sub-healthy, put node into reserved
+		if selectedCount >= tp.spBlock || isSubHealthy {
+			reserveNodes[node.Name] = node
+			if isSubHealthy {
+				subHealthyNodes = append(subHealthyNodes, node)
+			}
 			continue
 		}
-		klog.V(util.LogInfoLev).Infof("select nNode %s, super-pod ID: %d", nNode.Name, nNode.SuperPodID)
-		_, ok := selectNodes[vid]
-		if !ok {
-			selectNodes[vid] = make([]plugin.SuperNode, 0)
+
+		// Select node and add to result
+		klog.V(util.LogInfoLev).Infof("select node %s, super-pod ID: %d", node.Name, node.SuperPodID)
+
+		// Initialize selection result slice for virtual pod
+		if _, exists := selectNodesMap[virtualPodID]; !exists {
+			selectNodesMap[virtualPodID] = make([]plugin.SuperNode, 0)
 		}
-		selectNodes[vid] = append(selectNodes[vid], plugin.SuperNode{
-			Name:       nNode.Name,
-			SuperPodID: nNode.SuperPodID,
+
+		// Add selected node
+		selectNodesMap[virtualPodID] = append(selectNodesMap[virtualPodID], plugin.SuperNode{
+			Name:       node.Name,
+			SuperPodID: node.SuperPodID,
 		})
-		count++
+
+		selectedCount++
 	}
-	if count >= tp.spBlock {
-		return reserveNode
+
+	// If needed, supplement selection from sub-healthy nodes
+	if selectedCount < tp.spBlock {
+		for i := 0; i < len(subHealthyNodes) && selectedCount < tp.spBlock; i++ {
+			selectNodesMap[virtualPodID] = append(selectNodesMap[virtualPodID], plugin.SuperNode{
+				Name:       subHealthyNodes[i].Name,
+				SuperPodID: subHealthyNodes[i].SuperPodID,
+			})
+			selectedCount++
+			delete(reserveNodes, subHealthyNodes[i].Name)
+		}
 	}
-	for i := 0; i < len(subHealthyNodes) && count < tp.spBlock; i++ {
-		selectNodes[vid] = append(selectNodes[vid], plugin.SuperNode{
-			Name:       subHealthyNodes[i].Name,
-			SuperPodID: subHealthyNodes[i].SuperPodID,
-		})
-		count++
-		delete(reserveNode, subHealthyNodes[i].Name)
-	}
-	return reserveNode
+
+	return reserveNodes
 }
 
-func (tp *module800SuperPod) selectFromSuperPodsWithSoftStrategy(unReadyID []string, spi *superPodInfo,
+func (tp *chip8node8sp) selectFromSuperPodsWithSoftStrategy(unReadyID []string, spi *superPodInfo,
 	selectNodes map[string][]plugin.SuperNode, totalCount *int, maxId int) {
 	selectNodeNum := 0
 	for _, spNodes := range selectNodes {
@@ -1016,7 +1090,7 @@ func (tp *module800SuperPod) selectFromSuperPodsWithSoftStrategy(unReadyID []str
 	}
 }
 
-func (tp *module800SuperPod) selectNodesForSoftStrategy(recorder *vPodIdRecorder, totalNode *int,
+func (tp *chip8node8sp) selectNodesForSoftStrategy(recorder *vPodIdRecorder, totalNode *int,
 	superPods []superPod, selectNodes map[string][]plugin.SuperNode) []superPod {
 	sort.Slice(superPods, func(i, j int) bool {
 		return len(superPods[i]) > len(superPods[j])
@@ -1054,7 +1128,7 @@ func (r *vPodIdRecorder) getVPodID() string {
 }
 
 // UseAnnotation select npu for task from node
-func (tp *module800SuperPod) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
+func (tp *chip8node8sp) UseAnnotation(task *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
 	if tp == nil || task == nil || len(node.Annotation) == 0 {
 		err := errors.New(util.ArgumentError)
 		klog.V(util.LogErrorLev).Infof("UseAnnotation %s.", err)
@@ -1078,7 +1152,7 @@ func (tp *module800SuperPod) UseAnnotation(task *api.TaskInfo, node plugin.NPUNo
 	return newNode
 }
 
-func (tp *module800SuperPod) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode) ([]int, error) {
+func (tp *chip8node8sp) selectNPUFromNode(task *api.TaskInfo, node plugin.NPUNode) ([]int, error) {
 	taskNPUNum, err := tp.GetTaskReqNPUNum(task)
 	if err != nil {
 		klog.V(util.LogErrorLev).Infof("%s GetTaskReqNPUNum err: %s", tp.GetPluginName(), err.Error())
@@ -1099,7 +1173,7 @@ func (tp *module800SuperPod) selectNPUFromNode(task *api.TaskInfo, node plugin.N
 	return tp.selectNPUForStandaloneJob(taskNPUNum, npuTop, node)
 }
 
-func (tp *module800SuperPod) selectNPUForStandaloneJob(taskNPUNum int, npuTop []int,
+func (tp *chip8node8sp) selectNPUForStandaloneJob(taskNPUNum int, npuTop []int,
 	node plugin.NPUNode) ([]int, error) {
 	sort.Ints(npuTop)
 	klog.V(util.LogInfoLev).Infof("%s select %d NPU Node(%s) nodeTop<%v>", tp.GetPluginName(), taskNPUNum,
@@ -1108,12 +1182,12 @@ func (tp *module800SuperPod) selectNPUForStandaloneJob(taskNPUNum int, npuTop []
 }
 
 // ReleaseAnnotation Release used resource.
-func (tp *module800SuperPod) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
+func (tp *chip8node8sp) ReleaseAnnotation(_ *api.TaskInfo, node plugin.NPUNode) *plugin.NPUNode {
 	return &node
 }
 
 // prevent division by zero
-func (tp *module800SuperPod) checkSpBlockGtZero() bool {
+func (tp *chip8node8sp) checkSpBlockGtZero() bool {
 	if tp.spBlock > 0 {
 		return true
 	}

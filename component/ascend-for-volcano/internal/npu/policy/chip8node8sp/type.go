@@ -17,15 +17,25 @@ limitations under the License.
 /*
 Package superpod is using for HuaWei ascend 800I A5 SuperPod affinity schedule.
 */
-package superpod
+package chip8node8sp
 
 import (
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/vnpu"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
-type module800SuperPod struct {
-	ascend800ia5.Base800ia5
+// chip8node8sp represents the SuperPod scheduling handler for 8-node 8-SP configuration
+type chip8node8sp struct {
+	// Embedded base handler for common NPU functionality
+	base.NPUHandler
+	// Virtual NPU handler
+	VHandle *vnpu.VirtualNPU
+	// Affinity score list
+	AffScoreList [][]int
+	// Invalid NPU number mapping
+	NpuNumInvalidMap map[int]struct{}
+	// SuperPod specific fields
 	netUnhealthyKey        string
 	spBlock                int
 	nodeVPodId             map[string]string
@@ -53,6 +63,9 @@ const (
 	superPodIdKey              = "super-pod-id"
 	superPodAffinity           = "super-pod-affinity"
 	softRequire                = "soft"
+
+	// SchedulePolicy8Px8Sp the label 8p-8-sp
+	SchedulePolicy8Px8Sp = "8p-8-sp"
 )
 
 type superPodInfo struct {
