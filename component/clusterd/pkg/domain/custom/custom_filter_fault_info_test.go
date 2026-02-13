@@ -48,13 +48,13 @@ func TestSetAndGetCustomFilterLevels(t *testing.T) {
 			convey.So(res, convey.ShouldResemble, GetDefaultMindIeServerFilterLevels())
 		})
 		convey.Convey("job is mindie server job, levels from label overwrite default levels", func() {
-			labelValue = "level1,level2:20，" + constant.RestartRequest + ": 20"
+			labelValue = "level1,level2:20，" + constant.RestartRequestFaultLevelStr + ": 20"
 			p.SetCustomFilterLevels(job1, labelValue, true)
 			res := p.GetCustomFilterLevels(job1)
 			convey.So(res, convey.ShouldResemble, map[string]time.Duration{
-				"level1":                constant.CustomFilterFaultDefaultTimeout,
-				"level2":                timeOut * time.Second,
-				constant.RestartRequest: timeOut * time.Second,
+				"level1":                             constant.CustomFilterFaultDefaultTimeout,
+				"level2":                             timeOut * time.Second,
+				constant.RestartRequestFaultLevelStr: timeOut * time.Second,
 			})
 		})
 	})
