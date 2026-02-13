@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright(C)2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,7 @@ limitations under the License.
 /*
 Package superPod is using for HuaWei Ascend800ia5 superPod pin affinity schedule.
 */
-package superpod
+package chip8node8sp
 
 import (
 	"errors"
@@ -34,7 +34,6 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/test"
 
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/common/util"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/vnpu"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/rescheduling"
@@ -47,25 +46,25 @@ func TestIsDelayingJobCase1(t *testing.T) {
 		now := time.Now().Unix()
 
 		convey.Convey("When tp is nil", func() {
-			result := (*module800SuperPod)(nil).isDelayingJob(nil, nil)
+			result := (*chip8node8sp)(nil).isDelayingJob(nil, nil)
 			convey.So(result, convey.ShouldBeFalse)
 		})
 
 		convey.Convey("When fJob is nil", func() {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			result := tp.isDelayingJob(nil, nil)
 			convey.So(result, convey.ShouldBeFalse)
 		})
 
 		convey.Convey("When FaultTasks is nil", func() {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			fJob := &rescheduling.FaultJob{FaultTasks: nil}
 			result := tp.isDelayingJob(fJob, nil)
 			convey.So(result, convey.ShouldBeFalse)
 		})
 
 		convey.Convey("When waiting time exceeds threshold", func() {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			fJob := &rescheduling.FaultJob{
 				JobName:        "test-job",
 				RescheduleTime: now - delayingTime - 1, // Exceeds threshold
@@ -83,7 +82,7 @@ func TestIsDelayingJobCase2(t *testing.T) {
 	now := time.Now().Unix()
 	convey.Convey("Test isDelayingJob case2", t, func() {
 		convey.Convey("When all non-fault tasks nodes are released", func() {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			fJob := &rescheduling.FaultJob{
 				JobName:        "test-job",
 				RescheduleTime: now,
@@ -108,7 +107,7 @@ func TestIsDelayingJobCase2(t *testing.T) {
 		})
 
 		convey.Convey("When some non-fault task nodes are not released", func() {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			fJob := &rescheduling.FaultJob{
 				JobName:        "test-job",
 				RescheduleTime: now,
@@ -134,7 +133,7 @@ func TestIsDelayingJobCase2(t *testing.T) {
 	})
 }
 
-func newModuleSuperPod() *module800SuperPod {
+func newModuleSuperPod() *chip8node8sp {
 	// Setup complete test environment
 	baseHandler := base.NPUHandler{
 		ScheduleEnv: plugin.ScheduleEnv{
@@ -146,11 +145,9 @@ func newModuleSuperPod() *module800SuperPod {
 		},
 	}
 
-	return &module800SuperPod{
-		Base800ia5: ascend800ia5.Base800ia5{
-			NPUHandler: baseHandler,
-			VHandle:    &vnpu.VirtualNPU{},
-		},
+	return &chip8node8sp{
+		NPUHandler: baseHandler,
+		VHandle:    &vnpu.VirtualNPU{},
 	}
 }
 
@@ -173,7 +170,7 @@ func TestSelectNodeFromOriginVSuperPodCase1(t *testing.T) {
 
 		convey.Convey("With complete structure initialization", func() {
 			convey.Convey("Should handle nil inputs properly", func() {
-				_, err := (*module800SuperPod)(nil).selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
+				_, err := (*chip8node8sp)(nil).selectNodeFromOriginVSuperPod(fJob, sMap, selectNodes, totalNodes, vSuperPodID)
 				convey.So(err, convey.ShouldNotBeNil)
 
 				_, err = tp.selectNodeFromOriginVSuperPod(nil, sMap, selectNodes, totalNodes, vSuperPodID)
@@ -329,7 +326,7 @@ const (
 func TestSchedulableCase1(t *testing.T) {
 	convey.Convey("Test schedulable case 1", t, func() {
 		// Setup base test environment
-		tp := &module800SuperPod{}
+		tp := &chip8node8sp{}
 		fJob := &rescheduling.FaultJob{
 			JobUID: "job-123",
 			SuperPods: map[string][]plugin.SuperNode{
@@ -354,7 +351,7 @@ func TestSchedulableCase1(t *testing.T) {
 		defer patches.Reset()
 
 		convey.Convey("When tp or fJob is nil", func() {
-			convey.So((*module800SuperPod)(nil).schedulable(fJob, totalNodes), convey.ShouldBeFalse)
+			convey.So((*chip8node8sp)(nil).schedulable(fJob, totalNodes), convey.ShouldBeFalse)
 			convey.So(tp.schedulable(nil, totalNodes), convey.ShouldBeFalse)
 		})
 
@@ -483,7 +480,7 @@ func TestIfScheduleCase2(t *testing.T) {
 
 func TestSelectNodeForPodLevelRescheduling(t *testing.T) {
 	convey.Convey("Test selectNodeForPodLevelRescheduling", t, func() {
-		tp := &module800SuperPod{
+		tp := &chip8node8sp{
 			spBlock: 1,
 		}
 
@@ -564,7 +561,7 @@ func TestCheckSpBlockGtZero(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tp := &module800SuperPod{
+			tp := &chip8node8sp{
 				spBlock: tt.spBlock,
 			}
 			actual := tp.checkSpBlockGtZero()
@@ -576,7 +573,7 @@ func TestCheckSpBlockGtZero(t *testing.T) {
 }
 
 func TestInitRemainderTop(t *testing.T) {
-	tp := &module800SuperPod{
+	tp := &chip8node8sp{
 		spBlock: 3,
 	}
 	tp.FrameAttr.SuperPodSize = 20
@@ -597,7 +594,7 @@ func TestInitRemainderTop(t *testing.T) {
 }
 
 func TestSelectNodeFromOriginSuperPod(t *testing.T) {
-	tp := &module800SuperPod{
+	tp := &chip8node8sp{
 		spBlock: 1,
 	}
 
@@ -647,10 +644,10 @@ func TestSelectNodeFromOriginSuperPod(t *testing.T) {
 }
 
 func TestSelectNodeFromOriginSuperPodNilOrEmptyInputs(t *testing.T) {
-	var tpNil *module800SuperPod
+	var tpNil *chip8node8sp
 	tpNil.selectNodeFromOriginSuperPod(nil, nil, nil, nil, nil)
 
-	tp := &module800SuperPod{}
+	tp := &chip8node8sp{}
 	tp.selectNodeFromOriginSuperPod(nil, nil, nil, nil, nil)
 
 	fJobNilPods := &rescheduling.FaultJob{}
@@ -661,7 +658,7 @@ func TestSelectNodeFromOriginSuperPodNilOrEmptyInputs(t *testing.T) {
 }
 
 func TestSelectNodeFromOriginSuperPodNilMaps(t *testing.T) {
-	tp := &module800SuperPod{}
+	tp := &chip8node8sp{}
 
 	fJob := &rescheduling.FaultJob{
 		SuperPods: map[string][]plugin.SuperNode{
@@ -747,7 +744,7 @@ func buildValidNPUJobTestCases() []validNPUJobTest {
 func TestValidNPUJob(t *testing.T) {
 	for _, tt := range buildValidNPUJobTestCases() {
 		t.Run(tt.name, func(t *testing.T) {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			tp.NPUJob = &util.NPUJob{}
 			tp.MaxNodeNPUNum = 8
 			tp.MaxCardNPUNum = 1
@@ -873,7 +870,7 @@ func TestCheckNodeNPUByTask(t *testing.T) {
 				patches := tt.setup()
 				defer patches.Reset()
 			}
-			tp := &module800SuperPod{spBlock: spBlockNum2}
+			tp := &chip8node8sp{spBlock: spBlockNum2}
 			tp.NPUJob = &util.NPUJob{}
 			tp.SetMaxNodeNPUNum(util.NPUIndex8)
 			tp.SetMaxCardNPUNum(util.NPUIndex2)
@@ -944,7 +941,7 @@ func TestScoreBestNPUNodes(t *testing.T) {
 	for _, tt := range buildScoreBestNPUNodesTest() {
 		t.Run(tt.name, func(t *testing.T) {
 			initScoreMap(scoreMap, tt.nodes)
-			tp := &module800SuperPod{
+			tp := &chip8node8sp{
 				spBlock:    tt.spBlock,
 				nodeVPodId: map[string]string{},
 			}
@@ -1048,7 +1045,7 @@ func TestIsDelayingJob(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tp := &module800SuperPod{}
+			tp := &chip8node8sp{}
 			result := tp.isDelayingJob(tt.fJob, tt.nodes)
 			if result != tt.expected {
 				t.Errorf("isDelayingJob() = %v, want %v", result, tt.expected)
@@ -1067,17 +1064,17 @@ func TestNew(t *testing.T) {
 
 type checkRequireNPUTest struct {
 	name     string
-	module   *module800SuperPod
+	module   *chip8node8sp
 	expected *api.ValidateResult
 }
 
 func TestCheckReqNPUEqualNodeNPU(t *testing.T) {
-	module1 := module800SuperPod{}
+	module1 := chip8node8sp{}
 	module1.NPUJob = &util.NPUJob{
 		Tasks: map[api.TaskID]util.NPUTask{api.TaskID(strconv.Itoa(1)): {
 			ReqNPUNum: 8,
 		}}}
-	module2 := module800SuperPod{}
+	module2 := chip8node8sp{}
 	module2.NPUJob = &util.NPUJob{
 		Tasks: map[api.TaskID]util.NPUTask{api.TaskID(strconv.Itoa(1)): {
 			ReqNPUNum: 3,
@@ -1122,13 +1119,13 @@ func TestCheckReqNPU(t *testing.T) {
 }
 
 func getCheckRequireNPUTestParam2() []checkRequireNPUTest {
-	module4 := module800SuperPod{}
+	module4 := chip8node8sp{}
 	module4.NPUJob = &util.NPUJob{
 		NPUTaskNum:    2,
 		ReqNPUNum:     10,
 		SpBlockNPUNum: 8,
 	}
-	module5 := module800SuperPod{}
+	module5 := chip8node8sp{}
 	module5.NPUJob = &util.NPUJob{
 		NPUTaskNum:    2,
 		ReqNPUNum:     16,
@@ -1157,19 +1154,19 @@ func getCheckRequireNPUTestParam2() []checkRequireNPUTest {
 }
 
 func getCheckRequireNPUTestParam1() []checkRequireNPUTest {
-	module1 := module800SuperPod{}
+	module1 := chip8node8sp{}
 	module1.NPUJob = &util.NPUJob{
 		NPUTaskNum:    1,
 		ReqNPUNum:     1,
 		SpBlockNPUNum: 3,
 	}
-	module2 := module800SuperPod{}
+	module2 := chip8node8sp{}
 	module2.NPUJob = &util.NPUJob{
 		NPUTaskNum:    1,
 		ReqNPUNum:     1,
 		SpBlockNPUNum: 1,
 	}
-	module3 := module800SuperPod{}
+	module3 := chip8node8sp{}
 	module3.NPUJob = &util.NPUJob{
 		NPUTaskNum: 1,
 		ReqNPUNum:  9,
@@ -1204,12 +1201,12 @@ func getCheckRequireNPUTestParam1() []checkRequireNPUTest {
 
 func TestUseAnnotation(t *testing.T) {
 	convey.Convey("test UseAnnotation case 1 ", t, func() {
-		module1 := &module800SuperPod{}
+		module1 := &chip8node8sp{}
 		task := &api.TaskInfo{
 			Job: api.JobID(strconv.Itoa(1)),
 		}
-		patches := gomonkey.ApplyFunc((*module800SuperPod).selectNPUFromNode,
-			func(_ *module800SuperPod, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
+		patches := gomonkey.ApplyFunc((*chip8node8sp).selectNPUFromNode,
+			func(_ *chip8node8sp, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
 				return []int{1}, nil
 			})
 		defer patches.Reset()
@@ -1223,9 +1220,9 @@ func TestUseAnnotation(t *testing.T) {
 	})
 
 	convey.Convey("test UseAnnotation case 2 ", t, func() {
-		module2 := &module800SuperPod{}
-		patches := gomonkey.ApplyFunc((*module800SuperPod).selectNPUFromNode,
-			func(_ *module800SuperPod, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
+		module2 := &chip8node8sp{}
+		patches := gomonkey.ApplyFunc((*chip8node8sp).selectNPUFromNode,
+			func(_ *chip8node8sp, _ *api.TaskInfo, _ plugin.NPUNode) ([]int, error) {
 				return []int{1}, errors.New("fake error")
 			})
 
@@ -1243,7 +1240,7 @@ func TestSelectNPUFromNode(t *testing.T) {
 
 func TestSelectNPUFromNodePart1(t *testing.T) {
 	convey.Convey("test selectNPUFromNode case 1 ", t, func() {
-		module1 := &module800SuperPod{}
+		module1 := &chip8node8sp{}
 		task := &api.TaskInfo{
 			Job: api.JobID(strconv.Itoa(1)),
 		}
@@ -1259,7 +1256,7 @@ func TestSelectNPUFromNodePart1(t *testing.T) {
 
 func TestSelectNPUFromNodePart2(t *testing.T) {
 	convey.Convey("test selectNPUFromNode case 2 ", t, func() {
-		module1 := &module800SuperPod{
+		module1 := &chip8node8sp{
 			spBlock: 1,
 		}
 		module1.NPUJob = &util.NPUJob{
@@ -1283,7 +1280,7 @@ func TestSelectNPUFromNodePart2(t *testing.T) {
 	})
 
 	convey.Convey("test selectNPUFromNode case 3 ", t, func() {
-		module1 := &module800SuperPod{
+		module1 := &chip8node8sp{
 			spBlock: 1,
 		}
 		module1.NPUJob = &util.NPUJob{
@@ -1348,7 +1345,7 @@ func TestInSuperPods(t *testing.T) {
 
 func TestSelectNodesFromSuperPods(t *testing.T) {
 	convey.Convey("test selectNodesFromSuperPods case 1 ", t, func() {
-		module := &module800SuperPod{}
+		module := &chip8node8sp{}
 		map0 := map[string]plugin.NPUNode{"0": {}}
 		map1 := map[string]plugin.NPUNode{
 			"1": {},
@@ -1358,8 +1355,8 @@ func TestSelectNodesFromSuperPods(t *testing.T) {
 		unReadyID := []string{"0"}
 		totalCount := 1
 		selectNodes := make(map[string][]plugin.SuperNode)
-		patches1 := gomonkey.ApplyFunc((*module800SuperPod).selectNodesFromSuperPod,
-			func(_ *module800SuperPod, _ string, _ map[string]plugin.NPUNode,
+		patches1 := gomonkey.ApplyFunc((*chip8node8sp).selectNodesFromSuperPod,
+			func(_ *chip8node8sp, _ string, _ map[string]plugin.NPUNode,
 				_ map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
 				return map[string]plugin.NPUNode{"0": {}}
 			})
@@ -1369,7 +1366,7 @@ func TestSelectNodesFromSuperPods(t *testing.T) {
 		convey.So(len(result), convey.ShouldEqual, exceptResult)
 	})
 	convey.Convey("test selectNodesFromSuperPods case 2 ", t, func() {
-		module := &module800SuperPod{
+		module := &chip8node8sp{
 			spBlock: 3,
 		}
 		map0 := map[string]plugin.NPUNode{"0": {}}
@@ -1381,8 +1378,8 @@ func TestSelectNodesFromSuperPods(t *testing.T) {
 		unReadyID := []string{"0"}
 		totalCount := 1
 		selectNodes := make(map[string][]plugin.SuperNode)
-		patches1 := gomonkey.ApplyFunc((*module800SuperPod).selectNodesFromSuperPod,
-			func(_ *module800SuperPod, _ string, _ map[string]plugin.NPUNode,
+		patches1 := gomonkey.ApplyFunc((*chip8node8sp).selectNodesFromSuperPod,
+			func(_ *chip8node8sp, _ string, _ map[string]plugin.NPUNode,
 				_ map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
 				return map[string]plugin.NPUNode{"0": {}}
 			})
@@ -1395,7 +1392,7 @@ func TestSelectNodesFromSuperPods(t *testing.T) {
 
 func TestSelectNodesFromSuperPodsExceptReserve(t *testing.T) {
 	convey.Convey("test selectNodesFromSuperPods case 1 ", t, func() {
-		module := &module800SuperPod{}
+		module := &chip8node8sp{}
 		map0 := map[string]plugin.NPUNode{"0": {}}
 		map1 := map[string]plugin.NPUNode{
 			"1": {},
@@ -1405,8 +1402,8 @@ func TestSelectNodesFromSuperPodsExceptReserve(t *testing.T) {
 		unReadyID := []string{"0"}
 		totalCount := 1
 		selectNodes := make(map[string][]plugin.SuperNode)
-		patches1 := gomonkey.ApplyFunc((*module800SuperPod).selectNodesFromSuperPod,
-			func(_ *module800SuperPod, _ string, _ map[string]plugin.NPUNode,
+		patches1 := gomonkey.ApplyFunc((*chip8node8sp).selectNodesFromSuperPod,
+			func(_ *chip8node8sp, _ string, _ map[string]plugin.NPUNode,
 				_ map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
 				return map[string]plugin.NPUNode{
 					"0": {}}
@@ -1418,7 +1415,7 @@ func TestSelectNodesFromSuperPodsExceptReserve(t *testing.T) {
 	})
 
 	convey.Convey("test selectNodesFromSuperPods case 2 ", t, func() {
-		module := &module800SuperPod{
+		module := &chip8node8sp{
 			spBlock: 3,
 		}
 		map0 := map[string]plugin.NPUNode{"0": {}}
@@ -1430,8 +1427,8 @@ func TestSelectNodesFromSuperPodsExceptReserve(t *testing.T) {
 		unReadyID := []string{"0"}
 		totalCount := 1
 		selectNodes := make(map[string][]plugin.SuperNode)
-		patches1 := gomonkey.ApplyFunc((*module800SuperPod).selectNodesFromSuperPod,
-			func(_ *module800SuperPod, _ string, _ map[string]plugin.NPUNode,
+		patches1 := gomonkey.ApplyFunc((*chip8node8sp).selectNodesFromSuperPod,
+			func(_ *chip8node8sp, _ string, _ map[string]plugin.NPUNode,
 				_ map[string][]plugin.SuperNode) map[string]plugin.NPUNode {
 				return map[string]plugin.NPUNode{
 					"0": {}}
@@ -1445,7 +1442,7 @@ func TestSelectNodesFromSuperPodsExceptReserve(t *testing.T) {
 
 func TestClassifySuperPod(t *testing.T) {
 	convey.Convey("test classifySuperPod case 1 ", t, func() {
-		module := &module800SuperPod{
+		module := &chip8node8sp{
 			spBlock: 1,
 		}
 		module.FrameAttr.SuperPodSize = 2
@@ -1497,7 +1494,7 @@ const (
 
 func TestIfPodLevelRescheduling(t *testing.T) {
 	t.Run("01-IfPodLevelRescheduling return true when pod-rescheduling label is on", func(t *testing.T) {
-		module := &module800SuperPod{}
+		module := &chip8node8sp{}
 		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
 		sJob := plugin.SchedulerJob{}
 		sJob.Label = map[string]string{util.SinglePodTag: util.EnableFunc}
@@ -1509,7 +1506,7 @@ func TestIfPodLevelRescheduling(t *testing.T) {
 		}
 	})
 	t.Run("02-IfPodLevelRescheduling return true when process-recover-enable label is on", func(t *testing.T) {
-		module := &module800SuperPod{}
+		module := &chip8node8sp{}
 		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
 		sJob := plugin.SchedulerJob{}
 		sJob.Label = map[string]string{util.ProcessRecoverEnable: util.EnableFunc}
@@ -1521,7 +1518,7 @@ func TestIfPodLevelRescheduling(t *testing.T) {
 		}
 	})
 	t.Run("03-IfPodLevelRescheduling return false when both labels are not on", func(t *testing.T) {
-		module := &module800SuperPod{}
+		module := &chip8node8sp{}
 		fJob := &rescheduling.FaultJob{JobUID: mockJobUID}
 		sJob := plugin.SchedulerJob{}
 		sJob.Label = map[string]string{}

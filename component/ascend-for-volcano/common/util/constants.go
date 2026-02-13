@@ -97,18 +97,20 @@ const (
 
 // value of schedule_policy annotation
 const (
-	Chip1Node2    = "chip1-node2"     // 910a card
-	Chip4Node4    = "chip4-node4"     // 910a half
-	Chip8Node8    = "chip8-node8"     // 910bx8
-	Chip8Node16   = "chip8-node16"    // 910bx16
-	Chip2Node16   = "chip2-node16"    // a3x16
-	Chip2Node16Sp = "chip2-node16-sp" // a3x16-superpod
-	Chip2Node8    = "chip2-node8"     // a3x8
-	Chip2Node8Sp  = "chip2-node8-sp"  // a3x8-superpod
-	Chip4Node8    = "chip4-node8"     // Atlas 300I-4P-8 and 910a module
-	Chip4Node16   = "chip4-node16"    // Atlas 300I-4P-16
-	Chip1Node8    = "chip1-node8"     // Atlas 300I-1P-8
-	Chip1Node16   = "chip1-node16"    // Atlas 300I-1P-16
+	Chip1Node2       = "chip1-node2"         // 910a card
+	Chip4Node4       = "chip4-node4"         // 910a half
+	Chip8Node8       = "chip8-node8"         // 910bx8
+	Chip8Node16      = "chip8-node16"        // 910bx16
+	Chip2Node16      = "chip2-node16"        // a3x16
+	Chip2Node16Sp    = "chip2-node16-sp"     // a3x16-superpod
+	Chip2Node8       = "chip2-node8"         // a3x8
+	Chip2Node8Sp     = "chip2-node8-sp"      // a3x8-superpod
+	Chip4Node8       = "chip4-node8"         // 350-Atlas-4p-8 and 910a module
+	Chip4Node16      = "chip4-node16"        // 350-Atlas-4p-16
+	Chip1Node8       = "chip1-node8"         // 350-Atlas-8
+	Chip1Node16      = "chip1-node16"        // 350-Atlas-16
+	Chip8Node8Sp     = "chip8-node8-sp"      // 850-SuperPod-Atlas-8
+	Chip8Node8Ra64Sp = "chip8-node8-ra64-sp" // 950-SuperPod-Atlas-8
 )
 
 const (

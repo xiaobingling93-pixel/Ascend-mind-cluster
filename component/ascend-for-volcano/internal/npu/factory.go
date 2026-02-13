@@ -30,8 +30,6 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/card310px2"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/chip310px2"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend310p/vnpu"
-	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5/ascend800ia5stacking"
-	ascend800ia5superpod "volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend800ia5/superpod"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/module910a3x16"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910a3/superpod"
@@ -41,6 +39,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/ascend910/ascend910old/module910x8"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/base"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/policy/chip4nodex"
+	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/internal/npu/policy/chip8node8sp"
 	"volcano.sh/volcano/pkg/scheduler/plugins/ascend-volcano-plugin/plugin"
 )
 
@@ -59,6 +58,7 @@ var policy910HandlerMap = map[string]string{
 	util.Chip4Node16:         chip4nodex.SchedulePolicy4Px16,
 	util.Chip1Node8:          chip4nodex.SchedulePolicy1Px8,
 	util.Chip1Node16:         chip4nodex.SchedulePolicy1Px16,
+	util.Chip8Node8Sp:        chip8node8sp.SchedulePolicy8Px8Sp,
 }
 
 var (
@@ -108,31 +108,17 @@ func initCard910Factory() {
 	// init card handler by base handler
 	initCard910ByBaseHandler()
 
-	card910Factory[module910bx16.SchedulerName] =
-		func() base.AscendHandler { return module910bx16.New(module910bx16.SchedulerName) }
-	card910Factory[module910x8.SchedulerName] =
-		func() base.AscendHandler { return module910x8.New(module910x8.SchedulerName) }
-	card910Factory[superpod.A3x16SchedulerName] =
-		func() base.AscendHandler {
-			return superpod.New(superpod.A3x16SchedulerName, ascend910a3.NodeNPUNumber16)
-		}
-	card910Factory[superpod.A3x8SchedulerName] =
-		func() base.AscendHandler { return superpod.New(superpod.A3x8SchedulerName, ascend910a3.NodeNPUNumber8) }
-	card910Factory[module910a3x16.SchedulerName] =
-		func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
-	card910Factory[superpoda5.SuperPodx8SchedulerName] =
-		func() base.AscendHandler { return superpoda5.New(superpoda5.SuperPodx8SchedulerName) }
-	card910Factory[ascend800ia5superpod.InferSchedulerName] =
-		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
-	card910Factory[ascend800ia5superpod.TrainSchedulerName] =
-		func() base.AscendHandler { return ascend800ia5superpod.New(ascend800ia5superpod.InferSchedulerName) }
-	card910Factory[ascend800ia5stacking.SchedulerName] =
-		func() base.AscendHandler { return ascend800ia5stacking.New(ascend800ia5stacking.SchedulerName) }
-	card910Factory[chip4nodex.SchedulePolicy4Px8] =
-		func() base.AscendHandler { return chip4nodex.New(chip4nodex.SchedulePolicy4Px8) }
-	card910Factory[chip4nodex.SchedulePolicy4Px16] =
-		func() base.AscendHandler { return chip4nodex.New(chip4nodex.SchedulePolicy4Px16) }
-
+	card910Factory[module910bx16.SchedulerName] = func() base.AscendHandler { return module910bx16.New(module910bx16.SchedulerName) }
+	card910Factory[module910x8.SchedulerName] = func() base.AscendHandler { return module910x8.New(module910x8.SchedulerName) }
+	card910Factory[superpod.A3x16SchedulerName] = func() base.AscendHandler {
+		return superpod.New(superpod.A3x16SchedulerName, ascend910a3.NodeNPUNumber16)
+	}
+	card910Factory[superpod.A3x8SchedulerName] = func() base.AscendHandler { return superpod.New(superpod.A3x8SchedulerName, ascend910a3.NodeNPUNumber8) }
+	card910Factory[module910a3x16.SchedulerName] = func() base.AscendHandler { return module910a3x16.New(module910a3x16.SchedulerName) }
+	card910Factory[superpoda5.SuperPodx8SchedulerName] = func() base.AscendHandler { return superpoda5.New(superpoda5.SuperPodx8SchedulerName) }
+	card910Factory[chip4nodex.SchedulePolicy4Px8] = func() base.AscendHandler { return chip4nodex.New(chip4nodex.SchedulePolicy4Px8) }
+	card910Factory[chip4nodex.SchedulePolicy4Px16] = func() base.AscendHandler { return chip4nodex.New(chip4nodex.SchedulePolicy4Px16) }
+	card910Factory[chip8node8sp.SchedulePolicy8Px8Sp] = func() base.AscendHandler { return chip8node8sp.New(chip8node8sp.SchedulePolicy8Px8Sp) }
 }
 
 func initCard910ByBaseHandler() {
@@ -222,10 +208,6 @@ func get910CardHandlerName(attr util.SchedulerJobAttr) string {
 		klog.V(util.LogInfoLev).Infof("handler %s found in A5CardFactory", handlerName)
 		return handlerName
 	}
-	if handlerName, ok := get800IA5HandlerName(attr); ok {
-		klog.V(util.LogInfoLev).Infof("handler %s found in 800IA5CardFactory", handlerName)
-		return handlerName
-	}
 	// if only field sp-block is specified, set schedule policy to atlas 900 super-pod as default
 	if _, ok := attr.Annotation[util.SuperPodAnnoKey]; ok {
 		return superpod.A3x16SchedulerName
@@ -274,28 +256,4 @@ func get910A5CardHandlerName(attr util.SchedulerJobAttr) (string, bool) {
 		return util.NPU910CardName + acceleratorType, true
 	}
 	return "", false
-}
-
-func get800IA5HandlerName(attr util.SchedulerJobAttr) (string, bool) {
-	const SuperPodAnnoKey = "sp-block"
-	acceleratorType, existAcceleratorType := attr.Selector[util.AcceleratorType]
-	if !existAcceleratorType {
-		return "", false
-	}
-
-	_, existSpBlock := attr.Annotation[SuperPodAnnoKey]
-	switch acceleratorType {
-	case util.Ascend800ia5x8, util.Ascend800ta5x8, ascend800ia5stacking.Ascend800ia5stacking:
-		return util.NPU910CardName + acceleratorType, true
-	case ascend800ia5superpod.AcceleratorType, ascend800ia5superpod.AcceleratorTypeTrain:
-		{
-			if existSpBlock {
-				return util.NPU910CardName + acceleratorType, true
-			} else {
-				return "", false
-			}
-		}
-	default:
-		return "", false
-	}
 }
