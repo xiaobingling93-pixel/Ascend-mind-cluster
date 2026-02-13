@@ -271,6 +271,10 @@ const (
 	PreSeparateFaultLevelStr = "PreSeparate"
 	// SeparateFaultLevelStr Separate Fault Level Str
 	SeparateFaultLevelStr = "Separate"
+	// ResetFaultStr is the string for ResetFault
+	ResetFaultStr = "ResetFault"
+	// RestartRequestFaultStr is the string for RestartRequestFault
+	RestartRequestFaultStr = "RestartRequestFault"
 )
 
 // About cm keys

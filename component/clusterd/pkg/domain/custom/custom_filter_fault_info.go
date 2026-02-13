@@ -29,9 +29,17 @@ var (
 		constant.UceFaultCode:     constant.CustomFilterFaultDefaultTimeout,
 	}
 	mindIeServerFilterLevels = map[string]time.Duration{
-		constant.RestartRequest: constant.CustomFilterFaultDefaultTimeout,
+		constant.RestartRequestFaultLevelStr: constant.CustomFilterFaultDefaultTimeout,
 	}
 )
+
+var switchFaultLevelMap = map[string]string{
+	// device plugin function "LoadSwitchFaultCode" append resetFaults to separateFaults
+	constant.ResetFaultStr:          constant.SeparateFaultLevelStr,
+	constant.SeparateFault:          constant.SeparateFaultLevelStr,
+	constant.RestartRequestFaultStr: constant.RestartRequestFaultLevelStr,
+	constant.PreSeparateFault:       constant.PreSeparateFaultLevelStr,
+}
 
 // CustomFault store custom filter fault info, including fault codes and fault levels
 var CustomFault *customFault
@@ -122,6 +130,9 @@ func parseCustomFilterFaultAnnoValue(value string) map[string]time.Duration {
 		}
 		faultCodeOrLevel := strings.SplitN(configStr, constant.Colon, constant.EachFaultFilterConfigMaxLen)
 		key := strings.TrimSpace(faultCodeOrLevel[0])
+		if newKey, ok := switchFaultLevelMap[key]; ok {
+			key = newKey
+		}
 		if len(faultCodeOrLevel) == constant.EachFaultFilterConfigMaxLen {
 			timeout, err := strconv.ParseInt(strings.TrimSpace(faultCodeOrLevel[1]), constant.FormatBase, constant.FormatBitSize64)
 			if err != nil || timeout < 0 || timeout > int64(maxAnnoValue.Seconds()) {
