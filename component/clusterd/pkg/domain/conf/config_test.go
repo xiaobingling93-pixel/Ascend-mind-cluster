@@ -30,6 +30,7 @@ const (
 )
 
 var validPolicy = ManuallySeparatePolicy{
+	Enabled: true,
 	Separate: struct {
 		FaultWindowHours int `yaml:"fault_window_hours"`
 		FaultThreshold   int `yaml:"fault_threshold"`
