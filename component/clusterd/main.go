@@ -15,9 +15,11 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"ascend-common/common-utils/hwlog"
+	"clusterd/pkg/application/conf"
 	"clusterd/pkg/application/faultmanager"
 	"clusterd/pkg/application/fdapi"
 	"clusterd/pkg/application/jobv2"
+	"clusterd/pkg/application/manualfault"
 	"clusterd/pkg/application/node"
 	"clusterd/pkg/application/pingmesh"
 	"clusterd/pkg/application/publicfault"
@@ -28,6 +30,7 @@ import (
 	"clusterd/pkg/common/util"
 	"clusterd/pkg/domain/epranktable"
 	"clusterd/pkg/domain/job"
+	manualfault2 "clusterd/pkg/domain/manualfault"
 	sv "clusterd/pkg/interface/grpc"
 	"clusterd/pkg/interface/kube"
 )
@@ -98,6 +101,14 @@ func dealPubFault(ctx context.Context) {
 	go publicfault.PubFaultNeedDelete.DealDelete(ctx)
 }
 
+func dealManuallySeparateNPUFault(ctx context.Context) {
+	// the cache initialization must be performed before the manual fault processing functions
+	manualfault2.InitFaultCmInfo()
+
+	manualfault.LoadManualCmInfo()
+	go manualfault.ProcessManuSep(ctx)
+}
+
 func addJobFunc() {
 	kube.AddPodGroupFunc(constant.Job, jobv2.PodGroupCollector)
 
@@ -144,6 +155,10 @@ func main() {
 		hwlog.RunLog.Errorf("init k8s servers failed, error: %v", err)
 		return
 	}
+	conf.TryLoadGlobalConfig()
+	go conf.WatchGlobalConfig(ctx)
+	// deal manually separate npu fault must before fault processor center
+	dealManuallySeparateNPUFault(ctx)
 	initGrpcServer(ctx)
 	fdapi.StartFdOL()
 	faultmanager.GlobalFaultProcessCenter.Work(ctx)
