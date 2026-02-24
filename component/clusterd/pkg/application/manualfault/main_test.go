@@ -12,7 +12,7 @@
    limitations under the License.
 */
 
-// Package manualfault main test for manual fault
+// Package manualfault main test for processing manual separate npu info
 package manualfault
 
 import (
@@ -26,34 +26,6 @@ import (
 
 var testErr = errors.New("test error")
 
-const (
-	node1 = "node1"
-	node2 = "node2"
-	node3 = "node3"
-
-	dev1 = "dev1"
-	dev2 = "dev2"
-	dev3 = "dev3"
-
-	code1 = "code1"
-	code2 = "code2"
-
-	job1 = "123"
-
-	len0 = 0
-	len1 = 1
-	len2 = 2
-	len3 = 3
-
-	receiveTime0 = 1770969600000 // 2026-02-13 08:00:00
-	receiveTime1 = 1771059600000 // 2026-02-14 09:00:00
-	receiveTime2 = 1771059610000 // 2026-02-14 09:00:10
-	receiveTime3 = 1771059620000 // 2026-02-14 09:00:20
-	receiveTime4 = 1771059630000 // 2026-02-14 09:00:30
-	receiveTime5 = 1771059640000 // 2026-02-14 09:00:40
-	receiveTime6 = 1771149600000 // 2026-02-15 10:00:00
-)
-
 func TestMain(m *testing.M) {
 	if err := setup(); err != nil {
 		return
@@ -63,10 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 func setup() error {
-	if err := initLog(); err != nil {
-		return err
-	}
-	return nil
+	return initLog()
 }
 
 func initLog() error {

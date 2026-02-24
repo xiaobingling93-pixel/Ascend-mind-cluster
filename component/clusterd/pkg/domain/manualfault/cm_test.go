@@ -71,11 +71,11 @@ func getDemoFaultInfo4() FaultInfo {
 	}
 }
 
-func getDemoNodeInfo() map[string]nodeCmInfo {
-	return map[string]nodeCmInfo{
+func getDemoNodeInfo() map[string]NodeCmInfo {
+	return map[string]NodeCmInfo{
 		node1: {
 			Total: []string{dev1},
-			Detail: map[string][]devCmInfo{
+			Detail: map[string][]DevCmInfo{
 				dev1: {
 					{
 						FaultCode:        code1,
@@ -106,7 +106,7 @@ func testAddNewNode() {
 	convey.So(info.Total, convey.ShouldResemble, []string{fault1.DevName})
 	detail, ok := info.Detail[fault1.DevName]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault1.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -128,7 +128,7 @@ func testAddNewDev() {
 
 	detail, ok := info.Detail[fault1.DevName]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault1.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -138,7 +138,7 @@ func testAddNewDev() {
 
 	detail, ok = info.Detail[fault3.DevName]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault3.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -159,7 +159,7 @@ func testAddNewCode() {
 	convey.So(info.Total, convey.ShouldResemble, []string{fault1.DevName})
 	detail, ok := info.Detail[fault1.DevName]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault1.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -186,7 +186,7 @@ func testAddSameCode() {
 	convey.So(info.Total, convey.ShouldResemble, []string{fault1.DevName})
 	detail, ok := info.Detail[fault1.DevName]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault1.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -231,7 +231,7 @@ func testHasDevManualSep() {
 
 func getDemoCm() *v1.ConfigMap {
 	info := getDemoNodeInfo()
-	data := convertNodeInfoToCmData(info)
+	data := ConvertNodeInfoToCmData(info)
 	cm := &v1.ConfigMap{
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{},
@@ -265,7 +265,7 @@ func testPrepareData() {
 	convey.So(info.Total, convey.ShouldResemble, []string{dev1, dev2})
 	detail, ok := info.Detail[dev1]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault1.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -280,7 +280,7 @@ func testPrepareData() {
 
 	detail, ok = info.Detail[dev2]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault3.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -293,7 +293,7 @@ func testPrepareData() {
 	convey.So(info.Total, convey.ShouldResemble, []string{dev2})
 	detail, ok = info.Detail[dev2]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        fault4.FaultCode,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -349,7 +349,7 @@ func testDeleteCode() {
 	convey.So(info.Total, convey.ShouldResemble, []string{dev1, dev2})
 	detail, ok := info.Detail[dev1]
 	convey.So(ok, convey.ShouldBeTrue)
-	convey.So(detail, convey.ShouldResemble, []devCmInfo{
+	convey.So(detail, convey.ShouldResemble, []DevCmInfo{
 		{
 			FaultCode:        code2,
 			FaultLevel:       constant.ManuallySeparateNPU,
@@ -461,7 +461,7 @@ func TestUpdateOrCreateManualCm(t *testing.T) {
 func testUpdateOrCreateManualCm() {
 	p1 := gomonkey.ApplyFuncReturn(kube.UpdateOrCreateConfigMap, nil)
 	defer p1.Reset()
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 	nodeInfo := getDemoNodeInfo()
 	FaultCmInfo.SetNodeInfo(nodeInfo)
 	UpdateOrCreateManualCm()
@@ -472,7 +472,7 @@ func testMarshalErr() {
 	p1 := gomonkey.ApplyFuncReturn(json.Marshal, nil, testErr).
 		ApplyFuncReturn(kube.UpdateOrCreateConfigMap, nil)
 	defer p1.Reset()
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 	nodeInfo := getDemoNodeInfo()
 	FaultCmInfo.SetNodeInfo(nodeInfo)
 	UpdateOrCreateManualCm()
@@ -482,7 +482,7 @@ func testMarshalErr() {
 func testUpdateErr() {
 	p1 := gomonkey.ApplyFuncReturn(kube.UpdateOrCreateConfigMap, testErr)
 	defer p1.Reset()
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 	nodeInfo := getDemoNodeInfo()
 	FaultCmInfo.SetNodeInfo(nodeInfo)
 	UpdateOrCreateManualCm()
@@ -492,7 +492,7 @@ func testUpdateErr() {
 func testDeepCpErr() {
 	p1 := gomonkey.ApplyFuncReturn(util.DeepCopy, testErr)
 	defer p1.Reset()
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 	nodeInfo := getDemoNodeInfo()
 	FaultCmInfo.SetNodeInfo(nodeInfo)
 	UpdateOrCreateManualCm()
@@ -500,7 +500,7 @@ func testDeepCpErr() {
 }
 
 func testNilInfo() {
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 	FaultCmInfo.SetNodeInfo(nil)
 	p1 := gomonkey.ApplyFuncReturn(kube.DeleteConfigMap, nil)
 	defer p1.Reset()

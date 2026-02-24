@@ -38,25 +38,26 @@ const (
 )
 
 // LastCmInfo last cm info
-var LastCmInfo map[string]nodeCmInfo
+var LastCmInfo map[string]NodeCmInfo
 
 // FaultCmInfo an instance of manual fault cm cache
 var FaultCmInfo Cache
 
 // Cache cache for manual fault cm
 type Cache struct {
-	manualInfo map[string]nodeCmInfo
+	manualInfo map[string]NodeCmInfo
 	mutex      sync.RWMutex
 }
 
-// nodeCmInfo total and detail info for dev is consistent
-type nodeCmInfo struct {
+// NodeCmInfo total and detail info for dev is consistent
+type NodeCmInfo struct {
 	Total []string
 	// key: dev name, value: dev fault
-	Detail map[string][]devCmInfo
+	Detail map[string][]DevCmInfo
 }
 
-type devCmInfo struct {
+// DevCmInfo cm info for device
+type DevCmInfo struct {
 	FaultCode        string
 	FaultLevel       string
 	LastSeparateTime int64 // unit: millisecond
@@ -69,18 +70,18 @@ func init() {
 // InitFaultCmInfo init FaultCmInfo
 func InitFaultCmInfo() {
 	FaultCmInfo = Cache{
-		manualInfo: make(map[string]nodeCmInfo),
+		manualInfo: make(map[string]NodeCmInfo),
 		mutex:      sync.RWMutex{},
 	}
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 }
 
 // SetNodeInfo set node info
-func (c *Cache) SetNodeInfo(nodeInfo map[string]nodeCmInfo) {
+func (c *Cache) SetNodeInfo(nodeInfo map[string]NodeCmInfo) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if len(nodeInfo) == 0 {
-		c.manualInfo = make(map[string]nodeCmInfo)
+		c.manualInfo = make(map[string]NodeCmInfo)
 		return
 	}
 	c.manualInfo = nodeInfo
@@ -93,10 +94,10 @@ func (c *Cache) Len() int {
 }
 
 // DeepCopy deep copy node info
-func (c *Cache) DeepCopy() (map[string]nodeCmInfo, error) {
+func (c *Cache) DeepCopy() (map[string]NodeCmInfo, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	result := new(map[string]nodeCmInfo)
+	result := new(map[string]NodeCmInfo)
 	if err := util.DeepCopy(result, c.manualInfo); err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (c *Cache) DeepCopy() (map[string]nodeCmInfo, error) {
 
 // AddSeparateDev add manually separate npu info to cache
 func (c *Cache) AddSeparateDev(faultInfo FaultInfo) {
-	devInfo := devCmInfo{
+	devInfo := DevCmInfo{
 		FaultCode:        faultInfo.FaultCode,
 		FaultLevel:       constant.ManuallySeparateNPU,
 		LastSeparateTime: faultInfo.ReceiveTime,
@@ -122,9 +123,9 @@ func (c *Cache) AddSeparateDev(faultInfo FaultInfo) {
 	info, ok := c.manualInfo[faultInfo.NodeName]
 	if !ok {
 		hwlog.RunLog.Infof(addMsg)
-		c.manualInfo[faultInfo.NodeName] = nodeCmInfo{
+		c.manualInfo[faultInfo.NodeName] = NodeCmInfo{
 			Total:  []string{faultInfo.DevName},
-			Detail: map[string][]devCmInfo{faultInfo.DevName: {devInfo}},
+			Detail: map[string][]DevCmInfo{faultInfo.DevName: {devInfo}},
 		}
 		return
 	}
@@ -132,7 +133,7 @@ func (c *Cache) AddSeparateDev(faultInfo FaultInfo) {
 	if !utils.Contains(info.Total, faultInfo.DevName) {
 		hwlog.RunLog.Infof(addMsg)
 		info.Total = append(info.Total, faultInfo.DevName)
-		info.Detail[faultInfo.DevName] = []devCmInfo{devInfo}
+		info.Detail[faultInfo.DevName] = []DevCmInfo{devInfo}
 		c.manualInfo[faultInfo.NodeName] = info
 		return
 	}
@@ -231,7 +232,7 @@ func GetSepNPUByLastCmInfo() map[string][]string {
 }
 
 // GetSeparateNPU get manually separate npu info from node info
-func GetSeparateNPU(nodeInfo map[string]nodeCmInfo) map[string][]string {
+func GetSeparateNPU(nodeInfo map[string]NodeCmInfo) map[string][]string {
 	if len(nodeInfo) == 0 {
 		return nil
 	}
@@ -245,9 +246,9 @@ func GetSeparateNPU(nodeInfo map[string]nodeCmInfo) map[string][]string {
 }
 
 // ParseManualCm parse manually separate npu info from configmap
-func ParseManualCm(cm *v1.ConfigMap) (map[string]nodeCmInfo, error) {
-	nodeInfo := nodeCmInfo{}
-	manualCmInfo := map[string]nodeCmInfo{}
+func ParseManualCm(cm *v1.ConfigMap) (map[string]NodeCmInfo, error) {
+	nodeInfo := NodeCmInfo{}
+	manualCmInfo := map[string]NodeCmInfo{}
 	if cm.Data == nil {
 		return nil, fmt.Errorf("cm has no data")
 	}
@@ -270,7 +271,7 @@ func DeleteManualCm() {
 		}
 		hwlog.RunLog.Debugf("cm<%s/%s> not found, ignore", api.ClusterNS, manualDevInfoCmName)
 	}
-	LastCmInfo = make(map[string]nodeCmInfo)
+	LastCmInfo = make(map[string]NodeCmInfo)
 }
 
 // TryGetManualCm try get manually info configmap
@@ -322,7 +323,7 @@ func UpdateOrCreateManualCm() {
 	for _, info := range currentCmInfo {
 		sort.Strings(info.Total)
 	}
-	data := convertNodeInfoToCmData(currentCmInfo)
+	data := ConvertNodeInfoToCmData(currentCmInfo)
 	if err := kube.UpdateOrCreateConfigMap(manualDevInfoCmName, api.ClusterNS, data, nil); err != nil {
 		hwlog.RunLog.Errorf("manually separate npu info is nil, update configmap err: %v", err)
 		return
@@ -331,7 +332,8 @@ func UpdateOrCreateManualCm() {
 	LastCmInfo = currentCmInfo
 }
 
-func convertNodeInfoToCmData(cmInfo map[string]nodeCmInfo) map[string]string {
+// ConvertNodeInfoToCmData convert node info to cm data
+func ConvertNodeInfoToCmData(cmInfo map[string]NodeCmInfo) map[string]string {
 	cmData := make(map[string]string)
 	for node, info := range cmInfo {
 		data, err := json.Marshal(info)
