@@ -1435,7 +1435,7 @@ func (tool *AscendTools) SetDeviceUsage(devLogicID int32) error {
 
 	// A800IA2 without hccs can be auto set usage as infer
 	if devType == api.Ascend910B && (boardId == common.A300IA2BoardId || boardId == common.A300IA2GB64BoardId ||
-		boardId == common.A800IA2NoneHccsBoardId || boardId == common.A800IA2NoneHccsBoardIdOld) {
+		boardId == npuCommon.Atlas200LA2ZQBoardId || boardId == common.A800IA2NoneHccsBoardId || boardId == common.A800IA2NoneHccsBoardIdOld) {
 		tool.deviceUsage = common.Infer
 		return nil
 	}

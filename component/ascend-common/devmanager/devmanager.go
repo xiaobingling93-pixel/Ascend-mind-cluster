@@ -947,7 +947,7 @@ func (d *DeviceManager) SetIsTrainingCard() error {
 	}
 
 	if devType == api.Ascend910B &&
-		(boardInfo.BoardId == common.A300IA2BoardId || boardInfo.BoardId == common.A300IA2GB64BoardId) {
+		(boardInfo.BoardId == common.A300IA2BoardId || boardInfo.BoardId == common.A300IA2GB64BoardId || boardInfo.BoardId == common.Atlas200LA2ZQBoardId) {
 		d.isTrainingCard = false
 		return nil
 	}

@@ -208,6 +208,8 @@ const (
 
 	// A9000A3SuperPodMainBoardId2 board id of A9000 A3 SuperPod MainBoard2
 	A9000A3SuperPodMainBoardId2 = 0x1D
+	// Atlas200LA2ZQBoardId board id of Atlas 200L A2 ZQ
+	Atlas200LA2ZQBoardId = 0x69
 )
 
 // log limit domains for metrics
