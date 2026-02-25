@@ -130,7 +130,8 @@ func (th *TorHandlerV1) setTorHandlerServerList(nodeMaps map[string]*api.NodeInf
 		return nil
 	}
 	schedulingTaskNum := th.Job.SchedulingTaskNum
-	th.globalTorEnv.MarkTorListByJobV1(nodeMaps, th.Job.Name, schedulingTaskNum)
+	isNormalJob := th.Job.Label[TorAffinityKey] == NormalSchema
+	th.globalTorEnv.MarkTorListByJobV1(nodeMaps, th.Job.Name, schedulingTaskNum, isNormalJob)
 	fullTorNum := th.globalTorEnv.SetTorFreeServerCountAndGetFullTor(th.Job.Name)
 	sort.Slice(th.globalTorEnv.Tors, func(i, j int) bool {
 		return th.globalTorEnv.Tors[i].FreeServerCount > th.globalTorEnv.Tors[j].FreeServerCount
