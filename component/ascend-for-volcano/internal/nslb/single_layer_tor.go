@@ -75,7 +75,7 @@ func (th *TorSingleLevelHandler) setSingleLayerJobServerList(nodeMaps map[string
 	if th.Job.NPUTaskNum > th.globalTorEnv.TorCount {
 		return fmt.Errorf("job's task number is bigger than torCount")
 	}
-	th.globalTorEnv.MarkTorListByJobV1(nodeMaps, th.Job.Name, th.Job.SchedulingTaskNum)
+	th.globalTorEnv.MarkTorListByJobV1(nodeMaps, th.Job.Name, th.Job.SchedulingTaskNum, false)
 	_ = th.globalTorEnv.SetTorFreeServerCountAndGetFullTor(th.Job.Name)
 	n := th.Job.SchedulingTaskNum
 	sort.Slice(th.globalTorEnv.Tors, func(i, j int) bool {

@@ -537,9 +537,9 @@ func getUnhealthyTorServer(tors []*plugin.Tor, sortType string) []*plugin.Tor {
 // getHealthyTorUsedByNormalJob get shared tors only used by normal job
 func getHealthyTorUsedByNormalJob(tors []*plugin.Tor, sortType string) []*plugin.Tor {
 	var tmpTors []*plugin.Tor
-	allShareTor := getTorServer(tors, sharedTor, healthyTor, sortType)
+	allShareTor := getTorServer(tors, allTor, healthyTor, sortType)
 	for _, tor := range allShareTor {
-		if !tor.IsUsedByAcrossLargeModelJob() {
+		if !tor.IsUsedByAcrossLargeModelJob() || tor.IsOnlyUsedByNormalAcrossJob() {
 			tmpTors = append(tmpTors, tor)
 		}
 	}

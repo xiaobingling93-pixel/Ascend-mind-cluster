@@ -278,7 +278,8 @@ func (tl *TorList) initTorShareStatus(jobs map[api.JobID]SchedulerJob) {
 }
 
 // MarkTorListByJobV1 mark the global tor list by node list a job can be scheduled
-func (tl *TorList) MarkTorListByJobV1(nodes map[string]*api.NodeInfo, jobUid api.JobID, taskNum int) {
+func (tl *TorList) MarkTorListByJobV1(nodes map[string]*api.NodeInfo, jobUid api.JobID, taskNum int,
+	isNormalJob bool) {
 	if tl == nil {
 		return
 	}
@@ -290,6 +291,9 @@ func (tl *TorList) MarkTorListByJobV1(nodes map[string]*api.NodeInfo, jobUid api
 				count++
 				server.CurrentJob = &tmpName
 			}
+		}
+		if isNormalJob && tor.IsOnlyUsedByNormalAcrossJob() {
+			continue
 		}
 		if tor.HasAcrossJob(false, jobUid) && taskNum > count {
 			tmpName = ""
@@ -493,6 +497,19 @@ func (t *Tor) IsUsedByAcrossLargeModelJob() bool {
 		return false
 	}
 	return t.HasAcrossJob(true, "")
+}
+
+// IsOnlyUsedByNormalAcrossJob whether only used by normal across job
+func (t *Tor) IsOnlyUsedByNormalAcrossJob() bool {
+	if t == nil {
+		return false
+	}
+	for _, job := range t.Jobs {
+		if job.Label[TorAffinityKey] != NormalSchema {
+			return false
+		}
+	}
+	return true
 }
 
 // getNetSliceId get net slice num by first server's SliceId

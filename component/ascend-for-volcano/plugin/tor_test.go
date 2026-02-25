@@ -225,11 +225,11 @@ func TestTorListMarkTorListByJobV2(t *testing.T) {
 func TestTorListMarkTorListByJobV1(t *testing.T) {
 	tl := fakeNormalTorList(fakeEnableNodeNum, fakeJobId)
 	t.Run("mark tor list by job v1 node is not empty test", func(t *testing.T) {
-		tl.MarkTorListByJobV1(map[string]*api.NodeInfo{"node": {Name: "node"}}, fakeJobId, fakeSliceNum)
+		tl.MarkTorListByJobV1(map[string]*api.NodeInfo{"node": {Name: "node"}}, fakeJobId, fakeSliceNum, false)
 	})
 	var tl2 *TorList
 	t.Run("tor nil test", func(t *testing.T) {
-		tl2.MarkTorListByJobV1(nil, fakeJobId, 0)
+		tl2.MarkTorListByJobV1(nil, fakeJobId, 0, false)
 	})
 }
 
@@ -267,6 +267,59 @@ func TestTorISNil(t *testing.T) {
 	t.Run("GetTorMaps nil test", func(t *testing.T) {
 		if got := tl.GetTorMaps(); !reflect.DeepEqual(got, torMaps) {
 			t.Errorf("GetTorMaps() = %v, want %v", got, torMaps)
+		}
+	})
+}
+
+func TestIsOnlyUsedByNormalAcrossJob(t *testing.T) {
+	t.Run("all jobs are normal", func(t *testing.T) {
+		job1 := SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{
+					Label: map[string]string{TorAffinityKey: NormalSchema},
+				},
+			},
+		}
+		job2 := SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{
+					Label: map[string]string{TorAffinityKey: NormalSchema},
+				},
+			},
+		}
+		tor := &Tor{
+			Jobs: map[api.JobID]SchedulerJob{
+				"job1": job1,
+				"job2": job2,
+			},
+		}
+		if got := tor.IsOnlyUsedByNormalAcrossJob(); got != true {
+			t.Errorf("IsOnlyUsedByNormalAcrossJob() = %v, want %v", got, true)
+		}
+	})
+	t.Run("has non-normal job", func(t *testing.T) {
+		job1 := SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{
+					Label: map[string]string{TorAffinityKey: NormalSchema},
+				},
+			},
+		}
+		job2 := SchedulerJob{
+			SchedulerJobAttr: util.SchedulerJobAttr{
+				ComJob: util.ComJob{
+					Label: map[string]string{TorAffinityKey: "large-model"},
+				},
+			},
+		}
+		tor := &Tor{
+			Jobs: map[api.JobID]SchedulerJob{
+				"job1": job1,
+				"job2": job2,
+			},
+		}
+		if got := tor.IsOnlyUsedByNormalAcrossJob(); got != false {
+			t.Errorf("IsOnlyUsedByNormalAcrossJob() = %v, want %v", got, false)
 		}
 	})
 }
