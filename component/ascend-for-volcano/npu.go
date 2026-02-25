@@ -457,6 +457,9 @@ func (tp *huaweiNPUPlugin) addNodePredicateFailedCondition(job *api.JobInfo, ssn
 				maxPrint)])
 		}
 	}
+	if message == "" {
+		return
+	}
 
 	addPodGroupCondition(job, ssn.UID, util.NodePredicateFailedReason, message)
 }
