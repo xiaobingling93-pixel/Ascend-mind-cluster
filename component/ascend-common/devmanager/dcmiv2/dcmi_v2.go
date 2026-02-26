@@ -309,8 +309,13 @@ package dcmiv2
 */
 import "C"
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
+	"net"
+	"strconv"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -405,10 +410,13 @@ var (
 	}
 )
 
-const maxCArraySize = 1 << 30 // 1 Gi elements; practical upper bound for C array mapping for A5
+const maxCArraySize = 1 << 30 // 1 Gi elements; practical upper bound for C array mapping
 
 // DcManager for manager dcmi interface
 type DcManager struct{}
+
+// check if struct DcManager implements all methods of interface DcDriverInterface in build stage
+var _ DcDriverInterface = &DcManager{}
 
 // DcInit load symbol and initialize dcmi
 func (d *DcManager) DcInit() error {
@@ -507,6 +515,7 @@ func (d *DcManager) DcGetDeviceNetWorkHealth(logicID int32) (uint32, error) {
 	}
 }
 
+// DcGetDeviceUtilizationRate get device utilization rate
 func (d *DcManager) DcGetDeviceUtilizationRate(logicID int32, devType common.DeviceType) (int32, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return common.RetError, fmt.Errorf("logicID(%d) is invalid", logicID)
@@ -525,6 +534,7 @@ func (d *DcManager) DcGetDeviceUtilizationRate(logicID int32, devType common.Dev
 	return int32(rate), nil
 }
 
+// DcGetDeviceTemperature get device temperature
 func (d *DcManager) DcGetDeviceTemperature(logicID int32) (int32, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return common.RetError, fmt.Errorf("logicID(%d) is invalid", logicID)
@@ -648,6 +658,7 @@ func convertUCharToCharArr(cgoArr [dcmi.MaxChipNameLen]C.uchar) []byte {
 	return charArr
 }
 
+// DcGetChipInfo get chip info
 func (d *DcManager) DcGetChipInfo(logicID int32) (*common.ChipInfo, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return nil, fmt.Errorf("logicID(%d) is invalid", logicID)
@@ -705,6 +716,83 @@ func (d *DcManager) DcGetLogicIDFromPhysicID(physicID int32) (int32, error) {
 	return int32(logicID), nil
 }
 
+// DcGetDeviceIPAddress get device ip addresses
+func (d *DcManager) DcGetDeviceIPAddress(logicID int32, ipType int32) (string, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return "", fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var portType C.enum_dcmi_port_type = 1
+	var portID C.int
+	var ipAddress C.struct_dcmi_ip_addr
+	var maskAddress C.struct_dcmi_ip_addr
+	if ipType == dcmi.IpAddrTypeV6 {
+		ipAddress.ip_type = dcmi.IpAddrTypeV6
+	}
+	rCode := C.dcmiv2_get_device_ip(C.int(logicID), portType, portID, &ipAddress, &maskAddress)
+	if int32(rCode) != common.Success {
+		return "", fmt.Errorf("get device IP address failed, logicID(%d), error code: %d", logicID, int32(rCode))
+	}
+	if ipType == dcmi.IpAddrTypeV6 {
+		return d.buildIPv6Addr(ipAddress)
+	}
+	return d.buildIPv4Addr(ipAddress)
+}
+
+func (d *DcManager) buildIPv4Addr(ipAddress C.struct_dcmi_ip_addr) (string, error) {
+	deviceIP := make([]string, 0, net.IPv4len)
+	for key, val := range ipAddress.u_addr {
+		if key >= net.IPv4len {
+			break
+		}
+		deviceIP = append(deviceIP, fmt.Sprintf("%v", val))
+	}
+	if netIP := net.ParseIP(strings.Join(deviceIP, ".")); netIP != nil {
+		return netIP.String(), nil
+	}
+	return "", fmt.Errorf("the device IPv4 address is invalid, value: %v", deviceIP)
+}
+
+func (d *DcManager) buildIPv6Addr(ipAddress C.struct_dcmi_ip_addr) (string, error) {
+	deviceIP := make([]byte, 0, net.IPv6len)
+	for key, val := range ipAddress.u_addr {
+		if key >= net.IPv6len {
+			break
+		}
+		deviceIP = append(deviceIP, byte(val))
+	}
+	if netIP := net.IP(deviceIP); netIP != nil {
+		return netIP.String(), nil
+	}
+	return "", fmt.Errorf("the device IPv6 address is invalid, value: %v", deviceIP)
+}
+
+// DcGetDieID get die id
+func (d *DcManager) DcGetDieID(logicID int32, dcmiDieType dcmi.DieType) (string, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return "", fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+
+	if dcmiDieType != dcmi.VDIE && dcmiDieType != dcmi.NDIE {
+		return "", fmt.Errorf("dcmi die type can only be one of %d or %d", dcmi.VDIE, dcmi.NDIE)
+	}
+
+	var dieIDObj C.struct_dcmi_die_id
+	if retCode := C.dcmiv2_get_device_die(C.int(logicID),
+		C.enum_dcmi_die_type(dcmiDieType), &dieIDObj); int32(retCode) != common.Success {
+		return "", buildDcmiErr(logicID, "chip die ID", retCode)
+	}
+
+	dieIDStr := make([]string, dcmi.DieIDCount)
+	hwlog.RunLog.Debugf("logicID(%d) get die type(%d) value %v", logicID, dcmiDieType, dieIDObj.soc_die)
+	for i := 0; i < dcmi.DieIDCount; i++ {
+		s := strconv.FormatUint(uint64(dieIDObj.soc_die[i]), dcmi.HexBase)
+		// Each part of the die id consists of 8 characters, and if the length is not enough,
+		// zero is added at the beginning
+		dieIDStr[i] = fmt.Sprintf("%08s", s)
+	}
+	return strings.ToUpper(strings.Join(dieIDStr, "-")), nil
+}
+
 // DcGetDeviceList get device id list
 func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
 	var ids [common.HiAIMaxCardNum]C.int
@@ -737,4 +825,882 @@ func buildDcmiErr(logicID int32, msg string, errCode C.int) error {
 	}
 	return fmt.Errorf("logicID(%d):get %s info failed,error code: %v,error desc: %v",
 		logicID, msg, errCode, errDesc)
+}
+
+// DcGetUrmaDeviceCount get urma device count
+func (d *DcManager) DcGetUrmaDeviceCount(logicID int32) (int32, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var cnt C.uint
+	if retCode := C.dcmiv2_get_urma_device_cnt(C.int(logicID), &cnt); retCode != common.Success {
+		return common.RetError, fmt.Errorf("dcmi get urma device count failed logicID(%d) error "+
+			"code: %d", logicID, int32(retCode))
+	}
+	return int32(cnt), nil
+}
+
+// DcGetUrmaDevEidList get urma device index EID info
+func (d *DcManager) DcGetUrmaDevEidList(logicID int32, urmaDevIndex int32) (*common.UrmaDeviceInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return nil, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	if urmaDevIndex < 0 || urmaDevIndex >= dcmi.MaxUrmaDevCnt {
+		return nil, fmt.Errorf("urma device index is %d out of range [0, %d), logicID(%d)",
+			urmaDevIndex, dcmi.MaxUrmaDevCnt, logicID)
+	}
+
+	var eidInfoList [common.EidNumMax]C.dcmi_urma_eid_info_t
+	eidInfoListPtr := (*C.dcmi_urma_eid_info_t)(&eidInfoList[0])
+	eidCnt := C.uint(common.EidNumMax)
+	if ret := C.dcmiv2_get_eid_list_by_urma_dev_index(C.int(logicID), C.uint(urmaDevIndex), eidInfoListPtr,
+		&eidCnt); ret != common.Success {
+		return nil, fmt.Errorf("dcmi get urma device info failed, logicID(%d) index(%d) ret(%d)",
+			logicID, urmaDevIndex, int(ret))
+	}
+
+	info, err := convertUrmaDeviceInfo(eidInfoListPtr, eidCnt)
+	if err != nil {
+		return nil, fmt.Errorf("convert urma device info failed, logicID(%d) index(%d), err: %v",
+			logicID, urmaDevIndex, err)
+	}
+	return info, nil
+}
+
+func convertUrmaDeviceInfo(eidInfoListPtr *C.dcmi_urma_eid_info_t, eidCnt C.uint) (*common.UrmaDeviceInfo, error) {
+	if eidInfoListPtr == nil {
+		return nil, fmt.Errorf("input parameter eidInfoListPtr is nil")
+	}
+
+	eidCount := uint(eidCnt)
+	if eidCount > common.EidNumMax {
+		return nil, fmt.Errorf("urma device count is %d out of range [0, %d]", eidCount, common.EidNumMax)
+	}
+
+	eidInfoList := (*[common.EidNumMax]C.dcmi_urma_eid_info_t)(unsafe.Pointer(eidInfoListPtr))
+	urmaDevInfo := common.UrmaDeviceInfo{EidCount: eidCount, EidInfos: make([]common.UrmaEidInfo, eidCount)}
+	for j := 0; j < int(eidCount); j++ {
+		eidInfo := common.UrmaEidInfo{
+			Eid: common.Eid{
+				Raw: eidInfoList[j].eid,
+			},
+			EidIndex: uint(eidInfoList[j].eid_index),
+		}
+		urmaDevInfo.EidInfos[j] = eidInfo
+	}
+
+	return &urmaDevInfo, nil
+}
+
+// DcGetUrmaDevEidListAll get all urma device eid list
+func (d *DcManager) DcGetUrmaDevEidListAll(logicID int32) ([]common.UrmaDeviceInfo, error) {
+	feCnt, err := d.DcGetUrmaDeviceCount(logicID)
+	if err != nil {
+		return []common.UrmaDeviceInfo{}, err
+	}
+
+	if feCnt > dcmi.MaxUrmaDevCnt || feCnt < 0 {
+		return []common.UrmaDeviceInfo{}, fmt.Errorf("urma device number is %d, out of range [0, %d], "+
+			"logicID(%d)", feCnt, dcmi.MaxUrmaDevCnt, logicID)
+	}
+
+	infos := make([]common.UrmaDeviceInfo, feCnt)
+	for index := int32(0); index < feCnt; index++ {
+		eidInfo, err := d.DcGetUrmaDevEidList(logicID, index)
+		if err != nil || eidInfo == nil {
+			return []common.UrmaDeviceInfo{}, err
+		}
+		infos[index] = *eidInfo
+	}
+	return infos, nil
+}
+
+// DcStartUbPingMesh start ub ping mesh
+func (d *DcManager) DcStartUbPingMesh(logicID int32, operate common.HccspingMeshOperate) error {
+	ops := operate.UBPingMeshOperateList
+	if len(ops) == 0 {
+		return fmt.Errorf("no UB ping mesh operations provided")
+	}
+
+	size := len(ops)
+	cOpsPtr := C.malloc(C.size_t(size) * C.size_t(unsafe.Sizeof(C.struct_dcmi_ub_ping_mesh_operate{})))
+	if cOpsPtr == nil {
+		return errors.New("failed to allocate memory for UB ping mesh C array")
+	}
+	defer C.free(cOpsPtr)
+
+	cOpsPtrStruct := (*C.struct_dcmi_ub_ping_mesh_operate)(cOpsPtr)
+	cOpsPtrStruct, err := buildUbPingMeshCArray(ops, cOpsPtrStruct, size)
+	if err != nil {
+		return err
+	}
+
+	if retCode := C.dcmiv2_start_ub_ping_mesh(C.int(logicID), C.int(len(ops)),
+		cOpsPtrStruct); retCode != common.Success {
+		return fmt.Errorf("dcmi start ub ping mesh failed logicID(%d) error code: %d",
+			logicID, int32(retCode))
+	}
+
+	return nil
+}
+
+func buildUbPingMeshCArray(ops []common.UBPingMeshOperate, cOpsPtr *C.struct_dcmi_ub_ping_mesh_operate, size int) (
+	*C.struct_dcmi_ub_ping_mesh_operate, error) {
+
+	cOps := (*[maxCArraySize]C.struct_dcmi_ub_ping_mesh_operate)(unsafe.Pointer(cOpsPtr))[:size:size]
+
+	for idx, op := range ops {
+		for i := 0; i < common.EidByteSize; i++ {
+			cOps[idx].src_eid[i] = C.char(op.SrcEID.Raw[i])
+		}
+		for i := 0; i < len(op.DstEIDList); i++ {
+			for j := 0; j < common.EidByteSize; j++ {
+				cOps[idx].dst_eid_list[i][j] = C.char(op.DstEIDList[i].Raw[j])
+			}
+		}
+		cOps[idx].dst_num = C.int(op.DstNum)
+		cOps[idx].pkt_size = C.int(op.PktSize)
+		cOps[idx].pkt_send_num = C.int(op.PktSendNum)
+		cOps[idx].pkt_interval = C.int(op.PktInterval)
+		cOps[idx].timeout = C.int(op.Timeout)
+		cOps[idx].task_interval = C.int(op.TaskInterval)
+		cOps[idx].task_id = C.int(op.TaskID)
+	}
+
+	return cOpsPtr, nil
+}
+
+// DcGetUbPingMeshInfo get ub ping mesh info
+func (d *DcManager) DcGetUbPingMeshInfo(logicID int32, taskID uint, meshReplySize int) (*common.HccspingMeshInfo,
+	error) {
+	if meshReplySize <= 0 {
+		return nil, fmt.Errorf("meshReplySize must be > 0")
+	}
+
+	cInfosPtr := C.malloc(C.size_t(meshReplySize) * C.size_t(unsafe.Sizeof(C.struct_dcmi_ub_ping_mesh_info{})))
+	if cInfosPtr == nil {
+		return nil, fmt.Errorf("failed to allocate memory")
+	}
+	defer C.free(cInfosPtr)
+
+	var count C.int
+	hwlog.RunLog.Debugf("get: the logicID %d, taskID %d, meshReplySize %d", logicID, taskID, meshReplySize)
+	if retCode := C.dcmiv2_get_ub_ping_mesh_info(
+		C.int(logicID), C.int(taskID), (*C.struct_dcmi_ub_ping_mesh_info)(cInfosPtr),
+		C.int(meshReplySize), &count,
+	); retCode != common.Success {
+		return nil, fmt.Errorf("dcmi get ub ping mesh info failed logicID(%d) error code: %d",
+			logicID, int32(retCode))
+	}
+
+	cInfos := (*[maxCArraySize]C.struct_dcmi_ub_ping_mesh_info)(cInfosPtr)[:meshReplySize:meshReplySize]
+	ubList := convertCInfoToGoSlice(cInfos, int(count))
+
+	return &common.HccspingMeshInfo{UBPingMeshInfoList: ubList}, nil
+}
+
+func convertCInfoToGoSlice(cInfos []C.struct_dcmi_ub_ping_mesh_info, count int) []common.UBPingMeshInfo {
+	ubList := make([]common.UBPingMeshInfo, 0)
+
+	for i := 0; i < count && i < len(cInfos); i++ {
+		var info common.UBPingMeshInfo
+		// src_eid
+		for j := 0; j < common.EidByteSize; j++ {
+			info.SrcEIDs.Raw[j] = byte(cInfos[i].src_eid[j])
+		}
+		hwlog.RunLog.Debugf("the src eid from dcmi_ub_ping_mesh_info %s", hex.EncodeToString(info.SrcEIDs.Raw[:]))
+
+		// dst_eid_list
+		info.DestNum = int(cInfos[i].dest_num)
+		info.DstEIDList = make([]common.Eid, info.DestNum)
+		for k := 0; k < info.DestNum; k++ {
+			for l := 0; l < common.EidByteSize; l++ {
+				info.DstEIDList[k].Raw[l] = byte(cInfos[i].dst_eid_list[k][l])
+			}
+		}
+
+		fillStatsFromCInfo(&info, &cInfos[i])
+		ubList = append(ubList, info)
+	}
+	return ubList
+}
+
+func fillStatsFromCInfo(info *common.UBPingMeshInfo, cInfo *C.struct_dcmi_ub_ping_mesh_info) {
+	info.SucPktNum = make([]uint, common.UbPingMeshMaxNum)
+	info.FailPktNum = make([]uint, common.UbPingMeshMaxNum)
+	info.MaxTime = make([]int, common.UbPingMeshMaxNum)
+	info.MinTime = make([]int, common.UbPingMeshMaxNum)
+	info.AvgTime = make([]int, common.UbPingMeshMaxNum)
+	info.Tp95Time = make([]int, common.UbPingMeshMaxNum)
+	info.ReplyStatNum = make([]int, common.UbPingMeshMaxNum)
+	info.PingTotalNum = make([]int, common.UbPingMeshMaxNum)
+
+	for k := 0; k < common.UbPingMeshMaxNum; k++ {
+		info.SucPktNum[k] = uint(cInfo.suc_pkt_num[k])
+		info.FailPktNum[k] = uint(cInfo.fail_pkt_num[k])
+		info.MaxTime[k] = int(cInfo.max_time[k])
+		info.MinTime[k] = int(cInfo.min_time[k])
+		info.AvgTime[k] = int(cInfo.avg_time[k])
+		info.Tp95Time[k] = int(cInfo.tp95_time[k])
+		info.ReplyStatNum[k] = int(cInfo.reply_stat_num[k])
+		info.PingTotalNum[k] = int(cInfo.ping_total_num[k])
+	}
+	info.OccurTime = uint(cInfo.occur_time)
+}
+
+// DcStopUbPingMesh stops UB ping mesh (no change needed)
+func (d *DcManager) DcStopUbPingMesh(logicID int32, taskID uint) error {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	if !common.IsValidTaskID(taskID) {
+		return fmt.Errorf("taskID(%d) is invalid", taskID)
+	}
+	if retCode := C.dcmiv2_stop_ub_ping_mesh(C.int(logicID), C.int(taskID)); retCode != common.Success {
+		return fmt.Errorf("dcmi stop ub ping mesh failed logicID(%d) error code: %d", logicID, int32(retCode))
+	}
+	return nil
+}
+
+// DcGetUbPingMeshState gets UB ping mesh state (no change needed)
+func (d *DcManager) DcGetUbPingMeshState(logicID int32, taskID uint) (int, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	if !common.IsValidTaskID(taskID) {
+		return common.RetError, fmt.Errorf("taskID(%d) is invalid", taskID)
+	}
+	var state C.uint
+	if retCode := C.dcmiv2_get_ub_ping_mesh_state(C.int(logicID), C.int(taskID), &state); retCode != common.Success {
+		return common.RetError, fmt.Errorf("dcmi get ub ping mesh state failed logicID(%d) "+
+			"error code: %d", logicID, int32(retCode))
+	}
+	return int(state), nil
+}
+
+func convertCgoCharArrayToString(cgoArr [dcmi.DcmiVDevResNameLen]C.char) string {
+	var charArr []rune
+	for _, v := range cgoArr {
+		if v == 0 {
+			break
+		}
+		charArr = append(charArr, rune(v))
+	}
+	return string(charArr)
+}
+
+func convertBaseResource(cBaseResource C.struct_dcmi_base_resource) common.CgoBaseResource {
+	baseResource := common.CgoBaseResource{
+		Token:       uint64(cBaseResource.token),
+		TokenMax:    uint64(cBaseResource.token_max),
+		TaskTimeout: uint64(cBaseResource.task_timeout),
+		VfgID:       uint32(cBaseResource.vfg_id),
+		VipMode:     uint8(cBaseResource.vip_mode),
+	}
+	return baseResource
+}
+
+func convertComputingResource(cComputingResource C.struct_dcmi_computing_resource) common.CgoComputingResource {
+	computingResource := common.CgoComputingResource{
+		Aic:                float32(cComputingResource.aic),
+		Aiv:                float32(cComputingResource.aiv),
+		Dsa:                uint16(cComputingResource.dsa),
+		Rtsq:               uint16(cComputingResource.rtsq),
+		Acsq:               uint16(cComputingResource.acsq),
+		Cdqm:               uint16(cComputingResource.cdqm),
+		CCore:              uint16(cComputingResource.c_core),
+		Ffts:               uint16(cComputingResource.ffts),
+		Sdma:               uint16(cComputingResource.sdma),
+		PcieDma:            uint16(cComputingResource.pcie_dma),
+		MemorySize:         uint64(cComputingResource.memory_size),
+		EventID:            uint32(cComputingResource.event_id),
+		NotifyID:           uint32(cComputingResource.notify_id),
+		StreamID:           uint32(cComputingResource.stream_id),
+		ModelID:            uint32(cComputingResource.model_id),
+		TopicScheduleAicpu: uint16(cComputingResource.topic_schedule_aicpu),
+		HostCtrlCPU:        uint16(cComputingResource.host_ctrl_cpu),
+		HostAicpu:          uint16(cComputingResource.host_aicpu),
+		DeviceAicpu:        uint16(cComputingResource.device_aicpu),
+		TopicCtrlCPUSlot:   uint16(cComputingResource.topic_ctrl_cpu_slot),
+	}
+	return computingResource
+}
+
+func convertMediaResource(cMediaResource C.struct_dcmi_media_resource) common.CgoMediaResource {
+	mediaResource := common.CgoMediaResource{
+		Jpegd: float32(cMediaResource.jpegd),
+		Jpege: float32(cMediaResource.jpege),
+		Vpc:   float32(cMediaResource.vpc),
+		Vdec:  float32(cMediaResource.vdec),
+		Pngd:  float32(cMediaResource.pngd),
+		Venc:  float32(cMediaResource.venc),
+	}
+	return mediaResource
+}
+
+func convertVDevQueryInfo(cVDevQueryInfo C.struct_dcmi_vdev_query_info) common.CgoVDevQueryInfo {
+	name := convertCgoCharArrayToString(cVDevQueryInfo.name)
+	vDevQueryInfo := common.CgoVDevQueryInfo{
+		Name:            name,
+		Status:          uint32(cVDevQueryInfo.status),
+		IsContainerUsed: uint32(cVDevQueryInfo.is_container_used),
+		Vfid:            uint32(cVDevQueryInfo.vfid),
+		VfgID:           uint32(cVDevQueryInfo.vfg_id),
+		ContainerID:     uint64(cVDevQueryInfo.container_id),
+		Base:            convertBaseResource(cVDevQueryInfo.base),
+		Computing:       convertComputingResource(cVDevQueryInfo.computing),
+		Media:           convertMediaResource(cVDevQueryInfo.media),
+	}
+	return vDevQueryInfo
+}
+
+func convertVDevQueryStru(cVDevQueryStru C.struct_dcmi_vdev_query_stru) common.CgoVDevQueryStru {
+	vDevQueryStru := common.CgoVDevQueryStru{
+		VDevID:    uint32(cVDevQueryStru.vdev_id),
+		QueryInfo: convertVDevQueryInfo(cVDevQueryStru.query_info),
+	}
+	return vDevQueryStru
+}
+
+// DcGetDeviceVDevResource get virtual device resource info
+func (d *DcManager) DcGetDeviceVDevResource(logicID int32, vDevID uint32) (common.CgoVDevQueryStru, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.CgoVDevQueryStru{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdVDevMng)
+	subCmd := dcmi.VmngSubCmdGetVDevResource
+	var vDevResource C.struct_dcmi_vdev_query_stru
+	size := C.uint(unsafe.Sizeof(vDevResource))
+	vDevResource.vdev_id = C.uint(vDevID)
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&vDevResource), &size); int32(retCode) != common.Success {
+		return common.CgoVDevQueryStru{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+	}
+	return convertVDevQueryStru(vDevResource), nil
+}
+
+func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource) common.CgoSocTotalResource {
+	socTotalResource := common.CgoSocTotalResource{
+		VDevNum:   uint32(cSocTotalResource.vdev_num),
+		VfgNum:    uint32(cSocTotalResource.vfg_num),
+		VfgBitmap: uint32(cSocTotalResource.vfg_bitmap),
+		Base:      convertBaseResource(cSocTotalResource.base),
+		Computing: convertComputingResource(cSocTotalResource.computing),
+		Media:     convertMediaResource(cSocTotalResource.media),
+	}
+	for i := uint32(0); i < uint32(cSocTotalResource.vdev_num) && i < dcmi.DcmiMaxVdevNum; i++ {
+		socTotalResource.VDevID = append(socTotalResource.VDevID, uint32(cSocTotalResource.vdev_id[i]))
+	}
+	return socTotalResource
+}
+
+// DcGetDeviceTotalResource get device total resource info
+func (d *DcManager) DcGetDeviceTotalResource(logicID int32) (common.CgoSocTotalResource, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.CgoSocTotalResource{}, fmt.Errorf("logicID(%d) or deviceID(%d) is invalid", logicID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdVDevMng)
+	subCmd := dcmi.VmngSubCmdGetTotalResource
+	var totalResource C.struct_dcmi_soc_total_resource
+	size := C.uint(unsafe.Sizeof(totalResource))
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&totalResource), &size); int32(retCode) != common.Success {
+		return common.CgoSocTotalResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+	}
+	if uint32(totalResource.vdev_num) > dcmi.DcmiMaxVdevNum {
+		return common.CgoSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d",
+			uint32(totalResource.vdev_num))
+	}
+
+	return convertSocTotalResource(totalResource), nil
+}
+
+func convertSuperPodInfo(cSuperPodInfo C.struct_dcmi_spod_info) common.CgoSuperPodInfo {
+	superPodInfo := common.CgoSuperPodInfo{
+		SdId:         uint32(cSuperPodInfo.sdid),
+		ScaleType:    uint32(cSuperPodInfo.scale_type),
+		SuperPodId:   uint32(cSuperPodInfo.super_pod_id),
+		ServerId:     uint32(cSuperPodInfo.server_id),
+		RackId:       uint32(cSuperPodInfo.chassis_id),
+		SuperPodType: uint8(cSuperPodInfo.super_pod_type),
+	}
+
+	for i := uint32(0); i < dcmi.DcmiSpodReserveLen; i++ {
+		superPodInfo.Reserve = append(superPodInfo.Reserve, uint8(cSuperPodInfo.reserve[i]))
+	}
+
+	return superPodInfo
+}
+
+// DcGetSuperPodInfo get device total resource info
+func (d *DcManager) DcGetSuperPodInfo(logicID int32) (common.CgoSuperPodInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.CgoSuperPodInfo{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+
+	var unitType C.enum_dcmi_unit_type
+	if retCode := C.dcmiv2_get_device_type(C.int(logicID), &unitType); int32(retCode) != common.Success {
+		return common.CgoSuperPodInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(retCode))
+	}
+	if int32(unitType) != common.NpuType {
+		return common.CgoSuperPodInfo{}, fmt.Errorf("not support unit type: %d", int32(unitType))
+	}
+
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdChipInf)
+	subCmd := dcmi.CinfSubCmdGetSPodInfo
+	var sPodInfo C.struct_dcmi_spod_info
+	size := C.uint(unsafe.Sizeof(sPodInfo))
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&sPodInfo), &size); int32(retCode) != common.Success {
+		return common.CgoSuperPodInfo{}, fmt.Errorf("get super pod info failed, error is: %d", int32(retCode))
+	}
+
+	return convertSuperPodInfo(sPodInfo), nil
+}
+
+func convertSocFreeResource(cSocFreeResource C.struct_dcmi_soc_free_resource) common.CgoSocFreeResource {
+	socFreeResource := common.CgoSocFreeResource{
+		VfgNum:    uint32(cSocFreeResource.vfg_num),
+		VfgBitmap: uint32(cSocFreeResource.vfg_bitmap),
+		Base:      convertBaseResource(cSocFreeResource.base),
+		Computing: convertComputingResource(cSocFreeResource.computing),
+		Media:     convertMediaResource(cSocFreeResource.media),
+	}
+	return socFreeResource
+}
+
+// DcGetDeviceFreeResource get device free resource info
+func (d *DcManager) DcGetDeviceFreeResource(logicID int32) (common.CgoSocFreeResource, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.CgoSocFreeResource{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdVDevMng)
+	subCmd := dcmi.VmngSubCmdGetFreeResource
+	var freeResource C.struct_dcmi_soc_free_resource
+	size := C.uint(unsafe.Sizeof(freeResource))
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&freeResource), &size); int32(retCode) != common.Success {
+		return common.CgoSocFreeResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+	}
+	return convertSocFreeResource(freeResource), nil
+}
+
+// DcGetVDevActivityInfo get vir device activity info by virtual device id
+func (d *DcManager) DcGetVDevActivityInfo(logicID int32, vDevID uint32) (common.VDevActivityInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.VDevActivityInfo{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	if !common.IsValidVDevID(vDevID) {
+		return common.VDevActivityInfo{}, fmt.Errorf("vDevID(%d) invalid", vDevID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdVDevMng)
+	subCmd := dcmi.VmngSubCmdGetVDevActivity
+	var vDevActivityInfo C.struct_dcmi_vdev_query_stru
+	size := C.uint(unsafe.Sizeof(vDevActivityInfo))
+	vDevActivityInfo.vdev_id = C.uint(vDevID)
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&vDevActivityInfo), &size); int32(retCode) != common.Success {
+		return common.VDevActivityInfo{}, fmt.Errorf("retCode: %d", int32(retCode))
+	}
+	totalMemSize := uint64(vDevActivityInfo.query_info.computing.vdev_memory_total)
+	usedMemSize := totalMemSize - uint64(vDevActivityInfo.query_info.computing.vdev_memory_free)
+	if usedMemSize < 0 {
+		return common.VDevActivityInfo{}, errors.New("used memory value abnormal")
+	}
+	return common.VDevActivityInfo{
+		VDevID:         vDevID,
+		VDevAiCoreRate: uint32(vDevActivityInfo.query_info.computing.vdev_aicore_utilization),
+		VDevTotalMem:   totalMemSize,
+		VDevUsedMem:    usedMemSize,
+		IsVirtualDev:   true,
+	}, nil
+}
+
+// DcGetVDeviceInfo get vdevice resource info
+func (d *DcManager) DcGetVDeviceInfo(logicID int32) (common.VirtualDevInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.VirtualDevInfo{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var unitType C.enum_dcmi_unit_type
+	if retCode := C.dcmiv2_get_device_type(C.int(logicID), &unitType); int32(retCode) != common.Success {
+		return common.VirtualDevInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(retCode))
+	}
+	if int32(unitType) != common.NpuType {
+		return common.VirtualDevInfo{}, fmt.Errorf("not support unit type: %d", int32(unitType))
+	}
+
+	cgoDcmiSocTotalResource, err := d.DcGetDeviceTotalResource(logicID)
+	if err != nil {
+		return common.VirtualDevInfo{}, fmt.Errorf("get device total resource failed, error is: %v", err)
+	}
+
+	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(logicID)
+	if err != nil {
+		return common.VirtualDevInfo{}, fmt.Errorf("get device free resource failed, error is: %v", err)
+	}
+	dcmiVDevInfo := common.VirtualDevInfo{
+		TotalResource: cgoDcmiSocTotalResource,
+		FreeResource:  cgoDcmiSocFreeResource,
+	}
+	for _, vDevID := range cgoDcmiSocTotalResource.VDevID {
+		cgoVDevQueryStru, err := d.DcGetDeviceVDevResource(logicID, vDevID)
+		if err != nil {
+			return common.VirtualDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %v", err)
+		}
+		dcmiVDevInfo.VDevInfo = append(dcmiVDevInfo.VDevInfo, cgoVDevQueryStru)
+		vDevActivityInfo, err := d.DcGetVDevActivityInfo(logicID, vDevID)
+		if err != nil {
+			hwlog.RunLog.Warnf("get cur vDev's activity info failed, err: %s", err)
+			continue
+		}
+		vDevActivityInfo.VDevAiCore = float64(cgoVDevQueryStru.QueryInfo.Computing.Aic)
+		dcmiVDevInfo.VDevActivityInfo = append(dcmiVDevInfo.VDevActivityInfo, vDevActivityInfo)
+	}
+	return dcmiVDevInfo, nil
+}
+
+// DcSetDeviceReset set device reset
+func (d *DcManager) DcSetDeviceReset(logicID int32) error {
+	var channelType C.enum_dcmi_reset_channel = C.INBAND_CHANNEL
+	return d.setDeviceReset(logicID, channelType)
+}
+
+// DcGetOutBandChannelState get out band channel state
+func (d *DcManager) DcGetOutBandChannelState(logicID int32) error {
+	var channelState C.int
+	errCode := C.dcmiv2_get_device_outband_channel_state(C.int(logicID), &channelState)
+	if errCode != common.Success {
+		return fmt.Errorf("get out band channel state error, errCode: %v", errCode)
+	}
+	if channelState != common.ChannelStateOk {
+		return fmt.Errorf("chip reset not support, channel state: %v", channelState)
+	}
+	return nil
+}
+
+// DcPreResetSoc pre reset soc
+func (d *DcManager) DcPreResetSoc(logicID int32) error {
+	errCode := C.dcmiv2_pre_reset_soc(C.int(logicID))
+	if errCode != common.Success {
+		return fmt.Errorf("pre reset failed, cardID: %v, errCode: %v", logicID, errCode)
+	}
+	return nil
+}
+
+// DcSetDeviceResetOutBand set device reset out band
+func (d *DcManager) DcSetDeviceResetOutBand(logicID int32) error {
+	var channelType C.enum_dcmi_reset_channel = C.OUTBAND_CHANNEL
+	return d.setDeviceReset(logicID, channelType)
+}
+
+func (d *DcManager) setDeviceReset(logicID int32, channelType C.enum_dcmi_reset_channel) error {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	if errCode := C.dcmiv2_set_device_reset(C.int(logicID), channelType); errCode != 0 {
+		return fmt.Errorf("cardID(%d) hot reset errCode: %v", logicID, errCode)
+	}
+	return nil
+}
+
+// DcRescanSoc rescan soc
+func (d *DcManager) DcRescanSoc(logicID int32) error {
+	errCode := C.dcmiv2_rescan_soc(C.int(logicID))
+	if errCode != common.Success {
+		return fmt.Errorf("fail to rescan chip logicID %d, errCode: %v", logicID, errCode)
+	}
+	return nil
+}
+
+// DcGetDeviceBootStatus get NPU boot status
+func (d *DcManager) DcGetDeviceBootStatus(logicID int32) (int, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, fmt.Errorf("input invalid logicID: %d", logicID)
+	}
+	var bootStatus C.enum_dcmi_boot_status = C.DCMI_BOOT_STATUS_FINISH
+	if errCode := C.dcmiv2_get_device_boot_status(C.int(logicID), &bootStatus); errCode != 0 {
+		return common.RetError, fmt.Errorf("device boot status errCode: %v", errCode)
+	}
+	return int(bootStatus), nil
+}
+
+// DcGetDeviceAllErrorCode get device all error code info
+func (d *DcManager) DcGetDeviceAllErrorCode(logicID int32) (int32, []int64, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, nil, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var errCount C.int
+	var errCodeArray [common.MaxErrorCodeCount]C.uint
+	retCode := C.dcmiv2_get_device_errorcode(C.int(logicID), &errCount, &errCodeArray[0], common.MaxErrorCodeCount)
+
+	var health C.uint
+	healthRetCode := C.dcmiv2_get_device_health(C.int(logicID), &health)
+	if int32(retCode) != common.Success && int32(healthRetCode) != common.DeviceNotReadyErrCode {
+		return common.RetError, nil, fmt.Errorf("failed to obtain the device errorcode based on logicID("+
+			"%d), error code: %d, error count: %d", logicID, int32(retCode), int32(errCount))
+	}
+
+	errCodes := make([]int64, 0, len(errCodeArray))
+	for _, errCode := range errCodeArray {
+		if int64(errCode) != 0 {
+			errCodes = append(errCodes, int64(errCode))
+		}
+	}
+
+	if int32(healthRetCode) == common.DeviceNotReadyErrCode {
+		hwlog.RunLog.Errorf("device errorcode v2 ret code: %d, device health ret code: %d, device not ready, "+
+			"maybe a card drop fault occurred on logicID(%d)", int32(retCode), int32(healthRetCode), logicID)
+		errCount += 1
+		errCodes = append(errCodes, common.CardDropFaultCode)
+	}
+
+	if int32(errCount) < 0 || int32(errCount) > common.MaxErrorCodeCount {
+		return common.RetError, nil, fmt.Errorf("get wrong errorcode count, "+
+			"logicID(%d), errorcode count: %d", logicID, int32(errCount))
+	}
+
+	return int32(errCount), errCodes, nil
+}
+
+// DcSubscribeDeviceFaultEvent subscribe device fault event
+func (d *DcManager) DcSubscribeDeviceFaultEvent(logicID int32) error {
+	if faultEventCallFunc == nil {
+		return errors.New("callFunc is invalid, can't start subscribe")
+	}
+
+	var filter C.struct_dcmi_event_filter
+	if rCode := C.dcmiv2_subscribe_fault_event(C.int(logicID), filter); int32(rCode) != common.Success {
+		return fmt.Errorf("subscribe fault event failed, logicID(%d), error code: %d", logicID, int32(rCode))
+	}
+	return nil
+}
+
+// DcSetFaultEventCallFunc set fault event call back func
+func (d *DcManager) DcSetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) {
+	faultEventCallFunc = businessFunc
+}
+
+// DcGetDevProcessInfo get device process info
+func (d *DcManager) DcGetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return nil, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+
+	var procList [common.MaxProcNum]C.struct_dcmi_proc_mem_info
+	var procNum C.int
+
+	if retCode := C.dcmiv2_get_device_resource_info(C.int(logicID), &procList[0],
+		&procNum); int32(retCode) != common.Success {
+		return nil, buildDcmiErr(logicID, "device resource", retCode)
+	}
+
+	if int32(procNum) < 0 || int32(procNum) > common.MaxProcNum {
+		return nil, fmt.Errorf("get invalid proccess num (%d), logicID(%d)", int32(procNum), logicID)
+	}
+
+	info, err := d.convertToDevResourceInfo(procList, int32(procNum))
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+func (d *DcManager) convertToDevResourceInfo(procList [common.MaxProcNum]C.struct_dcmi_proc_mem_info,
+	procNum int32) (*common.DevProcessInfo, error) {
+	if procNum < 0 || procNum > common.MaxProcNum {
+		return nil, fmt.Errorf("process num %v is not within in the range [0~%v]", procNum, common.MaxProcNum)
+	}
+
+	info := new(common.DevProcessInfo)
+	if procNum == 0 {
+		return info, nil
+	}
+
+	info.ProcNum = procNum
+	for i := int32(0); i < procNum; i++ {
+		proc := common.DevProcInfo{
+			Pid:      int32(procList[i].proc_id),
+			MemUsage: float64(procList[i].proc_mem_usage) / common.UnitMB, // convert byte to MB
+		}
+		info.DevProcArray = append(info.DevProcArray, proc)
+	}
+
+	return info, nil
+}
+
+// DcGetPCIeBusInfo get pcie bus info
+func (d *DcManager) DcGetPCIeBusInfo(logicID int32) (string, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return "", fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var pcieInfo C.struct_dcmi_pcie_info_all
+	if retCode := C.dcmiv2_get_device_pcie_info(C.int(logicID), &pcieInfo); int32(retCode) != common.Success {
+		return "", buildDcmiErr(logicID, "pcie bus", retCode)
+	}
+	info := fmt.Sprintf("%04X:%02X:%02X.%-4X", int32(pcieInfo.domain), uint32(pcieInfo.bdf_busid),
+		uint32(pcieInfo.bdf_deviceid), uint32(pcieInfo.bdf_funcid))
+	hwlog.RunLog.Debugf("pcie bus info is: '%s'", info)
+	return strings.TrimRight(info, " "), nil
+}
+
+// DcGetDeviceBoardInfo get device board info
+func (d *DcManager) DcGetDeviceBoardInfo(logicID int32) (common.BoardInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.BoardInfo{}, fmt.Errorf("logicID(%d)is invalid", logicID)
+	}
+
+	var cBoardInfo C.struct_dcmi_board_info
+	if retCode := C.dcmiv2_get_device_board_info(C.int(logicID), &cBoardInfo); int32(retCode) != common.Success {
+		return common.BoardInfo{}, buildDcmiErr(logicID, "board info", retCode)
+	}
+
+	return common.BoardInfo{
+		BoardId: uint32(cBoardInfo.board_id),
+		PcbId:   uint32(cBoardInfo.pcb_id),
+		BomId:   uint32(cBoardInfo.bom_id),
+		SlotId:  uint32(cBoardInfo.slot_id),
+	}, nil
+}
+
+// DcGetPCIEBandwidth get pcie bandwidth
+func (d *DcManager) DcGetPCIEBandwidth(logicID int32, profilingTime int) (common.PCIEBwStat, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.PCIEBwStat{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var dcmiPCIEBandwidth C.struct_dcmi_pcie_link_bandwidth_info
+	var pcieBandwidth common.PCIEBwStat
+	dcmiPCIEBandwidth.profiling_time = C.int(profilingTime)
+	retCode := C.dcmiv2_get_pcie_link_bandwidth_info(C.int(logicID), &dcmiPCIEBandwidth)
+	if int32(retCode) != common.Success {
+		return pcieBandwidth, buildDcmiErr(logicID, "PCIEBandwidth", retCode)
+	}
+
+	pcieBandwidth.PcieRxPBw = d.convertPcieBw(dcmiPCIEBandwidth.rx_p_bw)
+	pcieBandwidth.PcieRxNPBw = d.convertPcieBw(dcmiPCIEBandwidth.rx_np_bw)
+	pcieBandwidth.PcieRxCPLBw = d.convertPcieBw(dcmiPCIEBandwidth.rx_cpl_bw)
+
+	pcieBandwidth.PcieTxPBw = d.convertPcieBw(dcmiPCIEBandwidth.tx_p_bw)
+	pcieBandwidth.PcieTxNPBw = d.convertPcieBw(dcmiPCIEBandwidth.tx_np_bw)
+	pcieBandwidth.PcieTxCPLBw = d.convertPcieBw(dcmiPCIEBandwidth.tx_cpl_bw)
+
+	return pcieBandwidth, nil
+}
+
+func (d *DcManager) convertPcieBw(pcieBwArr [dcmi.AgentdrvProfDataNum]C.uint) common.PcieStatValue {
+	return common.PcieStatValue{
+		PcieMinBw: int32(pcieBwArr[0]),
+		PcieMaxBw: int32(pcieBwArr[1]),
+		PcieAvgBw: int32(pcieBwArr[dcmi.AgentdrvProfDataNum-1]),
+	}
+}
+
+// DcGetDeviceEccInfo get device ecc info
+func (d *DcManager) DcGetDeviceEccInfo(logicID int32, inputType common.DcmiDeviceType) (*common.ECCInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return nil, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	dcmiDeviceType, err := d.getInputType(inputType)
+	if err != nil {
+		return nil, err
+	}
+	var deviceEccInfo C.struct_dcmi_ecc_info
+	if retCode := C.dcmiv2_get_device_ecc_info(C.int(logicID), dcmiDeviceType,
+		&deviceEccInfo); retCode != 0 {
+		return nil, buildDcmiErr(logicID, "dcmi device ECC", retCode)
+	}
+	eccInfo := &common.ECCInfo{
+		EnableFlag:                int32(deviceEccInfo.enable_flag),
+		SingleBitErrorCnt:         int64(deviceEccInfo.single_bit_error_cnt),
+		DoubleBitErrorCnt:         int64(deviceEccInfo.double_bit_error_cnt),
+		TotalSingleBitErrorCnt:    int64(deviceEccInfo.total_single_bit_error_cnt),
+		TotalDoubleBitErrorCnt:    int64(deviceEccInfo.total_double_bit_error_cnt),
+		SingleBitIsolatedPagesCnt: int64(deviceEccInfo.single_bit_isolated_pages_cnt),
+		DoubleBitIsolatedPagesCnt: int64(deviceEccInfo.double_bit_isolated_pages_cnt),
+	}
+	return eccInfo, nil
+}
+
+// DcGetSioInfo get sio info
+func (d *DcManager) DcGetSioInfo(logicID int32) (common.SioCrcErrStatisticInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.SioCrcErrStatisticInfo{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(dcmi.MainCmdSio)
+	subCmd := dcmi.SioSubCmdCrcErrStatistics
+	var sioInfo C.struct_dcmi_sio_crc_err_statistic_info
+	// Use a secure function to get the address (for cleanCode)
+	addr, err := getAddrWithOffset(unsafe.Pointer(&sioInfo), unsafe.Sizeof(sioInfo), 0)
+	if err != nil {
+		return common.SioCrcErrStatisticInfo{}, fmt.Errorf("get sioInfo addr failed, error is: %v", err)
+	}
+	size := C.uint(unsafe.Sizeof(sioInfo))
+	if retCode := C.dcmiv2_get_device_info(C.int(logicID), cMainCmd, C.uint(subCmd),
+		addr, &size); int32(retCode) != common.Success {
+		return common.SioCrcErrStatisticInfo{}, buildDcmiErr(logicID, "super pod sio", retCode)
+	}
+	return convertSioInfoStruct(sioInfo), nil
+}
+
+func convertSioInfoStruct(sPodSioInfo C.struct_dcmi_sio_crc_err_statistic_info) common.SioCrcErrStatisticInfo {
+	cgoSPodSioInfo := common.SioCrcErrStatisticInfo{
+		TxErrCnt: int64(sPodSioInfo.tx_error_count),
+		RxErrCnt: int64(sPodSioInfo.rx_error_count),
+	}
+	for i := uint32(0); i < dcmi.DcmiMaxReserveNum; i++ {
+		cgoSPodSioInfo.Reserved = append(cgoSPodSioInfo.Reserved, uint32(sPodSioInfo.reserved[i]))
+	}
+	return cgoSPodSioInfo
+}
+
+var goInputTypeToCgoDeviceType = map[common.DcmiDeviceType]C.enum_dcmi_device_type{
+	common.DcmiDeviceTypeDDR:  C.DCMI_DEVICE_TYPE_DDR,
+	common.DcmiDeviceTypeSRAM: C.DCMI_DEVICE_TYPE_SRAM,
+	common.DcmiDeviceTypeHBM:  C.DCMI_DEVICE_TYPE_HBM,
+	common.DcmiDeviceTypeNPU:  C.DCMI_DEVICE_TYPE_NPU,
+	common.DcmiDeviceTypeNONE: C.DCMI_DEVICE_TYPE_NONE,
+}
+
+func (d *DcManager) getInputType(inputType common.DcmiDeviceType) (C.enum_dcmi_device_type, error) {
+	if val, exist := goInputTypeToCgoDeviceType[inputType]; exist {
+		return val, nil
+	}
+	return C.DCMI_DEVICE_TYPE_NONE, fmt.Errorf("invalid input type for getting device ecc info")
+}
+
+// Define a safe function to get address offsets (for cleanCode)
+func getAddrWithOffset(addr unsafe.Pointer, length, offset uintptr) (unsafe.Pointer, error) {
+	if offset > length {
+		return nil, fmt.Errorf("offset(%d) is invalid, length(%d)", offset, length)
+	}
+	return (unsafe.Pointer)(uintptr(addr) + offset), nil
+}
+
+// DcGetDeviceMainBoardInfo get device main board info
+func (d *DcManager) DcGetDeviceMainBoardInfo(logicID int32) (uint32, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return 0, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var cMainBoardId C.uint
+	if retCode := C.dcmiv2_get_mainboard_id(C.int(logicID), &cMainBoardId); int32(retCode) != common.Success {
+		return 0, buildDcmiErr(logicID, "mainBoardId", retCode)
+	}
+	return uint32(cMainBoardId), nil
+}
+
+// DcGetCardElabel get device elabel info
+func (d *DcManager) DcGetCardElabel(logicID int32) (common.ElabelInfo, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.ElabelInfo{}, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var elabelInfo C.struct_dcmi_elabel_info
+	if retCode := C.dcmiv2_get_card_elabel(C.int(logicID), &elabelInfo); int32(retCode) != common.Success {
+		return common.ElabelInfo{}, fmt.Errorf("logicID(%d): get elabel info failed, error code: %v", logicID, retCode)
+	}
+	return common.ElabelInfo{
+		ProductName:      C.GoString(&elabelInfo.product_name[0]),
+		Model:            C.GoString(&elabelInfo.model[0]),
+		Manufacturer:     C.GoString(&elabelInfo.manufacturer[0]),
+		ManufacturerDate: C.GoString(&elabelInfo.manufacturer_date[0]),
+		SerialNumber:     C.GoString(&elabelInfo.serial_number[0]),
+	}, nil
 }
