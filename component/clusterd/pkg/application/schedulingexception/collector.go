@@ -19,7 +19,6 @@ package schedulingexception
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -117,7 +116,7 @@ func (c *Collector) checkJobs() {
 		if cond == nil {
 			continue
 		}
-
+		hwlog.RunLog.Infof("pgname: %v, cond: %v, pre cond: %v", jobInfo.PgName, cond, c.jobExceptions[jobKey].Condition)
 		key := jobInfo.Name + "." + jobKey
 		if cond.Equal(c.jobExceptions[jobKey].Condition) {
 			exceptionJobs[key] = c.jobExceptions[jobKey]
@@ -125,7 +124,7 @@ func (c *Collector) checkJobs() {
 		c.jobExceptions[jobKey].Condition = *cond
 	}
 
-	allMetaObjs := c.processJobs(exceptionJobs)
+	allMetaObjs := c.processJobs(exceptionJobs, allJobs)
 	c.cleanupJobs(allJobs, allMetaObjs)
 
 	report := exceptionReport{
@@ -161,11 +160,12 @@ func (c *Collector) processPodGroup(jobKey string, jobInfo constant.JobInfo) *co
 	cond := c.analyzePodGroupPhase(pg, pods, indices, jobInfo)
 
 	if _, exist := c.jobExceptions[jobKey]; !exist {
+		hwlog.RunLog.Infof("job %s has scheduling exception", jobKey)
 		c.jobExceptions[jobKey] = &jobExceptionInfo{
 			JobName:   jobInfo.Name,
 			JobType:   jobInfo.JobType,
 			NameSpace: jobInfo.NameSpace,
-			Condition: conditionDetail{},
+			Condition: *cond,
 		}
 	}
 
@@ -202,8 +202,7 @@ func (c *Collector) analyzePodGroupConditions(pg *v1beta1.PodGroup) conditionInd
 		}
 	}
 
-	hwlog.RunLog.Infof("pg phase: %s, conditionIndices %v", pg.Status.Phase, indices)
-
+	hwlog.RunLog.Infof("pg phase: %s, conditionIndices %#v", pg.Status.Phase, indices)
 	return indices
 }
 
@@ -370,7 +369,7 @@ func (c *Collector) processPodFailed(p corev1.Pod) *conditionDetail {
 	}
 }
 
-func (c *Collector) processJobs(exceptionJobs map[string]*jobExceptionInfo) map[string]metav1.Object {
+func (c *Collector) processJobs(exceptionJobs map[string]*jobExceptionInfo, pgInfos map[string]constant.JobInfo) map[string]metav1.Object {
 	allMetaObjs := make(map[string]metav1.Object, 0)
 	for _, jobs := range kube.ListObjects(kube.AcJobGVK(), kube.VcJobGVK()) {
 		for _, jobObj := range jobs {
@@ -378,14 +377,12 @@ func (c *Collector) processJobs(exceptionJobs map[string]*jobExceptionInfo) map[
 			if !ok {
 				continue
 			}
+			if _, exist := pgInfos[string(metaObj.GetUID())]; exist {
+				continue
+			}
 
 			allMetaObjs[string(metaObj.GetUID())] = metaObj
 			hwlog.RunLog.Infof("job %s/%s is %s", metaObj.GetNamespace(), metaObj.GetName(), metaObj.GetUID())
-
-			if _, exist := exceptionJobs[fmt.Sprintf("%s.%s", metaObj.GetName(), metaObj.GetUID())]; exist {
-				hwlog.RunLog.Infof("job %s/%s is exist", metaObj.GetNamespace(), metaObj.GetName())
-				continue
-			}
 
 			cond := c.processJobObject(jobObj, metaObj)
 			if cond == nil {
@@ -394,7 +391,8 @@ func (c *Collector) processJobs(exceptionJobs map[string]*jobExceptionInfo) map[
 
 			jobKey := string(metaObj.GetUID())
 			key := metaObj.GetName() + "." + jobKey
-			if reflect.DeepEqual(*cond, c.jobExceptions[jobKey].Condition) {
+
+			if cond.Equal(c.jobExceptions[jobKey].Condition) {
 				exceptionJobs[key] = c.jobExceptions[jobKey]
 			}
 
@@ -426,7 +424,7 @@ func (c *Collector) processJobObject(jobObj interface{}, metaObj metav1.Object) 
 			NameSpace: metaObj.GetNamespace(),
 			JobName:   metaObj.GetName(),
 			JobType:   jobType,
-			Condition: conditionDetail{},
+			Condition: *cond,
 		}
 	}
 
@@ -490,6 +488,7 @@ func (c *Collector) cleanupJobs(allJobs map[string]constant.JobInfo, allMetaObjs
 		_, existInJobSummary := allJobs[key]
 		_, existInMetaObjs := allMetaObjs[key]
 		if !existInJobSummary && !existInMetaObjs {
+			hwlog.RunLog.Infof("job %s is not exist, delete from cache", key)
 			delete(c.jobExceptions, key)
 		}
 	}
