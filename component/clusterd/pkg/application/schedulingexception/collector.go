@@ -462,24 +462,29 @@ func (c *Collector) processAscendJob(ascendJob *batchv1.AscendJob) *conditionDet
 				"=controller-manager",
 		}
 	}
-
-	for _, condition := range ascendJob.Status.Conditions {
+	failedConditionIndex, createdConditionIndex := invalidIndex, invalidIndex
+	for index, condition := range ascendJob.Status.Conditions {
 		if condition.Type == "Failed" && condition.Status == corev1.ConditionTrue {
-			return &conditionDetail{
-				Status:  jobStatusFailed,
-				Reason:  condition.Reason,
-				Message: condition.Message,
-			}
+			failedConditionIndex = index
 		}
 		if condition.Type == "Created" && condition.Status == corev1.ConditionTrue {
-			return &conditionDetail{
-				Status:  jobStatusInitialized,
-				Reason:  condition.Reason,
-				Message: condition.Message,
-			}
+			createdConditionIndex = index
 		}
 	}
-
+	if failedConditionIndex >= 0 {
+		return &conditionDetail{
+			Status:  jobStatusFailed,
+			Reason:  ascendJob.Status.Conditions[failedConditionIndex].Reason,
+			Message: ascendJob.Status.Conditions[failedConditionIndex].Message,
+		}
+	}
+	if createdConditionIndex >= 0 {
+		return &conditionDetail{
+			Status:  jobStatusInitialized,
+			Reason:  ascendJob.Status.Conditions[createdConditionIndex].Reason,
+			Message: ascendJob.Status.Conditions[createdConditionIndex].Message,
+		}
+	}
 	return nil
 }
 
