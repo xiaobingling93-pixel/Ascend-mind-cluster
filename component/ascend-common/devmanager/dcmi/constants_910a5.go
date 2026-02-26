@@ -16,8 +16,8 @@
 package dcmi
 
 const (
-	// dcmiSpodReserveLen is max number of reserve (spod_info) for A5
-	dcmiSpodReserveLen = 27
-	// maxUrmaDevCnt is max count of urma device on the device for A5
-	maxUrmaDevCnt = 128
+	// DcmiSpodReserveLen is max number of reserve (spod_info) for A5
+	DcmiSpodReserveLen = 27
+	// MaxUrmaDevCnt is max count of urma device on the device for A5
+	MaxUrmaDevCnt = 128
 )

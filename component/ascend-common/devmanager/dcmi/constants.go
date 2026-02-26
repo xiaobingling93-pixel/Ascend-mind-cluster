@@ -25,12 +25,12 @@ type VDevMngSubCmd uint32
 type DieType int32
 
 const (
-	// dcmiMaxVdevNum is max number of vdevice, value is from driver specification
-	dcmiMaxVdevNum = 32
-	// dcmiMaxReserveNum is max number of reserve, value is from driver specification
-	dcmiMaxReserveNum = 8
-	// dcmiVDevResNameLen length of vnpu resource name
-	dcmiVDevResNameLen = 16
+	// DcmiMaxVdevNum is max number of vdevice, value is from driver specification
+	DcmiMaxVdevNum = 32
+	// DcmiMaxReserveNum is max number of reserve, value is from driver specification
+	DcmiMaxReserveNum = 8
+	// DcmiVDevResNameLen length of vnpu resource name
+	DcmiVDevResNameLen = 16
 	// dcmiHccsMaxPcsNum max pcs number for hccs
 	dcmiHccsMaxPcsNum = 16
 
@@ -71,8 +71,9 @@ const (
 	// DieIDCount die id array max length
 	DieIDCount = 5
 
-	// ipAddrTypeV6 ip address type of IPv6
-	ipAddrTypeV6 = 1
-
-	agentdrvProfDataNum = 3
+	// IpAddrTypeV6 ip address type of IPv6
+	IpAddrTypeV6 = 1
+	// HexBase hex base number
+	HexBase             = 16
+	AgentdrvProfDataNum = 3
 )

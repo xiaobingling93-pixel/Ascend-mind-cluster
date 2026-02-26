@@ -704,9 +704,9 @@ func (d *DcManager) DcGetUrmaDevEidList(cardID int32, deviceID int32, urmaDevInd
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return nil, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
-	if urmaDevIndex < 0 || urmaDevIndex >= maxUrmaDevCnt {
+	if urmaDevIndex < 0 || urmaDevIndex >= MaxUrmaDevCnt {
 		return nil, fmt.Errorf("urma device index is %d out of range [0, %d], "+
-			"cardID(%d) deviceID(%d)", urmaDevIndex, maxUrmaDevCnt, cardID, deviceID)
+			"cardID(%d) deviceID(%d)", urmaDevIndex, MaxUrmaDevCnt, cardID, deviceID)
 	}
 
 	var eidInfoList [common.EidNumMax]C.dcmi_urma_eid_info_t
@@ -758,9 +758,9 @@ func (d *DcManager) DcGetUrmaDevEidListAll(cardID int32, deviceID int32) ([]comm
 		return []common.UrmaDeviceInfo{}, err
 	}
 
-	if feCnt > maxUrmaDevCnt || feCnt < 0 {
+	if feCnt > MaxUrmaDevCnt || feCnt < 0 {
 		return []common.UrmaDeviceInfo{}, fmt.Errorf("urma device number is %d, out of range [0, %d], "+
-			"cardID(%d) deviceID(%d)", feCnt, maxUrmaDevCnt, cardID, deviceID)
+			"cardID(%d) deviceID(%d)", feCnt, MaxUrmaDevCnt, cardID, deviceID)
 	}
 
 	infos := make([]common.UrmaDeviceInfo, feCnt)
@@ -1199,7 +1199,7 @@ func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID int32, vDevInfo commo
 	return convertCreateVDevOut(createVDevOut), nil
 }
 
-func convertToString(cgoArr [dcmiVDevResNameLen]C.char) string {
+func convertToString(cgoArr [DcmiVDevResNameLen]C.char) string {
 	var charArr []rune
 	for _, v := range cgoArr {
 		if v == 0 {
@@ -1309,7 +1309,7 @@ func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource)
 		Computing: convertComputingResource(cSocTotalResource.computing),
 		Media:     convertMediaResource(cSocTotalResource.media),
 	}
-	for i := uint32(0); i < uint32(cSocTotalResource.vdev_num) && i < dcmiMaxVdevNum; i++ {
+	for i := uint32(0); i < uint32(cSocTotalResource.vdev_num) && i < DcmiMaxVdevNum; i++ {
 		socTotalResource.VDevID = append(socTotalResource.VDevID, uint32(cSocTotalResource.vdev_id[i]))
 	}
 	return socTotalResource
@@ -1328,7 +1328,7 @@ func (d *DcManager) DcGetDeviceTotalResource(cardID, deviceID int32) (common.Cgo
 		unsafe.Pointer(&totalResource), &size); int32(retCode) != common.Success {
 		return common.CgoSocTotalResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
 	}
-	if uint32(totalResource.vdev_num) > dcmiMaxVdevNum {
+	if uint32(totalResource.vdev_num) > DcmiMaxVdevNum {
 		return common.CgoSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d",
 			uint32(totalResource.vdev_num))
 	}
@@ -1348,7 +1348,7 @@ func convertSuperPodInfo(cSuperPodInfo C.struct_dcmi_spod_info) common.CgoSuperP
 		SuperPodType: uint8(cSuperPodInfo.super_pod_type),
 	}
 
-	for i := uint32(0); i < dcmiSpodReserveLen; i++ {
+	for i := uint32(0); i < DcmiSpodReserveLen; i++ {
 		superPodInfo.Reserve = append(superPodInfo.Reserve, uint8(cSuperPodInfo.reserve[i]))
 	}
 
@@ -1905,15 +1905,15 @@ func (d *DcManager) DcGetDeviceIPAddress(cardID, deviceID, ipType int32) (string
 	var portID C.int
 	var ipAddress C.struct_dcmi_ip_addr
 	var maskAddress C.struct_dcmi_ip_addr
-	if ipType == ipAddrTypeV6 {
-		ipAddress.ip_type = ipAddrTypeV6
+	if ipType == IpAddrTypeV6 {
+		ipAddress.ip_type = IpAddrTypeV6
 	}
 	rCode := C.dcmi_get_device_ip(C.int(cardID), C.int(deviceID), portType, portID, &ipAddress, &maskAddress)
 	if int32(rCode) != common.Success {
 		return "", fmt.Errorf("get device IP address failed, cardID(%d), deviceID(%d), error code: %d",
 			cardID, deviceID, int32(rCode))
 	}
-	if ipType == ipAddrTypeV6 {
+	if ipType == IpAddrTypeV6 {
 		return d.buildIPv6Addr(ipAddress)
 	}
 	return d.buildIPv4Addr(ipAddress)
@@ -2291,13 +2291,12 @@ func (d *DcManager) DcGetDieID(cardID, deviceID int32, dcmiDieType DieType) (str
 		return "", buildDcmiErr(cardID, deviceID, "chip die ID", retCode)
 	}
 
-	const hexBase = 16
 	dieIDStr := make([]string, DieIDCount)
 
 	hwlog.RunLog.Debugf("cardID(%d), deviceID(%d) get die type(%d) value %v", cardID, deviceID, dcmiDieType,
 		dieIDObj.soc_die)
 	for i := 0; i < DieIDCount; i++ {
-		s := strconv.FormatUint(uint64(dieIDObj.soc_die[i]), hexBase)
+		s := strconv.FormatUint(uint64(dieIDObj.soc_die[i]), HexBase)
 		// Each part of the die id consists of 8 characters, and if the length is not enough,
 		// zero is added at the beginning
 		dieIDStr[i] = fmt.Sprintf("%08s", s)
@@ -2416,11 +2415,11 @@ func (d *DcManager) DcGetPCIEBandwidth(cardID, deviceID int32, profilingTime int
 	return pcieBandwidth, nil
 }
 
-func (d *DcManager) convertPcieBw(pcieBwArr [agentdrvProfDataNum]C.uint) common.PcieStatValue {
+func (d *DcManager) convertPcieBw(pcieBwArr [AgentdrvProfDataNum]C.uint) common.PcieStatValue {
 	return common.PcieStatValue{
 		PcieMinBw: int32(pcieBwArr[0]),
 		PcieMaxBw: int32(pcieBwArr[1]),
-		PcieAvgBw: int32(pcieBwArr[agentdrvProfDataNum-1]),
+		PcieAvgBw: int32(pcieBwArr[AgentdrvProfDataNum-1]),
 	}
 }
 
@@ -2576,7 +2575,7 @@ func convertSioInfoStruct(sPodSioInfo C.struct_dcmi_sio_crc_err_statistic_info) 
 		TxErrCnt: int64(sPodSioInfo.tx_error_count),
 		RxErrCnt: int64(sPodSioInfo.rx_error_count),
 	}
-	for i := uint32(0); i < dcmiMaxReserveNum; i++ {
+	for i := uint32(0); i < DcmiMaxReserveNum; i++ {
 		cgoSPodSioInfo.Reserved = append(cgoSPodSioInfo.Reserved, uint32(sPodSioInfo.reserved[i]))
 	}
 	return cgoSPodSioInfo
