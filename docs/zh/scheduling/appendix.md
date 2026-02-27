@@ -490,6 +490,134 @@ Ascend Docker Runtime会根据实际环境情况默认以只读方式挂载以�
 |/dev/dvpp_cmdlist|设备文件，支撑数字视觉预处理功能。|
 |/var/queue_schedule|管理FlowGW调度框架。<p>挂载此目录需同时满足以下条件：</p><ul><li>使用的MindCluster组件版本≥6.0.0。</li><li>HDK版本≥24.1.RC2。</li></ul>|
 
+# Ascend Docker Runtime 默认挂载白名单
+Ascend Docker Runtime通过ASCEND_RUNTIME_MOUNTS参数，提供了配置自定义默认挂载项的特性，具体操作请参考[（可选）配置自定义挂载内容](#可选配置自定义挂载内容)章节。Ascend Docker Runtime的默认挂载项受白名单限制，具体白名单列表如[表1](#runtime_mount_white_list)所示
+
+**表 1**  默认挂载白名单列表
+
+<a name="runtime_mount_white_list"></a>
+<table>
+  <thead>
+    <tr>
+      <th>路径</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>/usr/local/Ascend/driver/lib64</td>
+      <td>目录，驱动提供的用户态库。</td>
+    </tr>
+    <tr>
+      <td>/usr/local/Ascend/driver/include</td>
+      <td>/usr/local/dcmi /usr/local/bin/npu-smi 文件，NPU-SMI工具。</td>
+    </tr>
+    <tr>
+      <td>/home/data/miniD/driver/lib64</td>
+      <td rowspan="2">目录，驱动提供的用户态库。</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/aicpu_kernels</td>
+    </tr>
+    <tr>
+      <td>/usr/local/sbin/npu-smi</td>
+      <td>文件，NPU-SMI工具。</td>
+    </tr>
+    <tr>
+      <td>/usr/local/Ascend/driver/tools</td>
+      <td>目录，驱动提供的工具包。</td>
+    </tr>
+    <tr>
+      <td>/etc/hdcBasic.cfg</td>
+      <td>文件，hdc基础文件。</td>
+    </tr>
+    <tr>
+      <td>/etc/sys_version.conf</td>
+      <td>文件，驱动的版本信息。</td>
+    </tr>
+    <tr>
+      <td>/etc/ld.so.conf.d/mind_so.conf</td>
+      <td>驱动动态库路径配置文件。</td>
+    </tr>
+    <tr>
+      <td>/etc/slog.conf</td>
+      <td>日志配置文件。</td>
+    </tr>
+    <tr>
+      <td>/var/dmp_daemon</td>
+      <td>文件，dmp守护进程。</td>
+    </tr>
+    <tr>
+      <td>/var/slogd</td>
+      <td>文件，日志组件。</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libsemanage.so.2</td>
+      <td rowspan="16">文件，驱动所需动态库。</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libmmpa.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libcrypto.so.1.1</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libdrvdsmi.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libdcmi.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libstackcore.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libmpi_dvpp_adapter.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libaicpu_scheduler.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libaicpu_processer.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libaicpu_prof.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libaicpu_sharder.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libadump.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libtsd_eventclient.so</td>
+    </tr>
+    <tr>
+      <td>/usr/lib64/libyaml-0.so.2</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>/usr/lib/aarch64-linux-gnu/libyaml-0.so.2</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>/usr/lib/aarch64-linux-gnu/libcrypto.so.1.1</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>/var/queue_schedule</td>
+      <td>管理FlowGW调度框架。</td>
+    </tr>
+    <tr>
+      <td>/etc/hccl_rootinfo.json</td>
+      <td>mindcluster-tools生成的rootinfo文件。</td>
+    </tr>
+    <tr>
+      <td>/usr/local/Ascend/driver/topo</td>
+      <td>拓扑目录。</td>
+    </tr>
+  </tbody>
+</table>
+
 # Ascend Docker Runtime命令说明<a name="ZH-CN_TOPIC_0000002511346347"></a>
 
 Ascend Docker Runtime安装后，会在安装目录生成可执行工具，涉及到的指令为内部命令，用户请勿直接使用，相关指令如[表1](#zh-cn_topic_0000001538744718_table0615184315110)所示。
