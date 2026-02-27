@@ -112,9 +112,9 @@ func (n *NPUNode) setChipPropertiesFromNPUNode() error {
 	}
 	n.VNode.ServerType = chipLabel
 
-	chipType, ok := n.Label[ChipTypeKey]
+	chipType, ok := n.Label[chipTypeKey]
 	if !ok {
-		return fmt.Errorf("setNodeVNPUInfo node %s no node label <%s>", n.Name, ChipTypeKey)
+		return fmt.Errorf("setNodeVNPUInfo node %s no node label <%s>", n.Name, chipTypeKey)
 	}
 	n.VNode.ChipType = chipType
 

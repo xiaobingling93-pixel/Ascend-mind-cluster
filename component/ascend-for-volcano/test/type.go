@@ -78,8 +78,6 @@ const (
 	fakeWholeCardStr           = "0,1,2,3"
 	serverTypeKey              = "servertype"
 	fake910ServerType          = "Ascend910B-20"
-	BaseDeviceInfoKey          = "baseDeviceInfos"
-	fakeBaseDeviceInfo         = "{}"
 )
 
 const (

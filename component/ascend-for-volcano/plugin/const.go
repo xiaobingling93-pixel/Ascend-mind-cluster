@@ -61,9 +61,10 @@ const (
 	PodGroupScheduleKey = "podgroup-sched-enable"
 	// PodGroupScheduleValue podgroup schedule the enable value
 	PodGroupScheduleValue = "true"
-
-	Ascend950Prefix = "Ascend950"
-	SplitedLength   = 2
+	// NPUResourceName npu resource name
+	NPUResourceName = "huawei.com/npu"
+	// NPUResourceNamePre npu resource name prefix
+	NPUResourceNamePre = "npu-"
 )
 
 const (
@@ -89,7 +90,7 @@ const (
 )
 
 const (
-	ChipTypeKey = "node.kubernetes.io/npu.chip.name"
+	chipTypeKey = "node.kubernetes.io/npu.chip.name"
 	// ChipTypeB1 chip type 910B1
 	ChipTypeB1 = util.ChipKind + "B1"
 	// ChipTypeB2C chip type 910B2C
