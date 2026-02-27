@@ -417,7 +417,6 @@ type Device struct { // Device
 
 // NpuBaseInfo npu base info
 type NpuBaseInfo struct {
-	DeviceID      *int32 `json:"DeviceID,omitempty"`
 	IP            string
 	SuperDeviceID uint32
 	// rank level info in rank table for A5
