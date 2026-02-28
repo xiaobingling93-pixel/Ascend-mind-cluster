@@ -166,7 +166,7 @@ func (de *downStreamEndpoint) startServer() (*downStreamEndpoint, error) {
 	if _, err := utils.IsHostValid(common.GetHostFromAddr(de.netInstance.config.ListenAddr)); err != nil {
 		return nil, err
 	}
-	hwlog.RunLog.Infof("listen on: %s", de.netInstance.config.ListenAddr)
+	de.netInstance.netlogger.Infof("listen on: %s", de.netInstance.config.ListenAddr)
 	listen, err := net.Listen("tcp", de.netInstance.config.ListenAddr)
 	if err != nil {
 		return nil, err
