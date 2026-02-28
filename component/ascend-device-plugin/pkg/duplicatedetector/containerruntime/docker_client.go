@@ -16,9 +16,6 @@
 package containerruntime
 
 import (
-	dtypes "Ascend-device-plugin/pkg/duplicatedetector/types"
-	"ascend-common/common-utils/hwlog"
-	"ascend-common/common-utils/utils"
 	"context"
 	"fmt"
 	"strings"
@@ -29,11 +26,15 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+
+	dtypes "Ascend-device-plugin/pkg/duplicatedetector/types"
+	"ascend-common/common-utils/hwlog"
+	"ascend-common/common-utils/utils"
 )
 
 type dockerClient struct {
-	client *client.Client
-	ociClient
+	client    *client.Client
+	ociClient *ociClient
 }
 
 const (
@@ -73,7 +74,7 @@ func NewDockerClient(criEndpoint string, ociEndpoint string) (*dockerClient, err
 	}
 	return &dockerClient{
 		client: cli,
-		ociClient: ociClient{
+		ociClient: &ociClient{
 			client: ctrClient,
 		},
 	}, nil
@@ -110,7 +111,7 @@ func (d *dockerClient) ParseSingleContainer(ctx context.Context, containerID str
 	}
 	labels := containerJson.Config.Labels
 
-	info, err := d.parseSingleContainer(ctx, containerID)
+	info, err := d.ociClient.ParseSingleContainer(ctx, containerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse single container %s: %w", containerID, err)
 	}

@@ -235,6 +235,9 @@ func getNPUMajorID() (sets.String, error) {
 
 // FilterNPUDevices filters NPU devices from container detail
 func FilterNPUDevices(spec *oci.Spec) []int {
+	if spec == nil || spec.Linux == nil || spec.Linux.Resources == nil {
+		return nil
+	}
 	devIDs := make([]int, 0)
 	majorIDs := npuMajor()
 	for _, dev := range spec.Linux.Resources.Devices {
