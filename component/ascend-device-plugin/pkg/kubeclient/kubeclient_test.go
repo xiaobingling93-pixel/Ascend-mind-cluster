@@ -609,3 +609,88 @@ func TestResetDeviceInfo(t *testing.T) {
 		convey.So(nodeDeviceInfoCache.RackID, convey.ShouldBeNil)
 	})
 }
+
+// TestGetContainerRuntime test get container runtime
+func TestGetContainerRuntime_Fail(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetContainerRuntime init kubernetes failed")
+	}
+	convey.Convey("test get container runtime when get node failed", t, func() {
+		mockGetNode := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", nil,
+			fmt.Errorf("get node failed"))
+		defer mockGetNode.Reset()
+
+		rt, err := client.GetContainerRuntime()
+		convey.So(rt, convey.ShouldEqual, "")
+		convey.So(err.Error(), convey.ShouldEqual, "failed to get node: get node failed")
+	})
+	convey.Convey("test get container runtime when container runtime version not found", t, func() {
+		mockNode := &v1.Node{
+			Status: v1.NodeStatus{
+				NodeInfo: v1.NodeSystemInfo{
+					ContainerRuntimeVersion: "",
+				},
+			},
+		}
+		mockGetNode := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", mockNode, nil)
+		defer mockGetNode.Reset()
+
+		rt, err := client.GetContainerRuntime()
+		convey.So(rt, convey.ShouldEqual, "")
+		convey.So(err.Error(), convey.ShouldEqual, "container runtime version not found in node status")
+	})
+	convey.Convey("test get container runtime with complex version string", t, func() {
+		mockNode := &v1.Node{
+			Status: v1.NodeStatus{
+				NodeInfo: v1.NodeSystemInfo{
+					ContainerRuntimeVersion: "docker://20.10.17-rc1-git-abcdef",
+				},
+			},
+		}
+		mockGetNode := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", mockNode, nil)
+		defer mockGetNode.Reset()
+
+		rt, err := client.GetContainerRuntime()
+		convey.So(rt, convey.ShouldEqual, DockerRuntime)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
+
+func TestGetContainerRuntime_Success(t *testing.T) {
+	client, err := newTestClientK8s()
+	if err != nil {
+		t.Fatal("TestGetContainerRuntime init kubernetes failed")
+	}
+	convey.Convey("test get container runtime for docker", t, func() {
+		mockNode := &v1.Node{
+			Status: v1.NodeStatus{
+				NodeInfo: v1.NodeSystemInfo{
+					ContainerRuntimeVersion: "docker://20.10.17",
+				},
+			},
+		}
+		mockGetNode := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", mockNode, nil)
+		defer mockGetNode.Reset()
+
+		rt, err := client.GetContainerRuntime()
+		convey.So(rt, convey.ShouldEqual, DockerRuntime)
+		convey.So(err, convey.ShouldBeNil)
+	})
+
+	convey.Convey("test get container runtime for containerd", t, func() {
+		mockNode := &v1.Node{
+			Status: v1.NodeStatus{
+				NodeInfo: v1.NodeSystemInfo{
+					ContainerRuntimeVersion: "containerd://1.6.8",
+				},
+			},
+		}
+		mockGetNode := gomonkey.ApplyMethodReturn(&ClientK8s{}, "GetNode", mockNode, nil)
+		defer mockGetNode.Reset()
+
+		rt, err := client.GetContainerRuntime()
+		convey.So(rt, convey.ShouldEqual, ContainerdRuntime)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}

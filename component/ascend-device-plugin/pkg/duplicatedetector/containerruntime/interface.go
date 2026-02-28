@@ -48,7 +48,8 @@ type ociClient struct {
 	client *containerd.Client
 }
 
-func (c *ociClient) parseSingleContainer(ctx context.Context, containerID string) (*types.ContainerNPUInfo, error) {
+// ParseSingleContainer parses a single container
+func (c *ociClient) ParseSingleContainer(ctx context.Context, containerID string) (*types.ContainerNPUInfo, error) {
 	task, err := c.client.TaskService().Get(ctx, &tasks.GetRequest{ContainerID: containerID})
 	if err != nil {
 		return nil, err
@@ -64,7 +65,7 @@ func (c *ociClient) parseSingleContainer(ctx context.Context, containerID string
 	}
 
 	spec, err := ctr.Spec(ctx)
-	if err != nil {
+	if err != nil || spec == nil {
 		return nil, fmt.Errorf("failed to get container spec: %w", err)
 	}
 	labels, err := ctr.Labels(ctx)

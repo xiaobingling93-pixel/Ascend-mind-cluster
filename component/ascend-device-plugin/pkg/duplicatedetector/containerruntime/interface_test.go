@@ -16,11 +16,16 @@ package containerruntime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/api/types/task"
+	"github.com/smartystreets/goconvey/convey"
 
 	"Ascend-device-plugin/pkg/duplicatedetector/types"
 	"Ascend-device-plugin/pkg/kubeclient"
@@ -33,6 +38,10 @@ func init() {
 	}
 	hwlog.InitRunLogger(&hwLogConfig, context.Background())
 }
+
+const (
+	timeout = 100 * time.Millisecond
+)
 
 func TestNewClient_NilConfig(t *testing.T) {
 	_, err := NewClient(nil)
@@ -128,4 +137,86 @@ func TestNewContainerdClient_ValidEndpoint(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected error: %v", err)
 	}
+}
+
+func TestParseSingleContainer01(t *testing.T) {
+	convey.Convey("TestParseSingleContainer", t, func() {
+		mockClient := &ociClient{
+			client: &containerd.Client{},
+		}
+		mtc := &mockTasksClient{}
+		mockResponse := &tasks.GetResponse{
+			Process: &task.Process{},
+		}
+		containerID := "containerID"
+		convey.Convey("01-get task failed will return error", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", nil, errors.New("get task failed"))
+			defer patch.Reset()
+			_, err := mockClient.ParseSingleContainer(context.Background(), "")
+			convey.So(err.Error(), convey.ShouldEqual, "get task failed")
+		})
+		convey.Convey("02-get task process failed will return error", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", mockResponse, nil).
+				ApplyMethodReturn(mockResponse, "GetProcess", nil)
+			defer patch.Reset()
+
+			_, err := mockClient.ParseSingleContainer(context.Background(), containerID)
+			convey.So(err.Error(), convey.ShouldEqual, "task not found for container containerID")
+		})
+		convey.Convey("03-load container failed will return error", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", mockResponse, nil).
+				ApplyMethodReturn(mockClient.client, "LoadContainer", nil, errors.New("load container failed"))
+			defer patch.Reset()
+			_, err := mockClient.ParseSingleContainer(context.Background(), containerID)
+			convey.So(err.Error(), convey.ShouldEqual, "load container failed")
+		})
+	})
+}
+
+func TestParseSingleContainer02(t *testing.T) {
+	convey.Convey("TestParseSingleContainer", t, func() {
+		mockClient := &ociClient{
+			client: &containerd.Client{},
+		}
+		mtc := &mockTasksClient{}
+		mockResponse := &tasks.GetResponse{
+			Process: &task.Process{},
+		}
+		mc := &mockContainer{}
+		containerID := "containerID"
+		convey.Convey("04-get container spec failed will return error", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", mockResponse, nil).
+				ApplyMethodReturn(mockClient.client, "LoadContainer", mc, nil).
+				ApplyMethodReturn(mc, "Spec", nil, errors.New("get container spec failed"))
+			defer patch.Reset()
+			_, err := mockClient.ParseSingleContainer(context.Background(), containerID)
+			convey.So(err.Error(), convey.ShouldEqual, "failed to get container spec: get container spec failed")
+		})
+		convey.Convey("05-get container label failed will return error", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", mockResponse, nil).
+				ApplyMethodReturn(mockClient.client, "LoadContainer", mc, nil).
+				ApplyMethodReturn(mc, "Labels", nil, errors.New("get container label failed"))
+			defer patch.Reset()
+			_, err := mockClient.ParseSingleContainer(context.Background(), containerID)
+			convey.So(err.Error(), convey.ShouldEqual, "failed to get container labels: get container label failed")
+		})
+		convey.Convey("06-get container info success will return correct info", func() {
+			patch := gomonkey.ApplyMethodReturn(mockClient.client, "TaskService", mtc).
+				ApplyMethodReturn(mtc, "Get", mockResponse, nil).
+				ApplyMethodReturn(mockClient.client, "LoadContainer", mc, nil)
+			defer patch.Reset()
+			info, err := mockClient.ParseSingleContainer(context.Background(), containerID)
+			convey.So(err, convey.ShouldBeNil)
+			convey.So(info.ID, convey.ShouldEqual, "test-container-id")
+		})
+	})
+}
+
+type mockTasksClient struct {
+	tasks.TasksClient
 }
