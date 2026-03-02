@@ -1217,9 +1217,10 @@ func TestLoadFaultFrequencyCustomizationCase2(t *testing.T) {
 		expectVal := map[string]*FaultFrequencyCache{
 			strings.ToLower(faultCode2): {Frequency: make(map[int32][]int64, common.MaxErrorCodeCount),
 				FaultFrequency: FaultFrequency{
-					TimeWindow:    86400,
-					Times:         3,
-					FaultHandling: ManuallySeparateNPU}}}
+					TimeWindow:        86400,
+					Times:             3,
+					FaultHandling:     ManuallySeparateNPU,
+					ReleaseTimeWindow: MaxReleaseTimeWindow}}}
 		faultFrequencyMap = map[string]*FaultFrequencyCache{
 			strings.ToLower(faultCode1): {Frequency: make(map[int32][]int64, common.MaxErrorCodeCount),
 				FaultFrequency: FaultFrequency{

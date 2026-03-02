@@ -702,6 +702,7 @@ func loadFaultFrequencyCustomization(customizations []FaultFrequencyCustomizatio
 				cache.TimeWindow = cus.TimeWindow
 				cache.Times = cus.Times
 				cache.FaultHandling = cus.FaultHandling
+				cache.ReleaseTimeWindow = cus.ReleaseTimeWindow
 				hwlog.RunLog.Debugf("update FaultFrequency for event id %s success, TimeWindow: %d, "+
 					"Times: %d, FaultHandling: %s", id, cus.TimeWindow, cus.Times, cus.FaultHandling)
 			} else {
@@ -988,12 +989,14 @@ func handleFrequencyFault(logicId int32, frequencyCache *FaultFrequencyCache, ev
 	} else {
 		if lastRecoverTime >= lastFaultTime &&
 			time.Now().UnixMilli()-lastRecoverTime > frequencyCache.ReleaseTimeWindow*SecondMagnification {
-			RemoveTimeoutReasonCache(LogicId(logicId), CodeMatcher(eventId))
+			RemoveTimeoutReasonCache(LogicId(logicId), CodeMatcher(eventId), TypeMatcher(FrequencyUpgradeType))
 		} else {
 			// if fault has in upgrade reason then update the fault time
+			// and because the fault has been upgraded, so don't count the fault times
 			if CheckUpgradeFaultCache(LogicId(logicId), eventId, frequencyCache.FaultHandling, FrequencyUpgradeType) {
 				InsertUpgradeFaultCache(LogicId(logicId), lastFaultTime, eventId,
 					frequencyCache.FaultHandling, FrequencyUpgradeType)
+				recoverFaultFrequencyMap[logicId] = eventId
 			}
 		}
 	}
@@ -1655,7 +1658,7 @@ func timeoutOrRecoveryAlgorithm(logicID int32, eventId string, timeoutStatus boo
 		hwlog.RunLog.Debugf(faultTimeoutMsg, logicID, process, process, float64(duration)/SecondMagnificationFloat,
 			timeoutThreshold, eventId, timeoutStatus)
 		return handleTimeoutCondition(handleDurationInputPara{logicID: logicID, eventId: eventId, index: i,
-			timeoutStatus: timeoutStatus, duration: duration, faultAlarmTime: preAlarmTime})
+			timeoutStatus: timeoutStatus, duration: duration, faultAlarmTime: preAlarmTime + timeoutThreshold*SecondMagnification})
 	}
 	if i*halfDivisor+1 == faultQueueLen {
 		faultDurationData := faultDurationMap[eventId].Duration[logicID]
@@ -1671,7 +1674,7 @@ func timeoutOrRecoveryAlgorithm(logicID int32, eventId string, timeoutStatus boo
 		hwlog.RunLog.Debugf(faultTimeoutMsg, logicID, process, process, float64(duration)/SecondMagnificationFloat,
 			timeoutThreshold, eventId, timeoutStatus)
 		return handleTimeoutCondition(handleDurationInputPara{logicID: logicID, eventId: eventId, index: i,
-			timeoutStatus: timeoutStatus, duration: duration, faultAlarmTime: lastAlarmTime})
+			timeoutStatus: timeoutStatus, duration: duration, faultAlarmTime: lastAlarmTime + timeoutThreshold*SecondMagnification})
 	}
 	if halfDivisor*i == faultQueueLen {
 		hwlog.RunLog.Debugf(faultNotTimeoutMsg, logicID, process, process, float64(duration)/SecondMagnificationFloat,
