@@ -56,8 +56,17 @@ func (r *ASJobReconciler) reconcileJob(ji *jobInfo) error {
 	oldStatus := ji.status.DeepCopy()
 	var err error
 	defer func() {
-		if err == nil && !reflect.DeepEqual(oldStatus, ji.status) {
-			err = r.Controller.UpdateJobStatusInApiServer(ji.job, ji.status)
+		if reflect.DeepEqual(oldStatus, ji.status) {
+			return
+		}
+		hwlog.RunLog.Debugf("Job status changed, attempting to update API server")
+		if updateErr := r.Controller.UpdateJobStatusInApiServer(ji.job, ji.status); updateErr != nil {
+			hwlog.RunLog.Warnf("Failed to update job status in API server: %v", updateErr)
+			if err == nil {
+				err = updateErr
+			}
+		} else {
+			hwlog.RunLog.Debugf("Successfully updated job status in API server")
 		}
 	}()
 
