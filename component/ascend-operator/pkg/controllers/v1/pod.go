@@ -85,7 +85,7 @@ func (r *ASJobReconciler) ReconcilePods(
 		return err
 	}
 
-	pi, err := r.newPodInfo(ascendJob, rtype, spec, frame)
+	pi, err := r.newPodInfo(ascendJob, rtype, spec, frame, jobStatus)
 	if err != nil {
 		return err
 	}
@@ -94,10 +94,10 @@ func (r *ASJobReconciler) ReconcilePods(
 }
 
 func (r *ASJobReconciler) newPodInfo(job *mindxdlv1.AscendJob, rtype commonv1.ReplicaType, spec *commonv1.ReplicaSpec,
-	frame string) (*podInfo, error) {
+	frame string, jobStatus *commonv1.JobStatus) (*podInfo, error) {
 	svcIp, svcPort, err := r.getMngSvcIpAndPort(job, frame, rtype)
 	if err != nil {
-		commonutil.UpdateJobConditions(&job.Status, commonv1.JobCreated, syncServiceFailedReason, err.Error())
+		commonutil.UpdateJobConditions(jobStatus, commonv1.JobCreated, syncServiceFailedReason, err.Error())
 		return nil, err
 	}
 

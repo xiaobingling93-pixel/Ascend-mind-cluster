@@ -119,6 +119,7 @@ func TestNewPodInfo01(t *testing.T) {
 		rtype := mindxdlv1.ReplicaTypeWorker
 		spec := newCommonSpec()
 		framework := "pytorch"
+		jobStats := &commonv1.JobStatus{}
 		convey.Convey("01-getMngSvcIpAndPort failed should return err", func() {
 			patch := gomonkey.ApplyPrivateMethod(new(ASJobReconciler), "getMngSvcIpAndPort",
 				func(_ *ASJobReconciler, _ *mindxdlv1.AscendJob, _ string, _ commonv1.ReplicaType) (string, string,
@@ -126,7 +127,7 @@ func TestNewPodInfo01(t *testing.T) {
 					return "", "", errors.New("getMngSvcIpAndPort failed")
 				})
 			defer patch.Reset()
-			_, err := rc.newPodInfo(job, rtype, spec, framework)
+			_, err := rc.newPodInfo(job, rtype, spec, framework, jobStats)
 			convey.So(err, convey.ShouldResemble, errors.New("getMngSvcIpAndPort failed"))
 		})
 	})
@@ -139,6 +140,7 @@ func TestNewPodInfo02(t *testing.T) {
 		rtype := mindxdlv1.ReplicaTypeWorker
 		spec := newCommonSpec()
 		framework := "pytorch"
+		jobStats := &commonv1.JobStatus{}
 		patch := gomonkey.ApplyPrivateMethod(new(ASJobReconciler), "getMngSvcIpAndPort",
 			func(_ *ASJobReconciler, _ *mindxdlv1.AscendJob, _ string, _ commonv1.ReplicaType) (string, string, error) {
 				return "127.0.0.1", "2222", nil
@@ -155,7 +157,7 @@ func TestNewPodInfo02(t *testing.T) {
 			patch3 := gomonkey.ApplyPrivateMethod(new(ASJobReconciler), "getClusterDSvcIp",
 				func(_ *ASJobReconciler) string { return "127.0.0.1" })
 			defer patch3.Reset()
-			_, err := rc.newPodInfo(job, rtype, spec, framework)
+			_, err := rc.newPodInfo(job, rtype, spec, framework, jobStats)
 			convey.So(err, convey.ShouldBeNil)
 		})
 	})
