@@ -271,9 +271,9 @@ func initResourceLevels(configs map[string]string) map[string][]util.ResourceTre
 	levels, err := getConfigLevels(configs)
 	if err != nil {
 		levels = map[string][]util.ResourceTreeLevel{}
-		klog.V(util.LogInfoLev).Infof("init resource levels failed: %v, set resource-level-config to empty", err)
+		klog.V(util.LogWarningLev).Infof("init resource levels failed: %v, set resource-level-config to empty", err)
 	}
-	klog.V(util.LogDebugLev).Infof("init resourceLevels, effected levels: %v", levels)
+	klog.V(util.LogInfoLev).Infof("init resourceLevels success, effected levels: %v", levels)
 	return levels
 }
 
@@ -288,7 +288,7 @@ func getConfigLevels(configurations map[string]string) (map[string][]util.Resour
 		return nil, fmt.Errorf("ummarshal config failed, %v", err)
 	}
 
-	var resourceTreeLevels map[string][]util.ResourceTreeLevel
+	resourceTreeLevels := make(map[string][]util.ResourceTreeLevel, len(levelConfigs))
 	for topoKey, levelConfig := range levelConfigs {
 		if len(levelConfigs) == 0 {
 			klog.V(util.LogErrorLev).Infof("get %v resource level config failed, config is empty", topoKey)
