@@ -17,7 +17,7 @@ package common
 
 import "sync/atomic"
 
-// AtomicBool is an atomic Boolean.
+// AtomicBool is an atomic Boolean struct.
 type AtomicBool struct{ v uint32 }
 
 // NewAtomicBool creates a AtomicBool.

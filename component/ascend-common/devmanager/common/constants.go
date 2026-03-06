@@ -38,7 +38,7 @@ var (
 
 	// a3BoardIds for A3 Board IDs
 	a3BoardIds = sets.NewInt32(A900A3SuperPodBin1BoardId, A900A3SuperPodBin2BoardId,
-		A900A3SuperPodBin3BoardId, A800IA3BoardId, A3SuperPodZQBoardId, A3ServerZQBoardId)
+		A900A3SuperPodBin3BoardId, A800IA3BoardId, A3SuperPodZQBoardId, A3ServerZQBoardId, A3SuperPodZQNpuBoardId, A3ServerZQNpuBoardId)
 
 	// a900A3SuperPodMainBoardIds for A900 A3 Super Pod Main Board IDs
 	a900A3SuperPodMainBoardIds = sets.NewInt32(A900A3SuperPodMainBoardId1, A900A3SuperPodMainBoardId2)
@@ -217,6 +217,12 @@ const (
 
 	// A3ServerZQBoardId board id of A3 Server ZQ (Zuque Server)
 	A3ServerZQBoardId = 0x83
+
+	// A3SuperPodZQNpuBoardId is the board ID of A3 SuperPod ZQ (Zuque SuperPod).
+	A3SuperPodZQNpuBoardId = 0xd1
+
+	// A3ServerZQNpuBoardId is the board ID of A3 Server ZQ (Zuque Server).
+	A3ServerZQNpuBoardId = 0xd3
 )
 
 // log limit domains for metrics
