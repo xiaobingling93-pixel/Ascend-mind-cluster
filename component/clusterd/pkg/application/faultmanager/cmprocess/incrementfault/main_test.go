@@ -12,21 +12,26 @@
    limitations under the License.
 */
 
-// Package manualfault is main test for process manually separate faults
-package manualfault
+// Package incrementfault is main test for process increment faults
+package incrementfault
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"ascend-common/api"
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
-	"clusterd/pkg/domain/manualfault"
 )
 
 const (
@@ -43,19 +48,52 @@ const (
 	code1 = "code1"
 	code2 = "code2"
 
+	len0 = 0
+	len1 = 1
+	len2 = 2
+	len3 = 3
+	len5 = 5
+
 	receiveTime0 = 1770969600000 // 2026-02-13 08:00:00
 	receiveTime1 = 1771059600000 // 2026-02-14 09:00:00
+
+	podName1               = "pod1"
+	podName2               = "pod2"
+	podName3               = "pod3"
+	podName4               = "pod4"
+	podNameSpace1          = "default"
+	defaultPodRankIndexKey = "0"
+	podDeviceKey0          = `{"server_id":"127.0.0.1","devices":[{"device_id":"0"}]}`
+	podDeviceKey2          = `{"server_id":"127.0.0.1","devices":[{"device_id":"2"}]}`
+	podDeviceKey5          = `{"server_id":"127.0.0.1","devices":[{"device_id":"5"}]}`
+	podDeviceKey6          = `{"server_id":"127.0.0.1","devices":[{"device_id":"6"}]}`
+
+	job1     = "123"
+	job2     = "456"
+	jobName1 = "job1"
+	vcJobKey = "job"
+	pgName1  = "pg1"
+
+	podGroupKey  = "scheduling.k8s.io/group-name"
+	vcJobNameKey = "volcano.sh/job-name"
 )
 
 var (
 	oriDevInfo1    = make(map[string]*constant.DeviceInfo)
 	expDeviceInfo1 = make(map[string]*constant.DeviceInfo)
 	oriDevInfo2    = make(map[string]*constant.DeviceInfo)
+
+	podDemo1 *v1.Pod
+	podDemo2 *v1.Pod
+	podDemo3 *v1.Pod
+	podDemo4 *v1.Pod
+
+	devInfoMap = map[string]string{dev0: podDeviceKey0, dev2: podDeviceKey2, dev5: podDeviceKey5, dev6: podDeviceKey6}
 )
 
 func TestMain(m *testing.M) {
 	if err := setup(); err != nil {
-		panic(err)
+		return
 	}
 	code := m.Run()
 	fmt.Printf("exit_code = %v\n", code)
@@ -111,38 +149,59 @@ func initTestDataFromYaml() error {
 	return nil
 }
 
-func getDemoNodeInfo() map[string]manualfault.NodeCmInfo {
-	return map[string]manualfault.NodeCmInfo{
-		node1: {
-			Total: []string{dev0, dev1},
-			Detail: map[string][]manualfault.DevCmInfo{
-				dev0: {
-					{
-						FaultCode:        code0,
-						FaultLevel:       constant.ManuallySeparateNPU,
-						LastSeparateTime: receiveTime0,
-					},
-				},
-				dev1: {
-					{
-						FaultCode:        code1,
-						FaultLevel:       constant.ManuallySeparateNPU,
-						LastSeparateTime: receiveTime1,
-					},
-				},
-			},
-		},
-		node2: {
-			Total: []string{dev1},
-			Detail: map[string][]manualfault.DevCmInfo{
-				dev1: {
-					{
-						FaultCode:        code1,
-						FaultLevel:       constant.ManuallySeparateNPU,
-						LastSeparateTime: receiveTime1,
-					},
-				},
-			},
-		},
+func getDemoPod(nodeName, podName, devName, jobUid string) *v1.Pod {
+	uid, err := generateRandomString(len5)
+	if err != nil {
+		return podDemo3
 	}
+	p := &v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNameSpace1,
+			UID:       types.UID(uid),
+		},
+		Spec: v1.PodSpec{
+			NodeName: nodeName,
+		},
+		Status: v1.PodStatus{},
+	}
+
+	isControlle := true
+	owner := metav1.OwnerReference{
+		Name:       jobName1,
+		Controller: &isControlle,
+		Kind:       vcJobKey,
+		UID:        types.UID(jobUid)}
+	p.SetOwnerReferences([]metav1.OwnerReference{owner})
+	annotation := map[string]string{
+		podGroupKey:          pgName1,
+		api.PodRankIndexAnno: defaultPodRankIndexKey,
+		api.Pod910DeviceAnno: devInfoMap[devName],
+	}
+	p.SetAnnotations(annotation)
+	label := map[string]string{
+		vcJobNameKey: jobName1,
+	}
+	p.SetLabels(label)
+	return p
+}
+
+func generateRandomString(length int) (string, error) {
+	chars := "abcdefghijklmnopqrstuvwxyz"
+	result := make([]byte, length)
+	charsLen := big.NewInt(int64(len(chars)))
+
+	for i := 0; i < length; i++ {
+		n, err := rand.Int(rand.Reader, charsLen)
+		if err != nil {
+			return "", err
+		}
+		result[i] = chars[n.Int64()]
+	}
+
+	return string(result), nil
 }

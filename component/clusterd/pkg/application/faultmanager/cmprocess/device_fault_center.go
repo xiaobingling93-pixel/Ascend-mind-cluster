@@ -5,6 +5,7 @@ package cmprocess
 
 import (
 	"clusterd/pkg/application/faultmanager/cmprocess/custom"
+	"clusterd/pkg/application/faultmanager/cmprocess/incrementfault"
 	"clusterd/pkg/application/faultmanager/cmprocess/manualfault"
 	"clusterd/pkg/application/faultmanager/cmprocess/preseparate"
 	"clusterd/pkg/application/faultmanager/cmprocess/publicfault"
@@ -38,6 +39,7 @@ func init() {
 		recoverinplace.RecoverInplaceProcessor, // this processor filter the single process faults.
 		stresstest.StressTestProcessor,         // this processor filter the stress test faults.
 		preseparate.PreSeparateFaultProcessor,  // this processor process the preSeparate faults.
+		incrementfault.IncrementFaultProcessor, // this processor process the increment faults.
 		manualfault.ManualFaultProcessor,       // this processor process the manually separate faults.
 	})
 }
