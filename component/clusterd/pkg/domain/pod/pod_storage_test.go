@@ -31,19 +31,28 @@ const (
 	defaultPodRankIndexKey = "0"
 	errorPodRankIndexKey   = "-1"
 	defaultPodDeviceKey    = `{"server_id":"127.0.0.1","devices":[{"device_id":"0"}]}`
+	podDeviceKey2          = `{"server_id":"127.0.0.1","devices":[{"device_id":"2"}]}`
+	podDeviceKey5          = `{"server_id":"127.0.0.1","devices":[{"device_id":"5"}]}`
 	ptFramework            = "pytorch"
 	envName                = "testEnv"
 	envValue               = "true"
 
+	dev0     = "0"
+	dev2     = "2"
+	dev5     = "5"
 	jobUid1  = "123"
 	jobUid2  = "456"
+	jobUid3  = "789"
 	jobName1 = "job1"
+	jobName2 = "job2"
+	jobName3 = "job3"
 	vcJobKey = "job"
 	pgName1  = "pg1"
 	sharedIp = "127.0.0.1"
 
 	nodeName1 = "node1"
 	nodeName2 = "node2"
+	nodeName3 = "node3"
 	nodeIp1   = "192.168.1.1"
 	nodeSn1   = "sn1"
 

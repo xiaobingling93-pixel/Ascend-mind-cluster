@@ -5,6 +5,7 @@ package pod
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -482,4 +483,41 @@ func GetPodByRankIndexInPods(podRank string, podsInJob map[string]v1.Pod) v1.Pod
 		}
 	}
 	return v1.Pod{}
+}
+
+// CreateDevNameJobMap create dev name job map. devType: eg. Ascend910
+func CreateDevNameJobMap(nodeName string, devType string) map[string]string {
+	devJobMap := make(map[string]string)
+	pods, exist := GetPodsByNodeName(nodeName)
+	if !exist {
+		return nil
+	}
+	for _, podInfo := range pods {
+		jobId := GetJobKeyByPod(&podInfo)
+		if jobId == "" {
+			continue
+		}
+		usedDevs := GetPodUsedDev(podInfo)
+		for _, devId := range usedDevs {
+			devName := convertDevIdToName(devId, devType)
+			devJobMap[devName] = jobId
+		}
+	}
+	return devJobMap
+}
+
+func convertDevIdToName(id string, devType string) string {
+	return fmt.Sprintf("%s-%s", devType, id)
+}
+
+// GetJobIdByDev get job id by dev
+func GetJobIdByDev(devJobMap map[string]string, devName string) string {
+	if len(devJobMap) == 0 {
+		return ""
+	}
+	jobId, ok := devJobMap[devName]
+	if !ok {
+		return ""
+	}
+	return jobId
 }

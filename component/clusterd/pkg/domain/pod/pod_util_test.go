@@ -6,6 +6,7 @@
 package pod
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -504,4 +505,62 @@ func TestGetPodUsedDev(t *testing.T) {
 			convey.So(len(usedDev), convey.ShouldEqual, 0)
 		})
 	})
+}
+
+func TestCreateDevNameJobMap(t *testing.T) {
+	convey.Convey("test CreateDevNameJobMap and GetJobIdByDev", t, func() {
+		convey.Convey("test CreateDevNameJobMap and GetJobIdByDev success", testCreateDevNameJobMapAndGet)
+	})
+}
+
+func testCreateDevNameJobMapAndGet() {
+	podManager.nodePodMap = make(map[string]map[string]v1.Pod)
+	// node1, job1, dev0
+	podDemo1 := getDemoPod(podName1, podNameSpace1, podUid1)
+	// node1, job2, dev2
+	podDemo2 := getDemoPod(podName2, podNameSpace1, podUid2)
+	annotation := map[string]string{api.Pod910DeviceAnno: podDeviceKey2}
+	podDemo2.SetAnnotations(annotation)
+	podDemo2.OwnerReferences[0].UID = jobUid2
+	podDemo2.OwnerReferences[0].Name = jobName2
+	// node2, job1, dev0
+	podDemo3 := getDemoPod(podName1, podNameSpace1, podUid1)
+	podDemo3.Spec.NodeName = nodeName2
+	// node2, job3, dev5
+	podDemo4 := getDemoPod(podName2, podNameSpace1, podUid2)
+	podDemo4.Spec.NodeName = nodeName2
+	annotation = map[string]string{api.Pod910DeviceAnno: podDeviceKey5}
+	podDemo4.SetAnnotations(annotation)
+	podDemo4.OwnerReferences[0].UID = jobUid3
+	podDemo4.OwnerReferences[0].Name = jobName3
+	SavePod(podDemo1)
+	SavePod(podDemo2)
+	SavePod(podDemo3)
+	SavePod(podDemo4)
+	defer func() {
+		DeletePod(podDemo1)
+		DeletePod(podDemo2)
+		DeletePod(podDemo3)
+		DeletePod(podDemo4)
+	}()
+
+	devJobMap := CreateDevNameJobMap(nodeName1, api.Ascend910)
+	jobName := GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev0))
+	convey.So(jobName, convey.ShouldEqual, jobUid1)
+	jobName = GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev2))
+	convey.So(jobName, convey.ShouldEqual, jobUid2)
+	// no job on dev5
+	jobName = GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev5))
+	convey.So(jobName, convey.ShouldEqual, "")
+
+	devJobMap = CreateDevNameJobMap(nodeName2, api.Ascend910)
+	jobName = GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev0))
+	convey.So(jobName, convey.ShouldEqual, jobUid1)
+	jobName = GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev5))
+	convey.So(jobName, convey.ShouldEqual, jobUid3)
+
+	// no job on node3
+	devJobMap = CreateDevNameJobMap(nodeName3, api.Ascend910)
+	jobName = GetJobIdByDev(devJobMap, fmt.Sprintf("%s-%s", api.Ascend910, dev0))
+	convey.So(jobName, convey.ShouldEqual, "")
 }

@@ -17,26 +17,19 @@
 package manualfault
 
 import (
-	"fmt"
-
 	"ascend-common/common-utils/hwlog"
 	"clusterd/pkg/common/constant"
 	"clusterd/pkg/domain/conf"
 	"clusterd/pkg/domain/manualfault"
-	"clusterd/pkg/domain/pod"
 )
 
 // ManualFaultProcessor is used to process manually separate faults
 var ManualFaultProcessor *manualFaultProcessor
 
-type manualFaultProcessor struct {
-	nodeDeviceCmMap map[string]*constant.AdvanceDeviceFaultCm
-}
+type manualFaultProcessor struct{}
 
 func init() {
-	ManualFaultProcessor = &manualFaultProcessor{
-		nodeDeviceCmMap: make(map[string]*constant.AdvanceDeviceFaultCm),
-	}
+	ManualFaultProcessor = &manualFaultProcessor{}
 }
 
 // Process is used to process manually separate faults
@@ -52,29 +45,6 @@ func (p *manualFaultProcessor) Process(info any) any {
 	}
 	devInfos := processContent.AllConfigmap
 	p.loadManualSepToClusterInfoCm(devInfos)
-
-	for nodeName, devCmInfo := range devInfos {
-		// only care about occur, ignore recover
-		if len(devCmInfo.FaultDeviceList) == 0 {
-			continue
-		}
-		oldDevInfo, ok := p.nodeDeviceCmMap[nodeName]
-		if !ok {
-			p.dealIncrementFaultForNode(nodeName, devCmInfo.FaultDeviceList, devCmInfo.DeviceType)
-			continue
-		}
-		if oldDevInfo.IsSame(devCmInfo) {
-			// fault have no changed, ignore
-			continue
-		}
-		incrementFault := p.getIncrementFault(oldDevInfo.FaultDeviceList, devCmInfo.FaultDeviceList)
-		if len(incrementFault) == 0 {
-			// no increment fault, ignore
-			continue
-		}
-		p.dealIncrementFaultForNode(nodeName, incrementFault, devCmInfo.DeviceType)
-	}
-	p.nodeDeviceCmMap = processContent.AllConfigmap
 	return info
 }
 
@@ -106,106 +76,4 @@ func (p *manualFaultProcessor) loadManualSepToClusterInfoCm(devInfos map[string]
 		}
 	}
 	hwlog.RunLog.Debug("load manual fault cache to cluster info cm success")
-}
-
-func (p *manualFaultProcessor) dealIncrementFaultForNode(nodeName string,
-	incrementFault map[string][]constant.DeviceFault, devType string) {
-	devNameJobMap := createDevNameJobMap(nodeName, devType)
-	for devName, faults := range incrementFault {
-		jobId := getJobIdByDev(devNameJobMap, devName)
-		for _, fault := range faults {
-			for code, level := range fault.FaultTimeAndLevelMap {
-				// for dp isolated faults, clusterd counts normally.
-				// dp isolated fault: code is fault code, level is ManuallySeparateNPU
-				// clusterd isolated fault: code and level are both ManuallySeparateNPU
-				if level.FaultLevel == constant.NotHandleFault || level.FaultLevel == constant.SubHealthFault ||
-					(level.FaultLevel == constant.ManuallySeparateNPU && code == constant.ManuallySeparateNPU) {
-					continue
-				}
-				faultInfo := &manualfault.Fault{
-					Code:        code,
-					JobId:       jobId,
-					NodeName:    nodeName,
-					DevName:     devName,
-					ReceiveTime: level.FaultReceivedTime,
-				}
-				manualfault.JobFaultMgr.AddFault(faultInfo)
-			}
-		}
-	}
-}
-
-func createDevNameJobMap(nodeName string, devType string) map[string]string {
-	devJobMap := make(map[string]string)
-	pods, exist := pod.GetPodsByNodeName(nodeName)
-	if !exist {
-		return nil
-	}
-	for _, podInfo := range pods {
-		jobId := pod.GetJobKeyByPod(&podInfo)
-		if jobId == "" {
-			continue
-		}
-		usedDevs := pod.GetPodUsedDev(podInfo)
-		for _, devId := range usedDevs {
-			devName := convertDevIdToName(devId, devType)
-			devJobMap[devName] = jobId
-		}
-	}
-	return devJobMap
-}
-
-func getJobIdByDev(devJobMap map[string]string, devName string) string {
-	if len(devJobMap) == 0 {
-		return ""
-	}
-	jobId, ok := devJobMap[devName]
-	if !ok {
-		return ""
-	}
-	return jobId
-}
-
-func convertDevIdToName(id string, devType string) string {
-	return fmt.Sprintf("%s-%s", devType, id)
-}
-
-// getIncrementFault newInfo have, but oldInfo not have
-func (p *manualFaultProcessor) getIncrementFault(oldInfo, newInfo map[string][]constant.DeviceFault) map[string][]constant.DeviceFault {
-	if len(newInfo) == 0 {
-		return make(map[string][]constant.DeviceFault)
-	}
-	incrementFault := make(map[string][]constant.DeviceFault)
-	for devName, faults := range newInfo {
-		oldFaults, ok := oldInfo[devName]
-		if !ok {
-			incrementFault[devName] = append([]constant.DeviceFault(nil), faults...)
-			continue
-		}
-		for _, fault := range faults {
-			if isContainFault(fault, oldFaults) {
-				// not increment
-				continue
-			}
-			// notice: if the device fault info needs to be modified,
-			// remember to check if the structure of the device fault info contains a reference type
-			incrementFault[devName] = append(incrementFault[devName], fault)
-		}
-	}
-	return incrementFault
-}
-
-// isContainFault whether newFault contains in oldFaults. if contains, not increment; if not contain, increment.
-func isContainFault(newFault constant.DeviceFault, oldFaults []constant.DeviceFault) bool {
-	var isContain bool
-	for _, oldFault := range oldFaults {
-		for code, level := range oldFault.FaultTimeAndLevelMap {
-			newLevel, ok := newFault.FaultTimeAndLevelMap[code]
-			if ok && newLevel.FaultReceivedTime == level.FaultReceivedTime && newLevel.FaultLevel == level.FaultLevel {
-				isContain = true
-				break
-			}
-		}
-	}
-	return isContain
 }
