@@ -322,12 +322,12 @@ func (hdm *HwDevManager) addTopologyLabel(newLabelMap map[string]string) {
 	if common.ParamOption.RealCardType == api.Ascend910A5 {
 		superPodId := hdm.manager.GetSuperPodID()
 		if int(superPodId) >= 0 {
-			hwlog.RunLog.Infof("A5 device add superid label: %d", superPodId)
+			hwlog.RunLog.Infof("npu device add superid label: %d", superPodId)
 			newLabelMap[npuCommon.TopoLabelSuperPodId] = strconv.Itoa(int(superPodId))
 		}
 		rackId := hdm.manager.GetRackID()
 		if int(rackId) >= 0 {
-			hwlog.RunLog.Infof("A5 device add rackid label: %d", superPodId)
+			hwlog.RunLog.Infof("npu device add rackid label: %d", superPodId)
 			newLabelMap[npuCommon.TopoLabelRackId] = strconv.Itoa(int(rackId))
 		}
 	}
