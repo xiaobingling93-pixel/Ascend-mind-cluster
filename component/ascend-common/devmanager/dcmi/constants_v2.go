@@ -21,3 +21,12 @@ const (
 	// MaxUrmaDevCnt is max count of urma device on the device for A5
 	MaxUrmaDevCnt = 128
 )
+
+const maxCArraySize = 1 << 30 // 1 Gi elements; practical upper bound for C array mapping
+
+const (
+	dcmiLibraryName    = "libdcmi.so"
+	templateNameLen    = 32
+	ipAddrListLen      = 1024
+	hcclpingMeshMaxNum = 48
+)

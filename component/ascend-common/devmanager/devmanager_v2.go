@@ -13,7 +13,6 @@ import (
 	"ascend-common/common-utils/hwlog"
 	"ascend-common/devmanager/common"
 	"ascend-common/devmanager/dcmi"
-	"ascend-common/devmanager/dcmiv2"
 )
 
 // check if the struct DeviceManagerV2 implements the DeviceInterface interface not not in build stage
@@ -22,7 +21,7 @@ var _ DeviceInterface = &DeviceManagerV2{}
 // DeviceManagerV2 common device manager by dcmiv2 api
 type DeviceManagerV2 struct {
 	// DcMgr for common dev manager
-	DcMgr dcmiv2.DcDriverInterface
+	DcMgr dcmi.DcV2DriverInterface
 	// DevType the value is the same as the device type corresponding to the DcMgr variable.
 	DevType string
 	// ProductTypes product type in server
@@ -102,7 +101,7 @@ func DetectDcmiApiVersion() (string, error) {
 	}
 
 	mgrv2 := DeviceManagerV2{
-		DcMgr: &dcmiv2.DcManager{},
+		DcMgr: &dcmi.DcV2Manager{},
 	}
 	if err = mgrv2.Init(); err == nil {
 		if err := mgrv2.ShutDown(); err != nil {
@@ -123,7 +122,7 @@ func DetectDcmiApiVersion() (string, error) {
 func DeviceManagerInit(dType string, resetTimeout int) (DeviceInterface, error) {
 	devManagerV2Once.Do(func() {
 		mgr := DeviceManagerV2{
-			DcMgr: &dcmiv2.DcManager{},
+			DcMgr: &dcmi.DcV2Manager{},
 		}
 		if !initDeviceManager(&mgr) {
 			return

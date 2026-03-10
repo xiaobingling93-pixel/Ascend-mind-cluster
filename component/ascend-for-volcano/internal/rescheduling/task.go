@@ -68,7 +68,7 @@ func (fTask *FaultTask) getTaskHealthStateBySubHealth(subHealthyStrategy string)
 	return true, SubHealthFault
 }
 
-func (fTask *FaultTask) getUseCardName(task *api.TaskInfo, cardName string) ([]string, error) {
+func (fTask *FaultTask) getUseCardName(task *api.TaskInfo, cardName string, env plugin.ScheduleEnv) ([]string, error) {
 	if !fTask.IsNpuTask {
 		return nil, nil
 	}
@@ -77,6 +77,19 @@ func (fTask *FaultTask) getUseCardName(task *api.TaskInfo, cardName string) ([]s
 		return nil, fmt.Errorf("%s has no NPU from %s", task.Name, cardName)
 	}
 	taskNPUs := strings.Split(strNpu, ",")
+	node, ok := env.Nodes[task.NodeName]
+	if !ok {
+		return nil, fmt.Errorf("%s has no node %s", task.Name, cardName)
+	}
+	chipName, ok := node.Label[plugin.ChipTypeKey]
+	if ok && strings.HasPrefix(chipName, plugin.Ascend950Prefix) {
+		klog.V(util.LogDebugLev).Infof("convert deviceID to physicID for task %s on node %s", task.Name, node.Name)
+		convertedTaskNPUs, err := plugin.ConvertDeviceIDToPhyID(taskNPUs, node.PhyIDToDeviceIDMap)
+		if err != nil {
+			return nil, fmt.Errorf("convert deviceID to phyID failed: %v", err)
+		}
+		taskNPUs = convertedTaskNPUs
+	}
 	var taskPhysicsNPUs []string
 	for _, taskNPU := range taskNPUs {
 		taskNPU = plugin.GetPhysicCardNameFromVChip(taskNPU) // transfer vnpu like Ascend310P-1c-400-1_0
@@ -109,6 +122,8 @@ func (fTask *FaultTask) DeleteRealPodByTask(kubeClient kubernetes.Interface, wai
 func (fTask *FaultTask) getTaskUseFaultCardHealthState(fNode *FaultNode) []string {
 	var nodeUseCardHealthState []string
 	for _, taskUseCard := range fTask.UseCardName {
+		klog.V(util.LogDebugLev).Infof("task [%s] use card [%s], node [%s] unhealthy npu [%v]",
+			fTask.TaskName, taskUseCard, fNode.NodeName, fNode.UnhealthyNPU)
 		if util.IsSliceContain(taskUseCard, fNode.UnhealthyNPU) {
 			nodeUseCardHealthState = append(nodeUseCardHealthState, NodeCardUnhealthy)
 			continue
