@@ -552,3 +552,27 @@ func initScoreMap(nodes []*api.NodeInfo) map[string]float64 {
 	}
 	return scoreMap
 }
+
+func ConvertDeviceIDToPhyID(deviceIDList []string, phyIDToDeviceIDMap map[int32]int32) ([]string, error) {
+	deviceIDToPhyIDMap := make(map[int32]int32)
+	for k, v := range phyIDToDeviceIDMap {
+		deviceIDToPhyIDMap[v] = k
+	}
+	phyIDList := make([]string, len(deviceIDList))
+	for i, deviceIDStr := range deviceIDList {
+		split := strings.Split(deviceIDStr, "-")
+		if len(split) != SplitedLength {
+			return nil, fmt.Errorf("got invalid deviceIDStr: %s", deviceIDStr)
+		}
+		deviceID, err := strconv.Atoi(split[1])
+		if err != nil {
+			return nil, fmt.Errorf("got invalid deviceID: %s", split[1])
+		}
+		phyID, ok := deviceIDToPhyIDMap[int32(deviceID)]
+		if !ok {
+			return nil, fmt.Errorf("can not convert deviceID: %d", deviceID)
+		}
+		phyIDList[i] = fmt.Sprintf("%s-%d", split[0], phyID)
+	}
+	return phyIDList, nil
+}

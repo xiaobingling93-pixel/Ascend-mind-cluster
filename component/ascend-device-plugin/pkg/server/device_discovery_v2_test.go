@@ -17,6 +17,7 @@
 package server
 
 import (
+	"ascend-common/devmanager/dcmi"
 	"errors"
 	"os"
 	"strconv"
@@ -34,7 +35,6 @@ import (
 	"ascend-common/api"
 	"ascend-common/devmanager"
 	devcommon "ascend-common/devmanager/common"
-	"ascend-common/devmanager/dcmiv2"
 )
 
 var (
@@ -84,18 +84,18 @@ func setK8sPatch() *gomonkey.Patches {
 
 func setDcmiPatch() *gomonkey.Patches {
 	patch := gomonkey.ApplyFuncReturn(devmanager.DetectDcmiApiVersion, devmanager.DcmiApiV2, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcInit", nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetDcmiVersion", mockDcmiVersion, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetDeviceList", mockDeviceNum, mockDeviceList, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetChipInfo", mockChipInfo, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetDeviceBoardInfo", mockBoardInfo, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetDeviceMainBoardInfo", mockMainBoardId, nil).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetVDeviceInfo", mockVirtualDevInfo, nil).
-		ApplyMethod(&dcmiv2.DcManager{}, "DcGetPhysicIDFromLogicID",
-			func(d *dcmiv2.DcManager, logicID int32) (int32, error) {
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcInit", nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetDcmiVersion", mockDcmiVersion, nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetDeviceList", mockDeviceNum, mockDeviceList, nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetChipInfo", mockChipInfo, nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetDeviceBoardInfo", mockBoardInfo, nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetDeviceMainBoardInfo", mockMainBoardId, nil).
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetVDeviceInfo", mockVirtualDevInfo, nil).
+		ApplyMethod(&dcmi.DcV2Manager{}, "DcGetPhysicIDFromLogicID",
+			func(d *dcmi.DcV2Manager, logicID int32) (int32, error) {
 				return logicID, nil
 			}).
-		ApplyMethodReturn(&dcmiv2.DcManager{}, "DcGetSuperPodInfo", devcommon.CgoSuperPodInfo{}, mockErr)
+		ApplyMethodReturn(&dcmi.DcV2Manager{}, "DcGetSuperPodInfo", devcommon.CgoSuperPodInfo{}, mockErr)
 	return patch
 }
 
