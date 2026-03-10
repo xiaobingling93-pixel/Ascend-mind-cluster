@@ -224,7 +224,7 @@ func setupDeviceInfo(mgr *DeviceManagerV2, dType string) bool {
 		hwlog.RunLog.Errorf("unsupport device type (%s)", devType)
 		return false
 	}
-	hwlog.RunLog.Infof("chipName: %v, devType: %v", chipInfo.Name, devType)
+	hwlog.RunLog.Infof("chipName: %v, devType: %v", chipInfo.Name, devTypeMap[devType])
 	if dType != "" && devType != dType {
 		hwlog.RunLog.Errorf("the value of dType(%s) is inconsistent with the actual chip type(%s)", dType, devType)
 		return false
@@ -623,7 +623,7 @@ func (d *DeviceManagerV2) GetAllProductType() ([]string, error) {
 
 // GetNpuWorkMode get work mode of NPU
 func (d *DeviceManagerV2) GetNpuWorkMode() string {
-	hwlog.RunLog.Warnf("only AMP mode is available on %s", d.DevType)
+	hwlog.RunLog.Warnf("only AMP mode is available on %s", devTypeMap[d.DevType])
 	return common.AMPMode
 }
 
