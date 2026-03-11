@@ -40,8 +40,8 @@ class OpticalModuleThreshold:
     CDR_HOST_SNR_DB = Threshold(low_threshold_alarm="20", desc="cdr host snr", unit="dB")
     CDR_MEDIA_SNR_DB = Threshold(low_threshold_alarm="20", desc="cdr media snr", unit="dB")
     # 直接信噪比, 约等于56db
-    CDR_HOST_SNR_LINE = Threshold(low_threshold_alarm="400000", desc="cdr host snr")
-    CDR_MEDIA_SNR_LINE = Threshold(low_threshold_alarm="400000", desc="cdr media snr")
+    CDR_HOST_SNR_LINE = Threshold(low_threshold_alarm="400000", desc="cdr host snr", unit="")
+    CDR_MEDIA_SNR_LINE = Threshold(low_threshold_alarm="400000", desc="cdr media snr", unit="")
 
     # 网络状态阈值（字符串相等判断）
     # 逻辑：只有等于normal_value_alarm的才是正常，其他均为异常

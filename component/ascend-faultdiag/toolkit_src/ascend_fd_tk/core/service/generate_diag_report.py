@@ -16,12 +16,16 @@
 # ==============================================================================
 
 import os.path
+import time
 
 from ascend_fd_tk.core.common.path import CommonPath
 from ascend_fd_tk.core.context.diag_ctx import DiagCtx
 from ascend_fd_tk.core.service.base import DiagService
-from ascend_fd_tk.utils import csv_tool
 from ascend_fd_tk.utils.logger import DIAG_LOGGER
+from ascend_fd_tk.utils.excel_tool import ExcelGenerator
+from ascend_fd_tk.core.report.sheet.diag_report_sheet import DiagReportSheetGenerator
+from ascend_fd_tk.core.report.sheet.optical_module_sheet import HostToSwitchOpticalModuleSheetGenerator
+from ascend_fd_tk.core.report.sheet.switch_optical_module_sheet import SwitchOpticalModuleSheetGenerator
 
 
 class GenerateDiagReport(DiagService):
@@ -38,11 +42,58 @@ class GenerateDiagReport(DiagService):
                 DIAG_LOGGER.error(f"打开文件失败：{e}")
 
     async def run(self):
-        result = [diag_result.to_dict() for diag_result in self.diag_ctx.diag_result]
-        result.sort(key=lambda x: x["故障域"])
-        if not result:
+        # 收集诊断结果
+        diag_results = self.diag_ctx.diag_result
+        if not diag_results:
             DIAG_LOGGER.warning("诊断数据为空，请确认是否使用auto_collect进行信息采集")
             return
+
+        # 创建Excel生成器实例
+        excel_gen = ExcelGenerator()
+
+        # 创建报告目录
         os.makedirs(CommonPath.REPORT_DIR, exist_ok=True)
-        csv_tool.dict_list_to_csv(result, CommonPath.REPORT_FILE, columns=["故障域", "故障码", "故障信息", "处理建议"])
-        self._open_excel_windows(CommonPath.REPORT_FILE)
+
+        # 生成带时间后缀的文件名
+        time_suffix = time.strftime("%Y%m%d_%H%M%S")
+        excel_file_name = f"diag_report_{time_suffix}.xlsx"
+        excel_file_path = os.path.join(CommonPath.REPORT_DIR, excel_file_name)
+
+        try:
+            # 生成诊断报告Sheet
+            DIAG_LOGGER.info("正在生成诊断报告Sheet...")
+            diag_report_sheet = DiagReportSheetGenerator(
+                cluster_info=self.diag_ctx.cache,
+                excel_gen=excel_gen,
+                diag_results=diag_results
+            )
+            diag_report_sheet.generate_sheet()
+
+            # 生成光模块信息Sheet
+            DIAG_LOGGER.info("正在生成光模块信息Sheet...")
+            optical_module_sheet = HostToSwitchOpticalModuleSheetGenerator(
+                cluster_info=self.diag_ctx.cache,
+                excel_gen=excel_gen
+            )
+            optical_module_sheet.generate_sheet()
+
+            # 生成交换机间端口连接光模块信息Sheet
+            DIAG_LOGGER.info("正在生成交换机间端口连接光模块信息Sheet...")
+            switch_optical_module_sheet = SwitchOpticalModuleSheetGenerator(
+                cluster_info=self.diag_ctx.cache,
+                excel_gen=excel_gen
+            )
+            switch_optical_module_sheet.generate_sheet()
+
+            # 保存Excel文件
+            DIAG_LOGGER.info(f"正在保存诊断报告到：{excel_file_path}...")
+            excel_gen.generate_excel(excel_file_path)
+
+            DIAG_LOGGER.info(f"诊断报告生成完成：{excel_file_path}")
+
+            # 尝试打开Excel文件
+            self._open_excel_windows(excel_file_path)
+
+        except Exception as e:
+            DIAG_LOGGER.error(f"生成诊断报告失败：{e}")
+            raise e

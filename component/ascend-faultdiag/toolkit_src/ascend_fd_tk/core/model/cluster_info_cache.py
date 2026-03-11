@@ -19,7 +19,7 @@ from typing import Dict, Tuple, Type
 
 from ascend_fd_tk.core.common.json_obj import JsonObj
 from ascend_fd_tk.core.config import port_mapping_config
-from ascend_fd_tk.core.config.threshold import OpticalModuleThreshold
+from ascend_fd_tk.core.config.threshold_config import OpticalModuleThreshold
 from ascend_fd_tk.core.model.bmc import BmcInfo
 from ascend_fd_tk.core.model.cluster_mapping import ChassisMapping, L1SwiServerMapping
 from ascend_fd_tk.core.model.host import HostInfo
