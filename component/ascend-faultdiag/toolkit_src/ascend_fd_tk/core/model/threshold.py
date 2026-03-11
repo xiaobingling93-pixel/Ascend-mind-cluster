@@ -34,12 +34,12 @@ class ThresholdStatus(Enum):
 
 class Threshold(JsonObj):
     _STR_MAPPING = {
-        ThresholdStatus.HIGH_THRESHOLD_WARN: "{}实际值：{}，高于告警阈值：{}，单位：{}",
-        ThresholdStatus.HIGH_THRESHOLD_ALARM: "{}实际值：{}，高于故障阈值：{}，单位：{}",
-        ThresholdStatus.LOW_THRESHOLD_WARN: "{}实际值：{}，低于告警阈值：{}，单位：{}",
-        ThresholdStatus.LOW_THRESHOLD_ALARM: "{}实际值：{}，低于故障阈值：{}，单位：{}",
-        ThresholdStatus.NOT_EQUAL_THRESHOLD_WARN: "{}实际值：{}，不等于期望阈值：{}，单位：{}",
-        ThresholdStatus.NOT_EQUAL_THRESHOLD_ALARM: "{}实际值：{}，不等于期望阈值：{}，单位：{}",
+        ThresholdStatus.HIGH_THRESHOLD_WARN: "{}实际值：{}，高于告警阈值：{}",
+        ThresholdStatus.HIGH_THRESHOLD_ALARM: "{}实际值：{}，高于故障阈值：{}",
+        ThresholdStatus.LOW_THRESHOLD_WARN: "{}实际值：{}，低于告警阈值：{}",
+        ThresholdStatus.LOW_THRESHOLD_ALARM: "{}实际值：{}，低于故障阈值：{}",
+        ThresholdStatus.NOT_EQUAL_THRESHOLD_WARN: "{}实际值：{}，不等于期望阈值：{}",
+        ThresholdStatus.NOT_EQUAL_THRESHOLD_ALARM: "{}实际值：{}，不等于期望阈值：{}",
     }
 
     def __init__(self, low_threshold_alarm: str = "", high_threshold_alarm: str = "", low_threshold_warn: str = "",
@@ -88,5 +88,6 @@ class Threshold(JsonObj):
     def check_value_str(self, value: str) -> str:
         th_type, th_value = self.check_value(value)
         if th_type in self._STR_MAPPING:
-            return self._STR_MAPPING[th_type].format(self.desc, value, th_value, self.unit)
+            desc = self._STR_MAPPING[th_type].format(self.desc, value, th_value)
+            return f"{desc}，单位：{self.unit}" if self.unit else desc
         return ""

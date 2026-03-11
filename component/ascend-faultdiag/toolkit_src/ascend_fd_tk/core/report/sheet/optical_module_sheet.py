@@ -377,7 +377,7 @@ class HostToSwitchOpticalModuleSheetGenerator(BaseSheetGenerator):
                 peer_lane_data = {}
 
                 # 初始化对端lane数据
-                for i in range(4):
+                for i in range(self.LANE_NUM):
                     peer_lane_data[f"peer_tx_power{i}"] = ""
                     peer_lane_data[f"peer_rx_power{i}"] = ""
                     peer_lane_data[f"peer_snr_lane{i}"] = ""
@@ -407,7 +407,7 @@ class HostToSwitchOpticalModuleSheetGenerator(BaseSheetGenerator):
                     peer_optical_info = peer_interface_info.get_optical_module_info()
                     if peer_optical_info:
                         peer_lane_infos = peer_optical_info.lane_power_infos or []
-                        for i in range(4):
+                        for i in range(self.LANE_NUM):
                             if i < len(peer_lane_infos):
                                 peer_lane = peer_lane_infos[i]
                                 peer_lane_data[f"peer_tx_power{i}"] = peer_lane.tx_power or ""

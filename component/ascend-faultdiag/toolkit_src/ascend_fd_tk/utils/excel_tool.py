@@ -128,6 +128,7 @@ class ExcelGenerator:
     Excel文件生成器，支持将多个List[dict]数据写入不同的sheet
     """
     DEFAULT_BORDER = "thin"
+    DEFAULT_COLOR = "000000"
 
     def __init__(self):
         """初始化Excel生成器"""
@@ -139,10 +140,10 @@ class ExcelGenerator:
 
         # 定义默认边框样式
         self.default_border = Border(
-            left=Side(border_style=self.DEFAULT_BORDER, color=Color.BLACK),
-            right=Side(border_style=self.DEFAULT_BORDER, color=Color.BLACK),
-            top=Side(border_style=self.DEFAULT_BORDER, color=Color.BLACK),
-            bottom=Side(border_style=self.DEFAULT_BORDER, color=Color.BLACK)
+            left=Side(border_style=self.DEFAULT_BORDER, color=self.DEFAULT_COLOR),
+            right=Side(border_style=self.DEFAULT_BORDER, color=self.DEFAULT_COLOR),
+            top=Side(border_style=self.DEFAULT_BORDER, color=self.DEFAULT_COLOR),
+            bottom=Side(border_style=self.DEFAULT_BORDER, color=self.DEFAULT_COLOR)
         )
 
     @staticmethod

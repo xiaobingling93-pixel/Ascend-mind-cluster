@@ -23,7 +23,8 @@ from ascend_fd_tk.core.common.constants import NPU_LINK_DOWN, NPU_LONG_DOWN_TIME
 from ascend_fd_tk.core.common.diag_enum import TimeFormat, PowerUnitType
 from ascend_fd_tk.core.common.json_obj import JsonObj
 from ascend_fd_tk.core.log_parser.base import FindResult
-from ascend_fd_tk.core.model.optical_module import OpticalModule, OpticalModuleInfo, LanePowerInfo, Threshold
+from ascend_fd_tk.core.model.optical_module import OpticalModule, OpticalModuleInfo, LanePowerInfo
+from ascend_fd_tk.core.model.threshold import Threshold
 from ascend_fd_tk.utils.date_tool import DateObj
 from ascend_fd_tk.utils.helpers import combine_32_to_64
 

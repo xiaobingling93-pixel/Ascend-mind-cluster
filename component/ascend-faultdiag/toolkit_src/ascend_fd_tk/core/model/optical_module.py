@@ -20,7 +20,7 @@ from typing import List
 from ascend_fd_tk.core.common.constants import SNR_LANE_DIFF_THRESHOLD
 from ascend_fd_tk.core.common.diag_enum import PowerUnitType
 from ascend_fd_tk.core.common.json_obj import JsonObj
-from ascend_fd_tk.core.model.common import Threshold
+from ascend_fd_tk.core.model.threshold import Threshold
 from ascend_fd_tk.utils import helpers
 
 
