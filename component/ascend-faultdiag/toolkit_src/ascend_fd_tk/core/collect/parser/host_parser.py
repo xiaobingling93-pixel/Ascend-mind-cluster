@@ -134,7 +134,7 @@ class HostParser:
         return CdrSnrInfo.from_dict(FormParser().parse(cmd_res))
 
     @classmethod
-    def parse_hccn_dfx_cfgr(cls, cmd_res: str) -> HCCNDfxCfgInfo:
+    def parse_hccn_dfx_cfg(cls, cmd_res: str) -> HCCNDfxCfgInfo:
         if not cmd_res or not cmd_res.strip():
             return None
         return HCCNDfxCfgInfo.from_dict(FormParser().parse(cmd_res))

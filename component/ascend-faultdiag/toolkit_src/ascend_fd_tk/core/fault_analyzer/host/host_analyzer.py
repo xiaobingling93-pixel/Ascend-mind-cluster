@@ -180,9 +180,13 @@ class HostAnalyzer(Analyzer):
         if not iic_error_infos:
             return diag_results
         for iic_error_info in iic_error_infos:
-            device_id = iic_error_info.info_dict.get('device_id', '')
-            die_id = iic_error_info.info_dict.get('die_id', '')
-            domain = self.get_npu_chip_domain(host_info.host_id, device_id, die_id)
+            chip_phy_id = iic_error_info.info_dict.get('device_id', '')
+            npu_chip_info = host_info.npu_chip_info.get(chip_phy_id)
+            if npu_chip_info:
+                domain_list = self.get_npu_chip_domain(host_info.host_id, npu_chip_info.npu_id, chip_phy_id)
+            else:
+                domain_list = [Domain(diag_enum.DeviceType.SERVER, host_info.host_id),
+                               Domain(diag_enum.DeviceType.CHIP, chip_phy_id)]
             fault_info = "检测到IIC异常：trans status[0x40]，error status[0x10]，NPU板载光模块转接器可能存在故障"
-            diag_results.append(DiagResult(domain, fault_info, "建议更换NPU板载光模块转接器"))
+            diag_results.append(DiagResult(domain_list, fault_info, "建议更换NPU板载光模块转接器"))
         return diag_results
