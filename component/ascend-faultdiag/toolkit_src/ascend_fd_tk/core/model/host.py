@@ -534,7 +534,7 @@ class HostInfo(JsonObj):
         self.server_superpod_id = server_superpod_id
         self.server_index = server_index
         self.msnpureport_log = msnpureport_log or []
-        self.npu_chip_info = npu_chip_info or []
+        self.npu_chip_info = npu_chip_info or {}
         self.loopback_info_list = loopback_info_list or []
 
     def get_msn_logs_by_type(self, type_key: str) -> List[FindResult]:

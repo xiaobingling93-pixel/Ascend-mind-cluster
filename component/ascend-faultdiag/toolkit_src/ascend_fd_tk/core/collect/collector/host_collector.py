@@ -34,7 +34,7 @@ class HostCollector(Collector):
         host_name = await self.fetcher.fetch_hostname()
         msnpureport_log = await self.fetcher.fetch_msnpureport_log()
         npu_mapping = await self.fetcher.fetch_npu_mapping()
-        npu_type = await self.collect_npy_type()
+        npu_type = await self.collect_npu_type()
         sn_num = await self.fetcher.fetch_sn_num()
         npu_chip_info = {}
         server_superpod_id = None
@@ -77,7 +77,7 @@ class HostCollector(Collector):
     async def get_id(self) -> str:
         return await self.fetcher.fetch_id()
 
-    async def collect_npy_type(self) -> str:
+    async def collect_npu_type(self) -> str:
         recv = await self.fetcher.fetch_npu_type()
         return self.parser.parse_npu_type(recv)
 
@@ -123,4 +123,4 @@ class HostCollector(Collector):
 
     async def collect_hccn_dfx_cfg(self, chip_phy_id) -> HCCNDfxCfgInfo:
         recv = await self.fetcher.fetch_hccn_dfx_cfg(chip_phy_id)
-        return self.parser.parse_hccn_dfx_cfgr(recv)
+        return self.parser.parse_hccn_dfx_cfg(recv)
