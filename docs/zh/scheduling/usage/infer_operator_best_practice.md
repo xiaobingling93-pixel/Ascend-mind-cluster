@@ -4,11 +4,11 @@
 
 MindCluster集群调度组件支持用户通过Infer Operator部署推理任务进行调度和故障实例重调度。
 
-本章节仅说明相关特性原理及对应配置示例。用户可以参考配置示例部署基于Infer Operator的推理任务。
+本章节仅说明相关特性原理及对应配置示例。用户可以参考配置示例部署Infer Operator推理任务。
 
 **前提条件**
 
-在使用Infer Operator下发推理任务前，需要确保相关组件已经安装，若没有安装，可以参考[安装部署](../installation_guide.md#安装部署)章节进行操作。
+在部署Infer Operator推理任务前，需要确保相关组件已经安装，若没有安装，可以参考[安装部署](../installation_guide.md#安装部署)章节进行操作。
 
 -   Volcano
 -   Ascend Device Plugin
@@ -55,12 +55,12 @@ MindCluster集群调度组件支持用户通过两种方式部署基于vLLM Prox
 
 #### 流程说明
 
-基于Infer Operator的vLLM推理任务包含Routing  Pod和推理实例Pod，推理实例Pod可以分为Prefill实例Pod和Decode实例Pod，其中Routing  Pod不需要使用NPU资源，Infer Operator根据不同的推理服务配置方式生成不同的工作负载，用于创建不同的推理实例，并由Router统一对外提供推理服务。
+基于vLLM Proxy的Infer Operator推理任务包含Routing  Pod和推理实例Pod，推理实例Pod可以分为Prefill实例Pod和Decode实例Pod，其中Routing  Pod不需要使用NPU资源，Infer Operator根据不同的推理服务配置方式生成不同的工作负载，用于创建不同的推理实例，并由Router统一对外提供推理服务。
 
 
 **使用流程**
 
-通过命令行使用MindCluster集群调度组件部署基于Infer Operator的vLLM推理任务时，使用流程如[图1](#fig38991911205816)所示。
+通过命令行使用MindCluster集群调度组件部署基于vLLM Proxy的Infer Operator推理任务时，使用流程如[图1](#fig38991911205816)所示。
 
 **图 1**  使用流程  
 ![](../../figures/scheduling/infer-operator-use-process.png)
@@ -75,7 +75,7 @@ MindCluster集群调度组件支持用户通过两种方式部署基于vLLM Prox
 
 **选择YAML示例**
 
-当前，基于Infer Operator组件的vllm-ascend推理任务由InferServiceSet自定义CRD部署，Infer Operator的部署请参见[安装部署](../installation_guide.md#infer-operator)。
+当前，基于vLLM Proxy的Infer Operator推理任务由InferServiceSet自定义CRD部署，Infer Operator的部署请参见[安装部署](../installation_guide.md#infer-operator)。
 
 以下是一个适配示例，用户可根据需求进行修改。
 
@@ -228,7 +228,7 @@ spec:
 </tr>
 <tr ><td class="cellrowborder" valign="top" width="27.16%" headers="mcps1.2.4.1.1 "><p >infer.huawei.com/gang-schedule</p>
 </td>
-<td class="cellrowborder" valign="top" width="36.28%" headers="mcps1.2.4.1.2 "><ul ><li>true：开启组调度。</li><li>其他值或不使用该字段：关闭组调度。</li><li>默认关闭</li></li></ul>
+<td class="cellrowborder" valign="top" width="36.28%" headers="mcps1.2.4.1.2 "><ul ><li>true：开启组调度。</li><li>其他值或不使用该字段：关闭组调度。默认关闭。</li></ul>
 </td>
 <td class="cellrowborder" valign="top" width="36.559999999999995%" headers="mcps1.2.4.1.3 "><p >开启组调度后，Infer Operator将为每个实例（workload）创建对应的PodGroup，确保同一PodGroup内的所有Pod能够同时启动。</p>
 </td>
@@ -302,7 +302,7 @@ spec:
   ```
 
 #### 查看调度结果
-用户可以使用kubectl命令行工具查看任务运行状态: 
+用户可以使用kubectl命令行工具查看任务运行状态:
 
   ```
     kubectl get pod -n <namespace> # 查看相关推理实例pod是否拉起，namespace为用户定义的命名空间
@@ -315,7 +315,7 @@ spec:
 用户可以在推理任务运行后，请求推理接口验证运行结果。
 
   ```
-    curl http://<pod-ip>:8080/v1/completions \
+    curl http://<routing-podip>:8080/v1/completions \
     -H "Content-Type: application/json" \
     -d '{
     "model": "<模型名称>",
@@ -325,9 +325,9 @@ spec:
     }'
   ```
 
-  >[!NOTE] 说明 
-  ><routing-podip\>为Routing Pod的IP地址，可以通过以下命令查看router实例pod的IP。
-  >```
+>[!NOTE] 说明
+><routing-podip\>为Routing Pod的IP地址，可以通过以下命令查找router实例pod的IP。
+>```
   >kubectl get pod -n <namespace> -o wide
   >```
 
@@ -339,7 +339,7 @@ spec:
 
 #### 删除任务
 
-用户可以使用kubectl命令行工具删除InferServiceSet任务: 
+用户可以使用kubectl命令行工具删除InferServiceSet任务:
 
   ```
     kubectl delete -f <job-yaml> # 删除<job-yaml>文件定义的推理任务
@@ -379,23 +379,13 @@ spec:
     pip install -r requirements.txt
     ```
 
-4.  （可选）修改实例启动脚本。用户可根据模型实际情况进行修改。
-    1.  打开“src/start/start.py“文件。
-
-        ```
-        vi src/start/start.py
-        ```
-
-    2.  按“i”进入编辑模式，根据模型实际情况，修改vLLM进程启动命令，例如max-model-len、max-num-batched-tokens等。
-    3.  按“Esc”键，输入:wq!，按“Enter”保存并退出编辑。
-
-5.  （可选）复制启动脚本到主机其他目录或集群其他节点，确保其他节点的启动脚本路径与主机一致。如果用户环境为单机环境，可以跳过该步骤。如果用户环境包含共享存储，也可以将脚本文件复制到共享存储，并将共享存储挂载给推理服务。
+4.  （可选）复制启动脚本到主机其他目录或集群其他节点，确保其他节点的启动脚本路径与主机一致。如果用户环境为单机环境，可以跳过该步骤。如果用户环境包含共享存储，也可以将脚本文件复制到共享存储，并将共享存储挂载给推理服务。
     ```
     cp src/start/*  <target_dir>/src/start/
     scp src/start/* <user>@<IP>:<target_dir>/src/start/
     ```
 
-7.  编辑用户配置文件“config/user-config.yaml”。
+5.  编辑用户配置文件“config/user-config.yaml”。
 
     1.  打开“config/user-config.yaml”文件。
 
@@ -406,30 +396,30 @@ spec:
     2.  按“i”进入编辑模式，按实际情况修改文件中的字段。
     3.  按“Esc”键，输入:wq!，按“Enter”保存并退出编辑。
 
-    >[!NOTE] 说明 
+    >[!NOTE] 说明
     > 用户配置文件中的配置字段说明可参考：[infer-operator-deploy-tool](https://gitcode.com/Ascend/mindcluster-deploy/blob/master/infer-operator-deploy-tool/README.md)
 
-8.  （可选）创建任务名称空间，vllm-test为“config/user-config.yaml”设置的“deploy_config.namespace”。如果“deploy_config.namespace”为“default”或未设置，可以不创建名称空间。
+6.  （可选）创建任务名称空间，vllm-test为“config/user-config.yaml”设置的“deploy_config.namespace”。如果“deploy_config.namespace”为“default”或未设置，可以不创建名称空间。
 
     ```
     kubectl create ns vllm-test
     ```
 
-9. 部署推理任务。在k8s的控制平面或具备k8s权限的节点上执行部署指令：
+7. 部署推理任务。在k8s的控制平面或具备k8s权限的节点上执行部署指令：
 
     ```
     python main.py deploy -c config/user-config.yaml
     ```
 
-    根据环境实际情况使用Python或Python3。参数说明如下：
+   根据环境实际情况使用Python或Python3。参数说明如下：
 
     -   -c, --config：配置文件路径，选填。默认值为config/user-config.yaml。
     -   -k, --kubeconfig：KubeConfig文件路径，选填。默认值为\~/.kube/config。
-    -   --dry-run：试运行（不实际部署，展示生成的YAML），选填。  
+    -   --dry-run：试运行（不实际部署，展示生成的YAML），选填。
 
-11. 查看任务运行状态。
+8. 查看任务运行状态。
 
-    用户可以使用kubectl命令行工具查看任务运行状态: 
+   用户可以使用kubectl命令行工具查看任务运行状态:
     ```
     kubectl get pod -n <namespace> # 查看相关推理实例pod是否拉起，namespace为user-config.yaml中配置的namespace，默认为default
     kubectl get instanceset -n <namespace> # 查看相关推理角色(prefill实例集、decode实例集等)是否拉起
@@ -437,7 +427,7 @@ spec:
     kubectl get inferserviceset -n <namespace> # 查看相关推理服务集合是否拉起
     ```
 
-12. 新建终端窗口，在当前K8s集群的节点中执行以下命令，访问推理服务。若请求成功返回，表示推理服务部署成功。
+9. 新建终端窗口，在当前K8s集群的节点中执行以下命令，访问推理服务。若请求成功返回，表示推理服务部署成功。
 
     ```
     curl http://<routing-podip>:8080/v1/completions \
@@ -450,13 +440,13 @@ spec:
     }'
     ```
 
-    >[!NOTE] 说明 
-    ><routing-podip\>为Routing Pod的IP地址，可以通过以下命令查看router实例pod的IP。
-    >```
+   >[!NOTE] 说明
+   ><routing-podip\>为Routing Pod的IP地址，可以通过以下命令查找router实例pod的IP。
+   >```
     >kubectl get pod -n <namespace> -o wide
     >```
 
-13. （可选）删除推理任务。若用户需要删除任务，可以执行该步骤。
+10. （可选）删除推理任务。若用户需要删除任务，可以执行该步骤。
 
     ```
     python main.py delete -n my-test -ns default
@@ -470,4 +460,4 @@ spec:
 
 ## 基于MindIE-PyMotor部署Infer Operator推理任务
 
-MindIE-PyMotor是昇腾自研的推理集群管理框架，MindIE-PyMotor支持生成并部署Infer Operator推理任务。了解基于pymotor下发推理任务的详细部署流程可参见：[CRD 方式部署设计文档](https://gitcode.com/Ascend/MindIE-PyMotor/blob/master/docs/zh/developer_guide/crd_deployment/crd_deployment_design.md)
+MindIE-PyMotor是昇腾自研的推理集群管理框架，MindIE-PyMotor支持生成并部署Infer Operator推理任务。了解基于MindIE-PyMotor下发推理任务的详细部署流程可参见：[CRD 方式部署设计文档](https://gitcode.com/Ascend/MindIE-PyMotor/blob/master/docs/zh/developer_guide/crd_deployment/crd_deployment_design.md)
