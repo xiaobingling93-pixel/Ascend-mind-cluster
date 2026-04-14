@@ -45,40 +45,40 @@ class MindclusterMultiPoda3Schedule0001(unittest.TestCase):
         self.test_method_name = self._testMethodName
         self.logger.info("test method: %s", self.test_method_name)
 
-    def test_valid_job_000(self):
+    def test_mindcluster_a3_pod_reschedule_000(self):
         self.assertIs(ClusterSimulator.get_ready_kwok_node_count(self), 3, "kwok nodes are not ready")
 
-    def test_valid_job_001(self):
+    def test_mindcluster_a3_pod_reschedule_001(self):
         K8sNode.set_accelerator_type_a3(self, node_name="910csuperpod", node_num=3, accelerator_type="module-a3-16-super-pod")
         self.assertIs(ClusterSimulator.get_kwok_nodes_with_accelerator_type(self, "module-a3-16-super-pod"),
                       3, "kwok nodes with a3 accelerator type are not ready")
 
-    def test_valid_job_002(self):
+    def test_mindcluster_a3_pod_reschedule_002(self):
         K8sTool.apply_mindcluster_v2(self)
         self.assertTrue(CaseRoutines.check_mind_cluster(self), "mind cluster is not ready")
 
-    def test_valid_job_003(self):
+    def test_mindcluster_a3_pod_reschedule_003(self):
         self.k8s_manager.exec_command("kubectl apply -f %s" % self.job_yaml)
         self.assertTrue(K8sTool.check_pod_status(self, self.master_pod_name, timeout=60), "master pod is not ready")
         self.assertTrue(K8sTool.check_pod_status(self, self.worker_pod_name, timeout=60), "worker pod is not ready")
 
-    def test_valid_job_004(self):
+    def test_mindcluster_a3_pod_reschedule_004(self):
         nodes = JobHelper.get_pod_node_mapping(self, self.job_name[0])
         self.assertEqual(len(nodes), 2)
 
-    def test_valid_job_005(self):
+    def test_mindcluster_a3_pod_reschedule_005(self):
         K8sTool.insert_software_fault(self, ns="default", pod_name=self.worker_pod_name)
         self.assertTrue(K8sTool.check_pod_status(self, self.worker_pod_name, status=["Error", "Pending"]),
                         "worker pod is not error")
 
-    def test_valid_job_006(self):
+    def test_mindcluster_a3_pod_reschedule_006(self):
         self.assertTrue(K8sTool.check_pod_status(self, self.job_name[0], timeout=60), "worker pod is not running")
 
-    def test_valid_job_007(self):
+    def test_mindcluster_a3_pod_reschedule_007(self):
         ret = JobHelper.check_pod_label_exist(self, self.worker_pod_name, "software-fault")
         self.assertFalse(ret, "worker pod is not rebuild")
 
-    def test_valid_job_008(self):
+    def test_mindcluster_a3_pod_reschedule_008(self):
         self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml)
         self.assertTrue(K8sTool.check_pod_deleted(self, self.job_name[0]), "job are still running")
 

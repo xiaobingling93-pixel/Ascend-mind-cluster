@@ -66,10 +66,15 @@ class K8sNode(ClassCLI):
         self.SFTP_connect = None
 
     @staticmethod
-    def set_accelerator_type(case, node_name, node_num, accelerator_type):
-        # Set accelerator-type label for all kwok nodes
-        cmd = (f"kubectl label node {' '.join(f'kwok-node-{node_name}-{i}' for i in range(node_num))} "
-               f"accelerator-type={accelerator_type} --overwrite")
+    def set_accelerator_type(case, node_name, node_num, accelerator_type, all_nodes=False):
+        if not all_nodes:
+            # Set accelerator-type label for all kwok nodes
+            cmd = (f"kubectl label node {' '.join(f'kwok-node-{node_name}-{i}' for i in range(node_num))} "
+                f"accelerator-type={accelerator_type} --overwrite")
+        else:
+            # Set accelerator-type label for all nodes 
+            cmd = (f"kubectl label node --all accelerator-type={accelerator_type} --overwrite")
+        
         case.k8s_manager.exec_command(cmd)
 
     @staticmethod

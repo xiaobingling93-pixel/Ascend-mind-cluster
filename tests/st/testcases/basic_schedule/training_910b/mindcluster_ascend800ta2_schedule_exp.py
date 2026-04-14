@@ -31,19 +31,22 @@ class MindclusterAscend800ta2Schedule0001(unittest.TestCase):
     job_name1 = "default-test-1x8"
     job_name2 = "default-test-2x8"
     k8s_manager = K8sDistributedManage()
-
+    logger = k8s_manager.logger
+    
     @classmethod
     def setUpClass(cls) -> None:
         cls.k8s_manager.exec_command("kubectl apply -f %s" % cls.model_yaml_path)
 
+    def setUp(self) -> None:
+        self.test_method_name = self._testMethodName
+        self.logger.info("test method: %s", self.test_method_name)
+        self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path1)
+        self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path2)
+        
     @classmethod
     def tearDownClass(cls):
         cls.k8s_manager.exec_command("kubectl delete -f %s" % cls.job_yaml_path1)
         cls.k8s_manager.exec_command("kubectl delete -f %s" % cls.job_yaml_path2)
-
-    def setUp(self):
-        self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path1)
-        self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path2)
 
     def test_invalid_job_001(self):
         self.k8s_manager.exec_command("kubectl apply -f %s" % self.job_yaml_path2)

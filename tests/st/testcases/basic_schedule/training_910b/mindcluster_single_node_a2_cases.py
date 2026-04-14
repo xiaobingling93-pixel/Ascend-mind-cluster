@@ -30,6 +30,10 @@ class MindclusterSingleNodeA2Cases(unittest.TestCase):
     k8s_manager = K8sDistributedManage()
     logger = k8s_manager.logger
 
+    def setUp(self) -> None:
+        self.test_method_name = self._testMethodName
+        self.logger.info("test method: %s", self.test_method_name)
+
     def test_mindcluster_single_node_a2_0001(self):
         assert CaseRoutines.check_mind_cluster(self)
 

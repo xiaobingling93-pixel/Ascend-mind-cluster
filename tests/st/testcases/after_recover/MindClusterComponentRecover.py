@@ -24,6 +24,7 @@ from tests.st.envs import BACKUP_YAML_DIR
 
 class MindClusterComponentRecoverCases(unittest.TestCase):
     k8s_manager = K8sDistributedManage()
+    logger = k8s_manager.logger
     base_dir = BACKUP_YAML_DIR
     dp_yaml = "device-plugin-volcano-v*.yaml"
     volcano_yaml = "volcano-v*.yaml"
@@ -31,7 +32,11 @@ class MindClusterComponentRecoverCases(unittest.TestCase):
     ascend_operator_yaml = "ascend-operator-v*.yaml"
     noded_yaml = "noded-v*.yaml"
     npu_exporter_yaml = "npu-exporter-v*.yaml"
-
+    
+    def setUp(self) -> None:
+        self.test_method_name = self._testMethodName
+        self.logger.info("test method: %s", self.test_method_name)
+        
     def test_recover_node(self):
         self.k8s_manager.exec_command("kubectl uncordon master")
 
