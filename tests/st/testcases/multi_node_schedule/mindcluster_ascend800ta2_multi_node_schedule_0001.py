@@ -36,6 +36,7 @@ class MindclusterAscend800ta2MutliNodeSchedule0001(unittest.TestCase):
     k8s_manager = K8sDistributedManage()
     logger = k8s_manager.logger
     ranktable_path = "/user/mindx-dl/ranktable/default.default-test-8x8/hccl.json"
+    node_names = ["localhost.localdomain","master"]
 
     @classmethod
     def setUpClass(self):
@@ -60,7 +61,7 @@ class MindclusterAscend800ta2MutliNodeSchedule0001(unittest.TestCase):
         self.assertIs(ClusterSimulator.get_kwok_nodes_with_accelerator_type(self), NODE_NUM + 2)
 
     def test_multinode_schedule_acjob_004(self):
-        self.k8s_manager.exec_command("kubectl cordon localhost.localdomain master")
+        K8sTool.cordon_node(self, self.node_names)
         self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path1)
         self.k8s_manager.exec_command("kubectl apply -f %s" % self.job_yaml_path1)
         self.assertTrue(K8sTool.check_pod_status(self, self.job_name1), "pod is not running")
@@ -96,4 +97,4 @@ class MindclusterAscend800ta2MutliNodeSchedule0001(unittest.TestCase):
     def tearDownClass(self):
         self.k8s_manager.exec_command("kubectl delete -f %s" % self.job_yaml_path1)
         ClusterSimulator.stop_kwok_cluster(self, "a2_container")
-        self.k8s_manager.exec_command("kubectl uncordon localhost.localdomain master")
+        K8sTool.uncordon_node(self, self.node_names)

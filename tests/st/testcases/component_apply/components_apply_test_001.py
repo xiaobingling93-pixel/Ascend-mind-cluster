@@ -26,6 +26,11 @@ from tests.st.envs import ipv4_address, username, password, PR_OUTPUT_DIR
 class MindclusterApplyTest(unittest.TestCase):
     installer = None
     k8s_manager = K8sDistributedManage()
+    logger = k8s_manager.logger
+
+    def setUp(self) -> None:
+        self.test_method_name = self._testMethodName
+        self.logger.info("test method: %s", self.test_method_name)
 
     def get_manager(self, component_name):
         if self.installer:

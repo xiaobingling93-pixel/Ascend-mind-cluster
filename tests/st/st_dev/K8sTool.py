@@ -271,3 +271,45 @@ class K8sTool(object):
         case.k8s_manager.exec_command(f"cd {yaml_path} && kubectl apply -f volcano-*.yaml")
         case.k8s_manager.exec_command(f"cd {yaml_path} && kubectl apply -f clusterd-*.yaml")
         case.k8s_manager.exec_command(f"cd {yaml_path} && kubectl apply -f noded-*.yaml")
+    
+    @staticmethod
+    def cordon_node(case, node_name):
+        node_names = [node_name] if isinstance(node_name, str) else node_name
+        if node_names:
+            nodes_str = ' '.join(node_names)
+            case.k8s_manager.exec_command(f"kubectl cordon {nodes_str}")
+
+    @staticmethod
+    def uncordon_node(case, node_name):
+        node_names = [node_name] if isinstance(node_name, str) else node_name
+        if node_names:
+            nodes_str = ' '.join(node_names)
+            case.k8s_manager.exec_command(f"kubectl uncordon {nodes_str}")
+
+    @staticmethod
+    def cordon_all_nodes(case):
+        all_node_names = []
+        
+        for node in case.k8s_manager.master_nodes:
+            all_node_names.append(node.node_name)
+        for node in case.k8s_manager.worker_nodes:
+            all_node_names.append(node.node_name)
+        K8sTool.cordon_node(case, all_node_names)
+
+    @staticmethod
+    def uncordon_all_nodes(case):
+        all_node_names = []
+        
+        for node in case.k8s_manager.master_nodes:
+            all_node_names.append(node.node_name)
+        for node in case.k8s_manager.worker_nodes:
+            all_node_names.append(node.node_name)
+        K8sTool.uncordon_node(case, all_node_names)
+
+    @staticmethod
+    def check_pod_start_time(case, pod_name, namespace="default"):
+        cmd = (
+        f"kubectl get pods {pod_name} -n {namespace} "
+        f"-o jsonpath='{{.metadata.name}}{{\"\\t\"}}{{.metadata.creationTimestamp}}{{\"\\n\"}}'")
+        
+        return case.k8s_manager.exec_command(cmd)

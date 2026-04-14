@@ -39,6 +39,10 @@ class MindclusterAscend800ta2MutliNodeSchedule0003(unittest.TestCase):
         self.k8s_manager.exec_command("kubectl delete -f %s" % self.vcjob_yaml_path)
         ClusterSimulator.create_kwok_cluster(self, container_name="a2_container", node_name=NODE_NAME, node_num=NODE_NUM)
 
+    def setUp(self) -> None:
+        self.test_method_name = self._testMethodName
+        self.logger.info("test method: %s", self.test_method_name)
+    
     def test_multinode_schedule_vcjob_000(self):
         self.assertIs(ClusterSimulator.get_ready_kwok_node_count(self), NODE_NUM, "kwok nodes are not ready")
 
