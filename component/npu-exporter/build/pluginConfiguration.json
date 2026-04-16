@@ -1,4 +1,5 @@
 [
   {"metricsGroup": "text", "state": "ON"},
-  {"metricsGroup": "MyPlugin", "state": "OFF"}
+  {"metricsGroup": "MyPlugin", "state": "OFF"},
+  {"metricsGroup": "MachineCardNumPlugin", "state": "ON"}
 ]
